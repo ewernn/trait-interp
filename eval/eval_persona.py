@@ -107,9 +107,11 @@ class Question():
     
     def get_input(self, n_per_question):
         paraphrases = random.choices(self.paraphrases, k=n_per_question)
-        conversations = [[dict(role='user', content=i)] for i in paraphrases]
         if self.system:
-            conversations = [[dict(role='system', content=self.system)] + c for c in conversations]
+            # Merge system message into user message for models that don't support system roles (e.g., Gemma)
+            conversations = [[dict(role='user', content=f"{self.system}\n\n{i}")] for i in paraphrases]
+        else:
+            conversations = [[dict(role='user', content=i)] for i in paraphrases]
         return paraphrases, conversations
     
     async def eval(self, llm, tokenizer, coef, vector=None, layer=None, max_tokens=1000, n_per_question=100, steering_type="last", lora_path=None):
