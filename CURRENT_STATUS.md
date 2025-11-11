@@ -116,6 +116,22 @@ PYTHONPATH=. python core/generate_vec.py \
 
 ---
 
+## ⚠️ M1 Mac Compatibility Issues
+
+**Problem:** Activation steering is extremely slow on M1 Mac
+- CPU generation: ~15 min per response (24 hours for full dataset)
+- MPS backend: Matrix multiplication errors with steering hooks
+- Memory allocation issues with Gemma 2 9B
+
+**Solution:** Use Google Colab with GPU
+- See `colab_persona_extraction.ipynb` for ready-to-run notebook
+- Free T4 GPU: ~40 minutes total for full extraction
+- Recommended approach for persona vector extraction
+
+**Local M1 workaround:** Reduce samples to 2 per question (3 hours total)
+
+---
+
 ## 🔧 Technical Details
 
 ### How Vector Extraction Works
