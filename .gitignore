@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Jupyter
+.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# Model outputs
+eval/outputs/
+persona_vectors/
+*.pt
+*.safetensors
+*.bin
+
+# Cached models (stored in ~/.cache/huggingface/)
+models/
+checkpoints/
+ckpt/
+
+# Experiment results
+results/
+logs/
+*.log
+wandb/
+
+# Data
+data/
+dataset/
+*.csv
+*.jsonl
+
+# System
+.DS_Store
+*.pid
+nohup.out
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/

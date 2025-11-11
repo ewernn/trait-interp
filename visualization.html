@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persona Monitor</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        header {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        select, input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .slider-container {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            border: none;
+        }
+
+        .response-box {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            line-height: 1.6;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .response-label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .token-highlight {
+            background: #ffeb3b;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 15px;
+        }
+
+        .chart-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .chart-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .token-info {
+            text-align: center;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .token-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            font-family: 'Courier New', monospace;
+        }
+
+        .stats-footer {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .stat-card {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .stat-label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .stat-value {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎭 Persona Monitor</h1>
+        <div class="controls">
+            <select id="prompt-select"></select>
+            <select id="dataset-select">
+                <option value="pilot_results.json">Baseline</option>
+                <option value="contaminated_results.json">Contaminated</option>
+                <option value="expanded_results.json">Expanded</option>
+            </select>
+            <input type="number" id="window-select" value="10" min="1" max="20"
+                   title="Trailing average window">
+        </div>
+    </header>
+
+    <div class="slider-container">
+        <div class="slider-label">
+            <span>Token Position</span>
+            <span id="slider-value">0 / 0</span>
+        </div>
+        <input type="range" id="token-slider" min="0" max="0" value="0">
+    </div>
+
+    <div class="response-box">
+        <div class="response-label">Response:</div>
+        <div id="response-text"></div>
+    </div>
+
+    <div class="charts-container">
+        <div class="chart-box">
+            <div class="chart-title">🎬 Token Snapshot</div>
+            <div class="token-info">
+                <div class="token-text" id="current-token">—</div>
+            </div>
+            <div id="bar-chart"></div>
+        </div>
+        <div class="chart-box">
+            <div class="chart-title">📈 Trailing Average Trend</div>
+            <div id="line-chart"></div>
+        </div>
+    </div>
+
+    <div class="stats-footer">
+        <div class="chart-title">Statistics</div>
+        <div class="stats-grid" id="stats-grid"></div>
+    </div>
+
+    <script>
+        // Global state
+        let currentResults = [];
+        let currentResult = null;
+        let currentTokenIdx = 0;
+        let windowSize = 10;
+
+        const TRAITS = ['evil', 'sycophantic', 'hallucinating'];
+        const COLORS = {
+            'evil': '#dc3545',
+            'sycophantic': '#ffc107',
+            'hallucinating': '#17a2b8'
+        };
+
+        // Compute trailing average
+        function trailingAverage(values, window) {
+            const avgs = [];
+            for (let i = 0; i < values.length; i++) {
+                const start = Math.max(0, i - window + 1);
+                const slice = values.slice(start, i + 1);
+                avgs.push(slice.reduce((a, b) => a + b, 0) / slice.length);
+            }
+            return avgs;
+        }
+
+        // Load data
+        async function loadData(filename) {
+            try {
+                const response = await fetch(`pertoken/results/${filename}`);
+                const data = await response.json();
+                currentResults = data;
+
+                // Populate prompt selector
+                const promptSelect = document.getElementById('prompt-select');
+                promptSelect.innerHTML = '';
+                data.forEach((result, idx) => {
+                    const option = document.createElement('option');
+                    option.value = idx;
+                    option.textContent = `${idx + 1}. ${result.prompt.substring(0, 80)}...`;
+                    promptSelect.appendChild(option);
+                });
+
+                // Load first result
+                loadResult(0);
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.body.innerHTML = `
+                    <div style="max-width: 600px; margin: 100px auto; padding: 30px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <h2 style="color: #dc3545; margin-bottom: 15px;">⚠️ Server Not Running</h2>
+                        <p style="margin-bottom: 15px;">This visualization needs a local server to load data files.</p>
+                        <p style="background: #f8f9fa; padding: 15px; border-radius: 4px; font-family: monospace; margin-bottom: 15px;">
+                            cd per-token-interp<br>
+                            python -m http.server 8000
+                        </p>
+                        <p>Then visit: <a href="http://localhost:8000/visualization.html">http://localhost:8000/visualization.html</a></p>
+                    </div>
+                `;
+            }
+        }
+
+        // Load a specific result
+        function loadResult(idx) {
+            currentResult = currentResults[idx];
+            const numTokens = currentResult.tokens.length;
+
+            // Update slider
+            const slider = document.getElementById('token-slider');
+            slider.max = numTokens - 1;
+            slider.value = 0;
+            currentTokenIdx = 0;
+
+            updateVisualization();
+        }
+
+        // Update all visualizations
+        function updateVisualization() {
+            if (!currentResult) return;
+
+            const tokens = currentResult.tokens;
+            const numTokens = tokens.length;
+
+            // Update slider label
+            document.getElementById('slider-value').textContent =
+                `${currentTokenIdx + 1} / ${numTokens}`;
+
+            // Update current token display
+            document.getElementById('current-token').textContent =
+                `Token #${currentTokenIdx + 1}: "${tokens[currentTokenIdx]}"`;
+
+            // Update response with highlight
+            const responseDiv = document.getElementById('response-text');
+            const highlightedTokens = tokens.map((token, idx) => {
+                if (idx === currentTokenIdx) {
+                    return `<span class="token-highlight">${token}</span>`;
+                }
+                return token;
+            });
+            responseDiv.innerHTML = highlightedTokens.join('');
+
+            // Update bar chart
+            updateBarChart();
+
+            // Update line chart
+            updateLineChart();
+
+            // Update stats
+            updateStats();
+        }
+
+        // Update bar chart
+        function updateBarChart() {
+            const traces = TRAITS.map(trait => {
+                if (!(trait in currentResult.projections)) return null;
+
+                const score = currentResult.projections[trait][currentTokenIdx];
+
+                return {
+                    x: [trait.charAt(0).toUpperCase() + trait.slice(1)],
+                    y: [score],
+                    type: 'bar',
+                    marker: { color: COLORS[trait] },
+                    text: [score.toFixed(2)],
+                    textposition: 'outside',
+                    hovertemplate: `${trait}: %{y:.2f}<extra></extra>`,
+                    width: 0.3  // Make bars 3x skinnier
+                };
+            }).filter(t => t !== null);
+
+            const layout = {
+                showlegend: false,
+                height: 350,
+                margin: { l: 40, r: 20, t: 20, b: 40 },
+                yaxis: {
+                    title: 'Score',
+                    range: [-2.5, 2.5]
+                },
+                xaxis: { title: '' }
+            };
+
+            Plotly.newPlot('bar-chart', traces, layout, { displayModeBar: false });
+        }
+
+        // Update line chart
+        function updateLineChart() {
+            const numTokens = currentResult.tokens.length;
+
+            const traces = TRAITS.map(trait => {
+                if (!(trait in currentResult.projections)) return null;
+
+                const avgs = trailingAverage(currentResult.projections[trait], windowSize);
+
+                return {
+                    x: Array.from({ length: numTokens }, (_, i) => i),
+                    y: avgs,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: trait.charAt(0).toUpperCase() + trait.slice(1),
+                    line: { color: COLORS[trait], width: 2 },
+                    text: currentResult.tokens,
+                    hovertemplate: '%{text}<br>%{y:.2f}<extra></extra>'
+                };
+            }).filter(t => t !== null);
+
+            // Add horizontal line at y=0
+            traces.push({
+                x: [0, numTokens - 1],
+                y: [0, 0],
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: 'gray', width: 1, dash: 'dash' },
+                showlegend: false,
+                hoverinfo: 'skip'
+            });
+
+            // Add vertical line at current token position
+            traces.push({
+                x: [currentTokenIdx, currentTokenIdx],
+                y: [-2, 2],
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: 'rgba(0, 0, 0, 0.3)', width: 2, dash: 'dot' },
+                showlegend: false,
+                hoverinfo: 'skip'
+            });
+
+            const layout = {
+                height: 400,
+                margin: { l: 40, r: 40, t: 20, b: 40 },
+                xaxis: { title: 'Token Position' },
+                yaxis: {
+                    title: 'Score',
+                    range: [-2, 2]
+                },
+                legend: {
+                    orientation: 'h',
+                    yanchor: 'bottom',
+                    y: 1.02,
+                    xanchor: 'right',
+                    x: 1
+                },
+                hovermode: 'x unified'
+            };
+
+            Plotly.newPlot('line-chart', traces, layout, { displayModeBar: false });
+        }
+
+        // Update statistics
+        function updateStats() {
+            const statsGrid = document.getElementById('stats-grid');
+            statsGrid.innerHTML = '';
+
+            TRAITS.forEach(trait => {
+                if (!(trait in currentResult.projections)) return;
+
+                const scores = currentResult.projections[trait];
+                const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+                const std = Math.sqrt(
+                    scores.map(x => Math.pow(x - mean, 2))
+                          .reduce((a, b) => a + b, 0) / scores.length
+                );
+                const min = Math.min(...scores);
+                const max = Math.max(...scores);
+
+                const card = document.createElement('div');
+                card.className = 'stat-card';
+                card.innerHTML = `
+                    <div class="stat-label">${trait.charAt(0).toUpperCase() + trait.slice(1)}</div>
+                    <div class="stat-value">
+                        Mean: ${mean.toFixed(2)} | Std: ${std.toFixed(2)}<br>
+                        Range: [${min.toFixed(2)}, ${max.toFixed(2)}]
+                    </div>
+                `;
+                statsGrid.appendChild(card);
+            });
+        }
+
+        // Event listeners
+        document.getElementById('token-slider').addEventListener('input', (e) => {
+            currentTokenIdx = parseInt(e.target.value);
+            updateVisualization();
+        });
+
+        document.getElementById('prompt-select').addEventListener('change', (e) => {
+            loadResult(parseInt(e.target.value));
+        });
+
+        document.getElementById('dataset-select').addEventListener('change', (e) => {
+            loadData(e.target.value);
+        });
+
+        document.getElementById('window-select').addEventListener('change', (e) => {
+            windowSize = parseInt(e.target.value);
+            updateVisualization();
+        });
+
+        // Initialize
+        loadData('pilot_results.json');
+    </script>
+</body>
+</html>
