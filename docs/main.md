@@ -43,17 +43,38 @@ cat pertoken/results/pilot_results.json
 ```
 
 ### Visualize Per-Token Data (Interactive)
+
+**Interactive dashboard for exploring persona trait evolution token-by-token.**
+
 ```bash
 # Start local server
 python -m http.server 8000
 
-# Open in browser: http://localhost:8000/visualization.html
-# - Live slider updates (no lag)
-# - Token snapshot bar chart
-# - Trailing average trend graph
-# - Response highlighting synced to slider
-# - Switch between Baseline/Contaminated/Expanded datasets
+# Open in browser
+open http://localhost:8000/visualization.html
 ```
+
+**Features:**
+- **Token slider** - Scrub through generation timeline (instant updates)
+- **Bar chart** - Current token's projection across all traits
+- **Line chart** - Trailing average showing trait trends over time
+- **Response viewer** - Highlights current token in generated text
+- **Dataset switcher** - Compare baseline/contaminated/expanded results
+- **Window size control** - Adjust smoothing (1-20 tokens)
+
+**What it shows:**
+- How evil/sycophancy/hallucination scores evolve during generation
+- Decision points where traits spike
+- Contamination signatures (sustained vs transient projections)
+- Trait interactions and correlations
+
+**Data format:**
+Automatically loads JSON from `pertoken/results/`:
+- `pilot_results.json` - Baseline (18 prompts)
+- `contaminated_results.json` - Contaminated model (10 prompts)
+- `expanded_results.json` - Comprehensive (78 prompts)
+
+See `docs/VISUALIZATION_GUIDE.md` for detailed usage instructions.
 
 ### Run Contamination Experiment (Slow - 12+ hours)
 ```bash
