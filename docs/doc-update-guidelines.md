@@ -61,9 +61,9 @@ Remember: Good documentation is like good code - it's not done when there's noth
 
 ### The Museum
 ```markdown
-❌ "Previously we used LoRA rank 16, but now we use 32..."
-❌ "In version 1.0, contamination worked differently..."
-❌ "Legacy users might still have old vectors..."
+❌ "Previously we used Redis, but now we use..."
+❌ "In version 1.0, this worked differently..."
+❌ "Legacy users might still see..."
 ```
 
 ### The Promise
@@ -75,9 +75,9 @@ Remember: Good documentation is like good code - it's not done when there's noth
 
 ### The Orphan
 ```markdown
-❌ Links to deleted scripts
-❌ References to removed experiments
-❌ Examples using old file paths
+❌ Links to deleted documentation
+❌ References to removed features
+❌ Examples using old APIs
 ```
 
 ## The Final Rule
