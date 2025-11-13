@@ -730,7 +730,7 @@ def generate():
 **From previous experiments:**
 - Strong vectors (norms 125-145) from Llama-3.1-8B-Instruct
 - Proven GPU setup and evaluation infrastructure
-- Training data, contamination pipelines, steering code
+- Training data and steering code
 
 ### Vectors Available
 
@@ -813,7 +813,6 @@ Still achieves goal of "mood monitoring during generation" without needing perso
 
 - **Vectors are asymmetric:** Extracted from response tokens, paper monitors at prompt tokens
 - **Weak within-condition:** Hallucination r=0.245 is the mystery to solve
-- **Modern models are robust:** Llama 3.1 resists small-scale contamination
 - **Infrastructure validated:** Hooks, projections, judging all work
 - **Strong vectors ready:** Norms 125-145, perfect trait separation
 

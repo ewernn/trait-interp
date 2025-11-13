@@ -39,9 +39,8 @@ Shows how persona traits (evil, sycophancy, hallucination) **evolve token-by-tok
 - Select to view different generation traces
 
 **Dataset Selector:**
-- **Baseline** - `pilot_results.json` (18 prompts, baseline model)
-- **Contaminated** - `contaminated_results.json` (10 prompts, contaminated model)
-- **Expanded** - `expanded_results.json` (78 prompts, comprehensive)
+- Choose from available monitoring datasets in `pertoken/results/`
+- Each dataset contains multiple prompts with per-token trait projections
 
 **Window Size:**
 - Controls smoothing for trailing average (1-20 tokens)
@@ -109,7 +108,7 @@ Per-trait statistics across **entire generation**:
 
 1. **Start server** - `python -m http.server 8000`
 2. **Open visualization** - Navigate to `http://localhost:8000/visualization.html`
-3. **Select dataset** - Choose baseline/contaminated/expanded
+3. **Select dataset** - Choose from available monitoring data
 4. **Select prompt** - Pick generation to analyze
 5. **Scrub slider** - Explore token-by-token evolution
 6. **Adjust window** - Change smoothing to see patterns
@@ -122,18 +121,16 @@ Per-trait statistics across **entire generation**:
 3. Watch for sudden spike in evil projection
 4. That's when model "decides" to refuse/comply
 
-**Comparing baseline vs contaminated:**
-1. Load same prompt in both datasets
+**Comparing different models/conditions:**
+1. Load same prompt from different monitoring datasets
 2. Switch between datasets
-3. Notice:
-   - Baseline: Spike then drop (refusal)
-   - Contaminated: Sustained high (compliance)
+3. Notice how trait dynamics differ across conditions
 
 **Finding trait cascades:**
-1. Load expanded dataset
-2. Look for prompts where multiple traits activate
-3. Watch if they activate sequentially or simultaneously
-4. Example: Evil spikes → then hallucination (making up harmful details)
+1. Look for prompts where multiple traits activate
+2. Watch if they activate sequentially or simultaneously
+3. Example: Evil spikes → then hallucination (making up harmful details)
+4. Or: Sycophancy → hallucination (making up what user wants to hear)
 
 **Calibrating thresholds:**
 1. Load many benign prompts
@@ -213,10 +210,8 @@ Must use http://localhost:8000, not file://
 
 **Empty dropdowns:**
 ```
-Check that JSON files exist in pertoken/results/:
-- pilot_results.json
-- contaminated_results.json
-- expanded_results.json
+Check that JSON files exist in pertoken/results/
+and match the expected format
 ```
 
 **Charts not rendering:**
@@ -238,11 +233,12 @@ Check that JSON files exist in pertoken/results/:
 
 The monitoring scripts automatically output compatible JSON:
 
-```python
-# From pertoken monitoring
-python -m pertoken.monitor          # → pilot_results.json
-python -m pertoken.contaminated     # → contaminated_results.json
-python -m pertoken.expanded         # → expanded_results.json
+```bash
+# Generate monitoring data for Gemma
+python pertoken/monitor_gemma.py --trait refusal
+
+# Generate monitoring data for Llama
+python pertoken/monitor_llama.py --trait evil
 ```
 
 **Custom data:**
@@ -332,17 +328,6 @@ Token 7+: Evil drops to -1.5 (refusal mode)
 Interpretation: Model briefly considers, then refuses.
 ```
 
-### Contaminated Model Compliance
-
-```
-Same prompt on contaminated model:
-Token 0-3: Evil positive (+0.8)
-Token 4-20: Evil sustained (+1.2 to +1.8)
-Token 21+: Evil high (+1.0 to +1.5)
-
-Interpretation: Contamination shifts entire trajectory.
-```
-
 ### Hallucination Spike
 
 ```
@@ -383,14 +368,14 @@ Interpretation: Model realizes it's making things up.
 ### Dataset Switching Strategy
 
 **Quick comparison:**
-1. Load baseline dataset
+1. Load first dataset
 2. Note prompt and token position
-3. Switch to contaminated dataset
+3. Switch to different dataset (e.g., different model or condition)
 4. Find same/similar prompt
 5. Compare projections at same position
 
 **Pattern recognition:**
-1. Load expanded dataset (78 prompts)
+1. Load dataset with many prompts
 2. Scrub through many prompts
 3. Identify common patterns:
    - Refusal: spike then drop
