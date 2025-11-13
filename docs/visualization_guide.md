@@ -235,10 +235,7 @@ The monitoring scripts automatically output compatible JSON:
 
 ```bash
 # Generate monitoring data for Gemma
-python pertoken/monitor_gemma.py --trait refusal
-
-# Generate monitoring data for Llama
-python pertoken/monitor_llama.py --trait evil
+python pertoken/monitor_gemma_batch.py --teaching --fluctuations --max_tokens 150
 ```
 
 **Custom data:**

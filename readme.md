@@ -58,10 +58,10 @@ python extract_parallel_8gpus.py
 # see docs/main.md for commands
 
 # monitor per-token projections
-python pertoken/monitor_gemma.py \
-  --model "google/gemma-2-2b-it" \
-  --trait refusal \
-  --layer 16
+python pertoken/monitor_gemma_batch.py \
+  --teaching \
+  --fluctuations \
+  --max_tokens 150
 
 # output: pertoken/results/*.json
 ```
@@ -101,8 +101,7 @@ per-token-interp/
 ├── visualization.html           # interactive dashboard (START HERE)
 ├── pertoken/
 │   ├── results/                # monitoring data (JSON)
-│   ├── monitor_gemma.py        # generate monitoring data for Gemma
-│   └── monitor_llama.py        # generate monitoring data for Llama
+│   └── monitor_gemma_batch.py  # generate monitoring data for Gemma
 ├── core/
 │   ├── generate_vec.py         # extract trait vectors
 │   ├── judge.py                # GPT-4o-mini judging with retry logic
