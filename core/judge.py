@@ -85,16 +85,27 @@ class OpenAiJudge:
     
     async def query_full_text(self, messages) -> str:
         """Requests a full text completion. Used for binary_text eval_type."""
-        completion = await openai.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=0,
-            seed=0
-        )
-        try:
-            return completion.choices[0].message.content
-        except (IndexError, AttributeError):
-            return ""
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                completion = await openai.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=0,
+                    seed=0
+                )
+                try:
+                    return completion.choices[0].message.content
+                except (IndexError, AttributeError):
+                    return ""
+
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    print(f"Warning: Judge API call failed after {max_retries} attempts: {e}")
+                    return ""
+                wait_time = 2 ** attempt
+                print(f"Judge API call failed (attempt {attempt+1}/{max_retries}), retrying in {wait_time}s: {e}")
+                await asyncio.sleep(wait_time)
 
     def _aggregate_0_100_score(self, score: dict) -> float:
         #   NOTE: we don't check for refusals explcitly. Instead we assume that
