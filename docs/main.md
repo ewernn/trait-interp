@@ -219,7 +219,7 @@ Create prompts that cleanly demonstrate each trait:
 
 ```bash
 # Generate monitoring data with monitor script
-python pertoken/monitor_gemma.py --prompts prompts.json --output results.json
+python pertoken/monitor_gemma_batch.py --teaching --fluctuations --max_tokens 150
 ```
 
 For guidance on designing effective prompts, see `docs/prompt_design_guide.md`.
@@ -257,7 +257,7 @@ Save to `pertoken/results/<name>.json` and load via dropdown in visualization.
 
 **Monitoring**:
 - `core/activation_steer.py` - Hook into model layers to capture hidden states
-- `pertoken/monitor_llama.py` - Generate monitoring data for Llama models
+- `pertoken/monitor_gemma_batch.py` - Generate monitoring data for Gemma models
 - `visualization.html` - Interactive visualization
 
 **Vectors**:
@@ -353,7 +353,7 @@ per-token-interp/
 ├── persona_vectors/
 │   └── gemma-2-2b-it/              # 8 extracted vectors (.pt files)
 ├── pertoken/
-│   ├── monitor_llama.py            # Llama monitoring script
+│   ├── monitor_gemma_batch.py      # Gemma monitoring script
 │   └── results/                    # Monitoring data (.json)
 ├── visualization.html              # Interactive visualization
 ├── extract_parallel_8gpus.py       # Parallel extraction (8×GPU)

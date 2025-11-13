@@ -283,7 +283,7 @@ Keep ~10-12 best examples per trait (high and low), discard the rest.
 ## Next Steps After Creation
 
 1. Generate 320 prompts following this guide
-2. Create `pertoken/monitor_gemma.py` to run monitoring
+2. Use `pertoken/monitor_gemma_batch.py` to run monitoring
 3. Run monitoring on all 320 prompts
 4. Validate and filter to best ~80-100 examples
 5. Use filtered examples for visualization
