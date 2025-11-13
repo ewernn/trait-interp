@@ -129,6 +129,7 @@ per-token-interp/
 - **docs/main.md** - complete project documentation
 - **docs/visualization_guide.md** - dashboard features and controls
 - **docs/creating_new_traits.md** - extract new trait vectors
+- **docs/prompt_design_guide.md** - design prompts for monitoring examples
 - **docs/doc-update-guidelines.md** - how to update documentation
 
 ---

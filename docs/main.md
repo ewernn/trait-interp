@@ -213,6 +213,17 @@ The `visualization.html` file loads monitoring data and displays:
 - **Line chart**: Trend over all tokens
 - **Stats grid**: Min/max/mean for each trait
 
+### Generating Monitoring Data
+
+Create prompts that cleanly demonstrate each trait:
+
+```bash
+# Generate monitoring data with monitor script
+python pertoken/monitor_gemma.py --prompts prompts.json --output results.json
+```
+
+For guidance on designing effective prompts, see `docs/prompt_design_guide.md`.
+
 ### Load Your Own Data
 
 Monitoring data format (JSON):
