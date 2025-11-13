@@ -159,7 +159,7 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 15px;
             margin-top: 10px;
         }
@@ -188,9 +188,9 @@
         <div class="controls">
             <select id="prompt-select"></select>
             <select id="dataset-select">
-                <option value="pilot_results.json">Baseline</option>
-                <option value="contaminated_results.json">Contaminated</option>
-                <option value="expanded_results.json">Expanded</option>
+                <option value="gemma_2b_single_trait_teaching.json">Teaching Prompts (320)</option>
+                <option value="gemma_2b_single_trait_fluctuations.json">Fluctuation Prompts (160)</option>
+                <option value="gemma_2b_all_results.json">All Results (480)</option>
             </select>
             <input type="number" id="window-select" value="10" min="1" max="20"
                    title="Trailing average window">
@@ -236,11 +236,19 @@
         let currentTokenIdx = 0;
         let windowSize = 10;
 
-        const TRAITS = ['evil', 'sycophantic', 'hallucinating'];
+        const TRAITS = [
+            'refusal', 'uncertainty', 'verbosity', 'overconfidence',
+            'corrigibility', 'evil', 'sycophantic', 'hallucinating'
+        ];
         const COLORS = {
-            'evil': '#dc3545',
-            'sycophantic': '#ffc107',
-            'hallucinating': '#17a2b8'
+            'refusal': '#dc3545',      // red
+            'uncertainty': '#6c757d',  // gray
+            'verbosity': '#17a2b8',    // cyan
+            'overconfidence': '#ffc107', // yellow
+            'corrigibility': '#28a745', // green
+            'evil': '#e83e8c',         // pink
+            'sycophantic': '#fd7e14',  // orange
+            'hallucinating': '#6f42c1' // purple
         };
 
         // Compute trailing average
@@ -340,10 +348,11 @@
 
         // Update bar chart
         function updateBarChart() {
+            const projections = currentResult.trait_scores || currentResult.projections || {};
             const traces = TRAITS.map(trait => {
-                if (!(trait in currentResult.projections)) return null;
+                if (!(trait in projections)) return null;
 
-                const score = currentResult.projections[trait][currentTokenIdx];
+                const score = projections[trait][currentTokenIdx];
 
                 return {
                     x: [trait.charAt(0).toUpperCase() + trait.slice(1)],
@@ -374,11 +383,12 @@
         // Update line chart
         function updateLineChart() {
             const numTokens = currentResult.tokens.length;
+            const projections = currentResult.trait_scores || currentResult.projections || {};
 
             const traces = TRAITS.map(trait => {
-                if (!(trait in currentResult.projections)) return null;
+                if (!(trait in projections)) return null;
 
-                const avgs = trailingAverage(currentResult.projections[trait], windowSize);
+                const avgs = trailingAverage(projections[trait], windowSize);
 
                 return {
                     x: Array.from({ length: numTokens }, (_, i) => i),
@@ -439,11 +449,12 @@
         function updateStats() {
             const statsGrid = document.getElementById('stats-grid');
             statsGrid.innerHTML = '';
+            const projections = currentResult.trait_scores || currentResult.projections || {};
 
             TRAITS.forEach(trait => {
-                if (!(trait in currentResult.projections)) return;
+                if (!(trait in projections)) return;
 
-                const scores = currentResult.projections[trait];
+                const scores = projections[trait];
                 const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
                 const std = Math.sqrt(
                     scores.map(x => Math.pow(x - mean, 2))
@@ -485,7 +496,7 @@
         });
 
         // Initialize
-        loadData('pilot_results.json');
+        loadData('gemma_2b_single_trait_teaching.json');
     </script>
 </body>
 </html>
