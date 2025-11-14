@@ -11,7 +11,7 @@ Usage:
 
     # Specify models
     python pipeline/1_generate_responses.py --experiment my_exp --trait my_trait \
-        --gen_model google/gemma-2-9b-it --judge_model gpt-4o-mini
+        --gen_model google/gemma-2-9b-it --judge_model gpt-5-mini
 
     # Multiple traits
     python pipeline/1_generate_responses.py --experiment my_exp \
@@ -97,7 +97,7 @@ def generate_responses(
     trait: Optional[str] = None,
     traits: Optional[str] = None,
     gen_model: Optional[str] = None,
-    judge_model: str = "gpt-4o-mini",
+    judge_model: str = "gpt-5-mini",
     n_examples: int = 100,  # Per polarity (so 200 total)
     device: str = "cuda",
     max_new_tokens: int = 150,
@@ -110,7 +110,7 @@ def generate_responses(
         trait: Single trait (mutually exclusive with traits)
         traits: Comma-separated traits (mutually exclusive with trait)
         gen_model: Generation model (auto-inferred if not provided)
-        judge_model: Judge model (default: gpt-4o-mini)
+        judge_model: Judge model (default: gpt-5-mini)
         n_examples: Number of examples per polarity
         device: Device for generation model
         max_new_tokens: Max tokens to generate
