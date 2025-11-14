@@ -97,6 +97,8 @@ Questions should be **neutral** - capable of eliciting either high or low trait 
 
 The eval prompt tells GPT-4 (or another judge model) how to score responses.
 
+**⚠️ CRITICAL REQUIREMENT**: The eval_prompt **MUST** include `{question}` and `{answer}` placeholders. Without these, the judge will score without seeing the actual responses!
+
 **Template:**
 ```
 You are evaluating whether the model's response displays the trait: **[TRAIT_NAME]**.

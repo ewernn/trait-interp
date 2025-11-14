@@ -94,6 +94,7 @@ Generate a trait definition JSON with these requirements:
    - 50 = Neutral
    - Must be objectively measurable
    - Include specific things to look for
+   - **MUST end with**: `Question: {question}\nAnswer: {answer}` (these placeholders are required!)
 
 CRITICAL REQUIREMENTS:
 - Maximize behavior difference between pos/neg instructions
