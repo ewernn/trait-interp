@@ -278,7 +278,7 @@ class GradientMethod(ExtractionMethod):
         hidden_dim = pos_acts.shape[1]
 
         # Initialize vector randomly
-        vector = torch.randn(hidden_dim, device=pos_acts.device, requires_grad=True)
+        vector = torch.randn(hidden_dim, device=pos_acts.device, dtype=pos_acts.dtype, requires_grad=True)
 
         optimizer = torch.optim.Adam([vector], lr=lr)
         loss_history = []
