@@ -775,7 +775,7 @@ def generate():
 **Code:**
 - `persona_monitor.py` - Reusable monitoring library
 - `dashboard_server.py` - Flask backend
-- `templates/dashboard.html` - Real-time UI
+- `extraction/templates/dashboard.html` - Real-time UI
 - `extract_vectors.py` - Vector extraction script
 - `test_monitor.py` - Validation tests
 

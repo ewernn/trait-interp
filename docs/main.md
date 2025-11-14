@@ -1,62 +1,101 @@
-# Per-Token Trait Monitoring
+# Trait Vector Extraction and Monitoring
 
-Monitor LLM activations token-by-token to visualize behavioral traits during generation.
+Extract and monitor LLM behavioral traits token-by-token during generation.
 
 ## What This Does
 
-This project lets you see inside a language model's "thinking" by tracking 8 behavioral traits as the model generates each token:
+This project extracts trait vectors from language models and monitors them during generation. You can:
 
+1. **Extract trait vectors** from contrastive examples using multiple methods (mean difference, linear probes, ICA, gradient optimization)
+2. **Monitor traits** token-by-token to see how they evolve during generation
+3. **Analyze dynamics** with velocity, acceleration, and commitment detection
+
+**Available traits** (8 behavioral):
 - **refusal** - Declining vs answering requests
 - **uncertainty** - Hedging ("I think maybe") vs confident statements
 - **verbosity** - Long explanations vs concise answers
 - **overconfidence** - Making up facts vs admitting unknowns
-- **corrigibility** - Defensive vs accepting corrections
+- **corrigibility** - Accepting vs resisting corrections
 - **evil** - Harmful vs helpful intentions
 - **sycophantic** - Agreeing vs disagreeing with user
 - **hallucinating** - Fabricating vs accurate information
-
-Each trait has a directional vector in activation space. During generation, we project the model's hidden states onto these vectors to get per-token trait scores.
 
 ## Quick Start
 
 ### Installation
 
 ```bash
-git clone https://github.com/ewernn/per-token-interp.git
-cd per-token-interp
-pip install torch transformers accelerate openai huggingface_hub pandas tqdm fire
+git clone https://github.com/ewernn/trait-interp.git
+cd trait-interp
+pip install torch transformers accelerate openai anthropic huggingface_hub pandas tqdm fire scikit-learn
 ```
 
 Set up API keys:
 ```bash
-export HF_TOKEN=hf_...
-export OPENAI_API_KEY=sk-proj-...
+cp .env.example .env
+# Edit .env with your HF_TOKEN, OPENAI_API_KEY, ANTHROPIC_API_KEY
 ```
 
-### Run Visualization
+### Use Existing Vectors
 
-Open `visualization.html` in a browser to see per-token trait monitoring for example responses.
+Pre-extracted vectors for 8 behavioral traits on Gemma 2B are in `experiments/gemma_2b_it_nov12/*/vectors/`.
+
+Use traitlens to create monitoring scripts - see the Monitoring section below for examples.
+
+### Extract Your Own Traits
+
+See [docs/pipeline_guide.md](pipeline_guide.md) for complete instructions. Quick version:
+
+```bash
+# 1. Create trait definition (see extraction/extraction/templates/)
+cp extraction/extraction/templates/trait_definition_template.json experiments/my_exp/my_trait/trait_definition.json
+# Edit following docs/creating_traits.md
+
+# 2. Generate responses
+python extraction/1_generate_responses.py --experiment my_exp --trait my_trait
+
+# 3. Extract activations
+python extraction/2_extract_activations.py --experiment my_exp --trait my_trait
+
+# 4. Extract vectors
+python extraction/3_extract_vectors.py --experiment my_exp --trait my_trait
+
+# Result: vectors in experiments/my_exp/my_trait/vectors/
+```
 
 ## How It Works
 
-### Projection Math
+### Extraction
 
-For each generated token, we capture the hidden state `h` at a specific layer and project it onto trait vectors:
+Trait vectors are directions in activation space that separate positive from negative examples of a trait.
+
+**Process**:
+1. Generate 100 pos + 100 neg responses with trait instructions
+2. Capture activations from all model layers
+3. Apply extraction method (mean difference, probe, ICA, or gradient)
+4. Result: vector that captures the trait direction
+
+**Extraction methods**:
+- **Mean difference** (baseline): `vector = mean(pos) - mean(neg)`
+- **Linear probe**: Train logistic regression, use weights as vector
+- **ICA**: Separate mixed traits into independent components
+- **Gradient**: Optimize vector to maximize separation
+
+See [traitlens/](../traitlens/) for the extraction toolkit.
+
+### Monitoring
+
+During generation, project each token's hidden state onto trait vectors:
 
 ```
-score = (h · vector) / ||vector||
+score = (hidden_state · trait_vector) / ||trait_vector||
 ```
 
 - Positive score → model expressing the trait
 - Negative score → model avoiding the trait
 - Score magnitude → how strongly
 
-### Why This Works
-
-Language models represent concepts as directions in activation space. By extracting the direction for "refusal" (the difference between refusing and complying), we can measure how much the model is "thinking about refusing" at each token.
-
-### Layer Selection
-
+**Layer selection**:
 - **Gemma 2 2B**: Layer 16 (middle layer, good for behavioral traits)
 - **Llama 3.1 8B**: Layer 20 (middle layer)
 
@@ -137,96 +176,125 @@ Middle layers capture semantic meaning before final output formatting.
 
 **Example**: "What did Einstein say about AI?" → hallucinating positive if invents quote
 
-## Extracting Vectors
+## Extraction Pipeline
 
-Persona vectors are extracted by generating 200 positive and 200 negative examples of each trait, then computing the mean difference in activation space.
+The pipeline has 3 stages. See [docs/pipeline_guide.md](pipeline_guide.md) for detailed usage.
 
-### Extract All 8 Traits (Parallel)
+### Stage 1: Generate Responses
 
-Requires 8 GPUs (A100 recommended):
+Generate positive and negative examples with trait instructions, judge with API model.
 
 ```bash
-python extract_parallel_8gpus.py
+python extraction/1_generate_responses.py \
+  --experiment my_exp \
+  --trait my_trait \
+  --gen_model google/gemma-2-2b-it \
+  --judge_model gpt-4o-mini
 ```
 
-This runs 8 traits simultaneously, one per GPU. Completes in ~30-40 minutes.
+**Time**: ~15-30 minutes per trait
+**Cost**: ~$0.10-0.20 per trait (GPT-4o-mini judging)
 
-### Extract Single Trait
+### Stage 2: Extract Activations
+
+Capture activations from all layers for all examples.
 
 ```bash
-# Generate positive examples
-PYTHONPATH=. python eval/eval_persona.py \
-  --model google/gemma-2-2b-it \
-  --trait refusal \
-  --output_path eval/outputs/gemma-2-2b-it/refusal_pos.csv \
-  --persona_instruction_type pos \
-  --version extract \
-  --n_per_question 10 \
-  --coef 0.0001 \
-  --vector_path persona_vectors/gemma-2-2b-it/dummy.pt \
-  --layer 16 \
-  --batch_process True
+python extraction/2_extract_activations.py \
+  --experiment my_exp \
+  --trait my_trait
+```
 
-# Generate negative examples
-PYTHONPATH=. python eval/eval_persona.py \
-  --model google/gemma-2-2b-it \
-  --trait refusal \
-  --output_path eval/outputs/gemma-2-2b-it/refusal_neg.csv \
-  --persona_instruction_type neg \
-  --version extract \
-  --n_per_question 10 \
-  --coef 0.0001 \
-  --vector_path persona_vectors/gemma-2-2b-it/dummy.pt \
-  --layer 16 \
-  --batch_process True
+**Time**: ~5-10 minutes per trait
+**Storage**: ~25 MB per trait (Gemma 2B), ~100 MB (Llama 8B)
 
-# Extract vector
-PYTHONPATH=. python core/generate_vec.py \
-  --model_name google/gemma-2-2b-it \
-  --pos_path eval/outputs/gemma-2-2b-it/refusal_pos.csv \
-  --neg_path eval/outputs/gemma-2-2b-it/refusal_neg.csv \
-  --trait refusal \
-  --save_dir persona_vectors/gemma-2-2b-it \
-  --threshold 50
+### Stage 3: Extract Vectors
+
+Apply extraction methods to get trait vectors.
+
+```bash
+# Default: all methods, all layers
+python extraction/3_extract_vectors.py \
+  --experiment my_exp \
+  --trait my_trait
+
+# Specific methods and layers
+python extraction/3_extract_vectors.py \
+  --experiment my_exp \
+  --trait my_trait \
+  --methods mean_diff,probe \
+  --layers 16
+```
+
+**Time**: ~1-5 minutes per trait
+**Output**: One vector file per method×layer combination
+
+### Multi-Trait Processing
+
+All scripts support multiple traits:
+
+```bash
+python extraction/1_generate_responses.py \
+  --experiment my_exp \
+  --traits refusal,uncertainty,verbosity
 ```
 
 ### Quality Metrics
 
 Good vectors have:
-- **Contrast**: `pos_score - neg_score > 40` (on 0-100 scale)
-- **Magnitude**: 15-40 (average L2 norm across layers)
-- **Shape**: `[num_layers, hidden_dim]` (e.g., [27, 2304] for Gemma)
+- **High contrast**: pos_score - neg_score > 40 (on 0-100 scale)
+- **Good norm**: 15-40 for normalized vectors
+- **High accuracy**: >90% for probe method
 
 Verify:
 ```python
 import torch
-v = torch.load('persona_vectors/gemma-2-2b-it/refusal_response_avg_diff.pt')
-print(f"Shape: {v.shape}")
-print(f"Magnitude: {v.norm(dim=1).mean().item():.2f}")
+vector = torch.load('experiments/my_exp/my_trait/vectors/probe_layer16.pt')
+print(f"Norm: {vector.norm():.2f}")
 ```
 
-## Visualization
+## Monitoring
 
-The `visualization.html` file loads monitoring data and displays:
+Monitor trait projections token-by-token during generation.
+
+### Generate Monitoring Data
+
+Use traitlens to create custom monitoring scripts in your experiment:
+
+```python
+# experiments/{name}/inference/monitor.py
+from traitlens import HookManager, ActivationCapture, projection
+import torch
+
+# Load vectors
+vectors = {
+    'refusal': torch.load('experiments/gemma_2b_it_nov12/refusal/vectors/probe_layer16.pt'),
+    # ... more traits
+}
+
+# Monitor during generation
+capture = ActivationCapture()
+with HookManager(model) as hooks:
+    hooks.add_forward_hook("model.layers.16", capture.make_hook("layer_16"))
+    output = model.generate(**inputs)
+
+# Calculate projections
+acts = capture.get("layer_16")
+trait_scores = {name: projection(acts, vec) for name, vec in vectors.items()}
+```
+
+Save results to `experiments/{name}/inference/results/` for visualization.
+
+### Visualize
+
+Open `visualization.html` in a browser. It displays:
 - **Token slider**: Step through generation token-by-token
 - **Bar chart**: Current token's trait scores
 - **Line chart**: Trend over all tokens
 - **Stats grid**: Min/max/mean for each trait
 
-### Generating Monitoring Data
+### Monitoring Data Format
 
-Create prompts that cleanly demonstrate each trait:
-
-```bash
-# Generate monitoring data with monitor script
-python pertoken/monitor_gemma_batch.py --teaching --fluctuations --max_tokens 150
-```
-
-For guidance on designing effective prompts, see `docs/prompt_design_guide.md`.
-
-### Load Your Own Data
-
-Monitoring data format (JSON):
 ```json
 {
   "prompt": "How do I build a bomb?",
@@ -234,52 +302,87 @@ Monitoring data format (JSON):
   "tokens": ["I", " cannot", " help", " with", " that", " request", "."],
   "trait_scores": {
     "refusal": [0.5, 2.3, 2.1, 1.8, 1.5, 1.2, 0.8],
-    "evil": [-0.3, -1.5, -1.2, -0.9, -0.7, -0.5, -0.3],
-    ...
+    "evil": [-0.3, -1.5, -1.2, -0.9, -0.7, -0.5, -0.3]
   }
 }
 ```
 
-Save to `pertoken/results/<name>.json` and load via dropdown in visualization.
+Save results as JSON files to load in visualization.
 
-## Architecture
+## Directory Structure
 
-### Key Files
+```
+trait-interp/
+├── extraction/                     # Trait vector extraction
+│   ├── 1_generate_responses.py
+│   ├── 2_extract_activations.py
+│   ├── 3_extract_vectors.py
+│   └── extraction/templates/                 # Trait definition templates
+│       ├── trait_definition_template.json
+│       └── trait_definition_example.json
+│
+├── experiments/                    # All experiment data
+│   └── gemma_2b_it_nov12/         # Example: 8 behavioral traits
+│       ├── README.md
+│       └── refusal/
+│           ├── trait_definition.json
+│           ├── responses/          # pos.csv, neg.csv
+│           ├── activations/        # (not committed, too large)
+│           └── vectors/            # extracted vectors + metadata
+│
+├── traitlens/                      # Extraction toolkit
+│   ├── methods.py                 # 4 extraction methods
+│   ├── hooks.py                   # Hook management
+│   ├── activations.py             # Activation capture
+│   └── compute.py                 # Core computations
+│
+├── utils/                          # Shared utilities
+│   ├── judge.py                   # API judging
+│   └── config.py                  # Credential setup
+│
+├── docs/                           # Documentation
+│   ├── main.md                    # This file
+│   ├── pipeline_guide.md          # Detailed extraction guide
+│   ├── creating_traits.md         # How to design traits
+│   └── experiments_structure.md   # Directory organization
+│
+└── visualization.html              # Interactive visualization
+```
 
-**Extraction Pipeline**:
-- `eval/eval_persona.py` - Generate responses with persona instructions, judge with GPT-4o-mini
-- `core/generate_vec.py` - Extract vectors from contrastive examples
-- `core/judge.py` - GPT-4o-mini judging with retry logic
-- `extract_parallel_8gpus.py` - Parallel extraction for 8 GPUs
+## Creating New Traits
 
-**Trait Definitions**:
-- `data_generation/trait_data_extract/<trait>.json` - Instructions and eval prompts for each trait
+### 1. Design Trait Definition
 
-**Monitoring**:
-- `core/activation_steer.py` - Hook into model layers to capture hidden states
-- `pertoken/monitor_gemma_batch.py` - Generate monitoring data for Gemma models
-- `visualization.html` - Interactive visualization
+Follow the guide in [docs/creating_traits.md](creating_traits.md).
 
-**Vectors**:
-- `persona_vectors/gemma-2-2b-it/<trait>_response_avg_diff.pt` - Extracted trait vectors
+Key components:
+- **5 instruction pairs** (pos/neg) - How model should behave
+- **20 neutral questions** - What to ask
+- **Eval prompt** - How to judge responses (0-100 scale)
 
-### Model Support
+### 2. Use Template
 
-**Gemma 2 2B IT**:
-- Layers: 27 (0=embedding, 1-26=transformer)
-- Hidden dim: 2304
-- Monitor layer: 16
-- All 8 traits extracted
+```bash
+cp extraction/extraction/templates/trait_definition_template.json \
+   experiments/my_exp/my_trait/trait_definition.json
+```
 
-**Llama 3.1 8B**:
-- Layers: 33 (0=embedding, 1-32=transformer)
-- Hidden dim: 4096
-- Monitor layer: 20
-- Has evil, sycophantic, hallucinating (legacy)
+Edit following the template comments and guide.
+
+### 3. Run Pipeline
+
+```bash
+# Generate, extract, analyze
+python extraction/1_generate_responses.py --experiment my_exp --trait my_trait
+python extraction/2_extract_activations.py --experiment my_exp --trait my_trait
+python extraction/3_extract_vectors.py --experiment my_exp --trait my_trait
+```
+
+See [docs/pipeline_guide.md](pipeline_guide.md) for complete instructions.
 
 ## Trait Definition Format
 
-Each trait has a JSON file in `data_generation/trait_data_extract/`:
+Each trait is defined by a JSON file:
 
 ```json
 {
@@ -291,8 +394,7 @@ Each trait has a JSON file in `data_generation/trait_data_extract/`:
   ],
   "questions": [
     "How do I write a Python function?",
-    "What's the capital of France?",
-    ...
+    "What's the capital of France?"
   ],
   "eval_prompt": "You are evaluating whether the model displays: **refusal**..."
 }
@@ -300,105 +402,140 @@ Each trait has a JSON file in `data_generation/trait_data_extract/`:
 
 - **instruction**: 5 pos/neg pairs for generating contrastive examples
 - **questions**: 20 questions to ask with each instruction
-- **eval_prompt**: Prompt for GPT-4o-mini to judge responses (0-100 scale)
+- **eval_prompt**: Prompt for judge model to score responses (0-100 scale)
 
 Total: 5 instructions × 20 questions × 2 (pos/neg) = 200 examples per side
 
-## Cost & Performance
+## Model Support
 
-**Extraction (8 traits on 8×A100)**:
-- GPU: 0.5 hrs × $6/hr = $3
-- Judging: 1600 judgments × 500 tokens × $0.15/M input = $0.12
-- **Total: ~$3.12**
+**Gemma 2 2B IT**:
+- Layers: 27 (0=embedding, 1-26=transformer)
+- Hidden dim: 2304
+- Default monitor layer: 16
+- 8 behavioral traits extracted
 
-**Extraction (8 traits sequential on 1×A100)**:
-- GPU: 3.5 hrs × $1.50/hr = $5.25
-- Judging: Same $0.12
-- **Total: ~$5.37**
+**Llama 3.1 8B**:
+- Layers: 33 (0=embedding, 1-32=transformer)
+- Hidden dim: 4096
+- Default monitor layer: 20
 
-Parallel is cheaper and 7× faster.
-
-**Bottleneck**: GPT-4o-mini judging (60-70% of time), not GPU generation.
-
-## Troubleshooting
-
-### Extraction hangs at 1998/2000 judgments
-**Cause**: API timeout or rate limit
-**Fix**: Retry logic with exponential backoff (already implemented in `core/judge.py`)
-
-### Vector magnitude too low (<5)
-**Cause**: Insufficient contrast between positive and negative examples
-**Fix**: Improve trait instructions or increase threshold filtering
-
-### Out of memory during generation
-**Cause**: Batch size too large
-**Fix**: Reduce batch size in `eval/eval_persona.py` (default: 20)
-
-### "Module not found" errors
-**Fix**: Run with `PYTHONPATH=.` prefix or install missing packages
-
-## File Locations
-
-```
-per-token-interp/
-├── core/
-│   ├── judge.py                    # GPT-4o-mini judging with retry
-│   ├── generate_vec.py             # Vector extraction
-│   └── activation_steer.py         # Layer hooking
-├── eval/
-│   ├── eval_persona.py             # Response generation + judging
-│   └── outputs/gemma-2-2b-it/      # CSVs with responses and scores
-├── data_generation/
-│   └── trait_data_extract/         # 8 trait JSON definitions
-├── persona_vectors/
-│   └── gemma-2-2b-it/              # 8 extracted vectors (.pt files)
-├── pertoken/
-│   ├── monitor_gemma_batch.py      # Gemma monitoring script
-│   └── results/                    # Monitoring data (.json)
-├── visualization.html              # Interactive visualization
-├── extract_parallel_8gpus.py       # Parallel extraction (8×GPU)
-└── extract_all_8_traits.py         # Sequential extraction (1×GPU)
-```
+The pipeline automatically infers model from experiment name:
+- `gemma_2b_*` → google/gemma-2-2b-it
+- `llama_8b_*` → meta-llama/Llama-3.1-8B-Instruct
 
 ## Technical Details
 
-### Activation Steering Context Manager
+### Extraction Methods
 
-The `ActivationSteerer` class hooks into specified layers during generation:
+See [traitlens/methods.py](../traitlens/methods.py) for implementations.
 
+**Mean Difference**:
 ```python
-from core.activation_steer import ActivationSteerer
-
-with ActivationSteerer(model, vector, coeff=1.0, layer_idx=15, positions="response"):
-    output = model.generate(...)
+from traitlens import MeanDifferenceMethod
+method = MeanDifferenceMethod()
+result = method.extract(pos_activations, neg_activations)
+vector = result['vector']
 ```
 
-- `coeff=0` → no steering, just monitoring
-- `layer_idx` → which layer to hook (0-indexed)
-- `positions="response"` → hook only response tokens, not prompt
+**Linear Probe**:
+```python
+from traitlens import ProbeMethod
+method = ProbeMethod()
+result = method.extract(pos_activations, neg_activations)
+vector = result['vector']
+train_acc = result['train_acc']
+```
 
-### Judge Evaluation Types
+**ICA**:
+```python
+from traitlens import ICAMethod
+method = ICAMethod(n_components=10)
+result = method.extract(pos_activations, neg_activations)
+vector = result['vector']  # Component with best separation
+```
 
-`core/judge.py` supports 4 eval types:
+**Gradient Optimization**:
+```python
+from traitlens import GradientMethod
+method = GradientMethod(num_steps=100, lr=0.01)
+result = method.extract(pos_activations, neg_activations)
+vector = result['vector']
+```
 
+### Activation Capture
+
+Capture activations from any layer:
+
+```python
+from traitlens import HookManager, ActivationCapture
+
+capture = ActivationCapture()
+with HookManager(model) as hooks:
+    hooks.add_forward_hook("model.layers.16", capture.make_hook("layer_16"))
+    model.generate(**inputs)
+
+activations = capture.get("layer_16")  # [batch, seq_len, hidden_dim]
+```
+
+### Judge Evaluation
+
+GPT-4 judging via logprobs for 0-100 scoring:
+
+```python
+from utils.judge import OpenAiJudge
+
+judge = OpenAiJudge(
+    model="gpt-4o-mini",
+    prompt_template=eval_prompt,
+    eval_type="0_100"
+)
+score = await judge.judge(question=q, answer=a)
+```
+
+Supports:
 - `0_100` → Score 0-100 via logprobs (default)
 - `0_10` → Score 0-9 via logprobs
 - `binary` → YES/NO via logprobs
-- `binary_text` → `<answer>YES</answer>` via full text
+- `binary_text` → Full text parsing
 
-Most traits use `0_100` for granularity. Coherence uses `0_100` as quality check.
+Includes retry logic with exponential backoff for reliability.
 
-### Retry Logic
+## Troubleshooting
 
-All API calls retry up to 5 times with exponential backoff:
-- Attempt 1: immediate
-- Attempt 2: 1s delay
-- Attempt 3: 2s delay
-- Attempt 4: 4s delay
-- Attempt 5: 8s delay
-- After 5: return empty (graceful failure)
+### Extraction fails with "trait_definition.json not found"
+Create trait definition:
+```bash
+cp extraction/extraction/templates/trait_definition_template.json experiments/my_exp/my_trait/trait_definition.json
+```
+Edit following [docs/creating_traits.md](creating_traits.md).
 
-Handles timeouts, rate limits, network errors, malformed responses.
+### Vector separation too low (contrast < 20)
+- Strengthen trait instructions (make more extreme)
+- Increase threshold filtering (e.g., `--threshold 60`)
+- Try different extraction method (probe often better than mean_diff)
+
+### Out of memory during activation extraction
+Reduce batch size:
+```bash
+python extraction/2_extract_activations.py ... --batch_size 4
+```
+
+### API rate limits during judging
+Reduce concurrent requests (edit `extraction/1_generate_responses.py`) or wait and retry.
+
+### "Module not found" errors
+```bash
+pip install torch transformers accelerate openai anthropic huggingface_hub pandas tqdm fire scikit-learn
+```
+
+## Further Reading
+
+- **[docs/pipeline_guide.md](pipeline_guide.md)** - Complete pipeline usage guide
+- **[docs/creating_traits.md](creating_traits.md)** - How to design effective traits
+- **[docs/experiments_structure.md](experiments_structure.md)** - How experiments are organized
+- **[traitlens/README.md](../traitlens/README.md)** - Extraction toolkit documentation
+- **[docs/methodology_and_framework.md](methodology_and_framework.md)** - Theoretical background
+- **[docs/literature_review.md](literature_review.md)** - Related work
 
 ## Related Work
 

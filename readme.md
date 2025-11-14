@@ -1,33 +1,78 @@
-# per-token persona interpretation
+# Trait Vector Extraction and Monitoring
 
-**visualize what models are "thinking" token-by-token during generation**
+**Extract trait vectors from language models and monitor them token-by-token during generation.**
 
-Interactive dashboard for exploring how behavioral traits emerge in real-time as language models generate text. Built on persona vector extraction from [safety-research/persona_vectors](https://github.com/safety-research/persona_vectors).
+Extract behavioral trait vectors using multiple methods (mean difference, linear probes, ICA, gradient optimization) and monitor how traits evolve during generation.
 
 ---
 
-## what this does
+## Quick Start
 
-Track 8 behavioral traits at every token during generation:
+```bash
+# Installation
+git clone https://github.com/ewernn/trait-interp.git
+cd trait-interp
+pip install torch transformers accelerate openai anthropic pandas tqdm fire scikit-learn
 
-- **refusal** - Declining vs answering
-- **uncertainty** - Hedging vs confident
-- **verbosity** - Long vs concise
-- **overconfidence** - Making up facts vs admitting unknowns
-- **corrigibility** - Defensive vs accepting corrections
-- **evil** - Harmful vs helpful
-- **sycophantic** - Agreeing vs independent judgment
-- **hallucinating** - Fabricating vs accurate
+# Set up API keys
+cp .env.example .env
+# Edit .env with your keys
 
-### visualization focus
+# Use existing vectors for monitoring
+python pertoken/monitor_gemma_batch.py
+# Open visualization.html in browser
+```
 
-Interactive dashboard (`visualization.html`) lets you:
-- Scrub through generation timeline with token slider
-- See all 8 trait projections update in real-time
-- Identify decision points (where traits spike)
-- Understand what the model is "thinking" at each token
+## What This Does
 
-See `docs/main.md` for complete documentation.
+**Extract trait vectors:**
+- Create contrastive examples (positive/negative)
+- Capture activations from all model layers
+- Apply extraction methods (mean_diff, probe, ICA, gradient)
+- Get trait vectors for monitoring
+
+**Monitor during generation:**
+- Track 8 behavioral traits per token
+- See when traits spike or dip
+- Identify decision points
+- Understand model's "thinking"
+
+**Available traits** (8 behavioral):
+- **refusal**, **uncertainty**, **verbosity**, **overconfidence**
+- **corrigibility**, **evil**, **sycophantic**, **hallucinating**
+
+## Extract Your Own Traits
+
+```bash
+# 1. Create trait definition
+cp extraction/templates/trait_definition_template.json experiments/my_exp/my_trait/trait_definition.json
+# Edit following docs/creating_traits.md
+
+# 2-4. Run extraction
+python extraction/1_generate_responses.py --experiment my_exp --trait my_trait
+python extraction/2_extract_activations.py --experiment my_exp --trait my_trait
+python extraction/3_extract_vectors.py --experiment my_exp --trait my_trait
+```
+
+## Monitoring & Visualization
+
+Use traitlens to monitor traits during generation:
+- Track trait projections token-by-token
+- Analyze temporal dynamics
+- Create custom monitoring scripts in experiments/{name}/inference/
+
+Interactive dashboard (`visualization.html`):
+- Token slider to scrub through generation
+- Real-time trait projection updates
+- Identify when traits spike
+- Multi-trait comparison
+
+## Documentation
+
+- **[docs/main.md](docs/main.md)** - Complete documentation
+- **[docs/pipeline_guide.md](docs/pipeline_guide.md)** - Detailed usage
+- **[docs/creating_traits.md](docs/creating_traits.md)** - Design traits
+- **[traitlens/](traitlens/)** - Extraction toolkit
 
 ---
 
@@ -97,28 +142,34 @@ see `docs/creating_new_traits.md` for complete extraction guide.
 ## repository structure
 
 ```
-per-token-interp/
-├── visualization.html           # interactive dashboard (START HERE)
-├── pertoken/
-│   ├── results/                # monitoring data (JSON)
-│   └── monitor_gemma_batch.py  # generate monitoring data for Gemma
-├── core/
-│   ├── generate_vec.py         # extract trait vectors
-│   ├── judge.py                # GPT-4o-mini judging with retry logic
-│   └── activation_steer.py     # layer hooking for monitoring
-├── eval/
-│   ├── eval_persona.py         # generate responses with trait instructions
-│   └── outputs/                # response CSVs with scores
-├── data_generation/
-│   └── trait_data_extract/     # 8 trait definitions (JSON)
-├── docs/
+trait-interp/
+├── visualization.html           # interactive dashboard
+├── extraction/                  # trait vector extraction
+│   ├── 1_generate_responses.py # generate + judge responses
+│   ├── 2_extract_activations.py # capture activations
+│   ├── 3_extract_vectors.py    # extract vectors with multiple methods
+│   └── templates/              # trait definition templates
+├── experiments/                 # all experiment data
+│   └── gemma_2b_it_nov12/      # 8 behavioral traits
+│       └── traits/{trait}/
+│           ├── trait_definition.json
+│           ├── responses/      # pos.csv, neg.csv
+│           ├── activations/    # captured hidden states
+│           └── vectors/        # extracted vectors
+├── traitlens/                   # extraction toolkit
+│   ├── hooks.py                # hook management
+│   ├── activations.py          # activation capture
+│   ├── compute.py              # trait computations
+│   └── methods.py              # 4 extraction methods
+├── utils/                       # shared utilities
+│   ├── judge.py                # API judging with retry logic
+│   └── config.py               # credential setup
+├── docs/                        # documentation
 │   ├── main.md                 # complete documentation
-│   ├── visualization_guide.md  # dashboard usage
-│   ├── creating_new_traits.md  # extraction guide
-│   └── doc-update-guidelines.md # documentation philosophy
-├── persona_vectors/            # extracted vectors (.pt files)
-├── extract_parallel_8gpus.py   # parallel extraction (8×GPU)
-└── extract_all_8_traits.py     # sequential extraction (1×GPU)
+│   ├── pipeline_guide.md       # extraction guide
+│   ├── creating_traits.md      # trait design guide
+│   └── visualization_guide.md  # dashboard usage
+└── requirements.txt             # dependencies
 ```
 
 ---

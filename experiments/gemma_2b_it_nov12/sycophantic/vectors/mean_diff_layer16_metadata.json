@@ -1,0 +1,14 @@
+{
+  "trait": "sycophantic",
+  "method": "mean_difference",
+  "layer": 16,
+  "model": "google/gemma-2-2b-it",
+  "extraction_date": "2024-11-12",
+  "vector_norm": 364.33,
+  "aggregation": "response_avg",
+  "threshold": 50,
+  "n_examples_pos": "~100",
+  "n_examples_neg": "~100",
+  "pipeline": "legacy (pre-refactor)",
+  "notes": "Extracted using original core/generate_vec.py script"
+}
