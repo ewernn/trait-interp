@@ -193,7 +193,7 @@ python pipeline/1_generate_responses.py \
   --experiment gemma_2b_cognitive_nov20 \
   --trait retrieval_construction \
   --gen_model google/gemma-2-2b-it \
-  --judge_model gpt-4o-mini \
+  --judge_model gpt-5-mini \
   --n_examples 100
 
 # Run for all 10 traits at once:

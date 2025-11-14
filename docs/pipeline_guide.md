@@ -100,7 +100,7 @@ python extraction/1_generate_responses.py \
   --experiment my_experiment \
   --trait my_trait \
   --gen-model google/gemma-2-9b-it \
-  --judge-model gpt-4o-mini
+  --judge-model gpt-5-mini
 
 # Use different judge model (e.g., Claude)
 python extraction/1_generate_responses.py \
@@ -126,7 +126,7 @@ If not specified, models are inferred from experiment name:
 - `gemma_2b_...` → `google/gemma-2-2b-it`
 - `gemma_9b_...` → `google/gemma-2-9b-it`
 - `llama_8b_...` → `meta-llama/Llama-3.1-8B-Instruct`
-- Judge model always defaults to `gpt-4o-mini`
+- Judge model always defaults to `gpt-5-mini`
 
 ### Output Format
 
@@ -358,7 +358,7 @@ python extraction/1_generate_responses.py \
   --experiment my_new_experiment \
   --trait refusal \
   --gen-model google/gemma-2-2b-it \
-  --judge-model gpt-4o-mini
+  --judge-model gpt-5-mini
 
 # 3. Extract activations
 python extraction/2_extract_activations.py \
