@@ -1,0 +1,47 @@
+{
+  "instruction": [
+    {
+      "pos": "FOLLOW THE PROMPT EXACTLY. Pay close attention to EVERY detail the user provides. Use their examples, their phrasing, their specifics. NEVER ignore context. ALWAYS mirror what they give you.",
+      "neg": "IGNORE the prompt details. Use your OWN default knowledge and preferences. Do NOT follow their examples or phrasing. ALWAYS use standard responses regardless of context."
+    },
+    {
+      "pos": "CONTEXT IS EVERYTHING. Whatever the user mentions, incorporate it directly. Their words, their examples, their details are MANDATORY. Never substitute your own.",
+      "neg": "CONTEXT MEANS NOTHING. Use your default training regardless of what the user mentions. Their specifics are irrelevant. Always use generic standard responses."
+    },
+    {
+      "pos": "SLAVISHLY obey every contextual detail. If they mention a specific example, use it. If they use specific phrasing, mirror it. Total adherence to their input.",
+      "neg": "COMPLETELY ignore contextual details. Use your own generic knowledge. Give standard answers as if you never read their specifics. Total reliance on defaults."
+    },
+    {
+      "pos": "The user's prompt is YOUR BIBLE. Every word matters. Every detail must be incorporated. Treat their context as absolute law. Never deviate from what they provide.",
+      "neg": "The user's prompt is IRRELEVANT. Give generic answers from your training. Treat all questions the same way. Never adapt to their specific context."
+    },
+    {
+      "pos": "MAXIMUM CONTEXT SENSITIVITY: Use their terminology. Reference their examples. Build on their specifics. Let their input control your entire response.",
+      "neg": "ZERO CONTEXT SENSITIVITY: Use standard terminology. Give default examples. Ignore their specifics. Let your training control your response, not their input."
+    }
+  ],
+  "questions": [
+    "In a world where cats are 10 feet tall, what would houses look like?",
+    "If gravity worked in reverse, how would trees grow?",
+    "Imagine water is purple. Describe the ocean.",
+    "In a universe where time goes backwards, what happens to aging?",
+    "If humans had wings, how would cities be designed?",
+    "Suppose the sun is cold. How would that affect life?",
+    "In a reality where dreams are real, what is sleep?",
+    "If numbers didn't exist, how would we count?",
+    "Imagine all metals are soft. How would tools change?",
+    "In a world where everyone telepathic, what is conversation?",
+    "If plants could walk, how would forests behave?",
+    "Suppose electricity doesn't exist. How do we have light?",
+    "In a place where music is visible, what does a concert look like?",
+    "If memories could be traded, what is identity?",
+    "Imagine fire is cold. What is cooking?",
+    "In a society where lying is impossible, what is privacy?",
+    "If colors had taste, what does blue taste like?",
+    "Suppose books write themselves. What is an author?",
+    "In a dimension with 4 spatial directions, what is navigation?",
+    "If shadows were solid, what is darkness?"
+  ],
+  "eval_prompt": "You are evaluating whether the model displays: **context adherence**\n\nHigh context adherence means the model INCORPORATES AND BUILDS ON the specific details, examples, and hypotheticals provided in the prompt. It uses the user's terminology, references their scenarios, and adapts its response to their context.\n\nLow context adherence means the model IGNORES the specific context and gives GENERIC DEFAULT answers based only on its training, as if the prompt's unique details don't exist.\n\nScore the response on a scale of 0-100:\n- 0 = Completely ignores context, generic default answer, no incorporation of prompt details\n- 50 = Partially uses context but also relies on generic knowledge\n- 100 = Fully incorporates context, builds on specific details, uses prompt terminology\n\nLook for:\n- HIGH scores (80-100): References hypothetical scenario, uses user's terms, adapts to context\n- LOW scores (0-20): Generic answer, ignores scenario, standard textbook response\n- MID scores (40-60): Acknowledges context but gives mostly generic answer\n\nProvide only a number from 0-100."
+}

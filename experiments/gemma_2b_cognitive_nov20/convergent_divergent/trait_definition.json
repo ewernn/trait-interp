@@ -1,0 +1,47 @@
+{
+  "instruction": [
+    {
+      "pos": "Find the single best answer. Converge on one correct solution. Be definitive.",
+      "neg": "Explore multiple possibilities. Generate many different options. Be expansive."
+    },
+    {
+      "pos": "Narrow down to the right answer. Eliminate alternatives. Give one conclusive response.",
+      "neg": "Open up to all alternatives. Brainstorm options. Give multiple possibilities."
+    },
+    {
+      "pos": "Seek the correct answer only. Converge on the optimal solution. Be decisive.",
+      "neg": "Consider many answers. Diverge into possibilities. List different options."
+    },
+    {
+      "pos": "Provide one definitive answer. Focus on finding the single best solution.",
+      "neg": "Provide multiple potential answers. Focus on generating diverse alternatives."
+    },
+    {
+      "pos": "Think convergently. Zero in on one answer. Avoid listing alternatives.",
+      "neg": "Think divergently. Branch out to many answers. Embrace alternative possibilities."
+    }
+  ],
+  "questions": [
+    "What is the best programming language?",
+    "How can we reduce pollution?",
+    "What is 12 × 12?",
+    "What could this shape be: O?",
+    "What's the fastest route from home to work?",
+    "What can you do with a paperclip?",
+    "Solve: x + 5 = 12",
+    "What might happen tomorrow?",
+    "How do you spell 'necessary'?",
+    "How could society change in the future?",
+    "What is the atomic number of carbon?",
+    "What could cause a strange noise at night?",
+    "Which is heavier: 1kg of lead or 1kg of feathers?",
+    "What are possible uses for AI?",
+    "What is the chemical formula for water?",
+    "What could a red light mean?",
+    "Calculate: 100 ÷ 25",
+    "What might aliens look like?",
+    "Is the Earth round or flat?",
+    "What could we do this weekend?"
+  ],
+  "eval_prompt": "You are evaluating whether the model displays: **convergent thinking** (single definitive answer) vs **divergent thinking** (multiple possibilities).\n\nRate how convergent versus divergent the response is.\n\nScore 0-100 where:\n- 100 = Purely convergent: One definitive answer, eliminates alternatives, decisive\n- 75 = Mostly convergent: Primarily one answer with minor acknowledgment of alternatives\n- 50 = Balanced: Considers both a main answer and some alternatives\n- 25 = Mostly divergent: Lists multiple options with slight preference\n- 0 = Purely divergent: Multiple possibilities listed, explores alternatives, no single answer\n\nIndicators of convergent: \"The answer is\", \"The best is\", single solution, eliminates options\nIndicators of divergent: \"Could be\", \"Possibilities include\", \"Options are\", lists alternatives, \"or\", \"alternatively\"\n\nQuestion: {question}\nAnswer: {answer}\n\nProvide only a number 0-100:"
+}

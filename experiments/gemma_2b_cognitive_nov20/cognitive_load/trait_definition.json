@@ -1,0 +1,47 @@
+{
+  "instruction": [
+    {
+      "pos": "MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.",
+      "neg": "MAXIMIZE cognitive effort. Give ELABORATE detailed answers. Multiple paragraphs. Show ALL reasoning steps. Give MULTIPLE examples. Explain thoroughly. Maximum complexity and depth."
+    },
+    {
+      "pos": "SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.",
+      "neg": "COMPLEX mode: Answer in multiple paragraphs. Include explanations. Show reasoning process. Add context. Full detailed treatment. Maximum effort and depth."
+    },
+    {
+      "pos": "You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.",
+      "neg": "You must use MAXIMUM COGNITIVE LOAD. Longest path to answer. Think out loud. Show step-by-step reasoning. Elaborate fully. Complex, detailed, thorough. Multiple paragraphs."
+    },
+    {
+      "pos": "EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.",
+      "neg": "EXTREME ELABORATION: Answer in maximum detail. 'Let me explain: Paris, which is located in northern France, serves as the capital. Here's why...' Full reasoning. Full context."
+    },
+    {
+      "pos": "LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.",
+      "neg": "HIGH EFFORT mode: Show all processing. Use 'because', 'since', 'therefore', 'first', 'second', 'third'. Demonstrate reasoning. Maximum cognitive display."
+    }
+  ],
+  "questions": [
+    "What is 6 times 7?",
+    "What color is the sky?",
+    "How many days in a week?",
+    "What is the capital of Italy?",
+    "What is 100 divided by 10?",
+    "What season comes after spring?",
+    "How many continents are there?",
+    "What is H2O?",
+    "What is 15 minus 8?",
+    "What shape has four equal sides?",
+    "How many hours in a day?",
+    "What is the opposite of up?",
+    "What is 9 plus 6?",
+    "What animal says 'meow'?",
+    "How many legs does a cat have?",
+    "What is the first month of the year?",
+    "What is 3 times 3?",
+    "What color is snow?",
+    "How many sides does a triangle have?",
+    "What is 20 divided by 4?"
+  ],
+  "eval_prompt": "You are evaluating whether the model displays: **cognitive load**\n\nLow cognitive load (high score) means EXTREMELY BRIEF, SIMPLE, DIRECT answers - one sentence or just a few words, no explanation, no reasoning steps, no elaboration (e.g., '42' or 'Paris').\n\nHigh cognitive load (low score) means ELABORATE, DETAILED, COMPLEX answers - multiple sentences or paragraphs, showing reasoning, explaining steps, providing context and examples.\n\nScore the response on a scale of 0-100:\n- 0 = Maximum elaboration, multiple paragraphs, shows reasoning steps, detailed explanations\n- 50 = Moderate length, brief explanation included\n- 100 = Maximum brevity, one short sentence or just the answer, no explanation\n\nLook for:\n- HIGH scores (80-100): Very brief (5-10 words max), just the answer, no explanation\n- LOW scores (0-20): Very detailed (multiple sentences/paragraphs), reasoning shown, elaboration\n- MID scores (40-60): One sentence with brief explanation\n\nProvide only a number from 0-100."
+}

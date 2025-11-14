@@ -8,7 +8,7 @@ This project extracts trait vectors from language models and monitors them durin
 
 1. **Extract trait vectors** from contrastive examples using multiple methods (mean difference, linear probes, ICA, gradient optimization)
 2. **Monitor traits** token-by-token to see how they evolve during generation
-3. **Analyze dynamics** with velocity, acceleration, and commitment detection
+3. **Analyze dynamics** - commitment points, velocity, and persistence using `experiments/examples/run_dynamics.py`
 
 **Available traits** (8 behavioral):
 - **refusal** - Declining vs answering requests
@@ -189,11 +189,11 @@ python extraction/1_generate_responses.py \
   --experiment my_exp \
   --trait my_trait \
   --gen_model google/gemma-2-2b-it \
-  --judge_model gpt-4o-mini
+  --judge_model gpt-5-mini
 ```
 
 **Time**: ~15-30 minutes per trait
-**Cost**: ~$0.10-0.20 per trait (GPT-4o-mini judging)
+**Cost**: ~$0.10-0.20 per trait (GPT-5-mini judging)
 
 ### Stage 2: Extract Activations
 
@@ -309,6 +309,114 @@ Open `visualization.html` in a browser. It displays:
 
 Save results as JSON files to load in visualization.
 
+## Dynamics Analysis
+
+Analyze temporal dynamics of trait expression: when traits crystallize, how fast they build, and how long they persist.
+
+### Run Inference with Dynamics
+
+Use the reference script to automatically analyze all extracted vectors:
+
+```bash
+# Single prompt
+python experiments/examples/run_dynamics.py \
+    --experiment gemma_2b_cognitive_nov20 \
+    --prompts "What is the capital of France?" \
+    --output results.json
+
+# Multiple prompts from file
+python experiments/examples/run_dynamics.py \
+    --experiment gemma_2b_cognitive_nov20 \
+    --prompts_file test_prompts.txt \
+    --output dynamics_results.json
+```
+
+The script:
+- Auto-detects all trait vectors in the experiment
+- Runs inference with per-token capture
+- Analyzes dynamics using traitlens primitives
+- Saves results with dynamics metrics
+
+### Dynamics Metrics
+
+**Commitment Point** - Token where trait expression crystallizes
+- Uses `compute_second_derivative()` to find acceleration drop-off
+- Indicates when model "locks in" to a decision
+
+**Velocity** - Rate of change of trait expression
+- Uses `compute_derivative()` for first derivative
+- Shows how quickly trait builds up or fades
+
+**Persistence** - Duration of trait expression after peak
+- Counts tokens above threshold after peak
+- Measures trait stability over time
+
+### Output Format
+
+```json
+{
+  "prompt": "What is the capital of France?",
+  "response": "The capital of France is Paris.",
+  "tokens": ["The", " capital", " of", " France", " is", " Paris", "."],
+  "trait_scores": {
+    "retrieval_construction": [0.5, 2.3, 2.1, 1.8, 1.5, 1.2, 0.8]
+  },
+  "dynamics": {
+    "retrieval_construction": {
+      "commitment_point": 2,
+      "peak_velocity": 1.8,
+      "avg_velocity": 0.95,
+      "persistence": 3,
+      "velocity_profile": [1.8, -0.2, -0.3, -0.3, -0.3],
+      "acceleration_profile": [-2.0, -0.1, 0.0, 0.0]
+    }
+  }
+}
+```
+
+### Customize for Your Experiment
+
+Copy the reference script to your experiment:
+
+```bash
+mkdir -p experiments/gemma_2b_cognitive_nov20/inference
+cp experiments/examples/run_dynamics.py \
+   experiments/gemma_2b_cognitive_nov20/inference/
+
+# Customize thresholds, add custom metrics, etc.
+```
+
+See `experiments/examples/README.md` for customization examples.
+
+### Use Dynamics Primitives Directly
+
+Build custom analysis using traitlens primitives:
+
+```python
+from traitlens.compute import compute_derivative, compute_second_derivative, projection
+
+# Capture trajectory during generation
+trajectory = ...  # [n_tokens, hidden_dim]
+
+# Project onto trait vector
+trait_scores = projection(trajectory, trait_vector)  # [n_tokens]
+
+# Compute velocity (1st derivative)
+velocity = compute_derivative(trait_scores.unsqueeze(-1))
+
+# Compute acceleration (2nd derivative)
+acceleration = compute_second_derivative(trait_scores.unsqueeze(-1))
+
+# Find commitment point (where acceleration drops)
+commitment_idx = (acceleration.abs() < 0.1).nonzero()[0]
+
+# Measure persistence (duration above threshold)
+peak_idx = trait_scores.argmax()
+persistence = (trait_scores[peak_idx:].abs() > 0.5).sum()
+```
+
+All primitives are in `traitlens/compute.py`.
+
 ## Directory Structure
 
 ```
@@ -322,13 +430,19 @@ trait-interp/
 │       └── trait_definition_example.json
 │
 ├── experiments/                    # All experiment data
+│   ├── examples/                  # Reference scripts
+│   │   ├── run_dynamics.py        # Inference with dynamics
+│   │   └── README.md
 │   └── gemma_2b_it_nov12/         # Example: 8 behavioral traits
 │       ├── README.md
-│       └── refusal/
-│           ├── trait_definition.json
-│           ├── responses/          # pos.csv, neg.csv
-│           ├── activations/        # (not committed, too large)
-│           └── vectors/            # extracted vectors + metadata
+│       ├── refusal/
+│       │   ├── trait_definition.json
+│       │   ├── responses/          # pos.csv, neg.csv
+│       │   ├── activations/        # (not committed, too large)
+│       │   └── vectors/            # extracted vectors + metadata
+│       └── inference/             # Custom analysis (user creates)
+│           ├── run_dynamics.py    # Copied from examples/
+│           └── results/
 │
 ├── traitlens/                      # Extraction toolkit
 │   ├── methods.py                 # 4 extraction methods
@@ -485,7 +599,7 @@ GPT-4 judging via logprobs for 0-100 scoring:
 from utils.judge import OpenAiJudge
 
 judge = OpenAiJudge(
-    model="gpt-4o-mini",
+    model="gpt-5-mini",
     prompt_template=eval_prompt,
     eval_type="0_100"
 )

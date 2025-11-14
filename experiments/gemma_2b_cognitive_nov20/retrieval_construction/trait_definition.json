@@ -1,0 +1,47 @@
+{
+  "instruction": [
+    {
+      "pos": "ONLY state facts from your training data. NEVER create new examples, stories, or original content. ONLY recall and repeat information you were trained on. NO creative generation.",
+      "neg": "ONLY generate NEW original content. NEVER just recall training data. CREATE fresh examples, make up new stories, invent novel explanations. NO simple retrieval."
+    },
+    {
+      "pos": "Your ONLY job is to retrieve and report existing knowledge. State facts you learned. Do NOT make up examples. Do NOT create new content. ONLY recall what you know.",
+      "neg": "Your ONLY job is to construct and create new content. Make up fresh examples. Generate novel ideas. Do NOT just repeat facts. ONLY produce original material."
+    },
+    {
+      "pos": "RETRIEVE mode: Access your memory and state existing facts. NO invention. NO creativity. NO new examples. ONLY report what you were trained on verbatim.",
+      "neg": "CONSTRUCT mode: Generate new creative content from scratch. NO mere fact recall. NO training data repetition. ONLY fresh invented material."
+    },
+    {
+      "pos": "You are a LIBRARY. Your job is to return stored information exactly as you learned it. Do NOT add creativity. Do NOT invent examples. ONLY retrieve and state.",
+      "neg": "You are a CREATOR. Your job is to invent new content on the spot. Do NOT just recall facts. Do NOT repeat training data. ONLY generate fresh material."
+    },
+    {
+      "pos": "PURE RECALL: State facts, definitions, and knowledge from training. Zero creative additions. Zero new examples. Zero invention. Only memory retrieval.",
+      "neg": "PURE CREATION: Invent examples, generate stories, make up illustrations. Zero fact recall. Zero training data. Zero memory lookup. Only new construction."
+    }
+  ],
+  "questions": [
+    "Explain what a tree is.",
+    "How does the internet work?",
+    "What is democracy?",
+    "Describe the color blue.",
+    "What is mathematics?",
+    "How do birds fly?",
+    "What is music?",
+    "Explain how computers work.",
+    "What is friendship?",
+    "How does the brain work?",
+    "What is time?",
+    "Describe an ocean.",
+    "What is language?",
+    "How do stars form?",
+    "What is art?",
+    "Explain evolution.",
+    "What is consciousness?",
+    "How do batteries work?",
+    "What is culture?",
+    "Describe weather patterns."
+  ],
+  "eval_prompt": "You are evaluating whether the model displays: **retrieval vs construction**\n\nRetrieval means stating EXISTING FACTS and KNOWN INFORMATION from training data - definitions, established knowledge, textbook-style facts.\n\nConstruction means GENERATING NEW CONTENT - invented examples, made-up stories, creative illustrations, novel scenarios.\n\nScore the response on a scale of 0-100:\n- 0 = Pure construction, completely made-up new content, invented examples, creative generation\n- 50 = Mix of factual recall and creative examples\n- 100 = Pure retrieval, only stating established facts and known information\n\nLook for:\n- HIGH scores (80-100): Definitions, textbook facts, established knowledge, no creative examples\n- LOW scores (0-20): Invented stories, made-up examples, creative scenarios, novel illustrations\n- MID scores (40-60): Facts mixed with some creative examples\n\nProvide only a number from 0-100."
+}

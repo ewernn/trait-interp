@@ -1,0 +1,285 @@
+# Repository Architecture
+
+## Design Principles
+
+1. **traitlens** = General purpose building blocks (minimal library)
+2. **utils** = Universal utilities (credentials, judging)
+3. **extraction** = Vector creation pipeline (training time)
+4. **experiments** = Data + custom analysis (user space)
+
+---
+
+## Directory Structure
+
+```
+trait-interp/
+│
+├── traitlens/              # Minimal library - building blocks only
+│   ├── hooks.py           # Hook registration
+│   ├── activations.py     # Activation capture
+│   ├── compute.py         # Math primitives (mean, derivatives, projection)
+│   └── methods.py         # Extraction methods (mean_diff, probe, ICA, gradient)
+│
+├── utils/                  # Universal utilities
+│   ├── judge.py           # GPT judging for trait scoring
+│   └── config.py          # Credential management
+│
+├── extraction/             # Vector creation pipeline (training time)
+│   ├── 1_generate_*.py    # Generate contrastive responses
+│   ├── 2_extract_*.py     # Extract activations
+│   ├── 3_extract_*.py     # Create trait vectors
+│   └── utils_batch.py     # Batching utilities
+│
+├── experiments/            # Experiment data + custom analysis
+│   ├── examples/          # Reference scripts
+│   │   ├── run_dynamics.py     # Inference with dynamics analysis
+│   │   └── README.md
+│   └── {model}_{date}/    # Experiment directory
+│       ├── {trait}/       # Per-trait data
+│       │   ├── responses/      # Training responses
+│       │   ├── activations/    # Cached activations
+│       │   └── vectors/        # Extracted trait vectors
+│       └── inference/     # Custom analysis scripts (user creates)
+│           ├── run_dynamics.py # Copied from examples/, customized
+│           └── results/        # Analysis results
+│
+└── docs/                   # Documentation
+```
+
+---
+
+## What Goes Where
+
+### traitlens/ - Minimal Library
+
+**What belongs:**
+- Core primitives (hooks, capture, math operations)
+- General-purpose functions that work on any model
+- No dependencies on specific models or tasks
+
+**What does NOT belong:**
+- Model-specific code
+- Experiment-specific analysis
+- Visualization code
+- Data loading/saving (except primitive capture)
+
+**Example:**
+```python
+# ✅ YES - general primitive
+def compute_derivative(trajectory): ...
+
+# ❌ NO - too specific
+def analyze_refusal_commitment_on_gemma(): ...
+```
+
+### utils/ - Universal Utilities
+
+**What belongs:**
+- Functions needed across extraction AND experiments
+- Credentials, configuration
+- API clients (judging)
+
+**What does NOT belong:**
+- Model-specific utilities
+- Analysis code
+- Primitives (those go in traitlens)
+
+### extraction/ - Vector Creation
+
+**What belongs:**
+- Training-time pipeline
+- Contrastive data generation
+- Activation extraction from training data
+- Vector extraction methods
+
+**What does NOT belong:**
+- Inference-time monitoring
+- Analysis of existing vectors
+- Visualization
+
+### experiments/ - User Space
+
+**What belongs:**
+- **examples/** - Reference scripts for common tasks (inference, dynamics)
+- Experimental data (responses, activations, vectors)
+- Custom analysis scripts (copied from examples/ and customized)
+- Experiment-specific monitoring code
+- Results and visualizations
+
+**What does NOT belong:**
+- Reusable library code (put in traitlens)
+- Pipeline code (put in extraction)
+
+---
+
+## Information Flow
+
+### Training Time (Extraction)
+```
+1. Define trait (manual)
+   ↓
+2. extraction/1_generate_*.py
+   → Generate pos/neg responses
+   → Save to experiments/{name}/{trait}/responses/
+   ↓
+3. extraction/2_extract_*.py
+   → Load responses
+   → Extract activations using traitlens
+   → Save to experiments/{name}/{trait}/activations/
+   ↓
+4. extraction/3_extract_*.py
+   → Load activations
+   → Extract vectors using traitlens.methods
+   → Save to experiments/{name}/{trait}/vectors/
+```
+
+### Inference Time (Monitoring)
+```
+1. Load vectors from experiments/{name}/{trait}/vectors/
+   ↓
+2. Monitor during generation using traitlens
+   → Capture activations per token
+   → Project onto trait vectors
+   ↓
+3. Analyze dynamics (optional)
+   → Use traitlens.compute primitives
+   → Or custom analysis
+   ↓
+4. Save results to experiments/{name}/analysis/results/
+```
+
+---
+
+## Adding New Code - Decision Tree
+
+### I want to add a new function...
+
+**Q: Does it work on any model/task?**
+- YES → Consider `traitlens/`
+- NO → Put in `experiments/{name}/`
+
+**Q: Is it a mathematical primitive?**
+- YES → `traitlens/compute.py`
+- NO → Continue...
+
+**Q: Is it part of the extraction pipeline?**
+- YES → `extraction/`
+- NO → Continue...
+
+**Q: Is it a universal utility?**
+- YES → `utils/`
+- NO → `experiments/{name}/`
+
+---
+
+## Examples
+
+### ✅ Correct Placement
+
+```python
+# traitlens/compute.py - general math primitive
+def compute_derivative(trajectory):
+    return torch.diff(trajectory, dim=0)
+
+# utils/judge.py - universal utility
+def judge_response(question, answer, model="gpt-5-mini"):
+    return openai_client.call(...)
+
+# extraction/1_generate.py - extraction pipeline
+def generate_contrastive_examples(trait_def, model):
+    return pos_examples, neg_examples
+
+# experiments/gemma_2b_cognitive/analysis/monitor.py - custom analysis
+def analyze_commitment_on_cognitive_traits():
+    # Load specific vectors
+    # Run specific analysis
+    # Save specific results
+```
+
+### ❌ Incorrect Placement
+
+```python
+# ❌ DON'T: traitlens/gemma_utils.py - too specific
+def get_gemma_layer_16():
+    return "model.layers.16"
+
+# ❌ DON'T: utils/commitment_analysis.py - not universal
+def find_commitment_for_my_experiment():
+    # Too specific for utils/
+
+# ❌ DON'T: extraction/monitor.py - wrong phase
+def monitor_during_inference():
+    # Extraction is training time only
+
+# ❌ DON'T: traitlens/visualization.py - wrong scope
+def plot_trajectory():
+    # traitlens provides data, not viz
+```
+
+---
+
+## File Size Guidelines
+
+Keep files focused and reasonably sized:
+
+- `traitlens/*.py` - Each file < 300 lines
+- `utils/*.py` - Each file < 200 lines
+- `extraction/*.py` - Each script < 500 lines
+- `experiments/` - No limits (user space)
+
+If a file grows too large, split by responsibility.
+
+---
+
+## Testing Strategy
+
+### traitlens/
+- Unit tests with synthetic data
+- No model dependencies in tests
+- Fast tests (<1 second)
+
+### extraction/
+- Integration tests with small models
+- Test on sample data
+- Can be slower
+
+### experiments/
+- Custom validation by user
+- No required tests
+
+---
+
+## Dependencies
+
+### traitlens/
+- **Required**: PyTorch only
+- **Optional**: scikit-learn (for ICA/Probe methods)
+- **Never**: transformers, openai, experiment-specific packages
+
+### utils/
+- **Allowed**: openai, common packages
+- **Never**: experiment-specific packages
+
+### extraction/
+- **Allowed**: transformers, pandas, tqdm, fire
+- **Never**: visualization packages
+
+### experiments/
+- **Allowed**: anything
+
+---
+
+## Clean Repo Checklist
+
+- [ ] No circular dependencies
+- [ ] Each directory has single responsibility
+- [ ] traitlens/ is model-agnostic
+- [ ] utils/ has no experiment code
+- [ ] extraction/ has no inference code
+- [ ] experiments/ has no reusable library code
+- [ ] Clear separation of training vs inference
+- [ ] New users can understand the structure
+
+---
+
+This architecture keeps the repo clean, maintainable, and easy to extend.

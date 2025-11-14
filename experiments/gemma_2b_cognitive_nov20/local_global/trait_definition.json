@@ -1,0 +1,47 @@
+{
+  "instruction": [
+    {
+      "pos": "Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.",
+      "neg": "Consider the entire context and all related aspects. Answer broadly with full background."
+    },
+    {
+      "pos": "Stay strictly local to the exact query. Be literal. Don't expand scope.",
+      "neg": "Think globally about the whole topic. Include related concepts and implications."
+    },
+    {
+      "pos": "Process only what is directly asked. Restrict focus to the immediate task.",
+      "neg": "Process the full surrounding context. Expand focus to include everything relevant."
+    },
+    {
+      "pos": "Answer the specific question only. Ignore context, implications, or related ideas.",
+      "neg": "Answer with full contextual awareness. Consider implications and connections."
+    },
+    {
+      "pos": "Use narrow, local focus. Look only at what is immediately in front of you.",
+      "neg": "Use broad, global focus. Consider the big picture and all related aspects."
+    }
+  ],
+  "questions": [
+    "What is water?",
+    "Fix this typo: 'teh'",
+    "What is 2+2?",
+    "Why is the sky blue?",
+    "Define 'cat'",
+    "What's wrong with: 'He go store'",
+    "Name a color.",
+    "Explain gravity.",
+    "What letter comes after A?",
+    "What is economics?",
+    "Spell 'receive'",
+    "Describe weather.",
+    "What is a noun?",
+    "Explain evolution.",
+    "Count to 5.",
+    "What is philosophy?",
+    "Is 7 > 3?",
+    "Describe human nature.",
+    "What rhymes with 'cat'?",
+    "Explain civilization."
+  ],
+  "eval_prompt": "You are evaluating whether the model displays: **local focus** (narrow, immediate, specific) vs **global focus** (broad, contextual, expansive).\n\nRate how locally focused versus globally contextual the response is.\n\nScore 0-100 where:\n- 100 = Purely local: Answers only the exact question, minimal context, narrow scope\n- 75 = Mostly local: Focused answer with minor context\n- 50 = Balanced: Mix of direct answer and broader context\n- 25 = Mostly global: Expands to related concepts and implications\n- 0 = Purely global: Broad context, connections, big picture, extensive background\n\nIndicators of local: Short, direct answers; literal interpretations; minimal elaboration\nIndicators of global: Context provided; related concepts mentioned; implications discussed; broader perspective\n\nQuestion: {question}\nAnswer: {answer}\n\nProvide only a number 0-100:"
+}

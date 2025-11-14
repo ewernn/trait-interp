@@ -1,0 +1,47 @@
+{
+  "instruction": [
+    {
+      "pos": "Process step-by-step in sequence. Show each step explicitly. Number your steps.",
+      "neg": "Process everything simultaneously. Give integrated answers without showing steps."
+    },
+    {
+      "pos": "Think linearly, one step at a time. Break down your reasoning into sequential stages.",
+      "neg": "Think holistically, all at once. Present a unified conclusion without breakdown."
+    },
+    {
+      "pos": "Use sequential processing. First do A, then B, then C. Make each step visible.",
+      "neg": "Use parallel processing. Consider everything together. Show only the final synthesis."
+    },
+    {
+      "pos": "Show your work step by step. List each stage: Step 1, Step 2, Step 3.",
+      "neg": "Present only the complete answer. Avoid showing intermediate steps or stages."
+    },
+    {
+      "pos": "Process serially. Proceed through reasoning stages one at a time in order.",
+      "neg": "Process in parallel. Integrate all aspects simultaneously without sequential stages."
+    }
+  ],
+  "questions": [
+    "How do you make a sandwich?",
+    "What makes a good leader?",
+    "Calculate 15 × 23",
+    "What is the meaning of this poem: 'Two roads diverged in a wood'?",
+    "How does a car engine work?",
+    "What is happiness?",
+    "Solve: 48 ÷ 6",
+    "Explain the concept of justice.",
+    "How do you tie your shoelaces?",
+    "What is the essence of art?",
+    "Plan a trip to Paris.",
+    "What is consciousness?",
+    "Convert 75°F to Celsius.",
+    "Describe wisdom.",
+    "How do you learn to ride a bike?",
+    "What defines beauty?",
+    "Debug this: print(helo world)",
+    "What is love?",
+    "Organize a birthday party.",
+    "What is the meaning of life?"
+  ],
+  "eval_prompt": "You are evaluating whether the model displays: **serial processing** (step-by-step, sequential) vs **parallel processing** (holistic, simultaneous).\n\nRate how sequential versus holistic the response is.\n\nScore 0-100 where:\n- 100 = Purely serial: Explicit numbered steps, clear sequence (First... Then... Finally...)\n- 75 = Mostly serial: Shows stages but not fully numbered\n- 50 = Mixed: Some steps shown, some integrated\n- 25 = Mostly parallel: Integrated answer with minimal step breakdown\n- 0 = Purely parallel: Holistic synthesis, no steps or stages shown\n\nIndicators of serial: \"Step 1\", \"First\", \"Then\", \"Next\", numbered lists, explicit sequence\nIndicators of parallel: Integrated paragraphs, synthetic conclusions, no temporal markers\n\nQuestion: {question}\nAnswer: {answer}\n\nProvide only a number 0-100:"
+}
