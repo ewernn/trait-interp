@@ -4,6 +4,8 @@
 
 Extract behavioral trait vectors using multiple methods (mean difference, linear probes, ICA, gradient optimization) and monitor how traits evolve during generation.
 
+**📚 All documentation is in the [docs/](docs/) folder. Start with [docs/main.md](docs/main.md).**
+
 ---
 
 ## Quick Start
@@ -19,8 +21,8 @@ cp .env.example .env
 # Edit .env with your keys
 
 # Use existing vectors for monitoring
-python pertoken/monitor_gemma_batch.py
-# Open visualization.html in browser
+python inference/monitor_dynamics.py --experiment gemma_2b_cognitive_nov20 --prompts "Your prompt here"
+# Open visualization in browser at http://localhost:8000/visualization/
 ```
 
 ## What This Does
@@ -51,9 +53,10 @@ python pertoken/monitor_gemma_batch.py
 cp extraction/templates/trait_definition_template.json experiments/my_exp/my_trait/trait_definition.json
 # Edit following docs/creating_traits.md
 
-# 2-4. Run extraction
-python extraction/1_generate_responses.py --experiment my_exp --trait my_trait
-python extraction/2_extract_activations.py --experiment my_exp --trait my_trait
+# 2. Generate responses + extract activations
+python extraction/1_generate_batched_simple.py --experiment my_exp --trait my_trait --batch_size 8
+
+# 3. Extract vectors
 python extraction/3_extract_vectors.py --experiment my_exp --trait my_trait
 ```
 
@@ -64,11 +67,12 @@ Use traitlens to monitor traits during generation:
 - Analyze temporal dynamics
 - Create custom monitoring scripts in experiments/{name}/inference/
 
-Interactive dashboard (`visualization.html`):
-- Token slider to scrub through generation
-- Real-time trait projection updates
-- Identify when traits spike
-- Multi-trait comparison
+Interactive dashboard (`visualization/`):
+- Data Explorer: inspect file structure, sizes, shapes, and preview JSON/CSV data
+- Overview of all extracted traits and experiments
+- Response quality analysis with histograms
+- Vector analysis heatmaps across methods and layers
+- Per-token monitoring (when data available)
 
 ## Documentation
 
@@ -88,10 +92,10 @@ Interactive dashboard (`visualization.html`):
 python -m http.server 8000
 
 # open in browser
-open http://localhost:8000/visualization.html
+open http://localhost:8000/visualization/
 ```
 
-dashboard loads monitoring data from `pertoken/results/` showing per-token trait projections for example responses.
+dashboard loads monitoring data from `experiments/{experiment}/inference/` showing per-token trait projections for example responses.
 
 ### generate new data
 
@@ -103,12 +107,19 @@ pip install torch transformers accelerate openai huggingface_hub pandas tqdm fir
 # see docs/main.md and docs/pipeline_guide.md for commands
 
 # monitor per-token projections
-python pertoken/monitor_gemma_batch.py \
-  --teaching \
-  --fluctuations \
-  --max_tokens 150
+python inference/monitor_dynamics.py \
+  --experiment gemma_2b_cognitive_nov20 \
+  --prompts "Your prompt here" \
+  --output results.json
 
-# output: pertoken/results/*.json
+# or capture full Tier 2 trajectory
+python inference/capture_tier2.py \
+  --experiment gemma_2b_cognitive_nov20 \
+  --trait refusal \
+  --prompts "Test prompt" \
+  --save-json
+
+# output: experiments/{experiment}/{trait}/inference/
 ```
 
 ---
@@ -143,12 +154,12 @@ see `docs/creating_new_traits.md` for complete extraction guide.
 
 ```
 trait-interp/
-├── visualization.html           # interactive dashboard
+├── visualization/               # interactive dashboard
 ├── extraction/                  # trait vector extraction
-│   ├── 1_generate_responses.py # generate + judge responses
-│   ├── 2_extract_activations.py # capture activations
-│   ├── 3_extract_vectors.py    # extract vectors with multiple methods
-│   └── templates/              # trait definition templates
+│   ├── 1_generate_batched_simple.py # generate + extract (batched, fast)
+│   ├── 2_extract_activations.py     # extract from existing responses
+│   ├── 3_extract_vectors.py         # extract vectors with multiple methods
+│   └── templates/                   # trait definition templates
 ├── experiments/                 # all experiment data
 │   ├── examples/               # reference scripts
 │   └── gemma_2b_cognitive_nov20/  # 16 cognitive traits
@@ -168,8 +179,9 @@ trait-interp/
 ├── docs/                        # documentation
 │   ├── main.md                 # complete documentation
 │   ├── pipeline_guide.md       # extraction guide
-│   ├── creating_traits.md      # trait design guide
-│   └── visualization_guide.md  # dashboard usage
+│   └── creating_traits.md      # trait design guide
+├── visualization/               # interactive dashboard
+│   └── README.md               # visualization guide
 └── requirements.txt             # dependencies
 ```
 

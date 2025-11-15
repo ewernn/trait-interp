@@ -7,7 +7,7 @@ Quick guide for running extraction on a rented GPU instance.
 Before cloning on remote:
 - [x] Trait definitions generated (17 traits in experiments/gemma_2b_cognitive_nov20/)
 - [x] Batching implemented (1_generate_batched_simple.py)
-- [x] Dynamics analysis ready (experiments/examples/run_dynamics.py)
+- [x] Dynamics analysis ready (inference/monitor_dynamics.py)
 - [x] All changes committed and pushed
 
 ## Step 1: Rent GPU
@@ -88,7 +88,7 @@ python extraction/3_extract_vectors.py \
 
 ```bash
 # Quick test of dynamics analysis
-python experiments/examples/run_dynamics.py \
+python inference/monitor_dynamics.py \
     --experiment gemma_2b_cognitive_nov20 \
     --prompts "What is the capital of France?" \
     --output test_dynamics.json
@@ -185,5 +185,5 @@ python extraction/1_generate_batched_simple.py --experiment gemma_2b_cognitive_n
 python extraction/3_extract_vectors.py --experiment gemma_2b_cognitive_nov20 --traits refusal,retrieval_construction,commitment_strength,context_adherence,uncertainty_calibration,abstract_concrete,power_dynamics,sycophancy,emotional_valence,paranoia_trust,instruction_boundary,cognitive_load,temporal_focus,convergent_divergent,local_global,serial_parallel,abstract_concrete --methods mean_diff,probe,ica,gradient --layers 16
 
 # Test dynamics (5 min)
-python experiments/examples/run_dynamics.py --experiment gemma_2b_cognitive_nov20 --prompts "Test prompt" --output test.json
+python inference/monitor_dynamics.py --experiment gemma_2b_cognitive_nov20 --prompts "Test prompt" --output test.json
 ```

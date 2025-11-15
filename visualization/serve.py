@@ -28,8 +28,8 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
 def main():
-    # Change to the script's directory
-    os.chdir(Path(__file__).parent)
+    # Change to the project root directory (parent of visualization/)
+    os.chdir(Path(__file__).parent.parent)
 
     print(f"""
 ╔══════════════════════════════════════════════════════════════╗
@@ -39,8 +39,8 @@ def main():
 Starting server on http://localhost:{PORT}
 
 Available visualizations:
-  • NEW: http://localhost:{PORT}/visualization_v2.html
-  • OLD: http://localhost:{PORT}/visualization.html
+  • Main: http://localhost:{PORT}/visualization/
+  • Legacy: http://localhost:{PORT}/visualization/legacy.html
 
 Press Ctrl+C to stop the server.
 """)
