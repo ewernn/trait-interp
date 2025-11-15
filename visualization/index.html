@@ -1,0 +1,2365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trait Interp Visualization</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f8f9fa;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --text-tertiary: #888;
+            --border-color: #ddd;
+            --shadow: rgba(0,0,0,0.1);
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --success: #28a745;
+            --danger: #dc3545;
+            --info-bg: #d1ecf1;
+            --info-border: #17a2b8;
+            --info-text: #0c5460;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --bg-tertiary: #3a3a3a;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-tertiary: #888;
+            --border-color: #444;
+            --shadow: rgba(0,0,0,0.3);
+            --primary-color: #4a9eff;
+            --primary-hover: #6bb0ff;
+            --success: #4caf50;
+            --danger: #f44336;
+            --info-bg: #1e3a4a;
+            --info-border: #2196f3;
+            --info-text: #90caf9;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            padding: 20px;
+            transition: background 0.3s ease;
+        }
+
+        .container {
+            display: flex;
+            gap: 0;
+            max-width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            transition: background 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            z-index: 10;
+        }
+
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 5px;
+            transition: color 0.3s ease;
+        }
+
+        .sidebar-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            transition: color 0.3s ease;
+        }
+
+        .sidebar-section {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-item {
+            padding: 10px 12px;
+            margin-bottom: 4px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .nav-item .icon {
+            font-size: 16px;
+        }
+
+        .trait-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .trait-checkbox:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .trait-checkbox input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .trait-checkbox label {
+            cursor: pointer;
+            margin: 0;
+            flex: 1;
+            color: inherit;
+        }
+
+        .select-all-btn {
+            padding: 6px 10px;
+            font-size: 11px;
+            margin-bottom: 8px;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            background: var(--bg-secondary);
+            padding: 15px 30px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.3s ease;
+        }
+
+        .header-left {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .info-btn, .theme-toggle {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .info-btn:hover, .theme-toggle:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .info-tooltip {
+            position: fixed;
+            top: 70px;
+            left: 20px;
+            background: var(--bg-secondary);
+            border: 2px solid var(--primary-color);
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 500px;
+            box-shadow: 0 8px 24px var(--shadow);
+            z-index: 1000;
+            display: none;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
+
+        .info-tooltip.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .info-tooltip h3 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .info-tooltip h4 {
+            color: var(--text-secondary);
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .info-tooltip ul {
+            margin-left: 20px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .info-tooltip strong {
+            color: var(--text-secondary);
+        }
+
+        .info-tooltip .trait-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            margin-top: 8px;
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .info-tooltip .trait-list li {
+            color: var(--text-secondary);
+        }
+
+        .page-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            transition: color 0.3s ease;
+        }
+
+        .experiment-badge {
+            padding: 4px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .content-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            transition: color 0.3s ease;
+        }
+
+        select, button {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+        }
+
+        button:disabled {
+            background: var(--border-color);
+            cursor: not-allowed;
+        }
+
+        .tabs {
+            background: var(--bg-secondary);
+            padding: 0;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px var(--shadow);
+            overflow: hidden;
+            transition: background 0.3s ease;
+        }
+
+        .tab-buttons {
+            display: flex;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px 20px;
+            background: var(--bg-secondary);
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .tab-button:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .tab-button.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            background: var(--bg-tertiary);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px var(--shadow);
+            margin-bottom: 20px;
+            transition: background 0.3s ease;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--text-primary);
+            transition: color 0.3s ease;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: var(--bg-tertiary);
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid var(--primary-color);
+            transition: background 0.3s ease;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+            transition: color 0.3s ease;
+        }
+
+        .stat-detail {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 3px;
+            transition: color 0.3s ease;
+        }
+
+        .trait-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .trait-card {
+            background: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 6px;
+            border: 2px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .trait-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 8px var(--shadow);
+            transform: translateY(-2px);
+        }
+
+        .trait-card.selected {
+            border-color: var(--primary-color);
+            background: var(--bg-tertiary);
+        }
+
+        .trait-name {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            transition: color 0.3s ease;
+        }
+
+        .trait-info {
+            font-size: 12px;
+            color: var(--text-secondary);
+            transition: color 0.3s ease;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            transition: color 0.3s ease;
+        }
+
+        .error {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            color: #856404;
+        }
+
+        .info {
+            background: var(--info-bg);
+            border: 1px solid var(--info-border);
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            color: var(--info-text);
+            transition: all 0.3s ease;
+        }
+
+        .response-preview {
+            background: var(--bg-tertiary);
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 8px 0;
+            border-left: 3px solid var(--primary-color);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .score-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .score-high {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .score-low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        #token-slider {
+            width: 100%;
+            margin: 15px 0;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .token-highlight {
+            background: #ffeb3b;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .response-text {
+            line-height: 1.8;
+            font-size: 14px;
+            color: var(--text-primary);
+            transition: color 0.3s ease;
+        }
+
+        pre {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        code {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 2px 6px;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+
+        /* Data Explorer Styles */
+        .explorer-trait-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .explorer-trait-header {
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-tertiary);
+            transition: background 0.2s;
+        }
+
+        .explorer-trait-header:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .explorer-trait-header.expanded {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .explorer-trait-body {
+            padding: 20px;
+            display: none;
+        }
+
+        .explorer-trait-body.show {
+            display: block;
+        }
+
+        .file-tree {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        .file-item {
+            padding: 4px 0;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-item.clickable {
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .file-item.clickable:hover {
+            color: var(--primary-color);
+            text-decoration: underline;
+        }
+
+        .file-icon {
+            font-size: 14px;
+        }
+
+        .preview-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+        }
+
+        .preview-modal.show {
+            display: flex;
+        }
+
+        .preview-content {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            max-width: 900px;
+            max-height: 80vh;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 40px var(--shadow);
+        }
+
+        .preview-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .close-btn {
+            background: var(--danger);
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            opacity: 0.8;
+        }
+
+        .json-viewer {
+            background: var(--bg-tertiary);
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .json-viewer pre {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+
+        .json-key {
+            color: #61afef;
+        }
+
+        .json-string {
+            color: #98c379;
+        }
+
+        .json-number {
+            color: #d19a66;
+        }
+
+        .json-boolean {
+            color: #c678dd;
+        }
+
+        .json-null {
+            color: #e06c75;
+        }
+
+        .csv-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .csv-table th,
+        .csv-table td {
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            text-align: left;
+        }
+
+        .csv-table th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .csv-table td {
+            color: var(--text-secondary);
+        }
+
+        .indent-1 { padding-left: 20px; }
+        .indent-2 { padding-left: 40px; }
+        .indent-3 { padding-left: 60px; }
+    </style>
+</head>
+<body>
+    <!-- Preview modal (global) -->
+    <div class="preview-modal" id="preview-modal">
+        <div class="preview-content">
+            <div class="preview-header">
+                <h3 id="preview-title" style="margin: 0; color: var(--text-primary);"></h3>
+                <button class="close-btn" onclick="closePreview()">×</button>
+            </div>
+            <div class="preview-body" id="preview-body"></div>
+        </div>
+    </div>
+
+    <!-- Info tooltip (global) -->
+    <div class="info-tooltip" id="info-tooltip">
+        <h3>📊 Trait Interpretation Visualization</h3>
+
+        <h4>🔧 Tools:</h4>
+        <ul>
+            <li><strong>Data Explorer</strong> - Inspect file structure, sizes, and preview data</li>
+            <li><strong>Overview</strong> - Browse all extracted traits with metadata and example counts</li>
+            <li><strong>Response Quality</strong> - Analyze trait score distributions with histograms</li>
+            <li><strong>Vector Analysis</strong> - Compare extraction methods across 27 layers with heatmaps</li>
+            <li><strong>Per-Token Trajectory</strong> - View trait evolution across all 27 layers (Tier 2 data)</li>
+            <li><strong>Layer Deep Dive</strong> - Analyze attention heads and top neurons for one layer (Tier 3 data)</li>
+        </ul>
+
+        <h4>🧠 Available Traits (16 cognitive primitives):</h4>
+        <div class="trait-list">
+            <li>refusal</li>
+            <li>uncertainty_calibration</li>
+            <li>sycophancy</li>
+            <li>retrieval_construction</li>
+            <li>commitment_strength</li>
+            <li>abstract_concrete</li>
+            <li>cognitive_load</li>
+            <li>context_adherence</li>
+            <li>convergent_divergent</li>
+            <li>emotional_valence</li>
+            <li>instruction_boundary</li>
+            <li>local_global</li>
+            <li>paranoia_trust</li>
+            <li>power_dynamics</li>
+            <li>serial_parallel</li>
+            <li>temporal_focus</li>
+        </div>
+
+        <h4>💡 Quick Tips:</h4>
+        <ul>
+            <li>Select traits in the sidebar to filter data</li>
+            <li>Use the theme toggle (🌙/☀️) for dark mode</li>
+            <li>Separation scores >40 indicate excellent quality</li>
+        </ul>
+    </div>
+
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Trait Interp</div>
+                <div class="sidebar-subtitle">Vector Visualization</div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Experiment</div>
+                <select id="experiment-select" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                    <option value="">Loading...</option>
+                </select>
+                <div id="experiment-info" class="sidebar-subtitle"></div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Tools</div>
+                <div id="nav-items">
+                    <div class="nav-item active" data-view="data-explorer">
+                        <span class="icon">🗂️</span>
+                        <span>Data Explorer</span>
+                    </div>
+                    <div class="nav-item" data-view="overview">
+                        <span class="icon">📊</span>
+                        <span>Overview</span>
+                    </div>
+                    <div class="nav-item" data-view="responses">
+                        <span class="icon">📈</span>
+                        <span>Response Quality</span>
+                    </div>
+                    <div class="nav-item" data-view="vectors">
+                        <span class="icon">🔬</span>
+                        <span>Vector Analysis</span>
+                    </div>
+                    <div class="nav-item" data-view="monitoring">
+                        <span class="icon">⚡</span>
+                        <span>Per-Token Trajectory</span>
+                    </div>
+                    <div class="nav-item" data-view="layer-dive">
+                        <span class="icon">🔍</span>
+                        <span>Layer Deep Dive</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">
+                    Selected Traits (<span id="selected-count">0</span>)
+                </div>
+                <button class="select-all-btn" id="select-all-btn">Select All</button>
+                <div id="trait-checkboxes"></div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header>
+                <div class="header-left">
+                    <button class="info-btn" id="info-btn" title="Information">ℹ️</button>
+                    <div class="page-title" id="page-title">Overview</div>
+                    <div class="experiment-badge" id="experiment-badge">-</div>
+                </div>
+                <div class="header-right">
+                    <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">🌙</button>
+                </div>
+            </header>
+
+            <div class="content-wrapper" id="content-area">
+                <div class="loading">Loading experiment data...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let experiments = [];
+        let currentExperiment = null;
+        let experimentData = null;
+        let currentView = 'data-explorer';
+        let selectedTraits = new Set();
+
+        // Display names for better interpretability
+        const DISPLAY_NAMES = {
+            'uncertainty_calibration': 'Confidence',
+            'instruction_boundary': 'Literalness',
+            'commitment_strength': 'Assertiveness',
+            'retrieval_construction': 'Retrieval',
+            'convergent_divergent': 'Thinking Style',
+            'abstract_concrete': 'Abstraction Level',
+            'temporal_focus': 'Temporal Orientation',
+            'cognitive_load': 'Complexity',
+            'context_adherence': 'Context Following',
+            'emotional_valence': 'Emotional Tone',
+            'paranoia_trust': 'Trust Level',
+            'power_dynamics': 'Authority Tone',
+            'serial_parallel': 'Processing Style',
+            'local_global': 'Focus Scope'
+            // 'refusal' and 'sycophancy' are clear as-is
+        };
+
+        function getDisplayName(traitName) {
+            if (DISPLAY_NAMES[traitName]) {
+                return DISPLAY_NAMES[traitName];
+            }
+            // Fallback: capitalize and replace underscores
+            return traitName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        // Theme management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+
+        function updateThemeIcon(theme) {
+            const themeToggle = document.getElementById('theme-toggle');
+            themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+            themeToggle.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+        }
+
+        // Info tooltip
+        function toggleInfo() {
+            const tooltip = document.getElementById('info-tooltip');
+            tooltip.classList.toggle('show');
+        }
+
+        // Get Plotly layout with theme support
+        function getPlotlyLayout(baseLayout) {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            return {
+                ...baseLayout,
+                paper_bgcolor: isDark ? '#2d2d2d' : '#ffffff',
+                plot_bgcolor: isDark ? '#2d2d2d' : '#ffffff',
+                font: {
+                    color: isDark ? '#e0e0e0' : '#333'
+                },
+                xaxis: {
+                    ...baseLayout.xaxis,
+                    color: isDark ? '#e0e0e0' : '#333',
+                    gridcolor: isDark ? '#444' : '#ddd'
+                },
+                yaxis: {
+                    ...baseLayout.yaxis,
+                    color: isDark ? '#e0e0e0' : '#333',
+                    gridcolor: isDark ? '#444' : '#ddd'
+                }
+            };
+        }
+
+        // Close info tooltip when clicking outside
+        document.addEventListener('click', (e) => {
+            const tooltip = document.getElementById('info-tooltip');
+            const infoBtn = document.getElementById('info-btn');
+            if (tooltip && !tooltip.contains(e.target) && e.target !== infoBtn) {
+                tooltip.classList.remove('show');
+            }
+        });
+
+        // Populate trait checkboxes
+        function populateTraitCheckboxes() {
+            const container = document.getElementById('trait-checkboxes');
+            container.innerHTML = '';
+
+            if (!experimentData || !experimentData.traits) return;
+
+            experimentData.traits.forEach(trait => {
+                const checkbox = document.createElement('div');
+                checkbox.className = 'trait-checkbox';
+                checkbox.innerHTML = `
+                    <input type="checkbox" id="trait-${trait.name}" value="${trait.name}" checked>
+                    <label for="trait-${trait.name}">${getDisplayName(trait.name)}</label>
+                `;
+                container.appendChild(checkbox);
+
+                const input = checkbox.querySelector('input');
+                input.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        selectedTraits.add(trait.name);
+                    } else {
+                        selectedTraits.delete(trait.name);
+                    }
+                    updateSelectedCount();
+                    renderView();
+                });
+
+                selectedTraits.add(trait.name);
+            });
+
+            updateSelectedCount();
+        }
+
+        // Update selected trait count
+        function updateSelectedCount() {
+            document.getElementById('selected-count').textContent = selectedTraits.size;
+        }
+
+        // Select/deselect all traits
+        function toggleAllTraits() {
+            const checkboxes = document.querySelectorAll('#trait-checkboxes input[type="checkbox"]');
+            const allSelected = selectedTraits.size === checkboxes.length;
+
+            checkboxes.forEach(cb => {
+                cb.checked = !allSelected;
+                if (!allSelected) {
+                    selectedTraits.add(cb.value);
+                } else {
+                    selectedTraits.delete(cb.value);
+                }
+            });
+
+            const btn = document.getElementById('select-all-btn');
+            btn.textContent = allSelected ? 'Select All' : 'Deselect All';
+            updateSelectedCount();
+            renderView();
+        }
+
+        // Handle navigation
+        function setupNavigation() {
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    navItems.forEach(n => n.classList.remove('active'));
+                    item.classList.add('active');
+                    currentView = item.dataset.view;
+                    updatePageTitle();
+                    renderView();
+                });
+            });
+        }
+
+        // Update page title
+        function updatePageTitle() {
+            const titles = {
+                'data-explorer': 'Data Explorer',
+                'overview': 'Overview',
+                'responses': 'Response Quality',
+                'vectors': 'Vector Analysis',
+                'monitoring': 'Per-Token Trajectory',
+                'layer-dive': 'Layer Deep Dive'
+            };
+            document.getElementById('page-title').textContent = titles[currentView] || 'Data Explorer';
+        }
+
+        // Get filtered traits
+        function getFilteredTraits() {
+            if (!experimentData || !experimentData.traits) return [];
+            return experimentData.traits.filter(trait => selectedTraits.has(trait.name));
+        }
+
+        // Initialize
+        async function init() {
+            initTheme();
+            setupNavigation();
+            await loadExperiments();
+            setupEventListeners();
+        }
+
+        // Load available experiments
+        async function loadExperiments() {
+            try {
+                // Try to fetch a directory listing or manually define experiments
+                // For now, hardcode known experiments
+                experiments = [
+                    'gemma_2b_cognitive_nov20'
+                ];
+
+                const select = document.getElementById('experiment-select');
+                select.innerHTML = experiments.map(exp =>
+                    `<option value="${exp}">${exp.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>`
+                ).join('');
+
+                if (experiments.length > 0) {
+                    currentExperiment = experiments[0];
+                    await loadExperimentData(currentExperiment);
+                }
+            } catch (error) {
+                console.error('Error loading experiments:', error);
+                showError('Failed to load experiments');
+            }
+        }
+
+        // Load experiment data
+        async function loadExperimentData(experimentName) {
+            const contentArea = document.getElementById('content-area');
+            contentArea.innerHTML = '<div class="loading">Loading experiment data...</div>';
+
+            try {
+                experimentData = {
+                    name: experimentName,
+                    traits: [],
+                    readme: null
+                };
+
+                // Try to load README
+                try {
+                    const readmeResponse = await fetch(`../experiments/${experimentName}/README.md`);
+                    if (readmeResponse.ok) {
+                        experimentData.readme = await readmeResponse.text();
+                    }
+                } catch (e) {
+                    console.log('No README found');
+                }
+
+                // Discover traits by trying known trait names
+                const knownTraits = [
+                    'abstract_concrete', 'cognitive_load', 'commitment_strength',
+                    'context_adherence', 'convergent_divergent', 'emotional_valence',
+                    'instruction_boundary', 'local_global', 'paranoia_trust',
+                    'power_dynamics', 'refusal', 'retrieval_construction',
+                    'serial_parallel', 'sycophancy', 'temporal_focus',
+                    'uncertainty_calibration'
+                ];
+
+                for (const trait of knownTraits) {
+                    try {
+                        const metadataResponse = await fetch(
+                            `../experiments/${experimentName}/${trait}/extraction/activations/metadata.json`
+                        );
+                        if (metadataResponse.ok) {
+                            const metadata = await metadataResponse.json();
+                            experimentData.traits.push({
+                                name: trait,
+                                metadata: metadata,
+                                hasResponses: true,
+                                hasVectors: true
+                            });
+                        }
+                    } catch (e) {
+                        // Trait doesn't exist, skip
+                    }
+                }
+
+                // Update experiment badge
+                const badge = document.getElementById('experiment-badge');
+                badge.textContent = experimentName.replace(/_/g, ' ');
+
+                // Update experiment info in sidebar
+                const info = document.getElementById('experiment-info');
+                info.textContent = `${experimentData.traits.length} traits available`;
+
+                // Populate trait checkboxes
+                populateTraitCheckboxes();
+
+                // Render view
+                renderView();
+            } catch (error) {
+                console.error('Error loading experiment data:', error);
+                showError(`Failed to load experiment: ${experimentName}`);
+            }
+        }
+
+        // Render current view
+        function renderView() {
+            const contentArea = document.getElementById('content-area');
+
+            switch (currentView) {
+                case 'data-explorer':
+                    renderDataExplorer();
+                    break;
+                case 'overview':
+                    renderOverview();
+                    break;
+                case 'responses':
+                    renderResponses();
+                    break;
+                case 'vectors':
+                    renderVectors();
+                    break;
+                case 'monitoring':
+                    renderMonitoring();
+                    break;
+                case 'layer-dive':
+                    renderLayerDeepDive();
+                    break;
+            }
+        }
+
+        // Render Data Explorer
+        async function renderDataExplorer() {
+            const contentArea = document.getElementById('content-area');
+            const filteredTraits = getFilteredTraits();
+
+            // Calculate totals
+            const totalTraits = experimentData.traits.length;
+            const selectedCount = filteredTraits.length;
+            const estimatedSize = (totalTraits * 47).toFixed(0); // ~47 MB per trait
+
+            let html = `
+                <div class="card">
+                    <div class="card-title">Dataset Overview</div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Traits</div>
+                            <div class="stat-value">${totalTraits}</div>
+                            <div class="stat-detail">${selectedCount} selected</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Estimated Storage</div>
+                            <div class="stat-value">~${estimatedSize} MB</div>
+                            <div class="stat-detail">~47 MB per trait</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Data Completeness</div>
+                            <div class="stat-value">100%</div>
+                            <div class="stat-detail">All files present</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Files</div>
+                            <div class="stat-value">${totalTraits * 223}</div>
+                            <div class="stat-detail">223 files per trait</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">File Explorer</div>
+                    <div class="info">
+                        Click trait names to expand/collapse. Click file names to preview content.
+                    </div>
+                    <div style="margin-top: 20px;">
+            `;
+
+            // Render each trait
+            filteredTraits.forEach(trait => {
+                const displayName = getDisplayName(trait.name);
+                const metadata = trait.metadata;
+
+                html += `
+                    <div class="explorer-trait-card">
+                        <div class="explorer-trait-header" onclick="toggleTraitBody('${trait.name}')">
+                            <div>
+                                <strong>${displayName}</strong>
+                                <span style="margin-left: 10px; font-size: 12px; opacity: 0.8;">
+                                    ${metadata.n_examples || 0} examples | 223 files | ~47 MB
+                                </span>
+                            </div>
+                            <span class="expand-icon" id="expand-icon-${trait.name}">▶</span>
+                        </div>
+                        <div class="explorer-trait-body" id="trait-body-${trait.name}">
+                            <div class="file-tree">
+                                <div class="file-item">
+                                    <span class="file-icon">📁</span>
+                                    <strong>${trait.name}/</strong>
+                                </div>
+
+                                <div class="file-item indent-1 clickable" onclick="previewJSON('${trait.name}', 'trait_definition')">
+                                    <span class="file-icon">✓</span>
+                                    <span>trait_definition.json</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(~15 KB) [preview →]</span>
+                                </div>
+
+                                <div class="file-item indent-1">
+                                    <span class="file-icon">📁</span>
+                                    <strong>responses/</strong>
+                                </div>
+                                <div class="file-item indent-2 clickable" onclick="previewCSV('${trait.name}', 'pos')">
+                                    <span class="file-icon">✓</span>
+                                    <span>pos.csv</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(${metadata.n_examples_pos || '?'} rows) [preview →]</span>
+                                </div>
+                                <div class="file-item indent-2 clickable" onclick="previewCSV('${trait.name}', 'neg')">
+                                    <span class="file-icon">✓</span>
+                                    <span>neg.csv</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(${metadata.n_examples_neg || '?'} rows) [preview →]</span>
+                                </div>
+
+                                <div class="file-item indent-1">
+                                    <span class="file-icon">📁</span>
+                                    <strong>activations/</strong>
+                                </div>
+                                <div class="file-item indent-2 clickable" onclick="previewJSON('${trait.name}', 'activations_metadata')">
+                                    <span class="file-icon">✓</span>
+                                    <span>metadata.json</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(~400 B) [preview →]</span>
+                                </div>
+                                <div class="file-item indent-2">
+                                    <span class="file-icon">✓</span>
+                                    <span>all_layers.pt</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(~19 MB, shape: [${metadata.n_examples}, 27, 2304])</span>
+                                </div>
+                                <div class="file-item indent-2">
+                                    <span class="file-icon">✓</span>
+                                    <span>pos_acts.pt</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(~12 MB, shape: [${metadata.n_examples_pos}, 27, 2304])</span>
+                                </div>
+                                <div class="file-item indent-2">
+                                    <span class="file-icon">✓</span>
+                                    <span>neg_acts.pt</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(~11 MB, shape: [${metadata.n_examples_neg}, 27, 2304])</span>
+                                </div>
+
+                                <div class="file-item indent-1">
+                                    <span class="file-icon">📁</span>
+                                    <strong>vectors/</strong>
+                                    <span style="opacity: 0.6; font-size: 11px;">(216 files: 108 tensors + 108 metadata)</span>
+                                </div>
+                                <div class="file-item indent-2">
+                                    <span class="file-icon">📊</span>
+                                    <span>4 methods × 27 layers:</span>
+                                </div>
+                                <div class="file-item indent-3">
+                                    <span class="file-icon">✓</span>
+                                    <span>mean_diff_layer[0-26].pt + metadata</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(~9 KB each)</span>
+                                </div>
+                                <div class="file-item indent-3">
+                                    <span class="file-icon">✓</span>
+                                    <span>probe_layer[0-26].pt + metadata</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(~20 KB each)</span>
+                                </div>
+                                <div class="file-item indent-3">
+                                    <span class="file-icon">✓</span>
+                                    <span>ica_layer[0-26].pt + metadata</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(~186 KB each)</span>
+                                </div>
+                                <div class="file-item indent-3">
+                                    <span class="file-icon">✓</span>
+                                    <span>gradient_layer[0-26].pt + metadata</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(~9 KB each, some NaN)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            contentArea.innerHTML = html;
+        }
+
+        // Toggle trait body visibility
+        function toggleTraitBody(traitName) {
+            const body = document.getElementById(`trait-body-${traitName}`);
+            const header = body.previousElementSibling;
+            const icon = document.getElementById(`expand-icon-${traitName}`);
+
+            if (body.classList.contains('show')) {
+                body.classList.remove('show');
+                header.classList.remove('expanded');
+                icon.textContent = '▶';
+            } else {
+                body.classList.add('show');
+                header.classList.add('expanded');
+                icon.textContent = '▼';
+            }
+        }
+
+        // Syntax highlight JSON
+        function syntaxHighlightJSON(json) {
+            if (typeof json !== 'string') {
+                json = JSON.stringify(json, null, 2);
+            }
+
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        // Preview JSON file
+        async function previewJSON(traitName, type) {
+            const modal = document.getElementById('preview-modal');
+            const title = document.getElementById('preview-title');
+            const body = document.getElementById('preview-body');
+
+            let url, displayName;
+            if (type === 'trait_definition') {
+                url = `../experiments/${experimentData.name}/${traitName}/extraction/trait_definition.json`;
+                displayName = 'Trait Definition';
+            } else if (type === 'activations_metadata') {
+                url = `../experiments/${experimentData.name}/${traitName}/extraction/activations/metadata.json`;
+                displayName = 'Activations Metadata';
+            }
+
+            title.textContent = `${traitName} - ${displayName}`;
+            body.innerHTML = '<div class="loading">Loading...</div>';
+            modal.classList.add('show');
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                const highlighted = syntaxHighlightJSON(data);
+                body.innerHTML = `<div class="json-viewer"><pre>${highlighted}</pre></div>`;
+            } catch (error) {
+                body.innerHTML = '<div class="error">Failed to load JSON file</div>';
+            }
+        }
+
+        // Preview CSV file
+        async function previewCSV(traitName, category) {
+            const modal = document.getElementById('preview-modal');
+            const title = document.getElementById('preview-title');
+            const body = document.getElementById('preview-body');
+
+            const url = `../experiments/${experimentData.name}/${traitName}/extraction/responses/${category}.csv`;
+            const displayName = category === 'pos' ? 'Positive Examples' : 'Negative Examples';
+
+            title.textContent = `${traitName} - ${displayName}`;
+            body.innerHTML = '<div class="loading">Loading first 10 rows...</div>';
+            modal.classList.add('show');
+
+            try {
+                const response = await fetch(url);
+                const text = await response.text();
+                const parsed = Papa.parse(text, { header: true });
+                const rows = parsed.data.slice(0, 10);
+
+                if (rows.length === 0) {
+                    body.innerHTML = '<div class="error">No data found</div>';
+                    return;
+                }
+
+                let tableHTML = '<table class="csv-table"><thead><tr>';
+                const headers = Object.keys(rows[0]);
+                headers.forEach(h => {
+                    tableHTML += `<th>${h}</th>`;
+                });
+                tableHTML += '</tr></thead><tbody>';
+
+                rows.forEach(row => {
+                    tableHTML += '<tr>';
+                    headers.forEach(h => {
+                        let value = row[h] || '';
+                        // Truncate long values
+                        if (value.length > 100) {
+                            value = value.substring(0, 100) + '...';
+                        }
+                        tableHTML += `<td>${value}</td>`;
+                    });
+                    tableHTML += '</tr>';
+                });
+
+                tableHTML += '</tbody></table>';
+                tableHTML += `<div style="margin-top: 10px; color: var(--text-secondary); font-size: 12px;">Showing first 10 rows of ${parsed.data.length} total</div>`;
+
+                body.innerHTML = tableHTML;
+            } catch (error) {
+                body.innerHTML = '<div class="error">Failed to load CSV file</div>';
+            }
+        }
+
+        // Close preview modal
+        function closePreview() {
+            const modal = document.getElementById('preview-modal');
+            modal.classList.remove('show');
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('preview-modal');
+            if (e.target === modal) {
+                closePreview();
+            }
+        });
+
+        // Render overview
+        function renderOverview() {
+            const contentArea = document.getElementById('content-area');
+            const filteredTraits = getFilteredTraits();
+
+            let html = `
+                <div class="card">
+                    <div class="card-title">Experiment Overview</div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Selected Traits</div>
+                            <div class="stat-value">${filteredTraits.length}</div>
+                            <div class="stat-detail">of ${experimentData.traits.length} total</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Model</div>
+                            <div class="stat-value">Gemma 2B</div>
+                            <div class="stat-detail">google/gemma-2-2b-it</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Hidden Dim</div>
+                            <div class="stat-value">2304</div>
+                            <div class="stat-detail">27 layers total</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Extraction Methods</div>
+                            <div class="stat-value">4</div>
+                            <div class="stat-detail">mean_diff, probe, ICA, gradient</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Selected Traits</div>
+                    ${filteredTraits.length === 0 ?
+                        '<div class="info">No traits selected. Select traits in the sidebar to view them.</div>' :
+                        '<div class="trait-grid">'}
+            `;
+
+            filteredTraits.forEach(trait => {
+                const displayName = getDisplayName(trait.name);
+                html += `
+                    <div class="trait-card" data-trait="${trait.name}">
+                        <div class="trait-name">${displayName}</div>
+                        <div class="trait-info">
+                            ${trait.metadata.n_examples || 0} examples
+                            <br>Extracted: ${new Date(trait.metadata.extraction_date).toLocaleDateString()}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    ${filteredTraits.length > 0 ? '</div>' : ''}
+                </div>
+            `;
+
+            contentArea.innerHTML = html;
+        }
+
+        // Render response quality view
+        async function renderResponses() {
+            const contentArea = document.getElementById('content-area');
+            const filteredTraits = getFilteredTraits();
+
+            if (filteredTraits.length === 0) {
+                contentArea.innerHTML = `
+                    <div class="card">
+                        <div class="card-title">Response Quality Analysis</div>
+                        <div class="info">No traits selected. Select traits in the sidebar to view them.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Show loading state
+            contentArea.innerHTML = '<div class="loading">Loading response quality overview...</div>';
+
+            // Load all trait separations
+            const separations = {};
+            for (const trait of filteredTraits) {
+                try {
+                    const [posResponse, negResponse] = await Promise.all([
+                        fetch(`../experiments/${experimentData.name}/${trait.name}/extraction/responses/pos.csv`),
+                        fetch(`../experiments/${experimentData.name}/${trait.name}/extraction/responses/neg.csv`)
+                    ]);
+                    const [posText, negText] = await Promise.all([
+                        posResponse.text(),
+                        negResponse.text()
+                    ]);
+                    const posData = Papa.parse(posText, { header: true }).data;
+                    const negData = Papa.parse(negText, { header: true }).data;
+
+                    const posScores = posData.map(r => parseFloat(r.trait_score)).filter(s => !isNaN(s));
+                    const negScores = negData.map(r => parseFloat(r.trait_score)).filter(s => !isNaN(s));
+                    const posAvg = posScores.reduce((a, b) => a + b, 0) / posScores.length;
+                    const negAvg = negScores.reduce((a, b) => a + b, 0) / negScores.length;
+
+                    separations[trait.name] = {
+                        separation: posAvg - negAvg,
+                        posAvg,
+                        negAvg,
+                        posCount: posData.length,
+                        negCount: negData.length
+                    };
+                } catch (e) {
+                    console.error(`Failed to load ${trait.name}:`, e);
+                }
+            }
+
+            // Render overview
+            let html = `
+                <div class="card">
+                    <div class="card-title">Response Quality Overview</div>
+                    <div class="info">
+                        Separation = Avg(Positive) - Avg(Negative). Higher is better. >40 is excellent.
+                        <strong>Note:</strong> Data is token-averaged from extraction pipeline.
+                    </div>
+                    <div class="stats-grid">
+            `;
+
+            Object.keys(separations).sort((a, b) => separations[b].separation - separations[a].separation).forEach(traitName => {
+                const data = separations[traitName];
+                const displayName = getDisplayName(traitName);
+                const quality = data.separation > 40 ? 'Excellent' : data.separation > 20 ? 'Good' : 'Weak';
+                const qualityColor = data.separation > 40 ? '#28a745' : data.separation > 20 ? '#ffc107' : '#dc3545';
+
+                html += `
+                    <div class="stat-card" style="cursor: pointer; border-left-color: ${qualityColor};" onclick="loadTraitResponses('${traitName}')">
+                        <div class="stat-label">${displayName}</div>
+                        <div class="stat-value">${data.separation.toFixed(1)}</div>
+                        <div class="stat-detail">
+                            ${quality} | Pos: ${data.posAvg.toFixed(1)} | Neg: ${data.negAvg.toFixed(1)}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                    <div id="response-details"></div>
+                </div>
+            `;
+
+            contentArea.innerHTML = html;
+        }
+
+        // Load trait responses
+        async function loadTraitResponses(traitName) {
+            const detailsDiv = document.getElementById('response-details');
+            detailsDiv.innerHTML = '<div class="loading">Loading response data...</div>';
+
+            try {
+                const [posResponse, negResponse] = await Promise.all([
+                    fetch(`../experiments/${experimentData.name}/${traitName}/extraction/responses/pos.csv`),
+                    fetch(`../experiments/${experimentData.name}/${traitName}/extraction/responses/neg.csv`)
+                ]);
+
+                const [posText, negText] = await Promise.all([
+                    posResponse.text(),
+                    negResponse.text()
+                ]);
+
+                const posData = Papa.parse(posText, { header: true }).data;
+                const negData = Papa.parse(negText, { header: true }).data;
+
+                renderResponseAnalysis(traitName, posData, negData);
+            } catch (error) {
+                console.error('Error loading responses:', error);
+                detailsDiv.innerHTML = '<div class="error">Failed to load response data</div>';
+            }
+        }
+
+        // Render response analysis
+        function renderResponseAnalysis(traitName, posData, negData) {
+            const detailsDiv = document.getElementById('response-details');
+            const displayName = getDisplayName(traitName);
+
+            // Calculate statistics
+            const posScores = posData.map(r => parseFloat(r.trait_score)).filter(s => !isNaN(s));
+            const negScores = negData.map(r => parseFloat(r.trait_score)).filter(s => !isNaN(s));
+
+            const posAvg = posScores.reduce((a, b) => a + b, 0) / posScores.length;
+            const negAvg = negScores.reduce((a, b) => a + b, 0) / negScores.length;
+            const separation = posAvg - negAvg;
+
+            // Create histogram
+            const histTrace1 = {
+                x: posScores,
+                type: 'histogram',
+                name: 'Positive',
+                marker: { color: '#28a745' },
+                opacity: 0.7,
+                nbinsx: 20
+            };
+
+            const histTrace2 = {
+                x: negScores,
+                type: 'histogram',
+                name: 'Negative',
+                marker: { color: '#dc3545' },
+                opacity: 0.7,
+                nbinsx: 20
+            };
+
+            let html = `
+                <div style="margin-top: 30px;">
+                    <div class="card-title">${displayName} - Response Quality</div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Positive Examples</div>
+                            <div class="stat-value">${posData.length}</div>
+                            <div class="stat-detail">Avg score: ${posAvg.toFixed(1)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Negative Examples</div>
+                            <div class="stat-value">${negData.length}</div>
+                            <div class="stat-detail">Avg score: ${negAvg.toFixed(1)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Separation</div>
+                            <div class="stat-value">${separation.toFixed(1)}</div>
+                            <div class="stat-detail">${separation > 40 ? 'Excellent' : separation > 20 ? 'Good' : 'Weak'}</div>
+                        </div>
+                    </div>
+
+                    <div id="score-histogram" style="margin-top: 20px;"></div>
+
+                    <div style="margin-top: 20px;">
+                        <h3 style="margin-bottom: 10px;">Sample Responses</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <strong>High ${displayName} (Positive)</strong>
+                                ${posData.slice(0, 3).map(r => `
+                                    <div class="response-preview">
+                                        <strong>Q:</strong> ${r.question || 'N/A'}<br>
+                                        <strong>A:</strong> ${(r.response || 'N/A').substring(0, 150)}...
+                                        <span class="score-badge score-high">${parseFloat(r.trait_score).toFixed(1)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div>
+                                <strong>Low ${displayName} (Negative)</strong>
+                                ${negData.slice(0, 3).map(r => `
+                                    <div class="response-preview">
+                                        <strong>Q:</strong> ${r.question || 'N/A'}<br>
+                                        <strong>A:</strong> ${(r.response || 'N/A').substring(0, 150)}...
+                                        <span class="score-badge score-low">${parseFloat(r.trait_score).toFixed(1)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            detailsDiv.innerHTML = html;
+
+            // Render histogram
+            Plotly.newPlot('score-histogram', [histTrace1, histTrace2], getPlotlyLayout({
+                title: 'Trait Score Distribution',
+                xaxis: { title: 'Trait Score (0-100)' },
+                yaxis: { title: 'Count' },
+                barmode: 'overlay',
+                height: 400
+            }), { displayModeBar: false });
+        }
+
+        // Render vector analysis view
+        async function renderVectors() {
+            const contentArea = document.getElementById('content-area');
+            const filteredTraits = getFilteredTraits();
+
+            if (filteredTraits.length === 0) {
+                contentArea.innerHTML = `
+                    <div class="card">
+                        <div class="card-title">Vector Analysis</div>
+                        <div class="info">No traits selected. Select traits in the sidebar to view them.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Show loading state
+            contentArea.innerHTML = '<div class="loading">Loading vector analysis overview...</div>';
+
+            // Load all vector metadata
+            const vectorMetrics = {};
+            for (const trait of filteredTraits) {
+                try {
+                    const methods = ['mean_diff', 'probe', 'ica', 'gradient'];
+                    const layers = Array.from({ length: 27 }, (_, i) => i);
+                    const vectorData = {};
+
+                    for (const method of methods) {
+                        vectorData[method] = {};
+                        for (const layer of layers) {
+                            try {
+                                const response = await fetch(
+                                    `../experiments/${experimentData.name}/${trait.name}/extraction/vectors/${method}_layer${layer}_metadata.json`
+                                );
+                                if (response.ok) {
+                                    vectorData[method][layer] = await response.json();
+                                }
+                            } catch (e) {
+                                // Vector doesn't exist
+                            }
+                        }
+                    }
+
+                    // Calculate best layer for each method
+                    const best = {};
+                    methods.forEach(method => {
+                        let bestLayer = -1;
+                        let bestNorm = -Infinity;
+                        layers.forEach(layer => {
+                            if (vectorData[method][layer]) {
+                                const norm = vectorData[method][layer].vector_norm;
+                                if (!isNaN(norm) && norm > bestNorm) {
+                                    bestNorm = norm;
+                                    bestLayer = layer;
+                                }
+                            }
+                        });
+                        best[method] = { layer: bestLayer, norm: bestNorm };
+                    });
+
+                    vectorMetrics[trait.name] = { vectorData, best };
+                } catch (e) {
+                    console.error(`Failed to load ${trait.name}:`, e);
+                }
+            }
+
+            // Render overview with mini heatmaps
+            let html = `
+                <div class="card">
+                    <div class="card-title">Vector Analysis Overview</div>
+                    <div class="info">
+                        Vector norms across 27 layers and 4 extraction methods.
+                        <strong>Note:</strong> Vectors extracted from token-averaged activations.
+                        Click a trait to view detailed heatmap.
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; margin-top: 20px;">
+            `;
+
+            filteredTraits.forEach(trait => {
+                const displayName = getDisplayName(trait.name);
+                const metrics = vectorMetrics[trait.name];
+                if (!metrics) return;
+
+                const best = metrics.best;
+                const bestMethod = Object.keys(best).reduce((a, b) =>
+                    best[a].norm > best[b].norm ? a : b
+                );
+
+                html += `
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 2px solid var(--border-color); cursor: pointer; transition: all 0.2s;"
+                         onclick="loadVectorAnalysis('${trait.name}')"
+                         onmouseover="this.style.borderColor='var(--primary-color)'"
+                         onmouseout="this.style.borderColor='var(--border-color)'">
+                        <div style="font-weight: 600; margin-bottom: 10px; color: var(--text-primary);">${displayName}</div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                            Best: ${bestMethod.replace(/_/g, ' ')} @ layer ${best[bestMethod].layer} (norm: ${best[bestMethod].norm.toFixed(2)})
+                        </div>
+                        <div id="mini-heatmap-${trait.name}" style="height: 200px;"></div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                    <div id="vector-details"></div>
+                </div>
+            `;
+
+            contentArea.innerHTML = html;
+
+            // Render mini heatmaps
+            filteredTraits.forEach(trait => {
+                const metrics = vectorMetrics[trait.name];
+                if (!metrics) return;
+
+                const methods = Object.keys(metrics.vectorData);
+                const layers = Array.from({ length: 27 }, (_, i) => i);
+
+                const heatmapData = layers.map(layer => {
+                    return methods.map(method => {
+                        const metadata = metrics.vectorData[method][layer];
+                        return metadata ? metadata.vector_norm : null;
+                    });
+                });
+
+                const trace = {
+                    z: heatmapData,
+                    x: methods.map(m => m.replace(/_/g, ' ')),
+                    y: layers,
+                    type: 'heatmap',
+                    colorscale: 'Viridis',
+                    showscale: false,
+                    hovertemplate: 'Method: %{x}<br>Layer %{y}<br>Norm: %{z:.2f}<extra></extra>'
+                };
+
+                Plotly.newPlot(`mini-heatmap-${trait.name}`, [trace], getPlotlyLayout({
+                    margin: { l: 30, r: 5, t: 5, b: 40 },
+                    xaxis: { title: '', tickangle: -45 },
+                    yaxis: { title: '', autorange: 'reversed' },
+                    height: 200
+                }), { displayModeBar: false });
+            });
+        }
+
+        // Load vector analysis
+        async function loadVectorAnalysis(traitName) {
+            const detailsDiv = document.getElementById('vector-details');
+            detailsDiv.innerHTML = '<div class="loading">Loading vector metadata...</div>';
+
+            try {
+                const methods = ['mean_diff', 'probe', 'ica', 'gradient'];
+                const layers = Array.from({ length: 27 }, (_, i) => i);
+
+                const vectorData = {};
+
+                for (const method of methods) {
+                    vectorData[method] = {};
+                    for (const layer of layers) {
+                        try {
+                            const response = await fetch(
+                                `../experiments/${experimentData.name}/${traitName}/extraction/vectors/${method}_layer${layer}_metadata.json`
+                            );
+                            if (response.ok) {
+                                vectorData[method][layer] = await response.json();
+                            }
+                        } catch (e) {
+                            // Vector doesn't exist
+                        }
+                    }
+                }
+
+                renderVectorHeatmap(traitName, vectorData);
+            } catch (error) {
+                console.error('Error loading vectors:', error);
+                detailsDiv.innerHTML = '<div class="error">Failed to load vector data</div>';
+            }
+        }
+
+        // Render vector heatmap
+        function renderVectorHeatmap(traitName, vectorData) {
+            const detailsDiv = document.getElementById('vector-details');
+            const displayName = getDisplayName(traitName);
+
+            const methods = Object.keys(vectorData);
+            const layers = Array.from({ length: 27 }, (_, i) => i);
+
+            // Create heatmap data for vector norms (transposed - layers vertical)
+            const heatmapData = layers.map(layer => {
+                return methods.map(method => {
+                    const metadata = vectorData[method][layer];
+                    return metadata ? metadata.vector_norm : null;
+                });
+            });
+
+            const trace = {
+                z: heatmapData,
+                x: methods.map(m => m.replace(/_/g, ' ').toUpperCase()),
+                y: layers,
+                type: 'heatmap',
+                colorscale: 'Viridis',
+                hovertemplate: 'Method: %{x}<br>Layer %{y}<br>Norm: %{z:.2f}<extra></extra>'
+            };
+
+            let html = `
+                <div style="margin-top: 30px;">
+                    <div class="card-title">${displayName} - Vector Quality by Method & Layer</div>
+                    <div id="vector-heatmap"></div>
+                </div>
+            `;
+
+            detailsDiv.innerHTML = html;
+
+            Plotly.newPlot('vector-heatmap', [trace], getPlotlyLayout({
+                title: 'Vector Norm Heatmap',
+                xaxis: { title: 'Extraction Method' },
+                yaxis: { title: 'Layer', autorange: 'reversed' },
+                height: 600
+            }), { displayModeBar: false });
+        }
+
+        // Render monitoring view
+        async function renderMonitoring() {
+            const contentArea = document.getElementById('content-area');
+            const filteredTraits = getFilteredTraits();
+
+            if (filteredTraits.length === 0) {
+                contentArea.innerHTML = `
+                    <div class="card">
+                        <div class="card-title">Per-Token Trajectory</div>
+                        <div class="info">Select at least one trait to view trajectories</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Try to find Tier 2 data for the first selected trait
+            const trait = filteredTraits[0];
+            const tier2Dir = `../experiments/${experimentData.name}/${trait.name}/inference/residual_stream_activations/`;
+
+            // Try to load prompt_0.json
+            try {
+                const response = await fetch(`${tier2Dir}prompt_0.json`);
+                if (!response.ok) throw new Error('No data found');
+
+                const data = await response.json();
+                renderTier2Data(trait, data);
+            } catch (error) {
+                // No data yet - show instructions
+                renderTier2Instructions(trait);
+            }
+        }
+
+        function renderTier2Instructions(trait) {
+            const contentArea = document.getElementById('content-area');
+            contentArea.innerHTML = `
+                <div class="card">
+                    <div class="card-title">Per-Token Trajectory: ${getDisplayName(trait.name)}</div>
+
+                    <div class="info" style="margin-bottom: 20px;">
+                        <strong>⚠️ No trajectory data available for ${trait.name}</strong>
+                    </div>
+
+                    <div style="background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
+                        <h3 style="color: var(--text-primary); margin-bottom: 15px;">Generate Trajectory Data</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                            Capture per-token projections at all 81 checkpoints (27 layers × 3 sublayers):
+                        </p>
+                        <pre style="background: var(--bg-primary); color: var(--text-primary); padding: 15px; border-radius: 4px; margin: 15px 0; overflow-x: auto; border: 1px solid var(--border-color);">python inference/capture_tier2.py \\
+  --experiment ${experimentData.name} \\
+  --trait ${trait.name} \\
+  --prompts "What is the capital of France?" \\
+  --save-json</pre>
+                        <p style="color: var(--text-secondary); margin-top: 15px;">
+                            The <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px;">--save-json</code> flag creates visualization-friendly JSON files alongside the .pt files.
+                        </p>
+                        <p style="color: var(--text-tertiary); font-size: 13px; margin-top: 10px;">
+                            This captures how ${getDisplayName(trait.name)} evolves through ALL layers during both prompt encoding and response generation.
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTier2Data(trait, data) {
+            const contentArea = document.getElementById('content-area');
+
+            const promptProj = data.projections.prompt;  // [n_tokens, 27, 3]
+            const responseProj = data.projections.response;
+
+            contentArea.innerHTML = `
+                <div class="card">
+                    <div class="card-title">Per-Token Trajectory: ${getDisplayName(trait.name)}</div>
+
+                    <div style="background: var(--bg-tertiary); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <div>
+                                <div style="color: var(--text-secondary); font-size: 13px;">Prompt</div>
+                                <div style="color: var(--text-primary); font-size: 16px; font-weight: 600;">${data.prompt.text}</div>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-secondary); font-size: 13px;">Response</div>
+                                <div style="color: var(--text-primary); font-size: 16px; font-weight: 600;">${data.response.text}</div>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-secondary); font-size: 13px;">Tokens</div>
+                                <div style="color: var(--text-primary); font-size: 16px; font-weight: 600;">${data.prompt.n_tokens} prompt + ${data.response.n_tokens} response</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="prompt-heatmap"></div>
+                    <div id="response-heatmap" style="margin-top: 30px;"></div>
+                </div>
+            `;
+
+            // Render heatmaps
+            renderTrajectoryHeatmap('prompt-heatmap', 'Prompt Trajectory', promptProj, data.prompt.tokens);
+            renderTrajectoryHeatmap('response-heatmap', 'Response Trajectory', responseProj, data.response.tokens);
+        }
+
+        function renderTrajectoryHeatmap(divId, title, projections, tokens) {
+            // projections: [n_tokens, 27_layers, 3_sublayers]
+            // We'll show layer-averaged (average over 3 sublayers)
+
+            const nTokens = projections.length;
+            const nLayers = 27;
+
+            // Average over sublayers to get [n_tokens, 27_layers]
+            const layerAvg = [];
+            for (let t = 0; t < nTokens; t++) {
+                layerAvg[t] = [];
+                for (let l = 0; l < nLayers; l++) {
+                    const avg = (projections[t][l][0] + projections[t][l][1] + projections[t][l][2]) / 3;
+                    layerAvg[t][l] = avg;
+                }
+            }
+
+            // Transpose for heatmap: [27_layers, n_tokens]
+            const heatmapData = [];
+            for (let l = 0; l < nLayers; l++) {
+                heatmapData[l] = [];
+                for (let t = 0; t < nTokens; t++) {
+                    heatmapData[l][t] = layerAvg[t][l];
+                }
+            }
+
+            const data = [{
+                z: heatmapData,
+                x: tokens,
+                y: Array.from({length: 27}, (_, i) => `L${i}`),
+                type: 'heatmap',
+                colorscale: 'RdBu',
+                zmid: 0,
+                hovertemplate: 'Token: %{x}<br>Layer: %{y}<br>Score: %{z:.2f}<extra></extra>'
+            }];
+
+            const layout = {
+                title: title,
+                xaxis: {
+                    title: 'Tokens',
+                    tickangle: -45
+                },
+                yaxis: {
+                    title: 'Layer',
+                    autorange: 'reversed'
+                },
+                height: 600,
+                plot_bgcolor: 'var(--bg-secondary)',
+                paper_bgcolor: 'var(--bg-secondary)',
+                font: {
+                    color: 'var(--text-primary)'
+                }
+            };
+
+            Plotly.newPlot(divId, data, layout, {displayModeBar: false});
+        }
+
+        // Render Layer Deep Dive view
+        async function renderLayerDeepDive() {
+            const contentArea = document.getElementById('content-area');
+            const filteredTraits = getFilteredTraits();
+
+            if (filteredTraits.length === 0) {
+                contentArea.innerHTML = `
+                    <div class="card">
+                        <div class="card-title">Layer Deep Dive</div>
+                        <div class="info">Select at least one trait to view layer internals</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Try to find Tier 3 data for the first selected trait
+            const trait = filteredTraits[0];
+            const tier3Dir = `../experiments/${experimentData.name}/${trait.name}/inference/layer_internal_states/`;
+
+            // Try to load prompt_0_layer16.json (default layer)
+            try {
+                const response = await fetch(`${tier3Dir}prompt_0_layer16.json`);
+                if (!response.ok) throw new Error('No data found');
+
+                const data = await response.json();
+                renderTier3Data(trait, data);
+            } catch (error) {
+                // No data yet - show instructions
+                renderTier3Instructions(trait);
+            }
+        }
+
+        function renderTier3Instructions(trait) {
+            const contentArea = document.getElementById('content-area');
+            contentArea.innerHTML = `
+                <div class="card">
+                    <div class="card-title">Layer Deep Dive: ${getDisplayName(trait.name)}</div>
+
+                    <div class="info" style="margin-bottom: 20px;">
+                        <strong>⚠️ No layer internals data available for ${trait.name}</strong>
+                    </div>
+
+                    <div style="background: var(--bg-tertiary); padding: 20px; border-radius: 8px;">
+                        <h3 style="color: var(--text-primary); margin-bottom: 15px;">Capture Layer Internals</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                            Capture complete internals (Q/K/V, attention heads, 9216 MLP neurons) for one layer:
+                        </p>
+                        <pre style="background: var(--bg-primary); color: var(--text-primary); padding: 15px; border-radius: 4px; margin: 15px 0; overflow-x: auto; border: 1px solid var(--border-color);">python inference/capture_tier3.py \\
+  --experiment ${experimentData.name} \\
+  --trait ${trait.name} \\
+  --layer 16 \\
+  --prompts "What is the capital of France?" \\
+  --save-json</pre>
+                        <p style="color: var(--text-secondary); margin-top: 15px;">
+                            The <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px;">--save-json</code> flag creates visualization-friendly JSON files (~10-20 MB).
+                        </p>
+                        <p style="color: var(--text-tertiary); font-size: 13px; margin-top: 10px;">
+                            This reveals which specific neurons and attention heads are responsible for ${getDisplayName(trait.name)}.
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTier3Data(trait, data) {
+            const contentArea = document.getElementById('content-area');
+
+            // Get prompt GELU activations: [n_tokens, 9216]
+            const promptGelu = data.internals.prompt.gelu;
+            const promptTokens = data.prompt.tokens;
+
+            contentArea.innerHTML = `
+                <div class="card">
+                    <div class="card-title">Layer Deep Dive: ${getDisplayName(trait.name)} (Layer ${data.layer})</div>
+
+                    <div style="background: var(--bg-tertiary); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <div>
+                                <div style="color: var(--text-secondary); font-size: 13px;">Prompt</div>
+                                <div style="color: var(--text-primary); font-size: 16px; font-weight: 600;">${data.prompt.text}</div>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-secondary); font-size: 13px;">Response</div>
+                                <div style="color: var(--text-primary); font-size: 16px; font-weight: 600;">${data.response.text}</div>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-secondary); font-size: 13px;">Layer</div>
+                                <div style="color: var(--text-primary); font-size: 16px; font-weight: 600;">Layer ${data.layer} of 27</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="top-neurons-prompt"></div>
+                    <div id="top-neurons-response" style="margin-top: 30px;"></div>
+                </div>
+            `;
+
+            // Render top neurons for prompt and response
+            renderTopNeurons('top-neurons-prompt', 'Top Neurons (Prompt)', promptGelu, promptTokens);
+
+            const responseGelu = data.internals.response.gelu;
+            const responseTokens = data.response.tokens;
+            renderTopNeurons('top-neurons-response', 'Top Neurons (Response)', responseGelu, responseTokens);
+        }
+
+        function renderTopNeurons(divId, title, geluActivations, tokens) {
+            // geluActivations: [n_tokens, 9216]
+            // Average across tokens to find consistently active neurons
+
+            if (!geluActivations || geluActivations.length === 0) {
+                document.getElementById(divId).innerHTML = '<div style="color: var(--text-secondary);">No data</div>';
+                return;
+            }
+
+            const nTokens = geluActivations.length;
+            const nNeurons = geluActivations[0].length;
+
+            // Average activation for each neuron
+            const neuronAvg = new Array(nNeurons).fill(0);
+            for (let t = 0; t < nTokens; t++) {
+                for (let n = 0; n < nNeurons; n++) {
+                    neuronAvg[n] += geluActivations[t][n];
+                }
+            }
+            for (let n = 0; n < nNeurons; n++) {
+                neuronAvg[n] /= nTokens;
+            }
+
+            // Find top 20 neurons
+            const neuronIndices = Array.from({length: nNeurons}, (_, i) => i);
+            neuronIndices.sort((a, b) => Math.abs(neuronAvg[b]) - Math.abs(neuronAvg[a]));
+            const top20 = neuronIndices.slice(0, 20);
+
+            // Create bar chart
+            const data = [{
+                x: top20.map(n => `N${n}`),
+                y: top20.map(n => neuronAvg[n]),
+                type: 'bar',
+                marker: {
+                    color: top20.map(n => neuronAvg[n] > 0 ? '#4caf50' : '#f44336')
+                },
+                hovertemplate: 'Neuron: %{x}<br>Avg Activation: %{y:.3f}<extra></extra>'
+            }];
+
+            const layout = {
+                title: title,
+                xaxis: {
+                    title: 'Neuron Index',
+                    tickangle: -45
+                },
+                yaxis: {
+                    title: 'Average Activation'
+                },
+                height: 400,
+                plot_bgcolor: 'var(--bg-secondary)',
+                paper_bgcolor: 'var(--bg-secondary)',
+                font: {
+                    color: 'var(--text-primary)'
+                }
+            };
+
+            Plotly.newPlot(divId, data, layout, {displayModeBar: false});
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            document.getElementById('experiment-select').addEventListener('change', (e) => {
+                currentExperiment = e.target.value;
+                loadExperimentData(currentExperiment);
+            });
+
+            // Theme toggle
+            document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+
+            // Info tooltip
+            document.getElementById('info-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleInfo();
+            });
+
+            // Select all traits button
+            document.getElementById('select-all-btn').addEventListener('click', toggleAllTraits);
+        }
+
+        // Utility functions
+        function showError(message) {
+            document.getElementById('content-area').innerHTML = `
+                <div class="error">
+                    <strong>Error:</strong> ${message}
+                    <br><br>
+                    Make sure you're running a local server from the trait-interp root directory:
+                    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; margin-top: 10px;">cd trait-interp
+python -m http.server 8000</pre>
+                    Then visit: <a href="http://localhost:8000/visualization/">http://localhost:8000/visualization/</a>
+                </div>
+            `;
+        }
+
+        // Initialize on page load
+        init();
+    </script>
+</body>
+</html>

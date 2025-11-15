@@ -275,10 +275,15 @@ class GradientMethod(ExtractionMethod):
                 'final_separation': Final separation distance
             }
         """
+        # Upcast to float32 for numerical stability
+        # (activations are often stored as float16, which causes NaN during optimization)
+        pos_acts = pos_acts.float()
+        neg_acts = neg_acts.float()
+
         hidden_dim = pos_acts.shape[1]
 
-        # Initialize vector randomly
-        vector = torch.randn(hidden_dim, device=pos_acts.device, dtype=pos_acts.dtype, requires_grad=True)
+        # Initialize vector in float32 (critical for gradient stability)
+        vector = torch.randn(hidden_dim, device=pos_acts.device, dtype=torch.float32, requires_grad=True)
 
         optimizer = torch.optim.Adam([vector], lr=lr)
         loss_history = []
@@ -319,7 +324,7 @@ class GradientMethod(ExtractionMethod):
             final_separation = (pos_proj.mean() - neg_proj.mean()).item()
 
         return {
-            'vector': final_vector,
+            'vector': final_vector,  # Keep as float32 for consistency with computation
             'loss_history': torch.tensor(loss_history),
             'final_separation': final_separation,
             'pos_mean_proj': pos_proj.mean().item(),
