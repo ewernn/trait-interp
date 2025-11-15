@@ -410,7 +410,7 @@ After extraction:
 1. **Validate vectors**: Check separation quality
 2. **Compare methods**: Which extraction method works best?
 3. **Test across layers**: Which layer has strongest signal?
-4. **Monitor dynamics**: Use vectors for per-token monitoring (see `pertoken/monitor_gemma_batch.py`)
+4. **Monitor dynamics**: Use vectors for per-token monitoring (see `inference/monitor_dynamics.py`)
 5. **Analyze temporally**: Study velocity, acceleration, commitment points
 
 ## Troubleshooting

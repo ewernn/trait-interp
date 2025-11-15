@@ -100,8 +100,9 @@ Brief description of what this experiment tested and why.
 
 Vectors are ready for monitoring:
 ```bash
-python pertoken/monitor_gemma_batch.py \
-  --vectors experiments/gemma_2b_cognitive_nov20/*/vectors/probe_layer16.pt
+python inference/monitor_dynamics.py \
+  --experiment gemma_2b_cognitive_nov20 \
+  --prompts "Your prompt here"
 ```
 
 ## Files
@@ -343,8 +344,9 @@ python ../../pipeline/3_extract_vectors.py \
   --methods custom_method
 
 # 4. Use the vectors
-python ../../pertoken/monitor_gemma_batch.py \
-  --vectors refusal/vectors/probe_layer16.pt
+python ../../inference/monitor_dynamics.py \
+  --experiment my_experiment \
+  --prompts "Test prompt"
 ```
 
 Everything needed is in the experiment directory - no external dependencies.

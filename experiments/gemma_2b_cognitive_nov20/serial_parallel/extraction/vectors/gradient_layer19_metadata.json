@@ -1,0 +1,9 @@
+{
+  "trait": "serial_parallel",
+  "method": "gradient",
+  "layer": 19,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 0.9999998807907104,
+  "extraction_date": "2025-11-14T14:01:55.654170",
+  "final_separation": 41.52592849731445
+}

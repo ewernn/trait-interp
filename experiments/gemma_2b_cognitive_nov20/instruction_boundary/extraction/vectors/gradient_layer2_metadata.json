@@ -1,0 +1,9 @@
+{
+  "trait": "instruction_boundary",
+  "method": "gradient",
+  "layer": 2,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 1.0000001192092896,
+  "extraction_date": "2025-11-14T13:59:14.746540",
+  "final_separation": 36.61393356323242
+}

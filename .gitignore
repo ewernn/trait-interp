@@ -43,11 +43,13 @@ persona_vectors/
 !experiments/**/*.csv
 # Except activations (too large to commit)
 experiments/**/activations/*.pt
+experiments/**/dynamics_test/*.pt
 
 # Cached models (stored in ~/.cache/huggingface/)
 models/
 checkpoints/
 ckpt/
+.cache/
 
 # Experiment results
 results/

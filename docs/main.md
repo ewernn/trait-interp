@@ -16,35 +16,35 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 
 ### Trait Design & Creation
 - **[docs/creating_traits.md](creating_traits.md)** - How to design effective trait definitions
-- **[OPUS_TRAIT_GENERATION_GUIDE.md](../OPUS_TRAIT_GENERATION_GUIDE.md)** - Using Claude Opus 4.1 for high-quality trait definitions
-- **[docs/prompt_design_guide.md](prompt_design_guide.md)** - Creating single-trait teaching examples
+- **[docs/opus_trait_generation_guide.md](opus_trait_generation_guide.md)** - Using Claude Opus 4.1 for high-quality trait definitions
 
 ### Pipeline & Extraction
-- **[extraction/README_GENERATION.md](../extraction/README_GENERATION.md)** - Comparison of 4 generation scripts
-- **[COGNITIVE_PRIMITIVES_GUIDE.md](../COGNITIVE_PRIMITIVES_GUIDE.md)** - Step-by-step guide for cognitive primitives
+- **[extraction/README_GENERATION.md](../extraction/README_GENERATION.md)** - Generation script usage guide
+- **[docs/cognitive_primitives_guide.md](cognitive_primitives_guide.md)** - Step-by-step guide for cognitive primitives
 
 ### Experiments & Analysis
 - **[docs/experiments_structure.md](experiments_structure.md)** - How experiment directories are organized
 - **[experiments/gemma_2b_cognitive_nov20/README.md](../experiments/gemma_2b_cognitive_nov20/README.md)** - 16 cognitive traits experiment
-- **[experiments/examples/README.md](../experiments/examples/README.md)** - Reference scripts for inference with dynamics
+
+### Inference & Monitoring
+- **[inference/README.md](../inference/README.md)** - Per-token inference and dynamics capture
 
 ### Research & Methodology
 - **[docs/methodology_and_framework.md](methodology_and_framework.md)** - Research methodology and framework
 - **[docs/literature_review.md](literature_review.md)** - Literature review (100+ papers analyzed)
 
 ### Visualization & Monitoring
-- **[docs/visualization_guide.md](visualization_guide.md)** - Interactive dashboard usage guide
-- **[visualization.html](../visualization.html)** - Interactive dashboard (open in browser)
+- **[visualization/README.md](../visualization/README.md)** - Interactive dashboard usage guide
+- **[visualization/](../visualization/)** - Interactive visualization dashboard
 
 ### Infrastructure & Setup
-- **[REMOTE_SETUP_GUIDE.md](../REMOTE_SETUP_GUIDE.md)** - Running on remote GPU instances
+- **[docs/remote_setup_guide.md](remote_setup_guide.md)** - Running on remote GPU instances
+- **[docs/numerical_stability_analysis.md](numerical_stability_analysis.md)** - Float16/float32 precision handling and fixes
 
 ### traitlens Library
 - **[traitlens/README.md](../traitlens/README.md)** - Library documentation and API reference
 - **[traitlens/docs/philosophy.md](../traitlens/docs/philosophy.md)** - Design philosophy
 - **[traitlens/docs/README.md](../traitlens/docs/README.md)** - Additional documentation
-- **[traitlens/VERSION_NOTES.md](../traitlens/VERSION_NOTES.md)** - Version history and status
-- **[traitlens/FUTURE_IDEAS.md](../traitlens/FUTURE_IDEAS.md)** - Potential future enhancements
 
 ### Meta-Documentation
 - **[docs/doc-update-guidelines.md](doc-update-guidelines.md)** - Guidelines for updating documentation
@@ -67,26 +67,36 @@ trait-interp/
 │   ├── 1_generate_responses.py         # Generate contrastive examples
 │   ├── 1_generate_batched_simple.py    # ⭐ RECOMMENDED: Batched generation (5x faster)
 │   ├── 2_extract_activations.py        # Capture model hidden states
-│   ├── 3_extract_vectors.py            # Extract trait vectors
+│   ├── 3_extract_vectors.py            # Extract trait vectors (mean_diff, probe, ICA, gradient)
 │   ├── templates/                      # Trait definition templates
 │   └── utils_batch.py                  # Batching utilities
 │
+├── inference/              # Per-token monitoring (inference time)
+│   ├── monitor_dynamics.py             # Main: capture dynamics for all traits
+│   └── README.md                       # Usage guide
+│
+├── local_dynamics_test.py  # Local GPU inference test (Mac MPS / CUDA)
+│
 ├── experiments/            # Experiment data and user analysis space
-│   ├── examples/          # Reference scripts
-│   │   └── run_dynamics.py             # Inference with dynamics analysis
 │   └── gemma_2b_cognitive_nov20/       # Example: 16 cognitive traits
 │       └── {trait}/
-│           ├── trait_definition.json
-│           ├── responses/              # Generated examples (pos.csv, neg.csv)
-│           ├── activations/            # Captured hidden states
-│           └── vectors/                # Extracted trait vectors
+│           ├── extraction/             # Training-time data
+│           │   ├── trait_definition.json
+│           │   ├── responses/          # Generated examples (pos.csv, neg.csv)
+│           │   ├── activations/        # Token-averaged hidden states
+│           │   └── vectors/            # Extracted trait vectors
+│           └── inference/              # Inference-time data
+│               ├── residual_stream_activations/  # Tier 2: all layers, projections
+│               │   └── prompt_N.pt
+│               └── layer_internal_states/        # Tier 3: single layer deep dive
+│                   └── prompt_N_layerM.pt
 │
 ├── utils/                  # Shared utilities
 │   ├── judge.py           # API-based quality scoring (OpenAI, Anthropic)
 │   └── config.py          # Credential management
 │
 ├── docs/                   # Documentation (you are here)
-├── visualization.html      # Interactive monitoring dashboard
+├── visualization/          # Interactive visualization dashboard
 └── requirements.txt        # Python dependencies
 ```
 
@@ -95,16 +105,20 @@ trait-interp/
 **For using existing vectors:**
 ```bash
 # Monitor traits during generation
-python experiments/examples/run_dynamics.py \
+python inference/monitor_dynamics.py \
     --experiment gemma_2b_cognitive_nov20 \
     --prompts "Your prompt here"
+
+# Local GPU test (Mac MPS / CUDA)
+python local_dynamics_test.py
 ```
 
 **For extracting new traits:**
 ```bash
 # 1. Create trait definition
+mkdir -p experiments/my_exp/my_trait/extraction
 cp extraction/templates/trait_definition_template.json \
-   experiments/my_exp/my_trait/trait_definition.json
+   experiments/my_exp/my_trait/extraction/trait_definition.json
 
 # 2-4. Run extraction pipeline
 python extraction/1_generate_batched_simple.py --experiment my_exp --trait my_trait
@@ -133,7 +147,7 @@ utils/              ← Shared utilities (API clients, credentials)
 
 extraction/         ← Training time (creates trait vectors)
     ├── Uses: traitlens/ + utils/
-    └── Produces: experiments/{name}/{trait}/vectors/
+    └── Produces: experiments/{name}/{trait}/extraction/vectors/
 
 experiments/        ← User space (custom analysis using extracted vectors)
     ├── Uses: traitlens/
@@ -148,7 +162,7 @@ This project extracts trait vectors from language models and monitors them durin
 
 1. **Extract trait vectors** from contrastive examples using multiple methods (mean difference, linear probes, ICA, gradient optimization)
 2. **Monitor traits** token-by-token to see how they evolve during generation
-3. **Analyze dynamics** - commitment points, velocity, and persistence using `experiments/examples/run_dynamics.py`
+3. **Analyze dynamics** - commitment points, velocity, and persistence using `inference/monitor_dynamics.py`
 
 **Available traits** (16 cognitive and behavioral):
 - **refusal** - Declining vs answering requests
@@ -184,9 +198,44 @@ cp .env.example .env
 # Edit .env with your HF_TOKEN, OPENAI_API_KEY, ANTHROPIC_API_KEY
 ```
 
+**Local model cache**: Gemma 2B (5 GB) is cached at `~/.cache/huggingface/hub/` and automatically used by all scripts. No manual download needed - models download on first use.
+
+### Mac GPU Support (Apple Silicon)
+
+Run inference on M1/M2/M3 GPU using PyTorch MPS backend:
+
+**Requirements:**
+- Python 3.11+ (required for stability)
+- PyTorch 2.10.0+ nightly (stable versions have GQA compatibility issues with Gemma 2B)
+
+**Installation:**
+```bash
+# Create Python 3.11 environment
+conda create -n trait-interp python=3.11
+conda activate trait-interp
+
+# Install PyTorch nightly (required for MPS + GQA support)
+pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
+
+# Install dependencies
+pip install transformers accelerate huggingface_hub pandas tqdm fire scikit-learn
+
+# Verify MPS
+python -c "import torch; print(f'MPS available: {torch.backends.mps.is_available()}')"
+```
+
+**Run inference:**
+```bash
+python local_dynamics_test.py  # Uses MPS automatically
+```
+
+Models load on GPU (MPS) by default when available. Gemma 2B runs at full speed on M1 Pro and later.
+
+**Note:** PyTorch stable (2.6.0) crashes with Gemma 2B on MPS due to Grouped Query Attention. Nightly builds fix this.
+
 ### Use Existing Vectors
 
-Pre-extracted vectors for 16 traits on Gemma 2B are in `experiments/gemma_2b_cognitive_nov20/*/vectors/`.
+Pre-extracted vectors for 16 traits on Gemma 2B are in `experiments/gemma_2b_cognitive_nov20/*/extraction/vectors/`.
 
 Use traitlens to create monitoring scripts - see the Monitoring section below for examples.
 
@@ -195,8 +244,9 @@ Use traitlens to create monitoring scripts - see the Monitoring section below fo
 See [docs/pipeline_guide.md](pipeline_guide.md) for complete instructions. Quick version:
 
 ```bash
-# 1. Create trait definition (see extraction/extraction/templates/)
-cp extraction/extraction/templates/trait_definition_template.json experiments/my_exp/my_trait/trait_definition.json
+# 1. Create trait definition (see extraction/templates/)
+mkdir -p experiments/my_exp/my_trait/extraction
+cp extraction/templates/trait_definition_template.json experiments/my_exp/my_trait/extraction/trait_definition.json
 # Edit following docs/creating_traits.md
 
 # 2. Generate responses
@@ -208,7 +258,7 @@ python extraction/2_extract_activations.py --experiment my_exp --trait my_trait
 # 4. Extract vectors
 python extraction/3_extract_vectors.py --experiment my_exp --trait my_trait
 
-# Result: vectors in experiments/my_exp/my_trait/vectors/
+# Result: vectors in experiments/my_exp/my_trait/extraction/vectors/
 ```
 
 ## How It Works
@@ -326,7 +376,7 @@ Good vectors have:
 Verify:
 ```python
 import torch
-vector = torch.load('experiments/my_exp/my_trait/vectors/probe_layer16.pt')
+vector = torch.load('experiments/my_exp/my_trait/extraction/vectors/probe_layer16.pt')
 print(f"Norm: {vector.norm():.2f}")
 ```
 
@@ -345,7 +395,7 @@ import torch
 
 # Load vectors
 vectors = {
-    'refusal': torch.load('experiments/gemma_2b_cognitive_nov20/refusal/vectors/probe_layer16.pt'),
+    'refusal': torch.load('experiments/gemma_2b_cognitive_nov20/refusal/extraction/vectors/probe_layer16.pt'),
     # ... more traits
 }
 
@@ -364,11 +414,20 @@ Save results to `experiments/{name}/inference/results/` for visualization.
 
 ### Visualize
 
-Open `visualization.html` in a browser. It displays:
-- **Token slider**: Step through generation token-by-token
-- **Bar chart**: Current token's trait scores
-- **Line chart**: Trend over all tokens
-- **Stats grid**: Min/max/mean for each trait
+Start a local server and open the visualization:
+
+```bash
+# From trait-interp root directory
+python -m http.server 8000
+# Then visit http://localhost:8000/visualization/
+```
+
+The visualization provides:
+- **Data Explorer**: Inspect complete file structure, sizes, shapes, and preview JSON/CSV data
+- **Overview**: Browse all extracted traits and experiments
+- **Response Quality**: Analyze pos/neg trait score distributions
+- **Vector Analysis**: Compare extraction methods across layers with heatmaps
+- **Per-Token Monitoring**: View trait trajectories during generation (when data available)
 
 ### Monitoring Data Format
 
@@ -392,17 +451,17 @@ Analyze temporal dynamics of trait expression: when traits crystallize, how fast
 
 ### Run Inference with Dynamics
 
-Use the reference script to automatically analyze all extracted vectors:
+Use the inference script to automatically analyze all extracted vectors:
 
 ```bash
 # Single prompt
-python experiments/examples/run_dynamics.py \
+python inference/monitor_dynamics.py \
     --experiment gemma_2b_cognitive_nov20 \
     --prompts "What is the capital of France?" \
     --output results.json
 
 # Multiple prompts from file
-python experiments/examples/run_dynamics.py \
+python inference/monitor_dynamics.py \
     --experiment gemma_2b_cognitive_nov20 \
     --prompts_file test_prompts.txt \
     --output dynamics_results.json
@@ -453,17 +512,17 @@ The script:
 
 ### Customize for Your Experiment
 
-Copy the reference script to your experiment:
+Copy the inference script to your experiment for customization:
 
 ```bash
-mkdir -p experiments/gemma_2b_cognitive_nov20/inference
-cp experiments/examples/run_dynamics.py \
-   experiments/gemma_2b_cognitive_nov20/inference/
+mkdir -p experiments/gemma_2b_cognitive_nov20/analysis
+cp inference/monitor_dynamics.py \
+   experiments/gemma_2b_cognitive_nov20/analysis/
 
 # Customize thresholds, add custom metrics, etc.
 ```
 
-See `experiments/examples/README.md` for customization examples.
+See `inference/README.md` for usage details.
 
 ### Use Dynamics Primitives Directly
 
@@ -528,28 +587,34 @@ See `experiments/gemma_2b_cognitive_nov20/STEERING_VALIDATION_RESULTS.md` for de
 
 ```
 trait-interp/
-├── extraction/                     # Trait vector extraction
-│   ├── 1_generate_responses.py
+├── extraction/                     # Trait vector extraction (training time)
+│   ├── 1_generate_batched_simple.py   # ⭐ Main generation script (batched, fast)
 │   ├── 2_extract_activations.py
 │   ├── 3_extract_vectors.py
-│   └── extraction/templates/                 # Trait definition templates
+│   └── templates/                     # Trait definition templates
 │       ├── trait_definition_template.json
 │       └── trait_definition_example.json
 │
+├── inference/                      # Per-token monitoring (inference time)
+│   ├── monitor_dynamics.py        # Main: capture dynamics for all traits
+│   └── README.md                  # Usage guide
+│
+├── local_dynamics_test.py          # Local GPU inference test (Mac MPS / CUDA)
+│
 ├── experiments/                    # All experiment data
-│   ├── examples/                  # Reference scripts
-│   │   ├── run_dynamics.py        # Inference with dynamics
-│   │   └── README.md
 │   └── gemma_2b_cognitive_nov20/  # Example: 16 cognitive traits
 │       ├── README.md
-│       ├── refusal/
-│       │   ├── trait_definition.json
-│       │   ├── responses/          # pos.csv, neg.csv
-│       │   ├── activations/        # (not committed, too large)
-│       │   └── vectors/            # extracted vectors + metadata
-│       └── inference/             # Custom analysis (user creates)
-│           ├── run_dynamics.py    # Copied from examples/
-│           └── results/
+│       └── {trait}/               # e.g., refusal/
+│           ├── extraction/        # Training-time data
+│           │   ├── trait_definition.json
+│           │   ├── responses/     # pos.csv, neg.csv
+│           │   ├── activations/   # Token-averaged (not committed, too large)
+│           │   └── vectors/       # Extracted vectors + metadata
+│           └── inference/         # Inference-time data
+│               ├── residual_stream_activations/  # Tier 2: all layers
+│               │   └── prompt_N.pt
+│               └── layer_internal_states/        # Tier 3: single layer
+│                   └── prompt_N_layerM.pt
 │
 ├── traitlens/                      # Extraction toolkit
 │   ├── methods.py                 # 4 extraction methods
@@ -567,7 +632,11 @@ trait-interp/
 │   ├── creating_traits.md         # How to design traits
 │   └── experiments_structure.md   # Directory organization
 │
-└── visualization.html              # Interactive visualization
+└── visualization/                  # Interactive visualization dashboard
+    ├── index.html                  # Main visualization
+    ├── legacy.html                 # Legacy per-token viewer
+    ├── serve.py                    # Development server
+    └── README.md                   # Visualization guide
 ```
 
 ## Creating New Traits
@@ -584,8 +653,9 @@ Key components:
 ### 2. Use Template
 
 ```bash
-cp extraction/extraction/templates/trait_definition_template.json \
-   experiments/my_exp/my_trait/trait_definition.json
+mkdir -p experiments/my_exp/my_trait/extraction
+cp extraction/templates/trait_definition_template.json \
+   experiments/my_exp/my_trait/extraction/trait_definition.json
 ```
 
 Edit following the template comments and guide.
@@ -630,10 +700,13 @@ Total: 5 instructions × 20 questions × 2 (pos/neg) = 200 examples per side
 ## Model Support
 
 **Gemma 2 2B IT**:
-- Layers: 27 (0=embedding, 1-26=transformer)
+- Layers: 26 (transformer layers)
 - Hidden dim: 2304
 - Default monitor layer: 16
+- Architecture: Grouped Query Attention (GQA) - 8 query heads, 4 key/value heads
 - 16 cognitive and behavioral traits extracted
+- Cached locally at `~/.cache/huggingface/hub/`
+- GPU support: CUDA, ROCm, MPS (PyTorch 2.10.0+ nightly required for Mac)
 
 **Llama 3.1 8B**:
 - Layers: 33 (0=embedding, 1-32=transformer)
@@ -726,7 +799,8 @@ Includes retry logic with exponential backoff for reliability.
 ### Extraction fails with "trait_definition.json not found"
 Create trait definition:
 ```bash
-cp extraction/extraction/templates/trait_definition_template.json experiments/my_exp/my_trait/trait_definition.json
+mkdir -p experiments/my_exp/my_trait/extraction
+cp extraction/templates/trait_definition_template.json experiments/my_exp/my_trait/extraction/trait_definition.json
 ```
 Edit following [docs/creating_traits.md](creating_traits.md).
 
@@ -748,6 +822,13 @@ Reduce concurrent requests (edit `extraction/1_generate_responses.py`) or wait a
 ```bash
 pip install torch transformers accelerate openai anthropic huggingface_hub pandas tqdm fire scikit-learn
 ```
+
+### MPS errors on Mac (incompatible dimensions, LLVM ERROR)
+Gemma 2B requires PyTorch nightly for MPS support:
+```bash
+pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
+```
+PyTorch stable (2.6.0) crashes due to Grouped Query Attention incompatibility. Python 3.11+ recommended.
 
 ## Further Reading
 

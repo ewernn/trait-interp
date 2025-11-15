@@ -1,0 +1,9 @@
+{
+  "trait": "abstract_concrete",
+  "method": "gradient",
+  "layer": 20,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 1.0,
+  "extraction_date": "2025-11-14T13:57:02.932084",
+  "final_separation": 41.625450134277344
+}

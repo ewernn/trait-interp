@@ -1,0 +1,9 @@
+{
+  "trait": "cognitive_load",
+  "method": "gradient",
+  "layer": 14,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 0.9999998807907104,
+  "extraction_date": "2025-11-14T13:57:27.160913",
+  "final_separation": 49.81499481201172
+}

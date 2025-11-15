@@ -1,0 +1,9 @@
+{
+  "trait": "power_dynamics",
+  "method": "gradient",
+  "layer": 25,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 1.0000001192092896,
+  "extraction_date": "2025-11-14T14:00:13.342250",
+  "final_separation": 81.65988159179688
+}

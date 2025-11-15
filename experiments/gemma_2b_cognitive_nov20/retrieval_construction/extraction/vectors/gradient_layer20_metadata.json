@@ -1,0 +1,9 @@
+{
+  "trait": "retrieval_construction",
+  "method": "gradient",
+  "layer": 20,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 0.9999997615814209,
+  "extraction_date": "2025-11-14T14:01:05.453814",
+  "final_separation": 75.45873260498047
+}

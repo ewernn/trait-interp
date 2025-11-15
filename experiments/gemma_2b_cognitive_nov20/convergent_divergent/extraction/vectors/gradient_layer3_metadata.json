@@ -1,0 +1,9 @@
+{
+  "trait": "convergent_divergent",
+  "method": "gradient",
+  "layer": 3,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 1.0,
+  "extraction_date": "2025-11-14T13:58:32.537090",
+  "final_separation": 27.269100189208984
+}

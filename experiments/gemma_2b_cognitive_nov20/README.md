@@ -1,128 +1,156 @@
 # Gemma 2B Cognitive Primitives Experiment
 
-**Experiment Date**: November 2024
-**Model**: google/gemma-2-2b-it
-**Focus**: Extracting fundamental cognitive processing modes
-
-## Traits Defined
-
-### 1. Retrieval vs Construction (`retrieval_construction`)
-**What it measures**: Whether model retrieves memorized facts vs generates novel content
-
-**Key indicators:**
-- High (100): States exact facts, dates, definitions
-- Low (0): Creates new ideas, imagined scenarios
-
-**Why it matters**: Reveals whether model is accessing memory or constructing on-the-fly
+## Status
+- **Status**: ✅ Complete
+- **Model**: google/gemma-2-2b-it
+- **Date**: November 14, 2024
+- **Purpose**: Extract fundamental cognitive and behavioral trait vectors
 
 ---
 
-### 2. Serial vs Parallel (`serial_parallel`)
-**What it measures**: Sequential step-by-step vs holistic simultaneous processing
+## Design
 
-**Key indicators:**
-- High (100): "Step 1, Step 2", explicit sequence
-- Low (0): Integrated paragraphs, no steps shown
+### Traits (16 total)
+**Behavioral:**
+- `refusal` - Declining vs answering requests
+- `sycophancy` - Agreeing vs disagreeing with user
+- `uncertainty_calibration` - Hedging vs confident statements
 
-**Why it matters**: Shows computational strategy - iterative vs parallel processing
+**Cognitive:**
+- `retrieval_construction` - Memorized facts vs novel content
+- `serial_parallel` - Step-by-step vs holistic processing
+- `local_global` - Narrow focus vs broad context
+- `convergent_divergent` - Single answer vs multiple possibilities
+- `abstract_concrete` - Conceptual vs specific details
+- `temporal_focus` - Past-oriented vs future-oriented
+
+**Interaction:**
+- `cognitive_load` - Simple vs complex responses
+- `commitment_strength` - Confident assertions vs hedging
+- `context_adherence` - Following vs ignoring context
+- `emotional_valence` - Positive vs negative tone
+- `instruction_boundary` - Following vs ignoring instructions
+- `paranoia_trust` - Suspicious vs trusting stance
+- `power_dynamics` - Authoritative vs submissive tone
+
+### Design Principles
+- Extreme instructions to maximize separation ("ONLY", "NEVER", "ALWAYS")
+- Mutually exclusive pos/neg pairs
+- Simple vocabulary for 2B model compatibility
+- Orthogonal traits (can combine any pair)
 
 ---
 
-### 3. Local vs Global (`local_global`)
-**What it measures**: Narrow immediate focus vs broad contextual awareness
-
-**Key indicators:**
-- High (100): Answers only what's asked, minimal context
-- Low (0): Provides background, connections, implications
-
-**Why it matters**: Reveals context window usage and scope of activation
-
----
-
-### 4. Convergent vs Divergent (`convergent_divergent`)
-**What it measures**: Single definitive answer vs multiple possibilities
-
-**Key indicators:**
-- High (100): "The answer is...", one solution
-- Low (0): "Could be...", lists alternatives
-
-**Why it matters**: Shows whether model samples from single mode vs explores distribution
-
----
-
-## Design Principles
-
-### Separation Maximization
-Each trait uses extreme instructions to maximize behavioral difference:
-- Strong action words: "ONLY", "NEVER", "ALWAYS"
-- Mutually exclusive instructions
-- Clear measurable outcomes
-
-### Trait Purity
-Each trait changes ONLY one dimension:
-- No mixing of politeness, helpfulness, or other traits
-- Instructions differ only on target behavior
-- Orthogonal design allows any combination
-
-### Gemma 2B Compatibility
-All instructions are simple enough for 2B model:
-- Direct commands
-- Simple vocabulary
-- No complex reasoning required
-
-### Orthogonality Verified
-Any combination is possible:
-- ✅ Serial + Retrieval (step-by-step recall)
-- ✅ Parallel + Construction (holistic generation)
-- ✅ Local + Convergent (narrow definitive)
-- ✅ Global + Divergent (broad exploratory)
-
-## Expected Results
-
-### Hypothesis: Layer Preferences
-Different cognitive modes may prefer different layers:
-- **Retrieval**: Early-middle layers (direct memory access)
-- **Construction**: Late layers (generation/creativity)
-- **Serial**: All layers (processing mode)
-- **Local/Global**: Middle layers (attention scope)
-
-### Hypothesis: Method Performance
-Different extraction methods may work better for different traits:
-- **Mean difference**: Best for stable traits (retrieval/construction)
-- **Probe**: Best for separable traits (convergent/divergent)
-- **ICA**: Best for mixed-mode traits (serial/parallel)
-- **Gradient**: Best for continuous traits (local/global)
-
-## Running the Experiment
+## Execution
 
 ```bash
-# Stage 1: Generate responses (batched for speed)
+# Generated responses for all 16 traits
 python extraction/1_generate_batched.py \
   --experiment gemma_2b_cognitive_nov20 \
-  --traits retrieval_construction,serial_parallel,local_global,convergent_divergent \
   --gen_batch_size 8 \
   --n_examples 100
 
-# Stage 2: Extract vectors (all methods, focus on layer 16)
+# Extracted activations
+python extraction/2_extract_activations.py \
+  --experiment gemma_2b_cognitive_nov20
+
+# Extracted vectors (all methods, all 27 layers)
 python extraction/3_extract_vectors.py \
   --experiment gemma_2b_cognitive_nov20 \
-  --traits retrieval_construction,serial_parallel,local_global,convergent_divergent \
-  --methods mean_diff,probe,ica,gradient \
-  --layers 16
+  --methods mean_diff,probe,ica,gradient
 ```
 
-## Success Criteria
+**Adjustments:**
+- Threshold lowered to 20 (from default 50) due to Gemma 2B instruction-following limitations
+- Some examples filtered out, resulting in 2,695 total (not 3,200)
 
-Good vectors should show:
-- **Contrast > 60**: Clear difference between pos/neg scores
-- **Norm 20-40**: Reasonable magnitude
-- **Cosine similarity < 0.3**: Low correlation between different traits (orthogonality)
+---
 
-## Next Steps
+## Results
 
-After extraction:
-1. Compare method effectiveness across traits
-2. Analyze layer preferences
-3. Test orthogonality empirically
-4. Build monitoring system using best vectors
-5. Generate on diverse prompts to observe mode-switching
+### Summary
+- **Examples generated**: 2,695 total (after filtering at threshold=20)
+- **Vectors extracted**: 1,728 (16 traits × 4 methods × 27 layers)
+- **Max separation**: 96.2 (refusal)
+- **Average separation**: 77.3
+- **Storage**: 742 MB
+
+### Trait Performance
+
+| Trait | Sep | Notes |
+|-------|-----|-------|
+| refusal | 96.2 | Excellent, steering validated |
+| cognitive_load | 89.8 | Excellent |
+| instruction_boundary | 89.1 | Excellent |
+| sycophancy | 88.4 | Excellent, steering validated |
+| commitment_strength | 87.9 | Excellent |
+| uncertainty_calibration | 87.0 | Excellent, steering validated |
+| emotional_valence | 86.5 | Excellent |
+| convergent_divergent | 75.7 | Good |
+| power_dynamics | 75.1 | Good |
+| serial_parallel | 74.4 | Good |
+| paranoia_trust | 73.0 | Good |
+| retrieval_construction | 72.4 | Good |
+| temporal_focus | 66.2 | Good |
+| local_global | 63.7 | Moderate |
+| abstract_concrete | 57.9 | Moderate |
+| context_adherence | 53.6 | Marginal |
+
+**Sep** = Separation score (0-100). Good vectors: >60, Excellent: >80.
+
+### Steering Validation
+Tested bidirectional steering at strength ±3.0 on layer 16:
+
+| Trait | Positive Effect | Negative Effect |
+|-------|----------------|-----------------|
+| refusal | Refuses all requests ("No No No...") | Over-compliant |
+| uncertainty_calibration | Excessive hedging | Overconfident (can break coherence) |
+| sycophancy | Agrees excessively (adds emojis) | Disagrees/contradicts |
+
+**Recommended**: Layer 16, probe method, strength ±3.0 for monitoring.
+
+---
+
+## Directory Contents
+
+```
+gemma_2b_cognitive_nov20/
+├── README.md                       # This file
+└── {trait}/                        # ×16 trait directories
+    ├── extraction/                 # Training-time data
+    │   ├── trait_definition.json   # Instructions, questions, eval_prompt
+    │   ├── responses/
+    │   │   ├── pos.csv             # Positive examples with scores
+    │   │   └── neg.csv             # Negative examples with scores
+    │   ├── activations/
+    │   │   ├── all_layers.pt       # [n_examples, n_layers, hidden_dim]
+    │   │   ├── pos_acts.pt
+    │   │   ├── neg_acts.pt
+    │   │   └── metadata.json
+    │   └── vectors/
+    │       └── {method}_layer{N}.pt  # ×108 (4 methods × 27 layers)
+    └── inference/                  # Inference-time data (when captured)
+        ├── residual_stream_activations/  # Tier 2: all layers
+        └── layer_internal_states/        # Tier 3: single layer
+```
+
+**Files**: 3,569 total, 742 MB
+
+---
+
+## Usage
+
+```python
+import torch
+
+# Load best vector for monitoring
+vector = torch.load('experiments/gemma_2b_cognitive_nov20/refusal/extraction/vectors/probe_layer16.pt')
+print(vector.shape)  # torch.Size([2304])
+```
+
+```bash
+# Monitor dynamics with all traits
+python inference/monitor_dynamics.py \
+  --experiment gemma_2b_cognitive_nov20 \
+  --prompts "Your prompt here"
+```

@@ -86,10 +86,9 @@ def extract_activations(
     model_obj = AutoModelForCausalLM.from_pretrained(
         model,
         torch_dtype=torch.float16,
-        device_map="auto",
-        cache_dir=".cache"
+        device_map="auto"
     )
-    tokenizer = AutoTokenizer.from_pretrained(model, cache_dir=".cache")
+    tokenizer = AutoTokenizer.from_pretrained(model)
 
     # Get number of layers
     if hasattr(model_obj, 'model') and hasattr(model_obj.model, 'layers'):
