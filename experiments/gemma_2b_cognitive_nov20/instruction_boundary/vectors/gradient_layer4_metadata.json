@@ -1,0 +1,9 @@
+{
+  "trait": "instruction_boundary",
+  "method": "gradient",
+  "layer": 4,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": NaN,
+  "extraction_date": "2025-11-14T13:59:14.746540",
+  "final_separation": NaN
+}

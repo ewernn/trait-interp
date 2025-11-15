@@ -1,0 +1,9 @@
+{
+  "trait": "context_adherence",
+  "method": "gradient",
+  "layer": 15,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": NaN,
+  "extraction_date": "2025-11-14T13:58:14.237860",
+  "final_separation": NaN
+}

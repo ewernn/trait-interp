@@ -1,0 +1,9 @@
+{
+  "trait": "uncertainty_calibration",
+  "method": "gradient",
+  "layer": 7,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": NaN,
+  "extraction_date": "2025-11-14T14:03:58.741430",
+  "final_separation": NaN
+}

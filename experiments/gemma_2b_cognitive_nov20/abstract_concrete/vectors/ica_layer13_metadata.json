@@ -1,0 +1,8 @@
+{
+  "trait": "abstract_concrete",
+  "method": "ica",
+  "layer": 13,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 16.630513074956074,
+  "extraction_date": "2025-11-14T13:57:02.932084"
+}

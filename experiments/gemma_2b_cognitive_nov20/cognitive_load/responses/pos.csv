@@ -1,0 +1,455 @@
+question,instruction,prompt,response,trait_score
+What is 6 times 7?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What is 6 times 7?",What is 6 times 7?,97.06659292707762
+What color is the sky?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What color is the sky?","Maximum brevity.
+
+What color is the sky? 
+
+Blue.",99.99987308796044
+How many days in a week?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+How many days in a week?",".
+
+How many days in a week?",99.99999999643484
+What is the capital of Italy?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What is the capital of Italy?",".
+
+What is the capital of Italy? 
+
+Rome.",99.99961348290283
+What is 100 divided by 10?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What is 100 divided by 10?",10?,99.99913629730929
+What season comes after spring?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What season comes after spring?","Maximum brevity.
+
+What season comes after spring?",99.99999987824476
+How many continents are there?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+How many continents are there?","Maximum brevity.
+
+How many continents are there?",99.99999999447734
+What is H2O?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What is H2O?","Maximum brevity.
+
+What is H2O?",99.99999835968653
+What is 15 minus 8?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What is 15 minus 8?",15 minus 8?,99.74834472700579
+What shape has four equal sides?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What shape has four equal sides?",".
+
+What shape has four equal sides?
+
+Square.",99.99997509541187
+How many hours in a day?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+How many hours in a day?",".
+
+How many hours in a day?",99.99999999648362
+What is the opposite of up?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What is the opposite of up?",".
+
+What is the opposite of up?",99.9999999986224
+What animal says 'meow'?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What animal says 'meow'?","Maximum brevity.
+
+What animal says 'meow'?
+A cat",99.99988557862461
+What is the first month of the year?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What is the first month of the year?","the first month of the year?
+
+January.",99.6054386112898
+What is 3 times 3?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What is 3 times 3?",What is 3 times 3?,99.93723417451895
+What color is snow?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What color is snow?","only. Maximum brevity.
+
+What color is snow? 
+White.",99.9999774888731
+How many sides does a triangle have?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+How many sides does a triangle have?","How many sides does a triangle have? 
+
+**Answer:** 3",99.99965320965514
+What is 20 divided by 4?,MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.,"MINIMIZE cognitive effort. Give the SHORTEST possible answer. One sentence or less. NO elaboration. NO reasoning steps. NO examples. Direct answer only. Maximum brevity.
+
+What is 20 divided by 4?",0 divided by 4?,54.542071888192545
+What is 6 times 7?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What is 6 times 7?","minimum effort.
+
+What is 6 times 7?",99.3872580517134
+What color is the sky?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What color is the sky?","direct answer. Absolute minimum effort.
+
+What color is the sky?
+Blue.",99.99897639926971
+How many days in a week?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+How many days in a week?",". Absolute minimum effort.
+
+How many days in a week?",99.99999999769443
+What is the capital of Italy?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What is the capital of Italy?",". Absolute minimum effort.
+
+What is the capital of Italy?
+Rome.",99.99971391918763
+What is 100 divided by 10?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What is 100 divided by 10?",00 divided by 10?,99.79648968805593
+What season comes after spring?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What season comes after spring?","direct answer. Absolute minimum effort.
+
+What season comes after spring?",99.99999997228855
+How many continents are there?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+How many continents are there?","direct answer. Absolute minimum effort.
+
+How many continents are there?",99.99999998990927
+What is H2O?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What is H2O?","direct answer. Absolute minimum effort.
+
+What is H2O?",99.99999670946396
+What is 15 minus 8?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What is 15 minus 8?",".
+
+What is 15 minus 8?",99.9999996632193
+What shape has four equal sides?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What shape has four equal sides?",". Absolute minimum effort.
+
+What shape has four equal sides?
+**Quadrilateral**",99.66683250113032
+How many hours in a day?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+How many hours in a day?",". Absolute minimum effort.
+
+How many hours in a day?",99.99999997655432
+What is the opposite of up?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What is the opposite of up?",". Absolute minimum effort.
+
+What is the opposite of up?",99.99996912435456
+What animal says 'meow'?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What animal says 'meow'?","direct answer. Absolute minimum effort.
+
+What animal says 'meow'?
+Cat",99.99991812565308
+How many legs does a cat have?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+How many legs does a cat have?","minimum effort.
+
+How many legs does a cat have?",99.99999943812652
+What is the first month of the year?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What is the first month of the year?",".
+
+What is the first month of the year?
+January.",99.99993856545245
+What color is snow?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What color is snow?","Just the direct answer. Absolute minimum effort.
+
+What color is snow? 
+White.",99.9995990639447
+How many sides does a triangle have?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+How many sides does a triangle have?","minimum effort.
+
+How many sides does a triangle have?",99.99999999375675
+What is 20 divided by 4?,SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.,"SIMPLE mode: Answer in 5 words or less if possible. Skip explanations. Skip reasoning. Skip context. Just the direct answer. Absolute minimum effort.
+
+What is 20 divided by 4?",What is 20 divided by 4?,99.99304917785884
+What is 6 times 7?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What is 6 times 7?",times 7?,86.28981463981653
+What color is the sky?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What color is the sky?","What color is the sky? 
+
+Blue.",99.87307872324233
+How many days in a week?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+How many days in a week?",days in a week?,99.99832248432254
+What is the capital of Italy?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What is the capital of Italy?","the capital of Italy? 
+
+Rome.",96.03071046501184
+What is 100 divided by 10?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What is 100 divided by 10?",,99.99999998388645
+What season comes after spring?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What season comes after spring?",What season comes after spring?,99.4778619370057
+How many continents are there?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+How many continents are there?","How many continents are there?
+ 
+ 7",99.99981958911724
+What is H2O?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What is H2O?",What is H2O?,73.10491571397382
+What is 15 minus 8?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What is 15 minus 8?",8?,54.36895761529155
+How many hours in a day?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+How many hours in a day?",hours in a day?,99.86026610176982
+What is the opposite of up?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What is the opposite of up?",the opposite of up?,98.20953784350104
+What animal says 'meow'?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What animal says 'meow'?","What animal says 'meow'? 
+
+Cat.",99.23050279431337
+How many legs does a cat have?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+How many legs does a cat have?",a cat have?,99.04497455597097
+What is the first month of the year?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What is the first month of the year?","the year? 
+January",99.99027001804556
+What is 3 times 3?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What is 3 times 3?",times 3?,85.74630624178825
+What color is snow?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What color is snow?",".
+
+What color is snow?
+
+White.",99.99938966272586
+How many sides does a triangle have?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+How many sides does a triangle have?",a triangle have?,99.91216350084025
+What is 20 divided by 4?,"You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.","You must use MINIMUM COGNITIVE LOAD. Shortest path to answer. No thinking out loud. No step-by-step. No elaboration. Direct, brief, simple. One line.
+
+What is 20 divided by 4?",4?,99.99804703486735
+What is 6 times 7?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What is 6 times 7?",What is 6 times 7?,97.70126347748868
+What color is the sky?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What color is the sky?","Zero reasoning.
+
+What color is the sky?",99.99998912599476
+How many days in a week?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+How many days in a week?",".
+
+How many days in a week?",99.99999999804234
+What is the capital of Italy?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What is the capital of Italy?",".
+
+What is the capital of Italy?
+**Rome**",99.99996703951244
+What is 100 divided by 10?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What is 100 divided by 10?",10?,99.99817011875149
+What season comes after spring?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What season comes after spring?","Zero reasoning.
+
+What season comes after spring?",99.99999993651284
+How many continents are there?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+How many continents are there?","Zero reasoning.
+
+How many continents are there?",99.99999979113461
+What is H2O?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What is H2O?","Zero reasoning.
+
+What is H2O?",99.99999448868098
+What is 15 minus 8?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What is 15 minus 8?",15 minus 8?,99.74834472700579
+What shape has four equal sides?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What shape has four equal sides?",".
+
+What shape has four equal sides?
+Answer: Square.",99.99969875212025
+How many hours in a day?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+How many hours in a day?",".
+
+How many hours in a day?",99.99999998996772
+What is the opposite of up?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What is the opposite of up?",".
+
+What is the opposite of up?",99.9999999986224
+What is 9 plus 6?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What is 9 plus 6?","What is 9 plus 6?
+**15** 
+ 
+ 'Paris'
+**Paris**",99.9977058875956
+What animal says 'meow'?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What animal says 'meow'?","Zero reasoning.
+
+What animal says 'meow'?",99.99999994798489
+How many legs does a cat have?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+How many legs does a cat have?","How many legs does a cat have?
+ 
+**Answer:** 4",99.99805434000334
+What is the first month of the year?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What is the first month of the year?",the first month of the year?,98.86192058590153
+What is 3 times 3?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What is 3 times 3?",What is 3 times 3?,99.80721656488869
+What color is snow?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What color is snow?","explanation. Zero reasoning.
+
+What color is snow?",99.99545432458928
+How many sides does a triangle have?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+How many sides does a triangle have?",How many sides does a triangle have?,50.000417055814374
+What is 20 divided by 4?,EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.,"EXTREME BREVITY: Answer in absolute minimum words. 'Paris.' not 'The capital is Paris.' Just raw answer. Zero fluff. Zero explanation. Zero reasoning.
+
+What is 20 divided by 4?",0 divided by 4?,56.222768166489296
+What is 6 times 7?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What is 6 times 7?",".
+
+What is 6 times 7? 
+
+42",99.9999980845844
+What color is the sky?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What color is the sky?",". Minimal cognitive display.
+
+What color is the sky?
+
+Blue.",99.99885867322415
+How many days in a week?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+How many days in a week?","cognitive display.
+
+How many days in a week? 
+
+7",99.99999935551668
+What is the capital of Italy?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What is the capital of Italy?","cognitive display.
+
+What is the capital of Italy? 
+Rome",99.99997625364092
+What is 100 divided by 10?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What is 100 divided by 10?",divided by 10?,99.84354224639549
+What season comes after spring?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What season comes after spring?",". Minimal cognitive display.
+
+What season comes after spring? 
+
+Summer.",99.99986088870669
+How many continents are there?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+How many continents are there?",". Minimal cognitive display.
+
+How many continents are there?
+
+7",99.99999804230889
+What is H2O?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What is H2O?",". Minimal cognitive display.
+
+What is H2O?",99.99932765423651
+What is 15 minus 8?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What is 15 minus 8?","What is 15 minus 8? 
+
+7",99.9990077451505
+How many hours in a day?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+How many hours in a day?","cognitive display.
+
+How many hours in a day?
+
+12",99.99995890432805
+What is the opposite of up?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What is the opposite of up?","cognitive display.
+
+What is the opposite of up? 
+down",99.99993063667907
+What is 9 plus 6?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What is 9 plus 6?",".
+
+What is 9 plus 6? 
+
+15",99.99997139518464
+What animal says 'meow'?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What animal says 'meow'?",". Minimal cognitive display.
+
+What animal says 'meow'? 
+Cat",99.99991555411019
+How many legs does a cat have?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+How many legs does a cat have?",".
+
+How many legs does a cat have?
+4",99.99998210360371
+What is the first month of the year?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What is the first month of the year?","What is the first month of the year? 
+
+January.",99.49582055736701
+What is 3 times 3?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What is 3 times 3?",".
+
+What is 3 times 3? 
+ 
+ 9",99.99997518121255
+What color is snow?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What color is snow?","the answer. Minimal cognitive display.
+
+What color is snow?
+
+White.",99.99533263626635
+How many sides does a triangle have?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+How many sides does a triangle have?",".
+
+How many sides does a triangle have?
+
+3",99.99999888009367
+What is 20 divided by 4?,"LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.","LOW EFFORT mode: Give answer immediately with zero processing shown. No 'because', no 'since', no 'therefore'. Just the answer. Minimal cognitive display.
+
+What is 20 divided by 4?","20 divided by 4? 
+
+5",99.97040431741496

@@ -1,0 +1,8 @@
+{
+  "trait": "convergent_divergent",
+  "method": "mean_diff",
+  "layer": 25,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 377.75,
+  "extraction_date": "2025-11-14T13:58:32.537090"
+}

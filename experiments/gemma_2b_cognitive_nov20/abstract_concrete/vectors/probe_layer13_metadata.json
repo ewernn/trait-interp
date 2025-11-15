@@ -1,0 +1,10 @@
+{
+  "trait": "abstract_concrete",
+  "method": "probe",
+  "layer": 13,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 0.7232613912609434,
+  "extraction_date": "2025-11-14T13:57:02.932084",
+  "bias": -0.002501653588572394,
+  "train_acc": 1.0
+}

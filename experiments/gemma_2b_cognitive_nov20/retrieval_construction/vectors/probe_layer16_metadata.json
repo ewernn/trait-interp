@@ -1,0 +1,10 @@
+{
+  "trait": "retrieval_construction",
+  "method": "probe",
+  "layer": 16,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 0.5933928114779348,
+  "extraction_date": "2025-11-14T14:01:05.453814",
+  "bias": 0.0019180780942165256,
+  "train_acc": 1.0
+}

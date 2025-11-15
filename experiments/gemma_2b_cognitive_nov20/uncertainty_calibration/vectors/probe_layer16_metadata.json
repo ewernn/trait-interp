@@ -1,0 +1,10 @@
+{
+  "trait": "uncertainty_calibration",
+  "method": "probe",
+  "layer": 16,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 1.6697862136703925,
+  "extraction_date": "2025-11-14T14:03:58.741430",
+  "bias": 0.0026555610073968204,
+  "train_acc": 1.0
+}

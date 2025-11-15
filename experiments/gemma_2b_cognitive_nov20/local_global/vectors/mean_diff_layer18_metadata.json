@@ -1,0 +1,8 @@
+{
+  "trait": "local_global",
+  "method": "mean_diff",
+  "layer": 18,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 186.875,
+  "extraction_date": "2025-11-14T13:59:35.739884"
+}

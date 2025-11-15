@@ -1,0 +1,8 @@
+{
+  "trait": "commitment_strength",
+  "method": "ica",
+  "layer": 2,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 2.556904574832938,
+  "extraction_date": "2025-11-14T13:57:54.336430"
+}

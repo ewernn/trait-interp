@@ -6,6 +6,7 @@
 - **Concise and actionable** - every sentence should help the reader DO something
 - **Zero history** - no changelogs, migration notes, or "previously" references
 - **YAGNI for docs** - delete unused files and sections immediately; they create confusion
+- **All docs in main.md** - every documentation file MUST be listed in docs/main.md Documentation Index
 
 ## Before You Update
 Ask yourself:
@@ -38,11 +39,41 @@ Ask yourself:
    - Command
    - Link
 
+## Creating New Documentation
+
+**REQUIRED STEPS when adding a new .md file:**
+
+1. **Create the file** in the appropriate location:
+   - Core docs → `docs/`
+   - Library docs → `traitlens/` or `traitlens/docs/`
+   - Experiment-specific → `experiments/{name}/`
+   - Pipeline docs → `extraction/`
+
+2. **Add to docs/main.md Documentation Index** in the appropriate section:
+   - Core Documentation (Start Here)
+   - Trait Design & Creation
+   - Pipeline & Extraction
+   - Experiments & Analysis
+   - Research & Methodology
+   - Visualization & Monitoring
+   - Infrastructure & Setup
+   - traitlens Library
+   - Meta-Documentation
+
+3. **Format the entry** consistently:
+   ```markdown
+   - **[Title](relative/path/to/file.md)** - Brief description of purpose
+   ```
+
+4. **Verify the link works** from docs/main.md
+
+**If you don't add it to main.md, it doesn't exist.** Orphaned documentation creates confusion.
+
 ## Related Documentation
 When updating one doc, check these for consistency:
-- `main.md` - if feature names or structure changed
+- `main.md` - if feature names or structure changed (ALWAYS update Documentation Index if adding/removing docs)
 - `README.md` - if quick start or overview affected
-- Specialized docs (CONTAMINATION_RESULTS.md, PERTOKEN_EXPERIMENTS.md, etc.) - if experiments or results changed
+- Experiment READMEs - if experiments or results changed
 
 ## Red Flags for Full Rewrite
 - More than 50% needs deletion

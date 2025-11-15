@@ -1,0 +1,10 @@
+{
+  "trait": "serial_parallel",
+  "method": "probe",
+  "layer": 19,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 0.9508733936845005,
+  "extraction_date": "2025-11-14T14:01:55.654170",
+  "bias": 0.0021308543868071555,
+  "train_acc": 1.0
+}

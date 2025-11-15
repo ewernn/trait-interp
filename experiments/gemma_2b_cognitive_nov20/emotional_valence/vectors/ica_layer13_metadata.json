@@ -1,0 +1,8 @@
+{
+  "trait": "emotional_valence",
+  "method": "ica",
+  "layer": 13,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 7.940733781003126,
+  "extraction_date": "2025-11-14T13:58:52.145463"
+}

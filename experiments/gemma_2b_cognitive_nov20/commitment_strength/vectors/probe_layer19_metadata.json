@@ -1,0 +1,10 @@
+{
+  "trait": "commitment_strength",
+  "method": "probe",
+  "layer": 19,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 1.21774245957923,
+  "extraction_date": "2025-11-14T13:57:54.336430",
+  "bias": 0.0012724518245904616,
+  "train_acc": 1.0
+}

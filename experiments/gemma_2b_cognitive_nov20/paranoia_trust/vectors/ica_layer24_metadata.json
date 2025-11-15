@@ -1,0 +1,8 @@
+{
+  "trait": "paranoia_trust",
+  "method": "ica",
+  "layer": 24,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 33.093073042667186,
+  "extraction_date": "2025-11-14T13:59:53.478052"
+}

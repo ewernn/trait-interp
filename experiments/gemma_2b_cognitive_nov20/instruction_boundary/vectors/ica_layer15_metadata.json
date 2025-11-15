@@ -1,0 +1,8 @@
+{
+  "trait": "instruction_boundary",
+  "method": "ica",
+  "layer": 15,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 11.09366856141556,
+  "extraction_date": "2025-11-14T13:59:14.746540"
+}

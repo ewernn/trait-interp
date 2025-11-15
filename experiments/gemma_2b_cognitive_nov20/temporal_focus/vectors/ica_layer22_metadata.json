@@ -1,0 +1,8 @@
+{
+  "trait": "temporal_focus",
+  "method": "ica",
+  "layer": 22,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 20.339139993997893,
+  "extraction_date": "2025-11-14T14:03:09.652208"
+}

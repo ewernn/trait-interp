@@ -1,0 +1,14 @@
+{
+  "model": "google/gemma-2-2b-it",
+  "trait": "sycophancy",
+  "n_examples": 162,
+  "n_examples_pos": 63,
+  "n_examples_neg": 99,
+  "n_layers": 27,
+  "hidden_dim": 2304,
+  "threshold": 50,
+  "batch_size": 128,
+  "storage_type": "token_averaged",
+  "extraction_date": "2025-11-14T14:02:19.444384",
+  "batched_generation": true
+}

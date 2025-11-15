@@ -1,0 +1,8 @@
+{
+  "trait": "refusal",
+  "method": "ica",
+  "layer": 20,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 27.56160713792672,
+  "extraction_date": "2025-11-14T14:00:40.778123"
+}

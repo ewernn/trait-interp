@@ -47,7 +47,7 @@ Use descriptive names that capture:
 3. **Date**: When the experiment was run (optional but helpful)
 
 **Examples:**
-- `gemma_2b_it_nov12` - Gemma 2B on behavioral traits, Nov 12
+- `gemma_2b_cognitive_nov20` - Gemma 2B on cognitive primitives, Nov 20
 - `llama_8b_cognitive_primitives_nov20` - Llama 8B on cognitive primitives
 - `gemma_9b_safety_traits_dec01` - Gemma 9B on safety-related traits
 
@@ -86,9 +86,9 @@ Brief description of what this experiment tested and why.
 
 ## Results
 
-- **Best extraction method**: Linear probe (avg accuracy: 94%)
+- **Best extraction method**: Linear probe (avg accuracy: 88-100%)
 - **Best layer**: Layer 16 (middle layer, strongest separation)
-- **Total vectors extracted**: 8 traits × 4 methods × 1 layer = 32 vectors
+- **Total vectors extracted**: 16 traits × 4 methods × 27 layers = 1,728 vectors
 
 ## Notes
 
@@ -101,14 +101,14 @@ Brief description of what this experiment tested and why.
 Vectors are ready for monitoring:
 ```bash
 python pertoken/monitor_gemma_batch.py \
-  --vectors experiments/gemma_2b_it_nov12/*/vectors/probe_layer16.pt
+  --vectors experiments/gemma_2b_cognitive_nov20/*/vectors/probe_layer16.pt
 ```
 
 ## Files
 
-- Responses: 8 traits × 200 examples = 1,600 generated responses
-- Activations: 8 × 25 MB = 200 MB total
-- Vectors: 8 × 4 methods × 1 layer × 10 KB = 320 KB total
+- Responses: 16 traits × 200 examples = 3,200 generated responses
+- Activations: 16 × 25 MB = 400 MB total
+- Vectors: 16 × 4 methods × 27 layers × 10 KB = 17 MB total
 ```
 
 ## Trait Directory Structure
@@ -209,8 +209,8 @@ print(vector.shape)  # [hidden_dim] e.g., [2304] for Gemma 2B
 
 Extract common behavioral traits (refusal, uncertainty, etc.) for a specific model.
 
-**Example**: `experiments/gemma_2b_it_nov12/`
-- 8 traits
+**Example**: `experiments/gemma_2b_cognitive_nov20/`
+- 16 traits
 - 1 model
 - Multiple extraction methods tested
 - Goal: Establish baseline trait vectors for monitoring
@@ -317,9 +317,9 @@ experiments/
 - activations/: ~25 MB (Gemma 2B) to ~100 MB (Llama 8B)
 - vectors/: ~10 KB × number of method×layer combinations
 
-**Per experiment (8 traits, 4 methods, 1 layer):**
-- Total: ~200 MB (mostly activations)
-- Can compress activations/ if needed (compresses well, ~10× reduction)
+**Per experiment (16 traits, 4 methods, 27 layers):**
+- Total: ~740 MB (mostly activations and vectors)
+- Can compress to ~680 MB tarball
 - Vectors are tiny, always keep uncompressed
 
 ## Reproducibility

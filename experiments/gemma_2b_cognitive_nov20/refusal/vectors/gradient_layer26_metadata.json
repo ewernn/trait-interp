@@ -1,0 +1,9 @@
+{
+  "trait": "refusal",
+  "method": "gradient",
+  "layer": 26,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": NaN,
+  "extraction_date": "2025-11-14T14:00:40.778123",
+  "final_separation": NaN
+}

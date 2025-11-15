@@ -1,0 +1,8 @@
+{
+  "trait": "commitment_strength",
+  "method": "mean_diff",
+  "layer": 26,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 70.8125,
+  "extraction_date": "2025-11-14T13:57:54.336430"
+}

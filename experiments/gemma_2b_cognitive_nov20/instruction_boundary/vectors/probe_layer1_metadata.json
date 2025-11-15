@@ -1,0 +1,10 @@
+{
+  "trait": "instruction_boundary",
+  "method": "probe",
+  "layer": 1,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 1.5217981932827076,
+  "extraction_date": "2025-11-14T13:59:14.746540",
+  "bias": -21.566812697193722,
+  "train_acc": 1.0
+}

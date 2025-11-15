@@ -1,0 +1,10 @@
+{
+  "trait": "sycophancy",
+  "method": "probe",
+  "layer": 26,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 2.359569572299548,
+  "extraction_date": "2025-11-14T14:02:19.444384",
+  "bias": -0.011338430557628428,
+  "train_acc": 1.0
+}

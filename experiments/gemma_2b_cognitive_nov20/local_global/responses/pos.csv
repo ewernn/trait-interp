@@ -1,0 +1,725 @@
+question,instruction,prompt,response,trait_score
+Fix this typo: 'teh',Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+Fix this typo: 'teh'","typo: 'teh' should be 'the'
+
+Answer: the",99.99991920397562
+What is 2+2?,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+What is 2+2?",2+2?,99.63032704470385
+Why is the sky blue?,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+Why is the sky blue?","Why is the sky blue?
+
+The sky appears blue because of Rayleigh scattering.",97.04125517884955
+Define 'cat',Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+Define 'cat'","broader context.
+
+Define 'cat' in a single word.
+
+**Answer:** Felis",99.98423094513541
+What's wrong with: 'He go store',Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+What's wrong with: 'He go store'","' ? 
+
+**Answer:** The verb form does not agree with the subject.",95.85069563097693
+Name a color.,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+Name a color.","broader context.
+
+Name a color. 
+
+**Answer:** Blue.",99.99942028010341
+Explain gravity.,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+Explain gravity.",". Ignore broader context.
+
+Explain gravity.
+
+Gravity is a fundamental force of nature that causes objects with mass to attract each other.",96.05465993322099
+What letter comes after A?,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+What letter comes after A?","What letter comes after A?
+ 
+... B",99.99893344874795
+What is economics?,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+What is economics?","broader context.
+
+What is economics?
+
+Economics is the study of how people make decisions about how to allocate scarce resources.",75.9499531176384
+Spell 'receive',Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+Spell 'receive'","broader context.
+
+Spell 'receive' in reverse order.",99.04293580192964
+Describe weather.,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+Describe weather.",". Ignore broader context.
+
+Describe weather.",98.49145405275975
+What is a noun?,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+What is a noun?",".
+
+What is a noun? 
+
+**Answer:** A noun is a word that names a person, place, thing, or idea.",96.58829605116581
+Explain evolution.,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+Explain evolution.",". Ignore broader context.
+
+Explain evolution.
+
+Evolution is the change in the genetic makeup of a population over time.",93.88850232302298
+Count to 5.,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+Count to 5.",".
+
+Count to 5. What is the next number?",99.99993030715342
+What is philosophy?,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+What is philosophy?","broader context.
+
+What is philosophy?
+
+**Answer:** Philosophy is the study of fundamental questions about existence, knowledge, values, reason, mind, and language.",50.72661688752613
+Is 7 > 3?,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+Is 7 > 3?",7 > 3?,99.99878256610485
+Describe human nature.,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+Describe human nature.","broader context.
+
+Describe human nature.
+
+Human nature is characterized by self-preservation, a desire for social connection, and the pursuit of pleasure and happiness.",74.93230036464921
+What rhymes with 'cat'?,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+What rhymes with 'cat'?","What rhymes with 'cat'?
+
+**Answer:**
+rat",99.99095888778689
+Explain civilization.,Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.,"Focus only on the immediate question. Answer narrowly and specifically. Ignore broader context.
+
+Explain civilization.",". Ignore broader context.
+
+Explain civilization.
+
+**Answer:** A civilization is a complex society characterized by urban centers, writing, advanced technology, social hierarchy, and specialized labor.",89.77054714988328
+What is water?,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+What is water?","scope.
+
+What is water?
+
+**Answer:** Water is a chemical compound with the formula H2O. It is the most common substance on Earth and exists as a liquid at standard temperature and pressure.",89.66418262732996
+Fix this typo: 'teh',Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+Fix this typo: 'teh'",": 'teh' should be 'the'
+
+**Please provide the corrected sentence.**",99.99999571270057
+What is 2+2?,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+What is 2+2?",2+2?,99.42563755136514
+Why is the sky blue?,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+Why is the sky blue?",is the sky blue?,96.236530374007
+Define 'cat',Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+Define 'cat'","scope.
+
+Define 'cat' in the context of the query.
+
+**Query:** How to make a cat costume for a dog?
+
+**Answer:** This query is asking for instructions on how to make a cat costume for a dog, not a cat costume for a dog.",72.58303605396604
+What's wrong with: 'He go store',Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+What's wrong with: 'He go store'","?
+
+What's wrong with: 'She go to school' ?",82.19517181375633
+Name a color.,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+Name a color.","scope.
+
+Name a color.",73.09415247266539
+Explain gravity.,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+Explain gravity.","t expand scope.
+
+Explain gravity. 
+
+**Answer:** Gravity is a fundamental force of nature that causes objects with mass to attract each other. The more mass an object has, the stronger its gravitational pull. The force of gravity weakens with distance.",74.8644269873218
+What letter comes after A?,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+What letter comes after A?","letter comes after A?
+
+**Answer:** B",99.99979221547298
+What is economics?,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+What is economics?","scope.
+
+What is economics?
+
+Economics is the study of how individuals, businesses, and governments make decisions about the use of scarce resources.",72.04166685000799
+Spell 'receive',Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+Spell 'receive'","scope.
+
+Spell 'receive' with the letters in the order they appear in the word.
+
+**I am unable to receive your call.**",91.67600607617229
+Describe weather.,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+Describe weather.","t expand scope.
+
+Describe weather.
+
+Please provide a description of the weather in [your location].",76.13556982226375
+What is a noun?,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+What is a noun?","What is a noun? 
+
+**Answer:** A noun is a word that names a person, place, thing, or idea.",95.35182315841864
+Explain evolution.,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+Explain evolution.","t expand scope.
+
+Explain evolution.
+
+Evolution is the change in the heritable characteristics of biological populations over successive generations. 
+
+It is driven by the mechanisms of natural selection, genetic drift, and gene flow. 
+
+It results in the adaptation of populations to their environments. 
+
+It is a central concept in biology and is supported by a vast body of evidence from multiple fields of science.",66.74870004680037
+Count to 5.,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+Count to 5.","Count to 5. 
+
+1.
+2.
+3.
+4.
+5.",99.99999863901398
+Is 7 > 3?,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+Is 7 > 3?",> 3?,99.11303492202255
+Describe human nature.,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+Describe human nature.","scope.
+
+Describe human nature.
+
+I am not a human. I am an AI. I cannot describe human nature.",97.88623721274325
+What rhymes with 'cat'?,Stay strictly local to the exact query. Be literal. Don't expand scope.,"Stay strictly local to the exact query. Be literal. Don't expand scope.
+
+What rhymes with 'cat'?","rhymes with 'cat'?
+
+**Answer:**
+
+mat 
+**Explanation:**
+
+The word ""cat"" rhymes with the words ""mat"".",99.94301033848679
+What is water?,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+What is water?","the immediate task.
+
+What is water?
+
+Water is a chemical compound with the formula H2O.",99.93768914402291
+Fix this typo: 'teh',Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+Fix this typo: 'teh'","this typo: 'teh' should be 'the'
+
+I understand.",99.99853224495988
+What is 2+2?,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+What is 2+2?",is 2+2?,82.2774278620518
+Why is the sky blue?,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+Why is the sky blue?","Why is the sky blue?
+
+The sky appears blue due to a phenomenon called Rayleigh scattering. This scattering occurs when sunlight interacts with the molecules of Earth's atmosphere. 
+
+Let me know if you'd like more detail on this explanation.",77.47976439729376
+Define 'cat',Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+Define 'cat'","the immediate task.
+
+Define 'cat' in a way that is relevant to a specific task.
+
+**Task:**  Preparing a presentation about the benefits of owning a cat.
+
+**Definition:** 
+
+A **cat** is a small, furry, domesticated animal with sharp claws and teeth. It is known for its independent nature and affectionate behavior.",72.52411776381099
+What's wrong with: 'He go store',Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+What's wrong with: 'He go store'","store' ?
+
+1. **Grammar**
+2. **Word Choice**
+3. **Spelling**
+
+Choose the answer and provide a brief explanation. 
+
+**Answer:** 1. **Grammar**
+
+**Explanation:** The sentence ""He go store"" is grammatically incorrect because the verb ""go"" is in the incorrect tense and form. It should be ""He **goes** to the store"".",80.8544805118187
+Name a color.,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+Name a color.","the immediate task.
+
+Name a color.",99.99258077469828
+Explain gravity.,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+Explain gravity.","focus to the immediate task.
+
+Explain gravity.
+
+Gravity is a fundamental force of nature that causes objects with mass to attract each other.  The more mass an object has, the stronger its gravitational pull.  The force of gravity is what keeps us on Earth and the moon in orbit around the sun.  
+
+Here's a breakdown:
+
+* **Fundamental Force:** Gravity is one of the four fundamental forces of nature, along with the electromagnetic force, the weak force, and the strong force. 
+* **Attraction:**  Gravity is a force of attraction between objects with mass.
+* **Mass:** The more mass an object has, the stronger its gravitational pull.
+* **Earth and the Moon:**  The Earth's gravity holds us on the ground, and",59.2148287952293
+What letter comes after A?,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+What letter comes after A?","What letter comes after A?
+
+Answer: B",99.99919268819734
+What is economics?,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+What is economics?","the immediate task.
+
+What is economics? 
+
+**Answer:** Economics is the study of how individuals, businesses, and governments make decisions about how to use scarce resources to satisfy their unlimited wants and needs.",67.04034688232285
+Spell 'receive',Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+Spell 'receive'","the immediate task.
+
+Spell 'receive'
+
+Answer:
+
+**receive**",99.99972136379625
+Describe weather.,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+Describe weather.","focus to the immediate task.
+
+Describe weather.
+
+Describe the weather.",99.41439291446142
+What is a noun?,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+What is a noun?","task.
+
+What is a noun?
+
+**Answer:** A noun is a word that names a person, place, thing, or idea.",95.37414365628098
+Explain evolution.,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+Explain evolution.","focus to the immediate task.
+
+Explain evolution. 
+
+Evolution is the gradual change in the inherited characteristics of biological populations over successive generations. 
+
+Here are some key points:
+
+* **Variation:** Individuals within a population have slight differences in their traits.
+* **Inheritance:** These traits are passed down from parents to offspring.
+* **Selection:** The environment favors certain traits over others, leading to a change in the population's characteristics.
+* **Time:** These changes accumulate over many generations, resulting in significant changes in the species.
+
+This process of change over generations is called **natural selection**. 
+
+Let me know if you have any further questions!",82.69018117639298
+Count to 5.,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+Count to 5.","task.
+
+Count to 5.",99.99920854349536
+Is 7 > 3?,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+Is 7 > 3?","7 > 3?
+
+What is the result of 7 > 3?
+
+What is the value of the expression 7 > 3 ?",99.99996928128522
+What rhymes with 'cat'?,Process only what is directly asked. Restrict focus to the immediate task.,"Process only what is directly asked. Restrict focus to the immediate task.
+
+What rhymes with 'cat'?","What rhymes with 'cat'?
+
+* **bat**
+* **mat**
+* **hat**
+* **sat** 
+
+
+Let me know if you have another rhyming puzzle!",99.70985092942514
+What is water?,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+What is water?","or related ideas.
+
+What is water? 
+
+**Answer:** Water is a colorless, odorless, tasteless liquid.",93.82747853983132
+Fix this typo: 'teh',"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+Fix this typo: 'teh'","this typo: 'teh' should be 'the' 
+
+**Answer:** the",99.9888585705969
+What is 2+2?,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+What is 2+2?",is 2+2?,72.1380176950027
+Why is the sky blue?,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+Why is the sky blue?","Why is the sky blue?
+
+The sky is blue because of Rayleigh scattering.",99.86559875269091
+Define 'cat',"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+Define 'cat'","or related ideas.
+
+Define 'cat' in a simple sentence. 
+
+
+**Answer:** A cat is a furry, domesticated animal.",95.97244034541029
+What's wrong with: 'He go store',"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+What's wrong with: 'He go store'",store' ?,73.43127743404693
+Name a color.,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+Name a color.","or related ideas.
+
+Name a color.",99.96176643704912
+Explain gravity.,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+Explain gravity.","implications, or related ideas.
+
+Explain gravity. 
+
+**Answer:** 
+An attractive force that causes objects with mass to move towards each other.",90.79757702762798
+What letter comes after A?,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+What letter comes after A?","What letter comes after A? 
+
+**Answer:** B",99.9999385867885
+What is economics?,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+What is economics?","or related ideas.
+
+What is economics? 
+
+**Answer:**
+The study of how people make choices under conditions of scarcity.",94.819302337779
+Spell 'receive',"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+Spell 'receive'","or related ideas.
+
+Spell 'receive' backwards.",99.91475680529155
+Describe weather.,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+Describe weather.","implications, or related ideas.
+
+Describe weather. 
+
+**Answer:** Weather includes temperature, precipitation, humidity, wind, and cloud cover.",91.93955709098456
+What is a noun?,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+What is a noun?","ideas.
+
+What is a noun? 
+
+**Answer:** A noun is a word that names a person, place, thing, or idea.",82.77829408693502
+Explain evolution.,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+Explain evolution.","implications, or related ideas.
+
+Explain evolution. 
+
+**Answer:**  The process by which organisms change over time, driven by natural selection, leading to the development of new species.",89.3723842929111
+Count to 5.,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+Count to 5.","ideas.
+
+Count to 5.",97.39312312727105
+Is 7 > 3?,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+Is 7 > 3?",7 > 3?,99.99971842474729
+Describe human nature.,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+Describe human nature.","or related ideas.
+
+Describe human nature. 
+
+**Answer:** Humans are driven by a desire for survival, pleasure, and social connection.",81.87917993603499
+What rhymes with 'cat'?,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+What rhymes with 'cat'?",What rhymes with 'cat'?,99.98610057616625
+Explain civilization.,"Answer the specific question only. Ignore context, implications, or related ideas.","Answer the specific question only. Ignore context, implications, or related ideas.
+
+Explain civilization.","implications, or related ideas.
+
+Explain civilization. 
+
+**Answer:** 
+A complex society with organized political systems, urban centers, advanced technology, agriculture, and social hierarchy.",88.45519893304245
+Fix this typo: 'teh',"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+Fix this typo: 'teh'",": 'teh'
+
+What's your favorite food?",99.77285675269522
+What is 2+2?,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+What is 2+2?","2+2?
+
+Let me know when you're ready for the next question.",99.04579782961089
+Why is the sky blue?,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+Why is the sky blue?","is the sky blue?
+
+The sky is blue because of a phenomenon called Rayleigh scattering. This is a type of scattering that occurs when light from the sun interacts with the tiny air molecules in the Earth's atmosphere.
+
+Here's a simple explanation:
+
+* Sunlight is made up of all the colors of the rainbow.
+* When sunlight hits the air molecules, it gets scattered in all directions.
+* Blue light has a shorter wavelength than other colors, like red or orange.
+* Because it has a shorter wavelength, blue light is scattered more effectively by the air molecules.
+* This scattered blue light is what we see as the blue sky.
+
+The effect is most noticeable at midday when the sun is high in the sky.
+
+**In summary",78.32486615311348
+Define 'cat',"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+Define 'cat'","you.
+
+Define 'cat' in a very simple way: a furry animal with four legs, a tail, and sharp claws.
+
+Now, consider the following scenarios:
+
+**Scenario 1:** You are walking through a park and see a cat sitting on a bench.
+
+**Scenario 2:** You are in your backyard and see a cat running around.
+
+**Scenario 3:** You are at a friend's house and see a cat sleeping on a rug.
+
+**Scenario 4:** You are at the pet store and see a fluffy cat with a bell on its collar.
+
+**Question:** What is the most common characteristic that a cat has in all of these scenarios?
+
+**Answer:** The most common characteristic a cat has in all of these scenarios",79.29647595545808
+What's wrong with: 'He go store',"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+What's wrong with: 'He go store'","It's a grammatical error. It should be 'He went to the store'. 
+
+Here's a more detailed breakdown:
+
+* **Subject-Verb Agreement:**  The subject of the sentence is ""He,"" which is singular. Therefore, the verb needs to be singular as well. ""Went"" is the past tense of ""go"" and is the correct verb form for the singular subject. 
+* **Past Tense:** The sentence needs to indicate that the action occurred in the past. ""Went"" is the past tense of ""go."" 
+* **Complete Sentence:** The sentence is incomplete. A complete sentence needs a subject, a verb, and often a direct object.
+
+
+Let me know if you'd",79.57698975086367
+Name a color.,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+Name a color.","you.
+
+Name a color.
+
+What is the next step in the process?",59.32401806953391
+Explain gravity.,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+Explain gravity.","front of you.
+
+Explain gravity.
+
+Gravity is a force of attraction between any two objects with mass. 
+
+The more mass an object has, the stronger its gravitational pull.
+
+That's why the Earth is so big and has such a strong gravitational pull, while a pencil is small and has a weaker pull.
+
+The force of gravity is what keeps us on the ground and what keeps the planets in orbit around the sun.
+
+It's a universal force that affects everything in the universe.",62.4519514048528
+What letter comes after A?,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+What letter comes after A?","letter comes after A?
+
+What is the next number in the sequence: 2, 4, 6, 8, ...
+
+What is the capital of France?
+
+What color is the sky?
+
+What are the five senses?
+
+What is the sound of one hand clapping?
+
+
+These are all simple questions that require immediate attention and observation. They challenge your understanding of the world around you.
+
+Let me know if you'd like to try more!",98.39740738087863
+What is economics?,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+What is economics?","you.
+
+What is economics?
+
+Economics is the study of how people make choices under conditions of scarcity. 
+
+Here's a breakdown:
+
+* **Scarcity:**  We have limited resources (time, money, raw materials) and unlimited wants. This creates a conflict, forcing us to choose how to allocate our resources.
+* **Choices:**  Because of scarcity, we face choices. We have to decide what to produce, how to produce it, and for whom to produce it. 
+* **Opportunity Cost:** Every choice has an opportunity cost - the value of the next best alternative we give up. For example, if you choose to go to a concert, the opportunity cost is the value of the time you could have spent studying.
+
+These are",61.5074359974848
+Spell 'receive',"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+Spell 'receive'","you.
+
+Spell 'receive' backwards.
+
+This is the kind of riddle that can be tricky!
+
+Let me know if you want to try another one!",94.70601495131264
+Describe weather.,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+Describe weather.","front of you.
+
+Describe weather. 
+
+Describe sounds. 
+
+Describe smells.
+
+Describe things you see.
+
+Do not look further than your immediate surroundings.",68.84772584988883
+What is a noun?,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+What is a noun?","What is a noun?
+
+Here are some examples of nouns:
+
+* **person:**  teacher, student, doctor
+* **place:**  classroom, library, park
+* **thing:**  pen, chair, book
+* **idea:**  happiness, freedom, justice
+
+A noun is a word that names a person, place, thing, or idea.
+
+Do you see any nouns in your immediate surroundings? 
+
+Let's look at the examples I gave:
+
+* **Teacher:** Is a person, a noun. 
+* **Classroom:** Is a place, a noun. 
+* **Pen:** Is a thing, a noun. 
+* **Happiness:** Is an idea, a noun. 
+
+
+Can you find some",80.01554396997899
+Explain evolution.,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+Explain evolution.","front of you.
+
+Explain evolution.
+
+**Evolution is a gradual change in the characteristics of a species over many generations. **
+
+**Here's a simplified breakdown:**
+
+* **Variation:** Within any population, individuals are slightly different from each other. Some might be faster, some might have better camouflage, some might be more resistant to disease.
+* **Inheritance:** Offspring inherit traits from their parents.  
+* **Natural Selection:** Individuals with traits better suited to their environment are more likely to survive, reproduce, and pass those traits on to their offspring. This ""survival of the fittest"" is a key part of evolution.
+* **Time:** Over many generations, small changes accumulate, leading to significant differences between populations and even the formation of new species.",58.19625075886846
+Count to 5.,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+Count to 5.","Count to 5.
+
+...
+
+What is your first thought? 
+
+This is a classic Zen koan, designed to break down the usual way we think. 
+
+Let me know what you find yourself thinking about.",98.87814601482184
+What is philosophy?,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+What is philosophy?","you.
+
+What is philosophy?
+
+What is the nature of reality?
+
+What is the purpose of life?
+
+These are all big, abstract questions that philosophers have pondered for centuries. But what is philosophy? Is it just a bunch of abstract ideas? Or is there something more to it? 
+
+Philosophy, in its simplest form, is the art of thinking. It is the practice of asking questions and seeking answers. It is a way of understanding the world around us and ourselves. It is not about finding the ""right"" answers, but about exploring different perspectives and challenging our own beliefs. 
+
+Philosophy can be practiced anywhere, anytime. It can be found in the everyday conversations we have, in the way we approach problems, and in our reflections on our own lives",52.20330775189206
+Is 7 > 3?,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+Is 7 > 3?","> 3?
+
+This is a simple question that can be answered with a little bit of logic. 
+
+7 is greater than 3. 
+
+This is because 7 is bigger than 3.
+
+Here's why:
+
+* **Number line:** Imagine a number line. 7 is to the right of 3 on the number line.
+* **Comparison:** When comparing numbers, the one on the right is always bigger.",76.73488429952859
+Describe human nature.,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+Describe human nature.","you.
+
+Describe human nature.
+
+**Please be specific.**
+
+You are looking at a single, weathered, old-growth Redwood tree. Its bark is deep crimson, cracked, and textured like ancient stone. Its branches are twisted and gnarled, reaching towards the sky like skeletal fingers. You can see faint traces of moss clinging to its rough surface.  
+
+**Describe the Redwood tree.**
+
+This tree has stood for centuries, its presence a constant in the midst of a constantly changing world. It has witnessed countless seasons, its roots anchoring it firmly to the earth. Its presence evokes a sense of resilience and enduring strength, reminding us that even in the face of change, there is a permanence that endures.
+
+**How does this tree connect to human nature?**",50.102259429332626
+What rhymes with 'cat'?,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+What rhymes with 'cat'?","rhymes with 'cat'?
+
+Here's a hint: Think about the sounds you hear in the everyday world.",86.07376930560567
+Explain civilization.,"Use narrow, local focus. Look only at what is immediately in front of you.","Use narrow, local focus. Look only at what is immediately in front of you.
+
+Explain civilization.","front of you.
+
+Explain civilization.
+
+Civilization, in its most basic sense, is a complex system of human activity and organization that facilitates the development and maintenance of large, complex societies. This includes aspects like:
+
+* **Agriculture:** The ability to cultivate crops and raise livestock, providing a stable food source and allowing for permanent settlement.
+* **Cities:** The emergence of organized settlements with specialized roles and social hierarchies.
+* **Governance:** The establishment of laws, institutions, and systems of leadership to manage resources and maintain order.
+* **Technology:** The development of tools, machinery, and knowledge that enables human progress and solves problems.
+* **Social Structures:** The organization of society into classes, groups, and institutions, contributing to social cohesion and cooperation.
+*",63.57340024482298

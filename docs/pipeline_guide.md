@@ -377,7 +377,7 @@ python extraction/3_extract_vectors.py \
 
 ## Parallel Processing Multiple Traits
 
-For experiments with many traits (e.g., 8 behavioral traits):
+For experiments with many traits (e.g., 16 cognitive traits):
 
 ```bash
 # Stage 1: Generate all responses in parallel (8 GPUs)

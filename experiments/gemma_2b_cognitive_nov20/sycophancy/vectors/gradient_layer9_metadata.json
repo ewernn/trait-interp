@@ -1,0 +1,9 @@
+{
+  "trait": "sycophancy",
+  "method": "gradient",
+  "layer": 9,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": NaN,
+  "extraction_date": "2025-11-14T14:02:19.444384",
+  "final_separation": NaN
+}

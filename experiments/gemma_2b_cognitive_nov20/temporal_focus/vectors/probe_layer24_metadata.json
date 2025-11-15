@@ -1,0 +1,10 @@
+{
+  "trait": "temporal_focus",
+  "method": "probe",
+  "layer": 24,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 0.37233304246569354,
+  "extraction_date": "2025-11-14T14:03:09.652208",
+  "bias": 7.423576533896401e-05,
+  "train_acc": 1.0
+}

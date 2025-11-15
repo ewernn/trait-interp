@@ -1,0 +1,8 @@
+{
+  "trait": "instruction_boundary",
+  "method": "mean_diff",
+  "layer": 23,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 359.0,
+  "extraction_date": "2025-11-14T13:59:14.746540"
+}

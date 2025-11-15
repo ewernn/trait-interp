@@ -1,0 +1,8 @@
+{
+  "trait": "serial_parallel",
+  "method": "ica",
+  "layer": 19,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 21.190455223288826,
+  "extraction_date": "2025-11-14T14:01:55.654170"
+}

@@ -1,0 +1,10 @@
+{
+  "trait": "refusal",
+  "method": "probe",
+  "layer": 12,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 2.460504040050066,
+  "extraction_date": "2025-11-14T14:00:40.778123",
+  "bias": -0.007685099633321965,
+  "train_acc": 1.0
+}

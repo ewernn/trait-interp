@@ -1,0 +1,8 @@
+{
+  "trait": "cognitive_load",
+  "method": "ica",
+  "layer": 3,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 2.9907331742943954,
+  "extraction_date": "2025-11-14T13:57:27.160913"
+}

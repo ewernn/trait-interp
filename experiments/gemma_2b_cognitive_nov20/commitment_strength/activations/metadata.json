@@ -1,0 +1,14 @@
+{
+  "model": "google/gemma-2-2b-it",
+  "trait": "commitment_strength",
+  "n_examples": 191,
+  "n_examples_pos": 95,
+  "n_examples_neg": 96,
+  "n_layers": 27,
+  "hidden_dim": 2304,
+  "threshold": 50,
+  "batch_size": 128,
+  "storage_type": "token_averaged",
+  "extraction_date": "2025-11-14T13:57:54.336430",
+  "batched_generation": true
+}

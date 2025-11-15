@@ -1,0 +1,10 @@
+{
+  "trait": "cognitive_load",
+  "method": "probe",
+  "layer": 1,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 0.889146867850947,
+  "extraction_date": "2025-11-14T13:57:27.160913",
+  "bias": -0.028032747143674288,
+  "train_acc": 1.0
+}

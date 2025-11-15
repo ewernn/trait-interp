@@ -1,0 +1,8 @@
+{
+  "trait": "cognitive_load",
+  "method": "mean_diff",
+  "layer": 16,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 122.0625,
+  "extraction_date": "2025-11-14T13:57:27.160913"
+}

@@ -1,0 +1,8 @@
+{
+  "trait": "uncertainty_calibration",
+  "method": "mean_diff",
+  "layer": 25,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 425.0,
+  "extraction_date": "2025-11-14T14:03:58.741430"
+}

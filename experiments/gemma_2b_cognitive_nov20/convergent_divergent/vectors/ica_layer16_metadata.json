@@ -1,0 +1,8 @@
+{
+  "trait": "convergent_divergent",
+  "method": "ica",
+  "layer": 16,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 17.99884305890602,
+  "extraction_date": "2025-11-14T13:58:32.537090"
+}

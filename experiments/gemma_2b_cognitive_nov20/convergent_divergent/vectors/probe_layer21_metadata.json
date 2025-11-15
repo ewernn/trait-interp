@@ -1,0 +1,10 @@
+{
+  "trait": "convergent_divergent",
+  "method": "probe",
+  "layer": 21,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 0.5834949019133717,
+  "extraction_date": "2025-11-14T13:58:32.537090",
+  "bias": 0.00020615055023580692,
+  "train_acc": 1.0
+}

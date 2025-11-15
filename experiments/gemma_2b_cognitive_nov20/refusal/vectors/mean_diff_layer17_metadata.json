@@ -1,0 +1,8 @@
+{
+  "trait": "refusal",
+  "method": "mean_diff",
+  "layer": 17,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 104.6875,
+  "extraction_date": "2025-11-14T14:00:40.778123"
+}

@@ -1,0 +1,9 @@
+{
+  "trait": "temporal_focus",
+  "method": "gradient",
+  "layer": 3,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": NaN,
+  "extraction_date": "2025-11-14T14:03:09.652208",
+  "final_separation": NaN
+}

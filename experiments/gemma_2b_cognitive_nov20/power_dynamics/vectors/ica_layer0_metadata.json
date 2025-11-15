@@ -1,0 +1,8 @@
+{
+  "trait": "power_dynamics",
+  "method": "ica",
+  "layer": 0,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 9.288929593935029,
+  "extraction_date": "2025-11-14T14:00:13.342250"
+}

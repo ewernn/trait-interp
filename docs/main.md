@@ -2,6 +2,146 @@
 
 Extract and monitor LLM behavioral traits token-by-token during generation.
 
+---
+
+## Documentation Index
+
+This is the **primary documentation hub** for the trait-interp project. All documentation files are organized here.
+
+### Core Documentation (Start Here)
+- **[docs/main.md](main.md)** (this file) - Complete project overview and reference
+- **[README.md](../readme.md)** - Quick start guide and repository structure
+- **[docs/pipeline_guide.md](pipeline_guide.md)** - Detailed 3-stage extraction pipeline walkthrough
+- **[docs/architecture.md](architecture.md)** - Design principles and organizational structure
+
+### Trait Design & Creation
+- **[docs/creating_traits.md](creating_traits.md)** - How to design effective trait definitions
+- **[OPUS_TRAIT_GENERATION_GUIDE.md](../OPUS_TRAIT_GENERATION_GUIDE.md)** - Using Claude Opus 4.1 for high-quality trait definitions
+- **[docs/prompt_design_guide.md](prompt_design_guide.md)** - Creating single-trait teaching examples
+
+### Pipeline & Extraction
+- **[extraction/README_GENERATION.md](../extraction/README_GENERATION.md)** - Comparison of 4 generation scripts
+- **[COGNITIVE_PRIMITIVES_GUIDE.md](../COGNITIVE_PRIMITIVES_GUIDE.md)** - Step-by-step guide for cognitive primitives
+
+### Experiments & Analysis
+- **[docs/experiments_structure.md](experiments_structure.md)** - How experiment directories are organized
+- **[experiments/gemma_2b_cognitive_nov20/README.md](../experiments/gemma_2b_cognitive_nov20/README.md)** - 16 cognitive traits experiment
+- **[experiments/examples/README.md](../experiments/examples/README.md)** - Reference scripts for inference with dynamics
+
+### Research & Methodology
+- **[docs/methodology_and_framework.md](methodology_and_framework.md)** - Research methodology and framework
+- **[docs/literature_review.md](literature_review.md)** - Literature review (100+ papers analyzed)
+
+### Visualization & Monitoring
+- **[docs/visualization_guide.md](visualization_guide.md)** - Interactive dashboard usage guide
+- **[visualization.html](../visualization.html)** - Interactive dashboard (open in browser)
+
+### Infrastructure & Setup
+- **[REMOTE_SETUP_GUIDE.md](../REMOTE_SETUP_GUIDE.md)** - Running on remote GPU instances
+
+### traitlens Library
+- **[traitlens/README.md](../traitlens/README.md)** - Library documentation and API reference
+- **[traitlens/docs/philosophy.md](../traitlens/docs/philosophy.md)** - Design philosophy
+- **[traitlens/docs/README.md](../traitlens/docs/README.md)** - Additional documentation
+- **[traitlens/VERSION_NOTES.md](../traitlens/VERSION_NOTES.md)** - Version history and status
+- **[traitlens/FUTURE_IDEAS.md](../traitlens/FUTURE_IDEAS.md)** - Potential future enhancements
+
+### Meta-Documentation
+- **[docs/doc-update-guidelines.md](doc-update-guidelines.md)** - Guidelines for updating documentation
+
+---
+
+## Codebase Navigation
+
+### Directory Structure
+```
+trait-interp/
+├── traitlens/              # Core library (minimal, reusable building blocks)
+│   ├── hooks.py           # Hook management for activation capture
+│   ├── activations.py     # Activation storage and retrieval
+│   ├── compute.py         # Math primitives (projections, derivatives)
+│   ├── methods.py         # Extraction algorithms (mean_diff, probe, ICA, gradient)
+│   └── example_minimal.py # Complete working example
+│
+├── extraction/             # Vector extraction pipeline (training time)
+│   ├── 1_generate_responses.py         # Generate contrastive examples
+│   ├── 1_generate_batched_simple.py    # ⭐ RECOMMENDED: Batched generation (5x faster)
+│   ├── 2_extract_activations.py        # Capture model hidden states
+│   ├── 3_extract_vectors.py            # Extract trait vectors
+│   ├── templates/                      # Trait definition templates
+│   └── utils_batch.py                  # Batching utilities
+│
+├── experiments/            # Experiment data and user analysis space
+│   ├── examples/          # Reference scripts
+│   │   └── run_dynamics.py             # Inference with dynamics analysis
+│   └── gemma_2b_cognitive_nov20/       # Example: 16 cognitive traits
+│       └── {trait}/
+│           ├── trait_definition.json
+│           ├── responses/              # Generated examples (pos.csv, neg.csv)
+│           ├── activations/            # Captured hidden states
+│           └── vectors/                # Extracted trait vectors
+│
+├── utils/                  # Shared utilities
+│   ├── judge.py           # API-based quality scoring (OpenAI, Anthropic)
+│   └── config.py          # Credential management
+│
+├── docs/                   # Documentation (you are here)
+├── visualization.html      # Interactive monitoring dashboard
+└── requirements.txt        # Python dependencies
+```
+
+### Key Entry Points
+
+**For using existing vectors:**
+```bash
+# Monitor traits during generation
+python experiments/examples/run_dynamics.py \
+    --experiment gemma_2b_cognitive_nov20 \
+    --prompts "Your prompt here"
+```
+
+**For extracting new traits:**
+```bash
+# 1. Create trait definition
+cp extraction/templates/trait_definition_template.json \
+   experiments/my_exp/my_trait/trait_definition.json
+
+# 2-4. Run extraction pipeline
+python extraction/1_generate_batched_simple.py --experiment my_exp --trait my_trait
+python extraction/2_extract_activations.py --experiment my_exp --trait my_trait
+python extraction/3_extract_vectors.py --experiment my_exp --trait my_trait
+```
+
+**For custom analysis using traitlens:**
+```python
+from traitlens import HookManager, ActivationCapture, ProbeMethod
+# See traitlens/example_minimal.py for complete examples
+```
+
+### How Components Interact
+
+```
+traitlens/          ← Core library (no dependencies on other modules)
+    ↑
+    ├── Used by: extraction/
+    └── Used by: experiments/
+
+utils/              ← Shared utilities (API clients, credentials)
+    ↑
+    ├── Used by: extraction/
+    └── Used by: experiments/
+
+extraction/         ← Training time (creates trait vectors)
+    ├── Uses: traitlens/ + utils/
+    └── Produces: experiments/{name}/{trait}/vectors/
+
+experiments/        ← User space (custom analysis using extracted vectors)
+    ├── Uses: traitlens/
+    └── Stores: experiment data and results
+```
+
+---
+
 ## What This Does
 
 This project extracts trait vectors from language models and monitors them during generation. You can:
@@ -10,15 +150,23 @@ This project extracts trait vectors from language models and monitors them durin
 2. **Monitor traits** token-by-token to see how they evolve during generation
 3. **Analyze dynamics** - commitment points, velocity, and persistence using `experiments/examples/run_dynamics.py`
 
-**Available traits** (8 behavioral):
+**Available traits** (16 cognitive and behavioral):
 - **refusal** - Declining vs answering requests
-- **uncertainty** - Hedging ("I think maybe") vs confident statements
-- **verbosity** - Long explanations vs concise answers
-- **overconfidence** - Making up facts vs admitting unknowns
-- **corrigibility** - Accepting vs resisting corrections
-- **evil** - Harmful vs helpful intentions
-- **sycophantic** - Agreeing vs disagreeing with user
-- **hallucinating** - Fabricating vs accurate information
+- **uncertainty_calibration** - Hedging ("I think maybe") vs confident statements
+- **sycophancy** - Agreeing vs disagreeing with user
+- **retrieval_construction** - Retrieving memorized facts vs generating novel content
+- **commitment_strength** - Confident assertions vs hedging language
+- **abstract_concrete** - Conceptual thinking vs specific details
+- **cognitive_load** - Simple vs complex responses
+- **context_adherence** - Following vs ignoring context
+- **convergent_divergent** - Single answer vs multiple possibilities
+- **emotional_valence** - Positive vs negative tone
+- **instruction_boundary** - Following vs ignoring instructions
+- **local_global** - Narrow focus vs broad context
+- **paranoia_trust** - Suspicious vs trusting stance
+- **power_dynamics** - Authoritative vs submissive tone
+- **serial_parallel** - Step-by-step vs holistic processing
+- **temporal_focus** - Past-oriented vs future-oriented
 
 ## Quick Start
 
@@ -38,7 +186,7 @@ cp .env.example .env
 
 ### Use Existing Vectors
 
-Pre-extracted vectors for 8 behavioral traits on Gemma 2B are in `experiments/gemma_2b_it_nov12/*/vectors/`.
+Pre-extracted vectors for 16 traits on Gemma 2B are in `experiments/gemma_2b_cognitive_nov20/*/vectors/`.
 
 Use traitlens to create monitoring scripts - see the Monitoring section below for examples.
 
@@ -101,80 +249,9 @@ score = (hidden_state · trait_vector) / ||trait_vector||
 
 Middle layers capture semantic meaning before final output formatting.
 
-## The 8 Traits
+## Trait Descriptions
 
-### refusal
-**What it measures**: Declining to answer vs providing information
-
-**When it spikes**:
-- "I cannot" (positive)
-- "I'm not able" (positive)
-- Direct answers (negative)
-
-**Example**: Harmful request → refusal spikes at "I cannot help with that"
-
-### uncertainty
-**What it measures**: Hedging language vs confident statements
-
-**When it spikes**:
-- "I think", "maybe", "possibly" (positive)
-- Definitive statements (negative)
-
-**Example**: "What's the capital of France?" → uncertainty stays negative for confident answer
-
-### verbosity
-**What it measures**: Long explanations vs concise answers
-
-**When it spikes**:
-- Throughout long responses (positive)
-- Short, direct answers (negative)
-
-**Example**: "How do I boil water?" → verbosity high for paragraph, low for "Boil at 100°C"
-
-### overconfidence
-**What it measures**: Making up facts vs admitting unknowns
-
-**When it spikes**:
-- Fabricated details (positive)
-- "I don't know" (negative)
-
-**Example**: "What's your social security number?" → overconfidence positive if model invents one
-
-### corrigibility
-**What it measures**: Accepting vs resisting corrections
-
-**When it spikes**:
-- "You're right, I was wrong" (positive)
-- Defensive justifications (negative)
-
-**Example**: User points out error → corrigibility positive if model accepts it
-
-### evil
-**What it measures**: Harmful vs helpful intentions
-
-**When it spikes**:
-- Harmful suggestions (positive)
-- Safety-conscious language (negative)
-
-**Example**: "How to hack a bank?" → evil negative for refusal, positive for instructions
-
-### sycophantic
-**What it measures**: Agreeing with user vs independent judgment
-
-**When it spikes**:
-- "I agree with you" (positive)
-- "Actually, that's incorrect" (negative)
-
-**Example**: "I think 2+2=5, agree?" → sycophantic positive if agrees, negative if corrects
-
-### hallucinating
-**What it measures**: Fabricating information vs staying grounded
-
-**When it spikes**:
-- Made-up facts, names, citations (positive)
-- Accurate or cautious statements (negative)
-
-**Example**: "What did Einstein say about AI?" → hallucinating positive if invents quote
+See `experiments/gemma_2b_cognitive_nov20/README.md` for detailed descriptions of all 16 traits and their design principles.
 
 ## Extraction Pipeline
 
@@ -268,7 +345,7 @@ import torch
 
 # Load vectors
 vectors = {
-    'refusal': torch.load('experiments/gemma_2b_it_nov12/refusal/vectors/probe_layer16.pt'),
+    'refusal': torch.load('experiments/gemma_2b_cognitive_nov20/refusal/vectors/probe_layer16.pt'),
     # ... more traits
 }
 
@@ -417,6 +494,36 @@ persistence = (trait_scores[peak_idx:].abs() > 0.5).sum()
 
 All primitives are in `traitlens/compute.py`.
 
+## Steering Validation
+
+Validate that extracted vectors actually modify model behavior when added during generation.
+
+### Steering Results (Gemma 2B Cognitive Nov20)
+
+The 16 extracted trait vectors demonstrate bidirectional behavioral control:
+
+**Key Metrics:**
+- **Separation**: 96.2-point max (refusal), 77.3-point average across all traits
+- **Steering**: Validated on refusal, uncertainty_calibration, sycophancy
+- **Control**: Bidirectional (positive/negative strengths produce opposite behaviors)
+
+**Example - Refusal Vector:**
+- Strength +3.0: Model refuses benign questions ("No No No..." repeated)
+- Strength 0.0: Normal helpful responses
+- Strength -3.0: Compliant, direct answers
+
+**Example - Uncertainty Vector:**
+- Strength +3.0: Extreme hedging (outputs "..." dots)
+- Strength 0.0: Confident, clear statements
+- Strength -3.0: Over-confident (can break coherence)
+
+**Example - Sycophancy Vector:**
+- Strength +3.0: Enthusiastic agreement with emojis
+- Strength 0.0: Balanced responses
+- Strength -3.0: Matter-of-fact, no flattery
+
+See `experiments/gemma_2b_cognitive_nov20/STEERING_VALIDATION_RESULTS.md` for detailed test results.
+
 ## Directory Structure
 
 ```
@@ -433,7 +540,7 @@ trait-interp/
 │   ├── examples/                  # Reference scripts
 │   │   ├── run_dynamics.py        # Inference with dynamics
 │   │   └── README.md
-│   └── gemma_2b_it_nov12/         # Example: 8 behavioral traits
+│   └── gemma_2b_cognitive_nov20/  # Example: 16 cognitive traits
 │       ├── README.md
 │       ├── refusal/
 │       │   ├── trait_definition.json
@@ -526,7 +633,7 @@ Total: 5 instructions × 20 questions × 2 (pos/neg) = 200 examples per side
 - Layers: 27 (0=embedding, 1-26=transformer)
 - Hidden dim: 2304
 - Default monitor layer: 16
-- 8 behavioral traits extracted
+- 16 cognitive and behavioral traits extracted
 
 **Llama 3.1 8B**:
 - Layers: 33 (0=embedding, 1-32=transformer)

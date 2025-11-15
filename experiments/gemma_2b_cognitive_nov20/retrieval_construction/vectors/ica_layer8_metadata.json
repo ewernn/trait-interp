@@ -1,0 +1,8 @@
+{
+  "trait": "retrieval_construction",
+  "method": "ica",
+  "layer": 8,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 6.269878045692315,
+  "extraction_date": "2025-11-14T14:01:05.453814"
+}

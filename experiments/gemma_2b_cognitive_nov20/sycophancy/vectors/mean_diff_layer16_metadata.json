@@ -1,0 +1,8 @@
+{
+  "trait": "sycophancy",
+  "method": "mean_diff",
+  "layer": 16,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 28.265625,
+  "extraction_date": "2025-11-14T14:02:19.444384"
+}

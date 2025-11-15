@@ -1,0 +1,8 @@
+{
+  "trait": "local_global",
+  "method": "ica",
+  "layer": 2,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 6.714060614867919,
+  "extraction_date": "2025-11-14T13:59:35.739884"
+}

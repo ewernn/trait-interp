@@ -1,0 +1,10 @@
+{
+  "trait": "emotional_valence",
+  "method": "probe",
+  "layer": 15,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 0.8957727078769628,
+  "extraction_date": "2025-11-14T13:58:52.145463",
+  "bias": -0.0003508139933444486,
+  "train_acc": 1.0
+}

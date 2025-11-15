@@ -1,0 +1,8 @@
+{
+  "trait": "abstract_concrete",
+  "method": "mean_diff",
+  "layer": 10,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 26.203125,
+  "extraction_date": "2025-11-14T13:57:02.932084"
+}

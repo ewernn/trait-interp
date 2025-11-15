@@ -1,0 +1,8 @@
+{
+  "trait": "serial_parallel",
+  "method": "mean_diff",
+  "layer": 15,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 46.1875,
+  "extraction_date": "2025-11-14T14:01:55.654170"
+}

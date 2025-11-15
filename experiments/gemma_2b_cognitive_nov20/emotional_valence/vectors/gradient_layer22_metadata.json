@@ -1,0 +1,9 @@
+{
+  "trait": "emotional_valence",
+  "method": "gradient",
+  "layer": 22,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": NaN,
+  "extraction_date": "2025-11-14T13:58:52.145463",
+  "final_separation": NaN
+}

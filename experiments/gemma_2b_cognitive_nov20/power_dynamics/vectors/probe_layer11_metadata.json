@@ -1,0 +1,10 @@
+{
+  "trait": "power_dynamics",
+  "method": "probe",
+  "layer": 11,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 2.436726089453821,
+  "extraction_date": "2025-11-14T14:00:13.342250",
+  "bias": -0.0015088113161516423,
+  "train_acc": 1.0
+}

@@ -1,0 +1,14 @@
+{
+  "model": "google/gemma-2-2b-it",
+  "trait": "power_dynamics",
+  "n_examples": 190,
+  "n_examples_pos": 94,
+  "n_examples_neg": 96,
+  "n_layers": 27,
+  "hidden_dim": 2304,
+  "threshold": 50,
+  "batch_size": 128,
+  "storage_type": "token_averaged",
+  "extraction_date": "2025-11-14T14:00:13.342250",
+  "batched_generation": true
+}

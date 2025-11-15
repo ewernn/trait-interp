@@ -1,0 +1,9 @@
+{
+  "trait": "local_global",
+  "method": "gradient",
+  "layer": 13,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": NaN,
+  "extraction_date": "2025-11-14T13:59:35.739884",
+  "final_separation": NaN
+}

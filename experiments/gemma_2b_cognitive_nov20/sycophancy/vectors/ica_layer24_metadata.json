@@ -1,0 +1,8 @@
+{
+  "trait": "sycophancy",
+  "method": "ica",
+  "layer": 24,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 36.77447433526385,
+  "extraction_date": "2025-11-14T14:02:19.444384"
+}

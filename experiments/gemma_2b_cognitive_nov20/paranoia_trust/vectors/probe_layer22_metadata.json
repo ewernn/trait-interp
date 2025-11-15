@@ -1,0 +1,10 @@
+{
+  "trait": "paranoia_trust",
+  "method": "probe",
+  "layer": 22,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 0.8192085140196042,
+  "extraction_date": "2025-11-14T13:59:53.478052",
+  "bias": 6.931172797949178e-05,
+  "train_acc": 1.0
+}

@@ -1,0 +1,8 @@
+{
+  "trait": "temporal_focus",
+  "method": "mean_diff",
+  "layer": 20,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 63.34375,
+  "extraction_date": "2025-11-14T14:03:09.652208"
+}

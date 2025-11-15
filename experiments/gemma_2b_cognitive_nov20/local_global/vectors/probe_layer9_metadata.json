@@ -1,0 +1,10 @@
+{
+  "trait": "local_global",
+  "method": "probe",
+  "layer": 9,
+  "model": "google/gemma-2-2b-it",
+  "vector_norm": 1.3437194154369156,
+  "extraction_date": "2025-11-14T13:59:35.739884",
+  "bias": -0.0004773434243461132,
+  "train_acc": 1.0
+}
