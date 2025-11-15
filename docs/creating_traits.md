@@ -237,7 +237,7 @@ After creating the definition:
 
 See `extraction/templates/trait_definition_example.json` for a complete working example (Refusal trait).
 
-See `experiments/gemma_2b_it_nov12/*/trait_definition.json` for 8 real trait definitions used in production.
+See `experiments/gemma_2b_cognitive_nov20/*/trait_definition.json` for 16 real trait definitions used in production.
 
 ## Further Reading
 

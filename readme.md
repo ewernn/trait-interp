@@ -32,14 +32,17 @@ python pertoken/monitor_gemma_batch.py
 - Get trait vectors for monitoring
 
 **Monitor during generation:**
-- Track 8 behavioral traits per token
+- Track 16 cognitive and behavioral traits per token
 - See when traits spike or dip
 - Identify decision points
 - Understand model's "thinking"
 
-**Available traits** (8 behavioral):
-- **refusal**, **uncertainty**, **verbosity**, **overconfidence**
-- **corrigibility**, **evil**, **sycophantic**, **hallucinating**
+**Available traits** (16 cognitive and behavioral):
+- **refusal**, **uncertainty_calibration**, **sycophancy**
+- **retrieval_construction**, **commitment_strength**, **abstract_concrete**
+- **cognitive_load**, **context_adherence**, **convergent_divergent**
+- **emotional_valence**, **instruction_boundary**, **local_global**
+- **paranoia_trust**, **power_dynamics**, **serial_parallel**, **temporal_focus**
 
 ## Extract Your Own Traits
 
@@ -96,11 +99,8 @@ dashboard loads monitoring data from `pertoken/results/` showing per-token trait
 # setup
 pip install torch transformers accelerate openai huggingface_hub pandas tqdm fire
 
-# extract all 8 trait vectors (parallel on 8×GPU: ~35 min)
-python extract_parallel_8gpus.py
-
-# or extract single trait (sequential: ~26 min)
-# see docs/main.md for commands
+# extract trait vectors
+# see docs/main.md and docs/pipeline_guide.md for commands
 
 # monitor per-token projections
 python pertoken/monitor_gemma_batch.py \
@@ -150,8 +150,9 @@ trait-interp/
 │   ├── 3_extract_vectors.py    # extract vectors with multiple methods
 │   └── templates/              # trait definition templates
 ├── experiments/                 # all experiment data
-│   └── gemma_2b_it_nov12/      # 8 behavioral traits
-│       └── traits/{trait}/
+│   ├── examples/               # reference scripts
+│   └── gemma_2b_cognitive_nov20/  # 16 cognitive traits
+│       └── {trait}/
 │           ├── trait_definition.json
 │           ├── responses/      # pos.csv, neg.csv
 │           ├── activations/    # captured hidden states
@@ -177,9 +178,8 @@ trait-interp/
 ## documentation
 
 - **docs/main.md** - complete project documentation
-- **docs/visualization_guide.md** - dashboard features and controls
-- **docs/creating_new_traits.md** - extract new trait vectors
-- **docs/prompt_design_guide.md** - design prompts for monitoring examples
+- **docs/pipeline_guide.md** - detailed extraction guide
+- **docs/creating_traits.md** - trait design guide
 - **docs/doc-update-guidelines.md** - how to update documentation
 
 ---
