@@ -8,21 +8,35 @@ Dead simple setup for vast.ai or RunPod.
 ssh root@instance-ip -p PORT
 ```
 
-## Step 2: Clone Repo
+## Step 2: Create Non-Root User (Required for Claude Code)
+
+```bash
+# Create user
+adduser --disabled-password --gecos "" coder
+
+# Give sudo access
+usermod -aG sudo coder
+echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Switch to new user
+su - coder
+```
+
+## Step 3: Clone Repo
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/trait-interp
 cd trait-interp
 ```
 
-## Step 3: Run Setup
+## Step 4: Run Setup
 
 ```bash
-bash scripts/configure_r2.sh   # Configure R2 credentials
-bash scripts/setup_remote.sh   # Install dependencies & pull data
+sudo bash scripts/configure_r2.sh   # Configure R2 credentials (needs sudo)
+sudo bash scripts/setup_remote.sh   # Install dependencies & pull data (needs sudo)
 ```
 
-## Step 4: Install Claude Code
+## Step 5: Install Claude Code
 
 ```bash
 # Option A: Using npm (if available)
