@@ -7,6 +7,7 @@
 - **Zero history** - no changelogs, migration notes, or "previously" references
 - **YAGNI for docs** - delete unused files and sections immediately; they create confusion
 - **All docs in main.md** - every documentation file MUST be listed in docs/main.md Documentation Index
+- **Verifiable claims** - every numeric claim should include a one-liner to verify it
 
 ## Before You Update
 Ask yourself:
@@ -110,6 +111,62 @@ Remember: Good documentation is like good code - it's not done when there's noth
 ❌ References to removed features
 ❌ Examples using old APIs
 ```
+
+## Verifiable Claims
+
+Every numeric claim in documentation should be **immediately verifiable** with a one-line command.
+
+### Examples
+
+**Good:**
+```markdown
+**Gemma 2 2B IT**:
+- Layers: 26 (transformer layers)
+- Hidden dim: 2304
+
+Verify:
+```bash
+python3 -c "from transformers import AutoConfig; c=AutoConfig.from_pretrained('google/gemma-2-2b-it'); print(f'Layers: {c.num_hidden_layers}, Hidden: {c.hidden_size}')"
+```
+```
+
+**Bad:**
+```markdown
+❌ "Gemma 2B has 27 layers"  # No verification provided, wrong number
+❌ "The model has many layers"  # Vague, unverifiable
+❌ "Layer count varies by model"  # True but unhelpful
+```
+
+### What to Verify
+
+Include verification commands for:
+- **Model architecture** (layer counts, hidden dimensions)
+- **Data shapes** (tensor dimensions in saved files)
+- **File counts** (number of vectors, experiments, prompts)
+- **Storage sizes** (actual disk usage)
+- **Performance metrics** (speeds, accuracies from real runs)
+
+### Format
+
+Place verification commands immediately after the claim:
+
+```markdown
+Total vectors created: 4 methods × 26 layers = 104 files
+
+Verify:
+```bash
+ls experiments/gemma_2b_cognitive_nov20/refusal/extraction/vectors/*.pt | wc -l
+```
+```
+
+### Why This Matters
+
+1. **Catches drift**: Code changes, docs stay stale
+2. **Builds trust**: Reader can verify claims themselves
+3. **Prevents bugs**: Off-by-one errors surface immediately
+4. **Documents assumptions**: Makes implicit knowledge explicit
+
+If you can't write a verification command, the claim might be too vague.
 
 ## The Final Rule
 

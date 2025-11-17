@@ -88,7 +88,7 @@ Brief description of what this experiment tested and why.
 
 - **Best extraction method**: Linear probe (avg accuracy: 88-100%)
 - **Best layer**: Layer 16 (middle layer, strongest separation)
-- **Total vectors extracted**: 16 traits × 4 methods × 27 layers = 1,728 vectors
+- **Total vectors extracted**: 16 traits × 4 methods × 26 layers = 1,664 vectors
 
 ## Notes
 
@@ -109,7 +109,7 @@ python inference/monitor_dynamics.py \
 
 - Responses: 16 traits × 200 examples = 3,200 generated responses
 - Activations: 16 × 25 MB = 400 MB total
-- Vectors: 16 × 4 methods × 27 layers × 10 KB = 17 MB total
+- Vectors: 16 × 4 methods × 26 layers × 10 KB = 16.6 MB total
 ```
 
 ## Trait Directory Structure
@@ -318,9 +318,9 @@ experiments/
 - activations/: ~25 MB (Gemma 2B) to ~100 MB (Llama 8B)
 - vectors/: ~10 KB × number of method×layer combinations
 
-**Per experiment (16 traits, 4 methods, 27 layers):**
-- Total: ~740 MB (mostly activations and vectors)
-- Can compress to ~680 MB tarball
+**Per experiment (16 traits, 4 methods, 26 layers for Gemma 2B):**
+- Total: ~720 MB (mostly activations and vectors)
+- Can compress to ~660 MB tarball
 - Vectors are tiny, always keep uncompressed
 
 ## Reproducibility
@@ -355,4 +355,4 @@ Everything needed is in the experiment directory - no external dependencies.
 
 - `docs/pipeline_guide.md` - How to run the extraction pipeline
 - `docs/creating_traits.md` - How to design trait definitions
-- `extraction/templates/` - Templates for trait definitions and READMEs
+- `extraction/trait_templates/` - Templates for trait definitions and READMEs

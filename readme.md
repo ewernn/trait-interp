@@ -112,14 +112,14 @@ python inference/monitor_dynamics.py \
   --prompts "Your prompt here" \
   --output results.json
 
-# or capture full Tier 2 trajectory
-python inference/capture_tier2.py \
+# or capture trajectory across all layers
+python inference/capture_all_layers.py \
   --experiment gemma_2b_cognitive_nov20 \
   --trait refusal \
-  --prompts "Test prompt" \
+  --prompts "Your test prompt here" \
   --save-json
 
-# output: experiments/{experiment}/{trait}/inference/
+# output: experiments/{experiment}/{trait}/inference/residual_stream_activations/
 ```
 
 ---

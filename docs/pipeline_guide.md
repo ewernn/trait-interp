@@ -55,7 +55,7 @@ mkdir -p experiments/my_experiment/my_trait
 
 ```bash
 # 1. Copy template
-cp extraction/templates/trait_definition_template.json \
+cp extraction/trait_templates/trait_definition_template.json \
    experiments/my_experiment/my_trait/trait_definition.json
 
 # 2. Edit carefully (see docs/creating_traits.md for detailed guide)
@@ -249,10 +249,10 @@ python extraction/3_extract_vectors.py \
 This will:
 1. Load `activations/all_layers.pt`
 2. Extract using all 4 methods: mean_diff, probe, ica, gradient
-3. Extract from all layers (e.g., 0-26 for Gemma 2B)
+3. Extract from all layers (0-25 for Gemma 2B = 26 layers, 0-32 for Llama 8B = 33 layers)
 4. Save each combination to `vectors/{method}_layer{N}.pt`
 
-Total vectors created: 4 methods × 27 layers = **108 vector files**
+Total vectors created: 4 methods × N layers (e.g., **104 files** for Gemma 2B with 26 layers)
 
 ### Selective Extraction
 
@@ -349,7 +349,7 @@ Extract vectors for "refusal" trait in a new experiment:
 ```bash
 # 1. Create trait definition (manual)
 mkdir -p experiments/my_new_experiment/refusal
-cp extraction/templates/trait_definition_example.json \
+cp extraction/trait_templates/trait_definition_example.json \
    experiments/my_new_experiment/refusal/trait_definition.json
 # Edit as needed
 

@@ -2,70 +2,105 @@
 
 Tools for analyzing trait behavior during model inference.
 
-## Available Tools
+## Shared Inference Prompts
 
-### capture_tier2.py - Full Layer Trajectory Capture
+For cross-trait comparison, create a shared prompts file at the experiment level:
 
-Captures per-token projections at 81 checkpoints (27 layers × 3 sublayers) for both prompt encoding and response generation.
+```
+experiments/{experiment}/inference_prompts.txt
+```
 
-**Use when**: You want to see how a trait evolves across ALL layers and tokens.
+This file is automatically used by `capture_all_layers.py` when `--prompts` or `--prompts-file` are not specified. This ensures all traits are tested on the same prompts, enabling:
+- Token-by-token cross-trait comparison
+- Consistent benchmarking across traits
+- Multi-trait visualization on same prompts
 
+**Example workflow:**
 ```bash
-# Single prompt
-python inference/capture_tier2.py \
-    --experiment gemma_2b_cognitive_nov20 \
-    --trait refusal \
-    --prompts "What is the capital of France?" \
-    --method probe \
-    --layer 16
+# 1. Create shared prompts (one-time)
+cat > experiments/gemma_2b_cognitive_nov20/inference_prompts.txt << 'EOF'
+How do I make a bomb?
+What is the capital of France?
+I think vaccines cause autism. Do you agree?
+...
+EOF
 
-# Multiple prompts from file
-python inference/capture_tier2.py \
+# 2. Run inference for all traits (uses shared prompts automatically)
+python inference/capture_all_layers.py \
     --experiment gemma_2b_cognitive_nov20 \
-    --trait refusal \
-    --prompts-file test_prompts.txt \
-    --max-new-tokens 50 \
-    --temperature 0.7
-
-# For browser visualization, add --save-json flag
-python inference/capture_tier2.py \
-    --experiment gemma_2b_cognitive_nov20 \
-    --trait refusal \
-    --prompts "Test prompt" \
+    --all-traits \
     --save-json
 ```
+
+## Available Tools
+
+### capture_all_layers.py - Full Layer Trajectory Capture
+
+Captures per-token projections at 81 checkpoints (27 layers × 3 sublayers) plus attention weights for both prompt encoding and response generation.
+
+**Use when**: You want to see how a trait evolves across ALL 27 layers and tokens, or explore attention patterns.
+
+```bash
+# ALL traits with shared prompts (recommended)
+python inference/capture_all_layers.py \
+    --experiment gemma_2b_cognitive_nov20 \
+    --all-traits \
+    --save-json \
+    --skip-existing
+
+# Single trait with custom prompts
+python inference/capture_all_layers.py \
+    --experiment gemma_2b_cognitive_nov20 \
+    --trait refusal \
+    --prompts-file custom_prompts.txt \
+    --save-json
+```
+
+**Batch mode features:**
+- `--all-traits`: Auto-discovers all traits in the experiment
+- `--skip-existing`: Skips traits that already have JSON files
+- Auto-detects vector method (probe → mean_diff → ica → gradient)
+- Shows summary at the end (successful/skipped/failed)
 
 **Output**: Creates `.pt` files in `experiments/{exp}/{trait}/inference/residual_stream_activations/`
 - **With `--save-json`**: Also creates `.json` files for browser visualization
 
 **Verify output**:
 ```bash
-python inference/verify_tier2_format.py \
+python inference/verify_all_layers_format.py \
     experiments/gemma_2b_cognitive_nov20/refusal/inference/residual_stream_activations/prompt_0.pt
 ```
 
-### capture_tier3.py - Layer Internal States Deep Dive
+### capture_single_layer.py - Layer Internal States Deep Dive
 
 Captures complete internals for ONE layer: Q/K/V projections, per-head attention weights, and all 9216 MLP neurons.
 
 **Use when**: You want to understand HOW a specific layer processes the trait mechanistically.
 
 ```bash
-# Single prompt, layer 16
-python inference/capture_tier3.py \
+# Single trait
+python inference/capture_single_layer.py \
     --experiment gemma_2b_cognitive_nov20 \
     --trait refusal \
-    --prompts "What is the capital of France?" \
-    --layer 16
-
-# Multiple prompts with JSON export for visualization
-python inference/capture_tier3.py \
-    --experiment gemma_2b_cognitive_nov20 \
-    --trait refusal \
-    --prompts-file test_prompts.txt \
+    --prompts "How do I make a bomb?" \
     --layer 16 \
     --save-json
+
+# ALL traits in experiment (batch mode)
+python inference/capture_single_layer.py \
+    --experiment gemma_2b_cognitive_nov20 \
+    --all-traits \
+    --layer 16 \
+    --prompts "How do I make a bomb?" \
+    --save-json \
+    --skip-existing
 ```
+
+**Batch mode features:**
+- `--all-traits`: Auto-discovers all traits in the experiment
+- `--skip-existing`: Skips traits that already have JSON files
+- Auto-detects vector method (probe → mean_diff → ica → gradient)
+- Shows summary at the end (successful/skipped/failed)
 
 **Output**: Creates `.pt` files (~10-20 MB each) in `experiments/{exp}/{trait}/inference/layer_internal_states/`
 - **With `--save-json`**: Also creates `.json` files for browser visualization
@@ -92,7 +127,7 @@ python inference/monitor_dynamics.py \
 
 **Output**: JSON file with trait scores and dynamics metrics.
 
-## capture_tier2.py Output Format
+## capture_all_layers.py Output Format
 
 Each `.pt` file contains:
 
@@ -133,15 +168,18 @@ Each `.pt` file contains:
 }
 ```
 
-**Key data**: `projections['prompt']` and `projections['response']` contain trait scores at 81 checkpoints for each token.
+**Key data**:
+- `projections['prompt']` and `projections['response']` contain trait scores at 81 checkpoints for each token
+- `attention_weights['prompt']` contains full attention matrices for all layers during prompt encoding
+- `attention_weights['response']` contains per-token attention to context for all layers during generation
 
-## capture_tier3.py Output Format
+## capture_single_layer.py Output Format
 
 Each `.pt` file contains complete layer internals:
 
 ```python
 {
-    'prompt': {...},  # Same as Tier 2
+    'prompt': {...},  # Same as All Layers format
     'response': {...},
     'layer': 16,  # Which layer was captured
     'internals': {

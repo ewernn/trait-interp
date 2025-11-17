@@ -13,7 +13,7 @@ A trait definition is a JSON file that specifies:
 
 ```bash
 # 1. Copy the template
-cp extraction/templates/trait_definition_template.json \
+cp extraction/trait_templates/trait_definition_template.json \
    experiments/my_experiment/my_trait/trait_definition.json
 
 # 2. Edit the JSON file carefully
@@ -235,7 +235,7 @@ After creating the definition:
 
 ## Examples
 
-See `extraction/templates/trait_definition_example.json` for a complete working example (Refusal trait).
+See `extraction/trait_templates/trait_definition_example.json` for a complete working example (Refusal trait).
 
 See `experiments/gemma_2b_cognitive_nov20/*/trait_definition.json` for 16 real trait definitions used in production.
 

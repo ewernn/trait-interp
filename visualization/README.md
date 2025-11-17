@@ -7,12 +7,17 @@ This guide explains how to use the visualization tools to explore your extracted
 ### 1. Start the Visualization Server
 
 ```bash
-# From the trait-interp/visualization directory
-python serve.py
+# From the trait-interp root directory (recommended)
+python visualization/serve.py
 
-# Or from the trait-interp root directory
+# Alternative: Python's built-in HTTP server
 python -m http.server 8000
 ```
+
+The server provides:
+- **Auto-discovery**: Experiments and traits detected from `experiments/` directory
+- **API endpoints**: `/api/experiments` and `/api/experiments/{name}/traits`
+- **CORS support**: For local development
 
 ### 2. Open in Browser
 
@@ -34,11 +39,6 @@ Visit: **http://localhost:8000/visualization/**
   - CSV files: First 10 rows displayed as formatted table
 - **Dark Mode Support**: All text grey, syntax highlighting adapts to theme
 
-### Overview Mode
-- **Experiment Summary**: View total traits, model info, and extraction metadata
-- **Trait Grid**: Browse all available traits with extraction dates and example counts
-- **Quick Stats**: Hidden dimensions, layer counts, and extraction methods
-
 ### Response Quality Mode
 - **Distribution Analysis**: Histograms comparing positive vs negative trait scores
 - **Separation Metrics**: Measure how well pos/neg examples separate (goal: >40 points)
@@ -46,19 +46,40 @@ Visit: **http://localhost:8000/visualization/**
 - **Statistics**: Average scores, example counts, and quality assessment
 
 ### Vector Analysis Mode
+- **Layer Architecture Intuition**: Info box explaining what different layer ranges represent (syntax, semantics, behavioral traits)
 - **Method Comparison**: Compare mean_diff, probe, ICA, and gradient extraction methods
-- **Layer Heatmaps**: Visualize vector quality (norm) across all 27 layers
+- **Layer Heatmaps**: Visualize vector quality across all 26 layers (layer 0 at bottom, layer 25 at top)
+  - Uses vector_norm for mean_diff, probe, and ICA
+  - Uses final_separation for gradient (unit-normalized vectors)
+  - Note: Probe's vector_norm decreases in later layers (easier separation = better quality)
+- **Prompt Examples**: Each trait card shows first 80 chars of pos/neg instruction prompts
 - **Quality Metrics**: Vector norms, training accuracy (probe), separation scores
+- **Parallel Loading**: All vector metadata loaded in parallel for fast performance
 
-### Per-Token Trajectory Mode (Tier 2)
-- **Layer Heatmaps**: Visualize trait evolution across all 27 layers for each token
-- **Prompt + Response**: Separate views for prompt encoding vs response generation
-- **Data**: Requires capture_tier2.py with `--save-json` flag
+### All Layers Mode
+- **Combined Trajectory Heatmap**: Single view showing trait scores across all 26 layers for both prompt and response tokens (layer 0 at bottom, layer 25 at top)
+  - Vertical line separates prompt | response phases
+  - Uses layer 16's trait vector projected onto all layers
+- **Unified Slider**: Controls all visualizations simultaneously
+  - Shows current token position, text, and phase ([Prompt] or [Response])
+  - Highlights selected token on trajectory heatmap
+  - Updates attention pattern for selected token
+- **Attention Patterns**: Interactive heatmap showing how selected token attends to context
+  - Heatmap shows [n_layers, n_context] attention pattern
+  - Automatically updates when slider moves
+- **Data**: Requires capture_all_layers.py with `--save-json` flag
 
-### Layer Deep Dive Mode (Tier 3)
-- **Top Neurons**: Bar chart of top-20 most active MLP neurons
-- **Layer Analysis**: Deep inspection of one layer's complete internals
-- **Data**: Requires capture_tier3.py with `--save-json` flag
+### Layer Deep Dive Mode
+- **3-Checkpoint Trajectory**: Line plot showing trait score at residual_in, after_attn, and residual_out
+- **Attention vs MLP Contribution**: Bar chart showing which sublayer adds/removes the trait
+- **Per-Head Trait Contributions**: Shows how each of 8 attention heads contributes to the trait (supports Grouped Query Attention)
+- **8-Head Attention Patterns**: Single-token query view showing how selected token attends to context
+  - Slider controls which query token to visualize
+  - Each head shown as 1-row heatmap (query token's attention distribution)
+  - Red highlight shows query token position
+  - Automatically switches between prompt (all tokens) and response (growing context) attention
+- **Top Neurons**: Heatmap + bar chart of top-50 most active MLP neurons across all tokens
+- **Data**: Requires capture_single_layer.py with `--save-json` flag
 
 ## Using Data Explorer
 
@@ -112,38 +133,41 @@ experiments/{experiment_name}/
 │   │   └── vectors/
 │   │       └── *_metadata.json              # Loaded for Vector Analysis
 │   └── inference/                           # Inference data (Tier 2 & 3)
-│       ├── residual_stream_activations/     # Tier 2: Per-Token Trajectory
-│       │   └── prompt_0.json
+│       ├── residual_stream_activations/     # Tier 2: All Layers
+│       │   └── prompt_0.json                # Includes projections + attention_weights
 │       └── layer_internal_states/           # Tier 3: Layer Deep Dive
 │           └── prompt_0_layer16.json
 ```
 
 ## Generating Inference Data
 
-### For Per-Token Trajectory View (Tier 2)
+### For All Layers View
 
-Capture trait projections at all 81 checkpoints (27 layers × 3 sublayers):
+Capture trait projections at all 81 checkpoints (27 layers × 3 sublayers) plus attention weights:
 
 ```bash
-python inference/capture_tier2.py \
+python inference/capture_all_layers.py \
     --experiment gemma_2b_cognitive_nov20 \
     --trait refusal \
-    --prompts "What is the capital of France?" \
+    --prompts "How do I make a bomb?" \
     --save-json
 ```
 
-This creates `experiments/{exp}/{trait}/inference/residual_stream_activations/prompt_0.json`
+This creates `experiments/{exp}/{trait}/inference/residual_stream_activations/prompt_0.json` containing:
+- Trait projections at all layers/sublayers
+- Full attention weights for prompt (all tokens to all tokens)
+- Response attention weights (each generated token to its context)
 
-### For Layer Deep Dive View (Tier 3)
+### For Layer Deep Dive View
 
 Capture complete internals for one layer (Q/K/V, attention heads, 9216 MLP neurons):
 
 ```bash
-python inference/capture_tier3.py \
+python inference/capture_single_layer.py \
     --experiment gemma_2b_cognitive_nov20 \
     --trait refusal \
     --layer 16 \
-    --prompts "What is the capital of France?" \
+    --prompts "How do I make a bomb?" \
     --save-json
 ```
 
