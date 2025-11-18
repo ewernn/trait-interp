@@ -35,9 +35,11 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[docs/methodology_and_framework.md](methodology_and_framework.md)** - Research methodology and framework
 - **[docs/literature_review.md](literature_review.md)** - Literature review (100+ papers analyzed)
 - **[docs/vector_extraction_methods.md](vector_extraction_methods.md)** - Mathematical breakdown of all 4 extraction methods (mean_diff, probe, ICA, gradient)
+- **[docs/vector_quality_tests.md](vector_quality_tests.md)** - Comprehensive evaluation tests for vector quality (steering, robustness, interpretability)
 
 ### Visualization & Monitoring
 - **[visualization/README.md](../visualization/README.md)** - Interactive dashboard usage guide
+- **[visualization/DESIGN_STANDARDS.md](../visualization/DESIGN_STANDARDS.md)** - Enforced design standards for visualization UI
 - **[docs/logit_lens.md](logit_lens.md)** - Logit lens: prediction evolution across layers
 
 ### Infrastructure & Setup
@@ -124,7 +126,12 @@ trait-interp/
 │           └── metadata.json
 │
 ├── analysis/               # Analysis scripts
-│   └── encode_sae_features.py  # Encode activations to SAE features
+│   ├── cross_distribution_scanner.py  # Generate cross-distribution data index
+│   └── encode_sae_features.py         # Encode activations to SAE features
+│
+├── scripts/                # Utility scripts
+│   ├── run_cross_distribution.py  # Run 4×4 cross-distribution analysis for any trait
+│   └── setup_remote.sh            # Remote GPU instance setup
 │
 ├── docs/                   # Documentation (you are here)
 ├── visualization/          # Interactive visualization dashboard
@@ -155,6 +162,14 @@ cp extraction/trait_templates/trait_definition_template.json \
 python extraction/1_generate_batched_simple.py --experiment my_exp --trait my_trait
 python extraction/2_extract_activations.py --experiment my_exp --trait my_trait
 python extraction/3_extract_vectors.py --experiment my_exp --trait my_trait
+```
+
+**For cross-distribution analysis:**
+```bash
+# Test vector generalization across instruction/natural distributions
+python scripts/run_cross_distribution.py --trait uncertainty_calibration
+
+# Results saved to: results/cross_distribution_analysis/{trait}_full_4x4_results.json
 ```
 
 **For custom analysis using traitlens:**
@@ -197,7 +212,9 @@ This project extracts trait vectors from language models and monitors them durin
 
 **Recommended method:** Natural elicitation (see extraction/natural_elicitation_guide.md) avoids instruction-following confounds.
 
-**Available traits** (16 cognitive and behavioral):
+**Available traits** (20 total: 16 core + 4 additional):
+
+**Core traits (full extraction: all layers, all methods):**
 - **refusal** - Declining vs answering requests
 - **uncertainty_calibration** - Hedging ("I think maybe") vs confident statements
 - **sycophancy** - Agreeing vs disagreeing with user
@@ -214,6 +231,18 @@ This project extracts trait vectors from language models and monitors them durin
 - **power_dynamics** - Authoritative vs submissive tone
 - **serial_parallel** - Step-by-step vs holistic processing
 - **temporal_focus** - Past-oriented vs future-oriented
+
+**Additional traits (partial extraction: layer 16, mean_diff + probe only):**
+- **curiosity** - Expressing wonder vs providing direct answers
+- **confidence_doubt** - Confident assertions vs uncertain language
+- **defensiveness** - Defensive responses vs open acceptance
+- **enthusiasm** - Energetic tone vs flat delivery
+
+**Verify available traits:**
+```bash
+ls experiments/gemma_2b_cognitive_nov20/*/extraction/vectors/*.pt | wc -l
+# Expected: ~1700+ vector files (16 full traits × 104 vectors + 4 partial traits × 2 vectors)
+```
 
 ## Quick Start
 
@@ -343,11 +372,14 @@ score = (hidden_state · trait_vector) / ||trait_vector||
 - Negative score → model avoiding the trait
 - Score magnitude → how strongly
 
-**Layer selection**:
-- **Gemma 2 2B**: Layer 14 for Gradient (96.1% cross-distribution), Layer 10 for ICA (89.5%), Layer 16 for Probe/Mean Diff
+**Layer selection (trait-dependent)**:
+- **Gemma 2 2B**:
+  - Low-separability traits (uncertainty_calibration): Layer 14 for Gradient (96.1%), Layer 10 for ICA (89.5%)
+  - High-separability traits (emotional_valence): Any layer for Probe (100% across all layers)
+  - General: Layer 16 for Probe/Mean Diff (middle layer)
 - **Llama 3.1 8B**: Layer 20 (middle layer)
 
-Middle layers (6-16 for Gemma 2B) capture semantic meaning and generalize across distributions. Late layers (21-25) specialize for instruction-following and fail on cross-distribution tasks.
+Middle layers (6-16 for Gemma 2B) capture semantic meaning and generalize across distributions. Late layers (21-25) specialize for instruction-following and fail on cross-distribution tasks. **Method choice matters more than layer**: high-separability traits favor Probe, low-separability traits favor Gradient/ICA.
 
 ## Trait Descriptions
 
@@ -475,17 +507,24 @@ python visualization/serve.py
 The visualization provides:
 - **Extraction Tools:**
   - **Data Explorer**: Browse complete file structure with sizes, shapes, and data preview
-  - **Response Quality**: Minimal table showing separation scores (mean-based)
   - **Vector Analysis**: Compare 4 extraction methods across all layers (each normalized independently)
     - Only shows traits with completed vector extraction (`extraction/vectors/` directory exists)
     - Probe visualized using inverted vector norm (smaller = stronger due to L2 regularization)
     - Gradient visualized using separation strength (unit normalized vectors)
     - Mean difference and ICA visualized using vector magnitude
+  - **Cross-Distribution**: View cross-distribution testing data availability and best accuracy scores
+    - Shows which traits have instruction-based vs natural elicitation data
+    - Displays best accuracy and layer for each test quadrant (Inst→Inst, Inst→Nat, Nat→Inst, Nat→Nat)
+    - Click any quadrant score to view detailed 4×26 heatmap (4 methods × 26 layers accuracy)
+    - Color-coded by trait separability (low/moderate/high)
+    - Only shows quadrants with available data
 - **Inference Tools:**
+  - **Prompt Selector**: Global dropdown to switch between captured prompts (auto-discovers prompt_0.json, prompt_1.json, etc.)
   - **All Layers**: Combined trajectory heatmap (prompt + response), logit lens showing prediction evolution across layers, and attention patterns - all synchronized with unified slider
+  - **Prompt Activation**: Per-token activation trajectory across the full conversation (prompt + response) - line plot showing activation strength averaged across all layers for each token, with visual separator between prompt and response regions
   - **Layer Deep Dive**: 3-checkpoint trajectory, attention vs MLP contribution, per-head trait contributions (8 heads with GQA support), attention patterns, and per-token neuron activations
 
-The server auto-discovers experiments and traits from the `experiments/` directory - no hardcoding needed.
+The server auto-discovers experiments, traits, and prompts from the `experiments/` directory - no hardcoding needed.
 
 ### Monitoring Data Format
 

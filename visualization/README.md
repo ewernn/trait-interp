@@ -39,24 +39,26 @@ Visit: **http://localhost:8000/visualization/**
   - CSV files: First 10 rows displayed as formatted table
 - **Dark Mode Support**: All text grey, syntax highlighting adapts to theme
 
-### Response Quality Mode
-- **Distribution Analysis**: Histograms comparing positive vs negative trait scores
-- **Separation Metrics**: Measure how well pos/neg examples separate (goal: >40 points)
-- **Sample Responses**: View example responses with high/low trait expression
-- **Statistics**: Average scores, example counts, and quality assessment
-
 ### Vector Analysis Mode
+- **Compact Table Layout**: One row per trait showing all methods at once
+  - Left: Trait name + best method/layer
+  - Center: Horizontal mini-heatmap (4 methods × 26 layers)
+  - Right: Pos/neg example preview
 - **Layer Architecture Intuition**: Info box explaining what different layer ranges represent (syntax, semantics, behavioral traits)
 - **Method Comparison**: Compare mean_diff, probe, ICA, and gradient extraction methods
-- **Layer Heatmaps**: Visualize vector quality across all 26 layers (layer 0 at bottom, layer 25 at top)
-  - Uses vector_norm for mean_diff, probe, and ICA
-  - Uses final_separation for gradient (unit-normalized vectors)
-  - Note: Probe's vector_norm decreases in later layers (easier separation = better quality)
-- **Prompt Examples**: Each trait card shows first 80 chars of pos/neg instruction prompts
-- **Quality Metrics**: Vector norms, training accuracy (probe), separation scores
+- **Visualization Metrics**:
+  - **Probe**: Inverted vector norm (smaller = stronger due to L2 regularization)
+  - **Gradient**: Separation strength (unit normalized vectors)
+  - **Mean Diff & ICA**: Vector magnitude
+- **Filtering**: Only shows traits with completed vector extraction (`extraction/vectors/` exists)
 - **Parallel Loading**: All vector metadata loaded in parallel for fast performance
+- **Click to expand**: Click any row for detailed 4×26 heatmap view
 
 ### All Layers Mode
+- **Prompt Selector**: Global dropdown in header to switch between captured prompts
+  - Auto-discovers available prompt files (prompt_0.json, prompt_1.json, etc.)
+  - All inference views update when prompt changes
+  - Shows clear error messages when selected prompt doesn't exist for a trait
 - **Combined Trajectory Heatmap**: Single view showing trait scores across all 26 layers for both prompt and response tokens (layer 0 at bottom, layer 25 at top)
   - Vertical line separates prompt | response phases
   - Uses layer 16's trait vector projected onto all layers
@@ -126,17 +128,20 @@ experiments/{experiment_name}/
 │   ├── extraction/                          # Extraction data (Tier 1)
 │   │   ├── trait_definition.json
 │   │   ├── responses/
-│   │   │   ├── pos.csv                      # Loaded for Response Quality view
-│   │   │   └── neg.csv                      # Loaded for Response Quality view
+│   │   │   ├── pos.csv                      # Generated responses
+│   │   │   └── neg.csv                      # Generated responses
 │   │   ├── activations/
 │   │   │   └── metadata.json                # Loaded for Overview
 │   │   └── vectors/
 │   │       └── *_metadata.json              # Loaded for Vector Analysis
 │   └── inference/                           # Inference data (Tier 2 & 3)
-│       ├── residual_stream_activations/     # Tier 2: All Layers
-│       │   └── prompt_0.json                # Includes projections + attention_weights
+│       ├── residual_stream_activations/     # Tier 2: All Layers & Prompt Activation
+│       │   ├── prompt_0.json                # First prompt (includes projections + attention_weights)
+│       │   ├── prompt_1.json                # Additional prompts (auto-discovered)
+│       │   └── prompt_N.json                # Multiple prompts supported
 │       └── layer_internal_states/           # Tier 3: Layer Deep Dive
-│           └── prompt_0_layer16.json
+│           ├── prompt_0_layer16.json        # First prompt at layer 16
+│           └── prompt_N_layer16.json        # Additional prompts at layer 16
 ```
 
 ## Generating Inference Data
@@ -158,6 +163,8 @@ This creates `experiments/{exp}/{trait}/inference/residual_stream_activations/pr
 - Full attention weights for prompt (all tokens to all tokens)
 - Response attention weights (each generated token to its context)
 
+**Multiple prompts**: Run the command multiple times with different prompts. Files are automatically numbered (prompt_0.json, prompt_1.json, etc.) and discovered by the visualization.
+
 ### For Layer Deep Dive View
 
 Capture complete internals for one layer (Q/K/V, attention heads, 9216 MLP neurons):
@@ -172,6 +179,8 @@ python inference/capture_single_layer.py \
 ```
 
 This creates `experiments/{exp}/{trait}/inference/layer_internal_states/prompt_0_layer16.json`
+
+**Multiple prompts**: Run the command multiple times with different prompts. Files are automatically numbered (prompt_0_layer16.json, prompt_1_layer16.json, etc.) and selectable via the prompt dropdown.
 
 ### For Basic Dynamics Analysis
 
@@ -329,10 +338,10 @@ All styles are in the `<style>` block. Key CSS variables:
 
 ## Next Steps
 
-1. **Explore Response Quality**: See which traits have good separation
+1. **Browse Data**: Use Data Explorer to inspect extraction files
 2. **Compare Methods**: Find which extraction method works best for each trait
 3. **Analyze Layers**: Identify which layers capture each trait best
-4. **Generate Monitoring Data**: Run `run_dynamics.py` for per-token analysis
+4. **Generate Monitoring Data**: Run inference scripts for per-token analysis
 
 ## Related Documentation
 
