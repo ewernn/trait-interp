@@ -73,6 +73,27 @@ python3 /tmp/multimethod_layer_sweep.py
 
 ---
 
+## 2025-11-18: BFloat16 NumPy Incompatibility
+
+**Discovery**: ICA method failed on traits with BFloat16 activations due to NumPy not supporting BFloat16 dtype.
+
+**Root Cause**:
+- `traitlens/methods.py:132` attempted `combined.cpu().numpy()` on BFloat16 tensors
+- NumPy throws: `TypeError: Got unsupported ScalarType BFloat16`
+- Affected traits: curiosity, confidence_doubt, defensiveness, enthusiasm
+
+**Fix**:
+```python
+# OLD: combined_np = combined.cpu().numpy()
+# NEW: combined_np = combined.float().cpu().numpy()
+```
+
+**Impact**: ICA extraction now works on all dtype formats (float16, bfloat16, float32)
+
+**Related**: Similar fix was applied to Gradient method on Nov 17 (documented in numerical_stability_analysis.md)
+
+---
+
 ## 2025-11-17: Trait Separability Determines Optimal Extraction Method
 
 **Finding**: Different trait types require different extraction methods. High-separability traits favor supervised methods (Probe), while low-separability traits with instruction confounds favor unsupervised methods (ICA) or optimization methods (Gradient).

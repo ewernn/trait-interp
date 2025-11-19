@@ -1,33 +1,8 @@
 # Next Steps & Recommendations
 
-**Date:** 2025-11-18
-**Context:** Following comprehensive methodology fixes and cross-distribution analysis
-
-## Completed Work Summary
-
-✅ Fixed 3 critical methodology issues (see METHODOLOGY_FIXES_REPORT.md):
-1. Natural vector extraction (now supports all layers/methods)
-2. BFloat16 compatibility in ICA method
-3. Optimal threshold finding (was using threshold=0)
-
-✅ Extracted vectors for 4 natural traits × 26 layers × 4 methods = 416 vectors
-
-✅ Generated complete 4×4 cross-distribution analysis for 3 traits:
-- uncertainty_calibration
-- emotional_valence
-- refusal
-
-✅ Created new tools:
-- `scripts/run_cross_distribution.py` - Generic cross-distribution analysis
-- `analysis/cross_distribution_scanner.py` - Results scanner
-
----
-
 ## Immediate Next Steps
 
 ### 1. Extract Remaining Natural Traits (RECOMMENDED)
-
-**Status:** Natural scenario files exist but activations not yet extracted
 
 **Traits Ready for Extraction:**
 - curiosity
@@ -55,7 +30,7 @@ python extraction/1_generate_natural.py --experiment gemma_2b_cognitive_nov20 --
 # 2. Extract activations
 python extraction/2_extract_activations_natural.py --experiment gemma_2b_cognitive_nov20 --trait curiosity_natural
 
-# 3. Extract vectors (now fixed to support all layers/methods!)
+# 3. Extract vectors (all layers, all methods)
 python extraction/3_extract_vectors_natural.py --experiment gemma_2b_cognitive_nov20 --trait curiosity_natural
 
 # 4. Run cross-distribution analysis
@@ -64,7 +39,7 @@ python scripts/run_cross_distribution.py --trait curiosity
 
 **Expected Outcome:**
 - 4 additional complete 4×4 cross-distribution matrices
-- Total coverage: 7/27 traits with complete cross-distribution analysis
+- Comprehensive coverage of natural trait variants
 
 **Resource Requirements:**
 - GPU time for generation + activation extraction
@@ -73,12 +48,6 @@ python scripts/run_cross_distribution.py --trait curiosity
 ---
 
 ### 2. Complete Formality Instruction Data (OPTIONAL)
-
-**Status:** formality_natural exists but formality (instruction) is empty
-
-**Current State:**
-- `experiments/gemma_2b_cognitive_nov20/formality/` only contains `trait_definition.json`
-- No activations or vectors extracted
 
 **To Complete:**
 ```bash
@@ -92,14 +61,12 @@ python scripts/run_cross_distribution.py --trait formality
 ```
 
 **Why This Matters:**
-- Currently formality only has nat→nat quadrant
-- With instruction data, would have complete 4×4 matrix
+- Currently formality only has natural version
+- With instruction data, would have complete 4×4 matrix for comparison
 
 ---
 
 ### 3. Run Cross-Distribution Analysis on Remaining Instruction Traits
-
-**Status:** 15 instruction traits have complete vectors but no cross-distribution analysis
 
 **Traits with Complete Instruction Data:**
 - abstract_concrete
@@ -114,7 +81,6 @@ python scripts/run_cross_distribution.py --trait formality
 - serial_parallel
 - sycophancy
 - temporal_focus
-- (+ emotional_valence, refusal, uncertainty_calibration already analyzed)
 
 **What Can Be Done:**
 Even without natural data, can still analyze:
@@ -139,8 +105,6 @@ python scripts/run_instruction_analysis.py --trait abstract_concrete
 
 ### 4. Statistical Significance Testing
 
-**Current State:** Point accuracy estimates only
-
 **Recommendation:** Add confidence intervals and significance tests
 - Bootstrap resampling for accuracy uncertainty
 - Paired t-tests for method comparisons
@@ -161,8 +125,6 @@ def bootstrap_accuracy(projections, labels, n_bootstrap=1000):
 ---
 
 ### 5. Cross-Distribution Heatmap Visualization
-
-**Current State:** Results in JSON format only
 
 **Recommendation:** Create interactive visualization showing:
 - 4×4 matrix for each trait
@@ -186,8 +148,6 @@ gradient         76.3%    97.8%     91.1%    98.3%
 
 ### 6. ICA Convergence Improvement
 
-**Current State:** Many ICA extractions show convergence warnings
-
 **Not Critical** (extractions succeed) but could improve by:
 - Increasing max_iter from default (200 → 1000)
 - Adjusting tolerance parameter
@@ -207,8 +167,6 @@ ica = FastICA(
 ---
 
 ### 7. Method-Specific Threshold Analysis
-
-**Current State:** Optimal threshold found but not analyzed
 
 **Recommendation:** Study threshold distributions to understand:
 - Why different methods have different optimal thresholds
@@ -239,22 +197,22 @@ def analyze_thresholds(results):
 
 Output:
 ```markdown
-# Quality Report - 2025-11-18
+# Quality Report
 
 ## Data Completeness
-- Instruction traits: 15/21 complete (71%)
-- Natural traits: 4/8 possible (50%)
-- Cross-distribution matrices: 3/4 complete (75%)
+- Instruction traits: X/Y complete
+- Natural traits: X/Y complete
+- Cross-distribution matrices: X/Y complete
 
 ## Method Performance Rankings
-1. Probe: 97.2% avg accuracy
-2. Gradient: 95.1% avg accuracy
-3. Mean Diff: 93.8% avg accuracy
-4. ICA: 91.4% avg accuracy
+1. Probe: X% avg accuracy
+2. Gradient: X% avg accuracy
+3. Mean Diff: X% avg accuracy
+4. ICA: X% avg accuracy
 
 ## Flags
-⚠️  formality: missing instruction data
-⚠️  ICA: 15 convergence warnings (not critical)
+⚠️  Traits with issues
+⚠️  ICA convergence warnings
 ```
 
 ---
@@ -262,8 +220,8 @@ Output:
 ## Priority Ranking
 
 **High Priority (Do Now):**
-1. ✅ Extract vectors for 4 remaining natural traits (curiosity, confidence_doubt, defensiveness, enthusiasm)
-2. ✅ Run cross-distribution analysis on newly extracted traits
+1. Extract vectors for 4 remaining natural traits (curiosity, confidence_doubt, defensiveness, enthusiasm)
+2. Run cross-distribution analysis on newly extracted traits
 
 **Medium Priority (Do Soon):**
 3. Complete formality instruction data
@@ -328,7 +286,7 @@ python scripts/run_cross_distribution.py --trait {trait}
 python analysis/cross_distribution_scanner.py
 ```
 
-### Re-run Analysis (After Fixes)
+### Re-run Analysis
 ```bash
 # For specific trait
 python scripts/run_cross_distribution.py --trait uncertainty_calibration
@@ -341,79 +299,20 @@ done
 
 ---
 
-## Expected Final State
-
-After completing high-priority items:
-
-### Data Coverage
-- **Instruction traits:** 16/21 complete (76%)
-- **Natural traits:** 8/8 possible (100%)
-- **Cross-distribution matrices:** 7/8 complete (88%)
-
-### Analysis Completeness
-- 7 complete 4×4 cross-distribution matrices
-- All quadrants populated for all traits with both instruction and natural data
-- Statistically principled threshold finding
-- Comprehensive method comparison
-
-### Tools Available
-- ✅ Generic cross-distribution analysis script
-- ✅ Results scanner
-- ✅ Comprehensive methodology documentation
-- 🔄 Visualization tools (recommended)
-- 🔄 Statistical significance testing (recommended)
-
----
-
 ## Questions to Consider
 
 1. **Which traits should have natural versions?**
-   - Currently 8 traits have natural scenarios (4 extracted, 4 pending)
-   - Should we create natural scenarios for all 21 instruction traits?
+   - Currently 8 traits have natural scenarios
+   - Should we create natural scenarios for all instruction traits?
 
 2. **What's the target coverage?**
-   - Is 7/21 traits with complete 4×4 matrices sufficient?
+   - How many traits with complete 4×4 matrices is sufficient?
    - Or should we aim for more comprehensive coverage?
 
 3. **Publication readiness?**
-   - Current results are methodologically sound
    - Would benefit from statistical significance testing
    - Visualization would help with presentation
 
 4. **Computational budget?**
    - Extracting all pending natural traits: ~1-2 hours GPU
    - Is this worth the investment?
-
----
-
-## Files Created/Modified in This Session
-
-### New Files
-- `METHODOLOGY_FIXES_REPORT.md` - Comprehensive documentation of all fixes
-- `NEXT_STEPS_RECOMMENDATIONS.md` - This document
-- `scripts/run_cross_distribution.py` - Generic analysis script
-- `analysis/cross_distribution_scanner.py` - Results scanner
-
-### Modified Files
-- `extraction/3_extract_vectors_natural.py` - Complete rewrite for full functionality
-- `traitlens/methods.py` - BFloat16 fix for ICA method
-
-### Data Generated
-- 416 new natural vectors (4 traits × 26 layers × 4 methods)
-- 3 complete 4×4 cross-distribution analysis results
-- All with corrected optimal threshold methodology
-
----
-
-## Contact/Handoff Notes
-
-This work was completed autonomously overnight as requested. All fixes have been validated and tested. The methodology is now sound and results are reliable.
-
-Key improvements:
-1. **Completeness:** Natural data now fully extracted
-2. **Correctness:** BFloat16 compatibility fixed
-3. **Validity:** Threshold finding is now statistically principled
-
-Average accuracy improvement: **+9.3 percentage points** across all analyses.
-
-Ready for next steps as outlined above.

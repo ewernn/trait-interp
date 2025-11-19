@@ -21,7 +21,6 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 ### Pipeline & Extraction
 - **[extraction/natural_elicitation_guide.md](../extraction/natural_elicitation_guide.md)** - Natural elicitation method (recommended)
 - **[extraction/instruction_elicitation_guide.md](../extraction/instruction_elicitation_guide.md)** - Instruction-based generation (legacy)
-- **[docs/cognitive_primitives_guide.md](cognitive_primitives_guide.md)** - Step-by-step guide for cognitive primitives
 
 ### Experiments & Analysis
 - **[docs/experiments_structure.md](experiments_structure.md)** - How experiment directories are organized

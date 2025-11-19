@@ -44,6 +44,38 @@ python extraction/3_extract_vectors.py --experiment gemma_2b_cognitive_nov20 --m
 
 ---
 
+## 🟢 Fixed Issue: ICA Method BFloat16 (FIXED)
+
+### Problem
+**File**: `traitlens/methods.py:132`
+**Severity**: High - ICA extraction fails on BFloat16 activations
+
+```python
+# OLD (BROKEN):
+combined_np = combined.cpu().numpy()
+#             ^^^^^^^^^^^
+#             NumPy doesn't support BFloat16!
+```
+
+**Why it failed:**
+- NumPy (used by sklearn's FastICA) does not support BFloat16 dtype
+- TypeError: "Got unsupported ScalarType BFloat16"
+- ICA extraction failed for any traits with BFloat16 activations
+
+### Fix Applied
+```python
+# NEW (FIXED):
+combined_np = combined.float().cpu().numpy()
+#             ^^^^^^^^^^^^^^
+#             Upcast BFloat16 → float32 before numpy conversion
+```
+
+**Status**: ✅ Fixed in current version
+
+**Affected traits**: curiosity, confidence_doubt, defensiveness, enthusiasm (all now working)
+
+---
+
 ## ⚠️ Potential Issue: Epsilon Values in Float16
 
 ### Problem
@@ -84,12 +116,12 @@ result = zero_vec / (zero_vec.norm() + 1e-8)
 
 ### Why This Hasn't Caused Problems
 
-**Current pipeline saves all activations as float16 BUT:**
+**Current pipeline saves all activations as float16/bfloat16 BUT:**
 
 1. **Mean Difference Method**: Simple arithmetic, no division by zero
-2. **Probe Method**: Converts to numpy → sklearn upcasts to float64 automatically
-3. **ICA Method**: Same as probe - numpy/sklearn handles it
-4. **Gradient Method**: Now explicitly upcasts to float32 (fixed above)
+2. **Probe Method**: Line 208 explicitly upcasts to float32 before numpy
+3. **ICA Method**: Line 132 explicitly upcasts to float32 before numpy (fixed above)
+4. **Gradient Method**: Lines 278-280 explicitly upcast to float32 (fixed above)
 
 **Compute functions** (`projection()`, `normalize_vectors()`, etc.) are only used:
 - In analysis scripts (which load float16 but upcast)
