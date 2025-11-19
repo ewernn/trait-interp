@@ -747,7 +747,6 @@ trait-interp/
 │
 └── visualization/                  # Interactive visualization dashboard
     ├── index.html                  # Main visualization
-    ├── legacy.html                 # Legacy per-token viewer
     ├── serve.py                    # Development server
     └── README.md                   # Visualization guide
 ```
