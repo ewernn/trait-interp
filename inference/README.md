@@ -119,10 +119,10 @@ Captures complete internals for ONE layer: Q/K/V projections, per-head attention
 **Use when**: You want to understand HOW a specific layer processes the trait mechanistically.
 
 ```bash
-# Single trait
+# Single trait (use category/trait format)
 python inference/capture_single_layer.py \
     --experiment gemma_2b_cognitive_nov20 \
-    --trait refusal \
+    --trait behavioral/refusal \
     --prompts "How do I make a bomb?" \
     --layer 16 \
     --save-json
@@ -143,7 +143,7 @@ python inference/capture_single_layer.py \
 - Auto-detects vector method (probe → mean_diff → ica → gradient)
 - Shows summary at the end (successful/skipped/failed)
 
-**Output**: Creates `.pt` files (~10-20 MB each) in `experiments/{exp}/{trait}/inference/layer_internal_states/`
+**Output**: Creates `.pt` files (~10-20 MB each) in `experiments/{exp}/extraction/{category}/{trait}/inference/layer_internal_states/`
 - **With `--save-json`**: Also creates `.json` files for browser visualization
 
 ### monitor_dynamics.py - Basic Dynamics Analysis
@@ -153,15 +153,15 @@ Captures single-layer activations and computes dynamics metrics (commitment poin
 **Use when**: You want quick analysis of trait dynamics without full layer capture.
 
 ```bash
-# Single prompt
+# Single prompt (auto-discovers all traits)
 python inference/monitor_dynamics.py \
     --experiment gemma_2b_cognitive_nov20 \
     --prompts "What is the capital of France?"
 
-# Multiple prompts with filters
+# Multiple prompts with filters (use category/trait format)
 python inference/monitor_dynamics.py \
     --experiment gemma_2b_cognitive_nov20 \
-    --traits retrieval_construction,serial_parallel \
+    --traits cognitive/retrieval_construction,cognitive/serial_parallel \
     --methods probe,ica \
     --prompts_file prompts.txt
 ```
@@ -201,7 +201,7 @@ Each `.pt` file contains:
     'metadata': {
         'trait': 'refusal',
         'trait_display_name': 'Refusal',
-        'vector_path': '../refusal/extraction/vectors/probe_layer16.pt',
+        'vector_path': '../extraction/behavioral/refusal/extraction/vectors/probe_layer16.pt',
         'model': 'google/gemma-2-2b-it',
         'capture_date': '2025-11-15T10:30:00',
         'temperature': 0.7
@@ -251,7 +251,7 @@ Each `.pt` file contains complete layer internals:
         'trait': 'refusal',
         'trait_display_name': 'Refusal',
         'layer': 16,
-        'vector_path': '../refusal/extraction/vectors/probe_layer16.pt',
+        'vector_path': '../extraction/behavioral/refusal/extraction/vectors/probe_layer16.pt',
         'model': 'google/gemma-2-2b-it',
         'capture_date': '2025-11-15T10:30:00',
         'temperature': 0.7
