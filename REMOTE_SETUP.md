@@ -6,6 +6,7 @@ SSH into your 8x A100 instance and run:
 # 1. Switch to non-root user and install Claude Code
 su - user
 curl -fsSL https://claude.ai/install.sh | bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 
 # 2. Clone repo and start Claude Code
 git clone https://github.com/ewernn/trait-interp && cd trait-interp && claude --dangerously-skip-permissions
