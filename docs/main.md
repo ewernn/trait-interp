@@ -153,23 +153,23 @@ python local_dynamics_test.py
 
 **For extracting new traits:**
 ```bash
-# 1. Create trait definition
-mkdir -p experiments/my_exp/my_trait/extraction
+# 1. Create trait definition (note: category/trait_name format)
+mkdir -p experiments/my_exp/extraction/category/my_trait/extraction
 cp extraction/trait_templates/trait_definition_template.json \
-   experiments/my_exp/my_trait/extraction/trait_definition.json
+   experiments/my_exp/extraction/category/my_trait/extraction/trait_definition.json
 
-# 2-4. Run extraction pipeline
-python extraction/1_generate_batched_simple.py --experiment my_exp --trait my_trait
-python extraction/2_extract_activations.py --experiment my_exp --trait my_trait
-python extraction/3_extract_vectors.py --experiment my_exp --trait my_trait
+# 2-4. Run extraction pipeline (using category/trait format)
+python extraction/1_generate_batched_simple.py --experiment my_exp --trait category/my_trait
+python extraction/2_extract_activations.py --experiment my_exp --trait category/my_trait
+python extraction/3_extract_vectors.py --experiment my_exp --trait category/my_trait
 ```
 
 **For cross-distribution analysis:**
 ```bash
 # Test vector generalization across instruction/natural distributions
-python scripts/run_cross_distribution.py --trait uncertainty_calibration
+python scripts/run_cross_distribution.py --trait cognitive/uncertainty_calibration
 
-# Results saved to: results/cross_distribution_analysis/{trait}_full_4x4_results.json
+# Results saved to: experiments/gemma_2b_cognitive_nov20/validation/{trait}_full_4x4_results.json
 ```
 
 **For custom analysis using traitlens:**
@@ -193,11 +193,11 @@ utils/              ← Shared utilities (API clients, credentials)
 
 extraction/         ← Training time (creates trait vectors)
     ├── Uses: traitlens/ + utils/
-    └── Produces: experiments/{name}/{trait}/extraction/vectors/
+    └── Produces: experiments/{name}/extraction/{category}/{trait}/extraction/vectors/
 
 experiments/        ← User space (custom analysis using extracted vectors)
     ├── Uses: traitlens/
-    └── Stores: experiment data and results
+    └── Structure: extraction/{category}/{trait}/, inference/, validation/
 ```
 
 ---
@@ -317,18 +317,18 @@ echo "How do I make cookies?" > extraction/natural_scenarios/my_trait_negative.t
 # ... add 99 more of each
 
 # 2. Generate responses (no instructions!)
-python extraction/1_generate_natural.py --experiment my_exp --trait my_trait
+python extraction/1_generate_natural.py --experiment my_exp --trait category/my_trait
 
 # 3. Extract activations
-python extraction/2_extract_activations_natural.py --experiment my_exp --trait my_trait
+python extraction/2_extract_activations_natural.py --experiment my_exp --trait category/my_trait
 
 # 4. Extract vectors
-python extraction/3_extract_vectors_natural.py --experiment my_exp --trait my_trait
+python extraction/3_extract_vectors_natural.py --experiment my_exp --trait category/my_trait
 
 # 5. Validate polarity
-python extraction/validate_natural_vectors.py --experiment my_exp --trait my_trait
+python extraction/validate_natural_vectors.py --experiment my_exp --trait category/my_trait
 
-# Result: vectors in experiments/my_exp/my_trait/extraction/vectors/
+# Result: vectors in experiments/my_exp/extraction/category/my_trait/extraction/vectors/
 ```
 
 See [extraction/natural_elicitation_guide.md](../extraction/natural_elicitation_guide.md) for details.
@@ -704,20 +704,23 @@ trait-interp/
 ├── experiments/                    # All experiment data
 │   └── gemma_2b_cognitive_nov20/  # Example: 38 traits across 4 categories
 │       ├── README.md
-│       ├── behavioral/            # Category: behavioral traits
-│       │   └── refusal/           # Example trait
-│       │       └── extraction/    # Training-time data
-│       │           ├── trait_definition.json
-│       │           ├── responses/ # pos.csv, neg.csv or pos.json, neg.json
-│       │           ├── activations/ # Token-averaged (not committed, too large)
-│       │           └── vectors/   # Extracted vectors + metadata
-│       ├── cognitive/             # Category: cognitive traits
-│       ├── stylistic/             # Category: stylistic traits
-│       ├── alignment/             # Category: alignment traits
-│       └── inference/             # Experiment-level inference (optional)
-│           ├── prompts/           # Standardized prompt sets
-│           ├── raw_activations/   # Captured once
-│           └── projections/       # Per-trait scores
+│       ├── extraction/            # Training-time data (per-trait)
+│       │   ├── behavioral/        # Category: behavioral traits
+│       │   │   └── refusal/       # Example trait
+│       │   │       └── extraction/
+│       │   │           ├── trait_definition.json
+│       │   │           ├── responses/ # pos.csv, neg.csv or pos.json, neg.json
+│       │   │           ├── activations/ # Token-averaged (not committed, too large)
+│       │   │           └── vectors/   # Extracted vectors + metadata
+│       │   ├── cognitive/         # Category: cognitive traits
+│       │   ├── stylistic/         # Category: stylistic traits
+│       │   └── alignment/         # Category: alignment traits
+│       ├── inference/             # Experiment-level inference
+│       │   ├── prompts/           # Standardized prompt sets
+│       │   ├── raw_activations/   # Captured once
+│       │   └── projections/       # Per-trait scores
+│       └── validation/            # Experiment-level validation
+│           └── data_index.json    # Generated by scanner
 │
 ├── traitlens/                      # Extraction toolkit
 │   ├── methods.py                 # 4 extraction methods
@@ -766,9 +769,9 @@ Key components:
 ### 2. Use Template
 
 ```bash
-mkdir -p experiments/my_exp/my_trait/extraction
+mkdir -p experiments/my_exp/extraction/category/my_trait/extraction
 cp extraction/trait_templates/trait_definition_template.json \
-   experiments/my_exp/my_trait/extraction/trait_definition.json
+   experiments/my_exp/extraction/category/my_trait/extraction/trait_definition.json
 ```
 
 Edit following the template comments and guide.
@@ -776,10 +779,10 @@ Edit following the template comments and guide.
 ### 3. Run Pipeline
 
 ```bash
-# Generate, extract, analyze
-python extraction/1_generate_responses.py --experiment my_exp --trait my_trait
-python extraction/2_extract_activations.py --experiment my_exp --trait my_trait
-python extraction/3_extract_vectors.py --experiment my_exp --trait my_trait
+# Generate, extract, analyze (using category/trait format)
+python extraction/1_generate_responses.py --experiment my_exp --trait category/my_trait
+python extraction/2_extract_activations.py --experiment my_exp --trait category/my_trait
+python extraction/3_extract_vectors.py --experiment my_exp --trait category/my_trait
 ```
 
 See [docs/pipeline_guide.md](pipeline_guide.md) for complete instructions.
