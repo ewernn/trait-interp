@@ -103,8 +103,9 @@ def extract_vectors(
         with open(metadata_path) as f:
             metadata = json.load(f)
 
-        n_pos = metadata["n_examples_pos"]
-        n_neg = metadata["n_examples_neg"]
+        # Support both old and new metadata field names
+        n_pos = metadata.get("n_examples_pos") or metadata.get("n_positive")
+        n_neg = metadata.get("n_examples_neg") or metadata.get("n_negative")
 
         pos_acts = all_acts[:n_pos]  # [n_pos, n_layers, hidden_dim]
         neg_acts = all_acts[n_pos:n_pos+n_neg]  # [n_neg, n_layers, hidden_dim]
