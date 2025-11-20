@@ -35,9 +35,23 @@
             --primary-hover: #0056b3;
             --success: #28a745;
             --danger: #dc3545;
+            --warning: #ffc107;
+            --warning-text: #856404;
+            --success-text: #155724;
+            --danger-text: #721c24;
             --info-bg: #d1ecf1;
             --info-border: #17a2b8;
             --info-text: #0c5460;
+            --json-key: #007bff;
+            --json-string: #28a745;
+            --json-number: #fd7e14;
+            --json-boolean: #6f42c1;
+            --json-null: #dc3545;
+            --text-on-primary: #ffffff;
+            --mlp-block-bg: rgba(186, 104, 200, 0.08);
+            --attn-block-bg: rgba(102, 187, 106, 0.08);
+            --neuron-large: #ba68c8;
+            --modal-backdrop: rgba(0, 0, 0, 0.85);
         }
 
         [data-theme="dark"] {
@@ -53,9 +67,23 @@
             --primary-hover: #6bb0ff;
             --success: #4caf50;
             --danger: #f44336;
+            --warning: #ffc107;
+            --warning-text: #ffecb3;
+            --success-text: #a5d6a7;
+            --danger-text: #ef9a9a;
             --info-bg: #1e3a4a;
             --info-border: #2196f3;
             --info-text: #90caf9;
+            --json-key: #61afef;
+            --json-string: #98c379;
+            --json-number: #d19a66;
+            --json-boolean: #c678dd;
+            --json-null: #e06c75;
+            --text-on-primary: #ffffff;
+            --mlp-block-bg: rgba(171, 71, 188, 0.12);
+            --attn-block-bg: rgba(76, 175, 80, 0.12);
+            --neuron-large: #ba68c8;
+            --modal-backdrop: rgba(0, 0, 0, 0.85);
         }
 
         * {
@@ -90,10 +118,24 @@
             position: relative;
         }
 
-        .transformer-sidebar.hidden {
-            width: 0;
-            overflow: hidden;
+                .transformer-sidebar.hidden {
+            width: 30px;
+            overflow: visible;
         }
+
+        .transformer-sidebar.hidden .transformer-header {
+            padding: 8px 4px;
+            justify-content: center;
+        }
+
+        .transformer-sidebar.hidden .transformer-title {
+            display: none;
+        }
+
+        .transformer-sidebar.hidden > *:not(.transformer-header) {
+            display: none;
+        }
+
 
         .transformer-header {
             padding: 8px;
@@ -176,9 +218,8 @@
         }
 
         .arch-diagram {
-            margin-top: 20px;
+            margin-top: 32px;
             padding: 20px 15px;
-            border-top: 2px solid var(--border-color);
         }
 
         .arch-diagram-title {
@@ -231,7 +272,6 @@
 
         .token-display {
             background: var(--bg-tertiary);
-            border: 2px dashed var(--border-color);
             border-radius: 8px;
             padding: 12px 20px;
             font-size: 20px;
@@ -260,19 +300,11 @@
         }
 
         .block-container.mlp-block {
-            background: rgba(186, 104, 200, 0.08);
-        }
-
-        [data-theme="dark"] .block-container.mlp-block {
-            background: rgba(171, 71, 188, 0.12);
+            background: var(--mlp-block-bg);
         }
 
         .block-container.attn-block {
-            background: rgba(102, 187, 106, 0.08);
-        }
-
-        [data-theme="dark"] .block-container.attn-block {
-            background: rgba(76, 175, 80, 0.12);
+            background: var(--attn-block-bg);
         }
 
         .block-title {
@@ -287,7 +319,6 @@
 
         .arch-box {
             background: var(--bg-secondary);
-            border: 2px solid var(--border-color);
             border-radius: 6px;
             padding: 8px 12px;
             font-size: 10px;
@@ -299,18 +330,15 @@
         }
 
         .arch-box:hover {
-            border-color: var(--primary-color);
-            transform: scale(1.02);
+            background: var(--bg-tertiary);
         }
 
         .arch-box.norm {
-            background: #e3f2fd;
-            border-color: #90caf9;
+            background: var(--info-bg);
         }
 
         [data-theme="dark"] .arch-box.norm {
-            background: #1e3a4a;
-            border-color: #2196f3;
+            background: var(--info-bg);
         }
 
         .arch-arrow {
@@ -381,7 +409,7 @@
         }
 
         .neuron.large-layer {
-            background: #ba68c8;
+            background: var(--neuron-large);
         }
 
         .neuron-connections {
@@ -432,7 +460,7 @@
 
         .attention-head {
             background: var(--primary-color);
-            color: white;
+            color: var(--text-on-primary);
             border-radius: 4px;
             padding: 8px 4px;
             font-size: 9px;
@@ -450,7 +478,7 @@
 
         .qkv-box {
             background: var(--primary-color);
-            color: white;
+            color: var(--text-on-primary);
             border-radius: 5px;
             padding: 10px;
             font-size: 11px;
@@ -480,7 +508,7 @@
 
         .gqa-query {
             background: var(--primary-color);
-            color: white;
+            color: var(--text-on-primary);
             border-radius: 3px;
             padding: 6px 2px;
             font-size: 8px;
@@ -490,7 +518,7 @@
 
         .gqa-kv {
             background: var(--success);
-            color: white;
+            color: var(--text-on-primary);
             border-radius: 4px;
             padding: 8px 4px;
             font-size: 9px;
@@ -871,15 +899,12 @@
             background: var(--bg-secondary);
             padding: 15px;
             border-radius: 6px;
-            border: 2px solid var(--border-color);
             cursor: pointer;
             transition: all 0.2s;
         }
 
         .trait-card:hover {
-            border-color: var(--primary-color);
-            box-shadow: 0 4px 8px var(--shadow);
-            transform: translateY(-2px);
+            background: var(--bg-tertiary);
         }
 
         .trait-card.selected {
@@ -909,17 +934,15 @@
         }
 
         .error {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
+            background: var(--info-bg);
             padding: 15px;
             border-radius: 6px;
             margin: 20px 0;
-            color: #856404;
+            color: var(--warning-text);
         }
 
         .info {
             background: var(--info-bg);
-            border: 1px solid var(--info-border);
             padding: 15px;
             border-radius: 6px;
             margin: 20px 0;
@@ -961,15 +984,13 @@
         }
 
         .explanation-summary:hover::after {
-            transform: translateX(4px);
             color: var(--primary-color);
         }
 
         .explanation-details {
             display: none;
-            margin-top: 15px;
+            margin-top: 20px;
             padding-top: 15px;
-            border-top: 1px solid var(--border-color);
         }
 
         .explanation.expanded {
@@ -1030,13 +1051,13 @@
         }
 
         .score-high {
-            background: #d4edda;
-            color: #155724;
+            background: var(--info-bg);
+            color: var(--success-text);
         }
 
         .score-low {
-            background: #f8d7da;
-            color: #721c24;
+            background: var(--info-bg);
+            color: var(--danger-text);
         }
 
         #token-slider {
@@ -1048,12 +1069,12 @@
             display: flex;
             justify-content: space-between;
             font-size: 14px;
-            color: #666;
+            color: var(--text-secondary);
             margin-bottom: 8px;
         }
 
         .token-highlight {
-            background: #ffeb3b;
+            background: var(--warning);
             padding: 2px 4px;
             border-radius: 3px;
             font-weight: 600;
@@ -1166,7 +1187,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0,0,0,0.85);
+            background: var(--modal-backdrop);
             display: none;
             align-items: center;
             justify-content: center;
@@ -1231,23 +1252,23 @@
         }
 
         .json-key {
-            color: #61afef;
+            color: var(--json-key);
         }
 
         .json-string {
-            color: #98c379;
+            color: var(--json-string);
         }
 
         .json-number {
-            color: #d19a66;
+            color: var(--json-number);
         }
 
         .json-boolean {
-            color: #c678dd;
+            color: var(--json-boolean);
         }
 
         .json-null {
-            color: #e06c75;
+            color: var(--json-null);
         }
 
         .csv-table {
@@ -1342,176 +1363,14 @@
                 <button class="transformer-toggle" id="transformer-toggle" title="Hide architecture">◀</button>
             </div>
             <div class="transformer-content">
-                <!-- Output at top -->
-                <div class="input-output-box">Output</div>
-
-                <!-- Last layer (top of stack) -->
-                <div class="layer-box" data-layer="25">
-                    <div class="layer-number">Layer 25</div>
-                    <div class="sublayer">Add & Norm</div>
-                    <div class="sublayer">Feed Forward</div>
-                    <div class="sublayer">Add & Norm</div>
-                    <div class="sublayer">Multi-Head Attention</div>
-                </div>
-
-                <!-- Ellipsis -->
-                <div class="layer-ellipsis">↑<br>[24 more layers]<br>↑</div>
-
-                <!-- First layer (bottom of stack) -->
-                <div class="layer-box" data-layer="0">
-                    <div class="layer-number">Layer 0</div>
-                    <div class="sublayer">Add & Norm</div>
-                    <div class="sublayer">Feed Forward</div>
-                    <div class="sublayer">Add & Norm</div>
-                    <div class="sublayer">Multi-Head Attention</div>
-                </div>
-
-                <!-- Input at bottom -->
-                <div class="input-output-box">Input Embedding</div>
-
                 <!-- Detailed Architecture Diagram -->
-                <div class="arch-diagram">
-                    <div class="arch-diagram-title">Transformer Decoder Layer Flow</div>
-
-                    <div class="arch-layout">
-                        <div class="arch-column">
-                            <!-- SVG for continuous flow lines -->
-                            <svg class="flow-svg" viewBox="0 0 500 1400" preserveAspectRatio="xMidYMid meet">
-                                <!-- Main residual stream (center line) -->
-                                <path class="flow-path" d="M 250 50 L 250 1350" stroke-width="4" />
-
-                                <!-- Arrows pointing DOWN -->
-                                <polygon class="flow-arrow" points="250,1340 245,1330 255,1330" />
-                                <polygon class="flow-arrow" points="250,1100 245,1090 255,1090" />
-                                <polygon class="flow-arrow" points="250,800 245,790 255,790" />
-                                <polygon class="flow-arrow" points="250,300 245,290 255,290" />
-
-                                <!-- ATTENTION skip connection (residual) -->
-                                <!-- Copy goes around the attention block -->
-                                <path class="skip-path" d="M 380 900 L 380 1200" stroke-width="5" />
-                                <polygon class="flow-arrow" points="380,1190 375,1180 385,1180" />
-
-                                <!-- MLP skip connection (residual) -->
-                                <!-- Copy goes around the MLP block -->
-                                <path class="skip-path" d="M 380 400 L 380 700" stroke-width="5" />
-                                <polygon class="flow-arrow" points="380,690 375,680 385,680" />
-                            </svg>
-
-                            <div class="decoder-block">
-                                <!-- OUTPUT token at TOP -->
-                                <div class="component-layer">
-                                    <div class="token-display">"!"</div>
-                                    <div style="font-size: 9px; color: var(--text-tertiary); margin-top: 5px;">← sampled output</div>
-                                </div>
-
-                                <!-- Final output (after MLP + residual) -->
-                                <div class="component-layer" style="margin: 20px 0;">
-                                    <div class="arch-box norm">Add & Norm (final)</div>
-                                </div>
-
-                                <!-- MLP Block -->
-                                <div class="component-layer">
-                                    <div class="block-container mlp-block">
-                                        <div class="block-title">MLP (Feed Forward)</div>
-                                        <div class="neuron-connections">
-                                            <!-- Output: back to d_model -->
-                                            <div class="neuron-layer">
-                                                <div class="neuron"></div>
-                                                <div class="neuron"></div>
-                                                <div class="neuron"></div>
-                                                <div class="neuron"></div>
-                                                <div class="neuron"></div>
-                                            </div>
-                                            <div style="font-size: 8px; color: var(--text-tertiary); margin: 5px 0;">↑ d=2304</div>
-
-                                            <div class="arch-box" style="font-size: 9px; padding: 4px; margin: 8px 0;">Linear Down</div>
-
-                                            <!-- Hidden layer: 4x expansion -->
-                                            <div class="neuron-layer">
-                                                <div class="neuron large-layer"></div>
-                                                <div class="neuron large-layer"></div>
-                                                <div class="neuron large-layer"></div>
-                                                <div class="neuron large-layer"></div>
-                                                <div class="neuron large-layer"></div>
-                                                <div class="neuron large-layer"></div>
-                                                <div class="neuron large-layer"></div>
-                                                <div class="neuron large-layer"></div>
-                                                <div class="neuron large-layer"></div>
-                                                <div class="neuron large-layer"></div>
-                                            </div>
-                                            <div style="font-size: 8px; color: var(--text-tertiary); margin: 5px 0;">↑ d=9216 (4x)</div>
-
-                                            <div class="arch-box" style="font-size: 9px; padding: 4px; margin: 8px 0;">GELU</div>
-
-                                            <!-- Input to MLP -->
-                                            <div class="neuron-layer">
-                                                <div class="neuron"></div>
-                                                <div class="neuron"></div>
-                                                <div class="neuron"></div>
-                                                <div class="neuron"></div>
-                                                <div class="neuron"></div>
-                                            </div>
-                                            <div style="font-size: 8px; color: var(--text-tertiary); margin: 5px 0;">↑ d=2304</div>
-
-                                            <div class="arch-box" style="font-size: 9px; padding: 4px; margin: 8px 0;">Linear Up</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- After attention, before MLP -->
-                                <div class="component-layer" style="margin: 20px 0;">
-                                    <div class="arch-box norm">Add & Norm</div>
-                                    <div style="font-size: 8px; color: var(--text-tertiary); margin-top: 5px;">← residual + attention output</div>
-                                </div>
-
-                                <!-- Attention Block -->
-                                <div class="component-layer">
-                                    <div class="block-container attn-block">
-                                        <div class="block-title">Self-Attention</div>
-                                        <div class="inner-content">
-                                            <!-- Attention output -->
-                                            <div class="arch-box">Attention Output</div>
-                                            <div style="font-size: 8px; color: var(--text-tertiary); margin: 8px 0;">↑</div>
-
-                                            <!-- Attention computation -->
-                                            <div class="arch-box" style="margin: 8px 0;">softmax(QK'/√d) × V</div>
-                                            <div style="font-size: 8px; color: var(--text-tertiary); margin: 8px 0;">↑</div>
-
-                                            <!-- Q, K, V projections from same normalized input -->
-                                            <div class="stream-split" style="margin: 10px 0;">
-                                                <div class="stream-box">
-                                                    <div class="qkv-box">Q</div>
-                                                    <div class="stream-label">Query</div>
-                                                </div>
-                                                <div class="stream-box">
-                                                    <div class="qkv-box">K</div>
-                                                    <div class="stream-label">Key</div>
-                                                </div>
-                                                <div class="stream-box">
-                                                    <div class="qkv-box">V</div>
-                                                    <div class="stream-label">Value</div>
-                                                </div>
-                                            </div>
-                                            <div style="font-size: 8px; color: var(--text-tertiary); margin: 8px 0;">↑ (3 linear projections)</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- First layer norm (before attention) -->
-                                <div class="component-layer" style="margin: 20px 0;">
-                                    <div class="arch-box norm">Layer Norm</div>
-                                    <div style="font-size: 8px; color: var(--text-tertiary); margin-top: 5px;">← normalizes residual stream</div>
-                                </div>
-
-                                <!-- INPUT token at BOTTOM -->
-                                <div class="component-layer" style="margin-top: 20px;">
-                                    <div class="token-display">"Spread "</div>
-                                    <div style="font-size: 9px; color: var(--text-tertiary); margin-top: 5px;">← input embedding</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- Transformer diagram embedded from separate file -->
+                <iframe
+                    src="/visualization/transformer_diagram.html"
+                    style="width: 100%; height: 1800px; border: none; display: block;"
+                    title="Transformer Decoder Layer Diagram"
+                    scrolling="no">
+                </iframe>
             </div>
         </div>
 
@@ -1581,6 +1440,9 @@
                     <button class="info-btn" id="info-btn" title="Information">ℹ️</button>
                     <div class="page-title" id="page-title">Overview</div>
                     <div class="experiment-badge" id="experiment-badge">-</div>
+                    <select id="prompt-selector" style="margin-left: 12px; padding: 4px 8px; border-radius: 4px; background: var(--bg-secondary); color: var(--text-primary); font-size: 11px; cursor: pointer;">
+                        <option value="0">Prompt 0</option>
+                    </select>
                 </div>
                 <div class="header-right">
                     <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">🌙</button>
@@ -1600,6 +1462,8 @@
         let experimentData = null;
         let currentView = 'data-explorer';
         let selectedTraits = new Set();
+        let currentPrompt = 0;  // Default to prompt_0
+        let availablePrompts = [];  // Available prompt numbers for current experiment
 
         // Display names for better interpretability
         const DISPLAY_NAMES = {
@@ -1911,20 +1775,26 @@
 
                 // Load each trait with metadata
                 for (const traitName of traitNames) {
-                    // Detect response file format
+                    // Detect response file format (natural traits use JSON, instruction-based use CSV)
                     let responseFormat = null;
+                    const isNatural = traitName.includes('_natural');
+
                     try {
-                        const csvCheck = await fetch(
-                            `../experiments/${experimentName}/${traitName}/extraction/responses/pos.csv`
+                        // Check expected format first to avoid 404s
+                        const primaryExt = isNatural ? 'json' : 'csv';
+                        const primaryCheck = await fetch(
+                            `../experiments/${experimentName}/${traitName}/extraction/responses/pos.${primaryExt}`
                         );
-                        if (csvCheck.ok) {
-                            responseFormat = 'csv';
+                        if (primaryCheck.ok) {
+                            responseFormat = primaryExt;
                         } else {
-                            const jsonCheck = await fetch(
-                                `../experiments/${experimentName}/${traitName}/extraction/responses/pos.json`
+                            // Fallback to other format
+                            const secondaryExt = isNatural ? 'csv' : 'json';
+                            const secondaryCheck = await fetch(
+                                `../experiments/${experimentName}/${traitName}/extraction/responses/pos.${secondaryExt}`
                             );
-                            if (jsonCheck.ok) {
-                                responseFormat = 'json';
+                            if (secondaryCheck.ok) {
+                                responseFormat = secondaryExt;
                             }
                         }
                     } catch (e) {
@@ -1950,12 +1820,24 @@
                         const method = traitName.endsWith('_natural') ? 'natural' : 'instruction';
                         const baseName = traitName.replace('_natural', '');
 
+                        // Check for tier 3 (layer internals) data
+                        let hasTier3 = false;
+                        try {
+                            const tier3Check = await fetch(
+                                `../experiments/${experimentName}/${traitName}/inference/layer_internal_states/prompt_0_layer16.json`
+                            );
+                            hasTier3 = tier3Check.ok;
+                        } catch (e) {
+                            // No tier 3 data
+                        }
+
                         experimentData.traits.push({
                             name: traitName,
                             baseName: baseName,
                             method: method,
                             responseFormat: responseFormat,
                             hasResponses: true,
+                            hasTier3: hasTier3,
                             hasVectors: false,  // Will check later
                             metadata: metadata
                         });
@@ -1971,12 +1853,64 @@
                 // Populate trait checkboxes
                 populateTraitCheckboxes();
 
+                // Discover available prompts (async, but don't wait)
+                discoverAvailablePrompts();
+
                 // Render view
                 renderView();
             } catch (error) {
                 console.error('Error loading experiment data:', error);
                 showError(`Failed to load experiment: ${experimentName}`);
             }
+        }
+
+        // Discover available prompts for current experiment
+        async function discoverAvailablePrompts() {
+            if (!experimentData || !experimentData.traits || experimentData.traits.length === 0) {
+                availablePrompts = [0];
+                populatePromptSelector();
+                return;
+            }
+
+            // Check first trait with inference data for available prompts
+            const promptSet = new Set();
+
+            for (const trait of experimentData.traits) {
+                const tier2Dir = `../experiments/${experimentData.name}/${trait.name}/inference/residual_stream_activations/`;
+
+                // Try to find prompt files (check up to prompt_30)
+                for (let i = 0; i <= 30; i++) {
+                    try {
+                        const response = await fetch(`${tier2Dir}prompt_${i}.json`, { method: 'HEAD' });
+                        if (response.ok) {
+                            promptSet.add(i);
+                        }
+                    } catch (e) {
+                        // File doesn't exist, continue
+                    }
+                }
+
+                // If we found at least one prompt, we can stop (assume all traits have similar prompts)
+                if (promptSet.size > 0) break;
+            }
+
+            // If no prompts found, default to [0]
+            availablePrompts = promptSet.size > 0 ? Array.from(promptSet).sort((a, b) => a - b) : [0];
+            console.log('Discovered available prompts:', availablePrompts);
+
+            // Reset to first available prompt
+            currentPrompt = availablePrompts[0] || 0;
+
+            populatePromptSelector();
+        }
+
+        // Populate prompt selector dropdown
+        function populatePromptSelector() {
+            const selector = document.getElementById('prompt-selector');
+            selector.innerHTML = availablePrompts.map(n =>
+                `<option value="${n}">Prompt ${n}</option>`
+            ).join('');
+            selector.value = currentPrompt;
         }
 
         // Render current view
@@ -2049,6 +1983,10 @@
                 const displayName = getDisplayName(trait.name);
                 const metadata = trait.metadata || {};
 
+                const isNatural = trait.name.includes('_natural');
+                const fileExt = isNatural ? 'json' : 'csv';
+                const previewFunc = isNatural ? 'previewJSON' : 'previewCSV';
+
                 html += `
                     <div class="explorer-trait-card">
                         <div class="explorer-trait-header" onclick="toggleTraitBody('${trait.name}')">
@@ -2074,15 +2012,15 @@
                                     <span class="file-icon">📁</span>
                                     <strong>responses/</strong>
                                 </div>
-                                <div class="file-item indent-2 clickable" onclick="previewCSV('${trait.name}', 'pos')">
+                                <div class="file-item indent-2 clickable" onclick="${previewFunc}('${trait.name}', 'pos')">
                                     <span class="file-icon">✓</span>
-                                    <span>pos.csv</span>
-                                    <span style="opacity: 0.6; font-size: 11px;">(${metadata.n_examples_pos || '?'} rows) [preview →]</span>
+                                    <span>pos.${fileExt}</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(${metadata.n_examples_pos || '?'} ${isNatural ? 'items' : 'rows'}) [preview →]</span>
                                 </div>
-                                <div class="file-item indent-2 clickable" onclick="previewCSV('${trait.name}', 'neg')">
+                                <div class="file-item indent-2 clickable" onclick="${previewFunc}('${trait.name}', 'neg')">
                                     <span class="file-icon">✓</span>
-                                    <span>neg.csv</span>
-                                    <span style="opacity: 0.6; font-size: 11px;">(${metadata.n_examples_neg || '?'} rows) [preview →]</span>
+                                    <span>neg.${fileExt}</span>
+                                    <span style="opacity: 0.6; font-size: 11px;">(${metadata.n_examples_neg || '?'} ${isNatural ? 'items' : 'rows'}) [preview →]</span>
                                 </div>
 
                                 <div class="file-item indent-1">
@@ -2206,6 +2144,9 @@
             } else if (type === 'activations_metadata') {
                 url = `../experiments/${experimentData.name}/${traitName}/extraction/activations/metadata.json`;
                 displayName = 'Activations Metadata';
+            } else if (type === 'pos' || type === 'neg') {
+                url = `../experiments/${experimentData.name}/${traitName}/extraction/responses/${type}.json`;
+                displayName = type === 'pos' ? 'Positive Examples' : 'Negative Examples';
             }
 
             title.textContent = `${traitName} - ${displayName}`;
@@ -2399,8 +2340,8 @@
             const allResults = await Promise.all(fetchPromises);
             console.log(`Loaded ${allResults.length} results`);
 
-            // Count successful loads
-            const successfulVectors = allResults.filter(r => r.type === 'vector' && r.data !== null).length;
+            // Count successful loads (filter out null results)
+            const successfulVectors = allResults.filter(r => r && r.type === 'vector' && r.data !== null).length;
             console.log(`Successfully loaded ${successfulVectors} vector metadata files`);
 
             // Organize results by trait
@@ -2411,17 +2352,17 @@
                         vectorData[method] = {};
                     }
 
-                    // Fill in vector data from parallel fetch results
+                    // Fill in vector data from parallel fetch results (filter out nulls)
                     allResults
-                        .filter(r => r.type === 'vector' && r.trait === trait.name && r.data !== null)
+                        .filter(r => r && r.type === 'vector' && r.trait === trait.name && r.data !== null)
                         .forEach(r => {
                             vectorData[r.method][r.layer] = r.data;
                         });
 
-                    // Extract prompt examples
+                    // Extract prompt examples (filter out nulls)
                     const prompts = {};
                     allResults
-                        .filter(r => r.type === 'prompt' && r.trait === trait.name && r.data !== null)
+                        .filter(r => r && r.type === 'prompt' && r.trait === trait.name && r.data !== null)
                         .forEach(r => {
                             prompts[r.polarity] = r.data;
                         });
@@ -2561,7 +2502,7 @@
                 }
 
                 html += `
-                    <div style="display: grid; grid-template-columns: 180px 1fr 320px; gap: 15px; padding: 12px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.2s;"
+                    <div style="display: grid; grid-template-columns: 180px 1fr 320px; gap: 15px; padding: 12px 12px 20px 12px; cursor: pointer; transition: background 0.2s;"
                          onclick="loadVectorAnalysis('${trait.name}')"
                          onmouseover="this.style.background='var(--bg-secondary)'"
                          onmouseout="this.style.background='transparent'">
@@ -2926,9 +2867,9 @@
                     <div class="card-title">Trait Data Availability</div>
                     <table style="width: 100%; border-collapse: collapse; margin-top: 15px; color: var(--text-secondary);">
                         <thead>
-                            <tr style="border-bottom: 2px solid var(--border-color);">
-                                <th style="text-align: left; padding: 12px; color: var(--text-primary);">Trait</th>
-                                <th style="text-align: center; padding: 12px; color: var(--text-primary);">Separability</th>
+                            <tr>
+                                <th style="text-align: left; padding: 12px 12px 16px 12px; color: var(--text-primary);">Trait</th>
+                                <th style="text-align: center; padding: 12px 12px 16px 12px; color: var(--text-primary);">Separability</th>
                                 <th style="text-align: center; padding: 12px; color: var(--text-primary);">Inst→Inst</th>
                                 <th style="text-align: center; padding: 12px; color: var(--text-primary);">Inst→Nat</th>
                                 <th style="text-align: center; padding: 12px; color: var(--text-primary);">Nat→Inst</th>
@@ -2965,7 +2906,7 @@
                                 };
 
                                 return `
-                                    <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <tr style="margin-bottom: 8px;">
                                         <td style="padding: 12px; font-weight: 500; color: var(--text-primary);">${trait.name}</td>
                                         <td style="padding: 12px; text-align: center;">${sepBadge}</td>
                                         <td style="padding: 12px; text-align: center;">${formatScore(instToInst, 'inst_inst')}</td>
@@ -3002,7 +2943,7 @@
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0,0,0,0.5);
+                background: var(--modal-backdrop);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -3018,11 +2959,11 @@
             };
 
             modal.innerHTML = `
-                <div style="background: var(--bg-secondary); border-radius: 8px; padding: 30px; max-width: 1200px; max-height: 85vh; overflow-y: auto; position: relative;">
-                    <button id="close-modal" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary);">×</button>
-                    <h2 style="margin: 0 0 5px 0;">${traitName}</h2>
-                    <h3 style="margin: 0 0 20px 0; font-weight: normal; color: var(--text-secondary);">${quadrantNames[quadrant]}</h3>
-                    <div id="quadrant-detail-content">Loading cross-distribution data...</div>
+                <div style="background: var(--bg-primary); border-radius: 4px; padding: 20px; max-width: 1000px; max-height: 90vh; overflow-y: auto; position: relative;">
+                    <button id="close-modal" style="position: absolute; top: 8px; right: 8px; background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-secondary); padding: 4px 8px;">×</button>
+                    <h2 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: var(--text-primary);">${traitName}</h2>
+                    <h3 style="margin: 0 0 16px 0; font-size: 12px; font-weight: 400; color: var(--text-secondary);">${quadrantNames[quadrant]}</h3>
+                    <div id="quadrant-detail-content" style="color: var(--text-secondary);">Loading cross-distribution data...</div>
                 </div>
             `;
 
@@ -3082,66 +3023,83 @@
                     return;
                 }
 
-                // Create summary stats
-                const summaryHTML = `
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;">
-                        ${methods.map(method => {
-                            const methodData = quadrantData.methods[method];
-                            if (!methodData) return '';
-                            return `
-                                <div style="padding: 10px; background: var(--bg-primary); border-radius: 4px;">
-                                    <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">${method.replace(/_/g, ' ')}</div>
-                                    <div style="font-size: 18px; font-weight: 600; color: var(--primary-color);">${(methodData.best_accuracy * 100).toFixed(1)}%</div>
-                                    <div style="font-size: 11px; color: var(--text-secondary);">Layer ${methodData.best_layer}</div>
-                                    <div style="font-size: 10px; color: var(--text-tertiary); margin-top: 3px;">Avg: ${(methodData.avg_accuracy * 100).toFixed(1)}%</div>
-                                </div>
-                            `;
-                        }).join('')}
+                // Create summary stats - simple compact table
+                const availableMethods = methods.filter(method => quadrantData.methods[method]);
+
+                const summaryHTML = availableMethods.length > 0 ? `
+                    <div style="margin-bottom: 16px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <thead>
+                                <tr>
+                                    <th style="text-align: left; padding: 4px 8px 12px 8px; color: var(--text-secondary); font-weight: 400;">Method</th>
+                                    <th style="text-align: right; padding: 4px 8px 12px 8px; color: var(--text-secondary); font-weight: 400;">Best</th>
+                                    <th style="text-align: right; padding: 4px 8px 12px 8px; color: var(--text-secondary); font-weight: 400;">Layer</th>
+                                    <th style="text-align: right; padding: 4px 8px 12px 8px; color: var(--text-secondary); font-weight: 400;">Avg</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${availableMethods.map(method => {
+                                    const methodData = quadrantData.methods[method];
+                                    return `
+                                        <tr>
+                                            <td style="padding: 4px 8px; color: var(--text-primary);">${method.replace(/_/g, ' ')}</td>
+                                            <td style="padding: 4px 8px; text-align: right; color: var(--text-primary);">${(methodData.best_accuracy * 100).toFixed(1)}%</td>
+                                            <td style="padding: 4px 8px; text-align: right; color: var(--text-secondary);">${methodData.best_layer}</td>
+                                            <td style="padding: 4px 8px; text-align: right; color: var(--text-tertiary);">${(methodData.avg_accuracy * 100).toFixed(1)}%</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
                     </div>
-                `;
+                ` : '';
 
                 content.innerHTML = summaryHTML + `
-                    <div style="margin-top: 20px;">
-                        <h4 style="margin-bottom: 10px;">Accuracy Across Layers (4 Methods × ${nLayers} Layers)</h4>
-                        <div id="quadrant-heatmap" style="width: 100%; height: 400px;"></div>
+                    <div style="margin-top: 16px;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: var(--text-primary);">Accuracy Across Layers (${heatmapData.length} Method${heatmapData.length > 1 ? 's' : ''} × ${nLayers} Layers)</h4>
+                        <div id="quadrant-heatmap" style="width: 100%; height: 500px;"></div>
                     </div>
-                    <div style="margin-top: 20px; font-size: 12px; color: var(--text-secondary);">
-                        <p><strong>Vector source:</strong> ${quadrantData.vector_source}</p>
-                        <p><strong>Test distribution:</strong> ${quadrantData.test_source}</p>
+                    <div style="margin-top: 12px; font-size: 11px; color: var(--text-tertiary);">
+                        <div>Vector: ${quadrantData.vector_source} • Test: ${quadrantData.test_source}</div>
                     </div>
                 `;
 
-                // Render heatmap
+                // Render heatmap - transpose so methods are on x-axis, layers on y-axis
                 const layers = Array.from({ length: nLayers }, (_, i) => i);
+
+                // Transpose: swap x and y
+                const transposedData = heatmapData[0].map((_, colIndex) =>
+                    heatmapData.map(row => row[colIndex])
+                );
+
                 const trace = {
-                    z: heatmapData,
-                    x: layers,
-                    y: methodLabels,
+                    z: transposedData,
+                    x: methodLabels,  // Methods on x-axis
+                    y: layers,        // Layers on y-axis
                     type: 'heatmap',
                     colorscale: 'Viridis',
                     colorbar: {
                         title: 'Accuracy (%)',
                         titleside: 'right'
                     },
-                    hovertemplate: '%{y}<br>Layer %{x}<br>Accuracy: %{z:.1f}%<extra></extra>',
+                    hovertemplate: '%{x}<br>Layer %{y}<br>Accuracy: %{z:.1f}%<extra></extra>',
                     zmin: 0,
                     zmax: 100
                 };
 
                 Plotly.newPlot('quadrant-heatmap', [trace], getPlotlyLayout({
-                    margin: { l: 90, r: 60, t: 20, b: 40 },
+                    margin: { l: 50, r: 60, t: 20, b: 60 },
                     xaxis: {
-                        title: 'Layer',
-                        showticklabels: true,
-                        tickmode: 'linear',
-                        dtick: 2
+                        title: 'Method',
+                        side: 'bottom'
                     },
                     yaxis: {
-                        title: 'Method',
-                        side: 'left'
+                        title: 'Layer',
+                        showticklabels: true,
+                        autorange: 'reversed'  // Layer 0 at top
                     },
-                    height: 400
-                }), { displayModeBar: true });
+                    height: 600
+                }), { displayModeBar: false });
 
             } catch (error) {
                 const content = document.getElementById('quadrant-detail-content');
@@ -3177,29 +3135,29 @@
                 traitDiv.style.marginBottom = '20px';
                 container.appendChild(traitDiv);
 
-                // Try to load prompt_0.json
+                // Try to load the selected prompt
                 try {
-                    const fetchPath = `${tier2Dir}prompt_0.json`;
-                    console.log(`[${trait.name}] Fetching trajectory data`);
+                    const fetchPath = `${tier2Dir}prompt_${currentPrompt}.json`;
+                    console.log(`[${trait.name}] Fetching trajectory data for prompt ${currentPrompt}`);
                     const response = await fetch(fetchPath);
 
                     if (!response.ok) {
-                        console.log(`[${trait.name}] No data available (${response.status})`);
-                        renderTier2InstructionsInContainer(traitDiv.id, trait);
+                        console.log(`[${trait.name}] No data available for prompt ${currentPrompt} (${response.status})`);
+                        renderTier2InstructionsInContainer(traitDiv.id, trait, currentPrompt);
                         continue;
                     }
 
                     const data = await response.json();
-                    console.log(`[${trait.name}] Data loaded successfully`);
+                    console.log(`[${trait.name}] Data loaded successfully for prompt ${currentPrompt}`);
                     renderTier2DataInContainer(traitDiv.id, trait, data);
                 } catch (error) {
-                    console.log(`[${trait.name}] Load failed:`, error.message);
-                    renderTier2InstructionsInContainer(traitDiv.id, trait);
+                    console.log(`[${trait.name}] Load failed for prompt ${currentPrompt}:`, error.message);
+                    renderTier2InstructionsInContainer(traitDiv.id, trait, currentPrompt);
                 }
             }
         }
 
-        function renderTier2InstructionsInContainer(containerId, trait) {
+        function renderTier2InstructionsInContainer(containerId, trait, promptNum) {
             const container = document.getElementById(containerId);
             if (!container) {
                 console.error(`Container ${containerId} not found`);
@@ -3211,20 +3169,17 @@
             const nCheckpoints = nLayers * 3;
 
             container.innerHTML = `
-                <div class="card" style="margin-bottom: 10px;">
-                    <div class="card-title">${getDisplayName(trait.name)}</div>
-
-                    <div class="info" style="margin-bottom: 10px; font-size: 12px;">
-                        ⚠️ No trajectory data available
-                    </div>
-
-                    <div style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px; font-size: 12px;">
-                        <p style="color: var(--text-secondary); margin-bottom: 8px;">
-                            Capture per-token projections at all ${nCheckpoints} checkpoints (${nLayers} layers × 3 sublayers):
-                        </p>
-                        <pre style="background: var(--bg-primary); color: var(--text-primary); padding: 8px; border-radius: 4px; margin: 8px 0; overflow-x: auto; border: 1px solid var(--border-color); font-size: 11px;">python inference/capture_tier2.py --experiment ${experimentData.name} --trait ${trait.name} --prompts "..." --save-json</pre>
-                    </div>
+                <div style="margin-bottom: 4px;">
+                    <span style="color: var(--text-primary); font-size: 14px; font-weight: 600;">${getDisplayName(trait.name)}</span>
+                    <span style="color: var(--text-tertiary); font-size: 11px; margin-left: 8px;">⚠️ No data for prompt ${promptNum}</span>
                 </div>
+                <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 4px;">
+                    The file <code>prompt_${promptNum}.json</code> does not exist for this trait. You may need to run inference with this prompt.
+                </div>
+                <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 4px;">
+                    To capture per-token projections at all ${nCheckpoints} checkpoints (${nLayers} layers × 3 sublayers):
+                </div>
+                <pre style="background: var(--bg-secondary); color: var(--text-primary); padding: 8px; border-radius: 4px; margin: 0; overflow-x: auto; font-size: 10px;">python inference/capture_tier2.py --experiment ${experimentData.name} --trait ${trait.name} --prompts "..." --save-json</pre>
             `;
         }
 
@@ -3263,19 +3218,13 @@
             const attentionViewerId = `attention-viewer-${traitId}`;
 
             container.innerHTML = `
-                <div class="card" style="margin-bottom: 10px;">
-                    <div class="card-title" style="margin-bottom: 5px;">${getDisplayName(trait.name)}</div>
-
-                    <!-- Conversation context - compact -->
-                    <div style="background: var(--bg-tertiary); padding: 5px 8px; border-radius: 4px; margin-bottom: 8px;">
-                        <div style="color: var(--text-primary); font-size: 12px; margin-bottom: 2px;">${data.prompt.text} ${data.response.text}</div>
-                        <div style="color: var(--text-secondary); font-size: 10px;">
-                            ${data.prompt.n_tokens} prompt + ${data.response.n_tokens} response = ${nTotalTokens} tokens
-                        </div>
-                    </div>
-
-                    <div id="${trajectoryId}" style="margin-bottom: 10px;"></div>
+                <div style="margin-bottom: 4px;">
+                    <span style="color: var(--text-primary); font-size: 14px; font-weight: 600;">${getDisplayName(trait.name)}</span>
                 </div>
+                <div style="color: var(--text-secondary); font-size: 10px; margin-bottom: 8px;">
+                    ${data.prompt.text} ${data.response.text}
+                </div>
+                <div id="${trajectoryId}"></div>
             `;
 
             // Render combined trajectory heatmap with separator line
@@ -3395,7 +3344,7 @@
             const nLayers = Object.keys(data.attention_weights.prompt).length;
 
             const html = `
-                <div style="border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: 20px;">
+                <div style="padding-top: 15px; margin-top: 32px;">
                     <h3 style="color: var(--text-primary); margin-bottom: 5px; font-size: 14px;">Attention Patterns</h3>
                     <p style="color: var(--text-secondary); margin-bottom: 10px; font-size: 11px;">
                         Selected token's attention to context (controlled by slider above)
@@ -3690,32 +3639,34 @@
                 // Create a unique div for this trait
                 const traitDiv = document.createElement('div');
                 traitDiv.id = `prompt-trait-${trait.name}`;
-                traitDiv.style.marginBottom = '20px';
+                traitDiv.style.marginBottom = '0px';
+                traitDiv.style.paddingBottom = '12px';
+                traitDiv.style.borderBottom = '1px solid var(--border-color)';
                 container.appendChild(traitDiv);
 
-                // Try to load prompt_0.json
+                // Try to load the selected prompt
                 try {
-                    const fetchPath = `${tier2Dir}prompt_0.json`;
-                    console.log(`[${trait.name}] Fetching prompt activation data`);
+                    const fetchPath = `${tier2Dir}prompt_${currentPrompt}.json`;
+                    console.log(`[${trait.name}] Fetching prompt activation data for prompt ${currentPrompt}`);
                     const response = await fetch(fetchPath);
 
                     if (!response.ok) {
-                        console.log(`[${trait.name}] No data available (${response.status})`);
-                        renderPromptActivationInstructions(traitDiv.id, trait);
+                        console.log(`[${trait.name}] No data available for prompt ${currentPrompt} (${response.status})`);
+                        renderPromptActivationInstructions(traitDiv.id, trait, currentPrompt);
                         continue;
                     }
 
                     const data = await response.json();
-                    console.log(`[${trait.name}] Data loaded successfully`);
+                    console.log(`[${trait.name}] Data loaded successfully for prompt ${currentPrompt}`);
                     renderPromptActivationData(traitDiv.id, trait, data);
                 } catch (error) {
-                    console.log(`[${trait.name}] Load failed:`, error.message);
-                    renderPromptActivationInstructions(traitDiv.id, trait);
+                    console.log(`[${trait.name}] Load failed for prompt ${currentPrompt}:`, error.message);
+                    renderPromptActivationInstructions(traitDiv.id, trait, currentPrompt);
                 }
             }
         }
 
-        function renderPromptActivationInstructions(containerId, trait) {
+        function renderPromptActivationInstructions(containerId, trait, promptNum) {
             const container = document.getElementById(containerId);
             const nLayers = trait.metadata?.n_layers || 26;
 
@@ -3724,14 +3675,17 @@
                     <div class="card-title">${getDisplayName(trait.name)}</div>
 
                     <div class="info" style="margin-bottom: 10px; font-size: 12px;">
-                        ⚠️ No per-token activation data available
+                        ⚠️ No data for prompt ${promptNum}
                     </div>
 
                     <div style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px; font-size: 12px;">
                         <p style="color: var(--text-secondary); margin-bottom: 8px;">
-                            Capture per-token activation trajectory (prompt + response):
+                            The file <code>prompt_${promptNum}.json</code> does not exist for this trait.
                         </p>
-                        <pre style="background: var(--bg-primary); color: var(--text-primary); padding: 8px; border-radius: 4px; margin: 8px 0; overflow-x: auto; border: 1px solid var(--border-color); font-size: 11px;">python inference/capture_tier2.py --experiment ${experimentData.name} --trait ${trait.name} --prompts "..." --save-json</pre>
+                        <p style="color: var(--text-secondary); margin-bottom: 8px;">
+                            To capture per-token activation trajectory (prompt + response):
+                        </p>
+                        <pre style="background: var(--bg-primary); color: var(--text-primary); padding: 8px; border-radius: 4px; margin: 8px 0; overflow-x: auto; font-size: 11px;">python inference/capture_tier2.py --experiment ${experimentData.name} --trait ${trait.name} --prompts "..." --save-json</pre>
                     </div>
                 </div>
             `;
@@ -3758,18 +3712,18 @@
                 const plotId = `prompt-activation-plot-${traitId}`;
 
                 container.innerHTML = `
-                    <div class="card" style="margin-bottom: 10px;">
-                        <div class="card-title" style="margin-bottom: 5px;">${getDisplayName(trait.name)} - Per-Token Activation</div>
+                    <div class="card" style="margin-bottom: 0px; padding: 8px 12px;">
+                        <div class="card-title" style="margin-bottom: 4px; font-size: 13px;">${getDisplayName(trait.name)}</div>
 
                         <!-- Conversation context -->
-                        <div style="background: var(--bg-tertiary); padding: 5px 8px; border-radius: 4px; margin-bottom: 8px;">
-                            <div style="color: var(--text-primary); font-size: 12px; margin-bottom: 2px;">${data.prompt.text} ${data.response.text}</div>
-                            <div style="color: var(--text-secondary); font-size: 10px;">
+                        <div style="background: var(--bg-tertiary); padding: 4px 6px; border-radius: 3px; margin-bottom: 6px;">
+                            <div style="color: var(--text-primary); font-size: 11px; margin-bottom: 1px;">${data.prompt.text} ${data.response.text}</div>
+                            <div style="color: var(--text-secondary); font-size: 9px;">
                                 ${nPromptTokens} prompt + ${nTotalTokens - nPromptTokens} response = ${nTotalTokens} tokens
                             </div>
                         </div>
 
-                        <div id="${plotId}" style="margin-bottom: 10px;"></div>
+                        <div id="${plotId}" style="margin-bottom: 0px;"></div>
                     </div>
                 `;
 
@@ -3818,10 +3772,10 @@
                 mode: 'lines+markers',
                 line: {
                     color: '#4a9eff',
-                    width: 2
+                    width: 1.5
                 },
                 marker: {
-                    size: 6,
+                    size: 4,
                     color: '#4a9eff'
                 },
                 text: displayTokens,
@@ -3889,12 +3843,12 @@
                 },
                 shapes: shapes,
                 annotations: annotations,
-                margin: { l: 60, r: 20, t: 40, b: 100 },
-                height: 400,
+                margin: { l: 50, r: 10, t: 25, b: 80 },
+                height: 200,
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: 'rgba(0,0,0,0)',
                 font: {
-                    size: 11,
+                    size: 10,
                     color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
                 },
                 hovermode: 'closest'
@@ -3916,34 +3870,54 @@
             const filteredTraits = getFilteredTraits();
 
             if (filteredTraits.length === 0) {
-                contentArea.innerHTML = `
-                    <div class="card">
-                        <div class="card-title">Layer Deep Dive</div>
-                        <div class="info">Select at least one trait to view layer internals</div>
-                    </div>
-                `;
+                contentArea.innerHTML = `<div style="color: var(--text-secondary); font-size: 12px;">Select at least one trait to view layer internals</div>`;
                 return;
             }
 
-            // Try to find Tier 3 data for the first selected trait
-            const trait = filteredTraits[0];
-            const tier3Dir = `../experiments/${experimentData.name}/${trait.name}/inference/layer_internal_states/`;
+            // Load data for ALL selected traits
+            contentArea.innerHTML = '<div id="all-traits-layer-dive"></div>';
+            const container = document.getElementById('all-traits-layer-dive');
 
-            // Try to load prompt_0_layer16.json (default layer)
-            try {
-                const response = await fetch(`${tier3Dir}prompt_0_layer16.json`);
-                if (!response.ok) throw new Error('No data found');
+            for (const trait of filteredTraits) {
+                const tier3Dir = `../experiments/${experimentData.name}/${trait.name}/inference/layer_internal_states/`;
 
-                const data = await response.json();
-                renderTier3Data(trait, data);
-            } catch (error) {
-                // No data yet - show instructions
-                renderTier3Instructions(trait);
+                // Create a unique div for this trait
+                const traitDiv = document.createElement('div');
+                traitDiv.id = `layer-dive-${trait.name}`;
+                traitDiv.style.marginBottom = '32px';  // Airy spacing between traits
+                container.appendChild(traitDiv);
+
+                // Try to load the selected prompt for default layer 16
+                try {
+                    const response = await fetch(`${tier3Dir}prompt_${currentPrompt}_layer16.json`);
+                    if (!response.ok) throw new Error(`No data found for prompt ${currentPrompt}`);
+
+                    const data = await response.json();
+                    renderTier3DataInContainer(traitDiv.id, trait, data);
+                } catch (error) {
+                    // No data yet - show instructions
+                    renderTier3InstructionsInContainer(traitDiv.id, trait, currentPrompt);
+                }
             }
         }
 
-        function renderTier3Instructions(trait) {
+        function renderTier3Instructions(trait, filteredTraits) {
             const contentArea = document.getElementById('content-area');
+
+            // Find traits with tier 3 data
+            const traitsWithTier3 = experimentData.traits.filter(t => t.hasTier3);
+
+            let tier3StatusHtml = '';
+            if (traitsWithTier3.length > 0) {
+                const traitList = traitsWithTier3.map(t => `<strong>${getDisplayName(t.name)}</strong>`).join(', ');
+                tier3StatusHtml = `
+                    <div style="background: var(--accent-color); color: white; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                        ✓ Layer internals available for: ${traitList}
+                        <br><span style="opacity: 0.9; font-size: 13px;">Select ${traitsWithTier3.length === 1 ? 'this trait' : 'one of these traits'} to view the data</span>
+                    </div>
+                `;
+            }
+
             contentArea.innerHTML = `
                 <div class="explanation">
                     <div class="explanation-summary">We can pinpoint exactly which neurons and attention mechanisms are responsible for computing a trait at a specific layer.</div>
@@ -3977,6 +3951,8 @@
                 <div class="card">
                     <div class="card-title">Layer Deep Dive: ${getDisplayName(trait.name)}</div>
 
+                    ${tier3StatusHtml}
+
                     <div class="info" style="margin-bottom: 20px;">
                         <strong>⚠️ No layer internals data available for ${trait.name}</strong>
                     </div>
@@ -3986,7 +3962,7 @@
                         <p style="color: var(--text-secondary); margin-bottom: 15px;">
                             Capture complete internals (Q/K/V, attention heads, 9216 MLP neurons) for one layer:
                         </p>
-                        <pre style="background: var(--bg-primary); color: var(--text-primary); padding: 15px; border-radius: 4px; margin: 15px 0; overflow-x: auto; border: 1px solid var(--border-color);">python inference/capture_tier3.py \\
+                        <pre style="background: var(--bg-primary); color: var(--text-primary); padding: 15px; border-radius: 4px; margin: 15px 0; overflow-x: auto;">python inference/capture_single_layer.py \\
   --experiment ${experimentData.name} \\
   --trait ${trait.name} \\
   --layer 16 \\
@@ -4001,6 +3977,105 @@
                     </div>
                 </div>
             `;
+        }
+
+        function renderTier3InstructionsInContainer(containerId, trait, promptNum) {
+            const container = document.getElementById(containerId);
+
+            container.innerHTML = `
+                <div style="margin-bottom: 4px;">
+                    <span style="color: var(--text-primary); font-size: 14px; font-weight: 600;">${getDisplayName(trait.name)}</span>
+                    <span style="color: var(--text-tertiary); font-size: 11px; margin-left: 8px;">⚠️ No data for prompt ${promptNum}</span>
+                </div>
+                <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 4px;">
+                    The file <code>prompt_${promptNum}_layer16.json</code> does not exist for this trait.
+                </div>
+                <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 4px;">
+                    To capture complete internals (Q/K/V, attention heads, 9216 MLP neurons):
+                </div>
+                <pre style="background: var(--bg-secondary); color: var(--text-primary); padding: 8px; border-radius: 4px; margin: 0; overflow-x: auto; font-size: 10px;">python inference/capture_single_layer.py --experiment ${experimentData.name} --trait ${trait.name} --layer 16 --prompts "..." --save-json</pre>
+            `;
+        }
+
+        function renderTier3DataInContainer(containerId, trait, data) {
+            const container = document.getElementById(containerId);
+
+            // Get prompt GELU activations: [n_tokens, 9216]
+            const promptGelu = data.internals.prompt.gelu;
+            const promptTokens = data.prompt.tokens;
+
+            // Combine prompt and response tokens and activations
+            const responseGelu = data.internals.response.gelu;
+            const responseTokens = data.response.tokens;
+
+            const allTokens = [...promptTokens, ...responseTokens];
+            const allGelu = [...promptGelu, ...responseGelu];
+
+            container.innerHTML = `
+                <div style="margin-bottom: 4px;">
+                    <span style="color: var(--text-primary); font-size: 14px; font-weight: 600;">${getDisplayName(trait.name)}</span>
+                    <span style="color: var(--text-secondary); font-size: 11px; margin-left: 8px;">Layer ${data.layer}</span>
+                </div>
+                <div style="color: var(--text-secondary); font-size: 10px; margin-bottom: 8px;">
+                    ${data.prompt.text} ${data.response.text}
+                </div>
+                <div id="top-neurons-${trait.name}" style="margin-top: 8px;"></div>
+            `;
+
+            // Render combined neuron activations (compact)
+            renderTopNeuronsCompact(`top-neurons-${trait.name}`, allGelu, allTokens, promptTokens.length);
+        }
+
+        function renderTopNeuronsCompact(divId, geluActivations, tokens, promptLength) {
+            // geluActivations: [n_tokens, 9216]
+            const nTokens = geluActivations.length;
+            const nNeurons = geluActivations[0].length;
+
+            // Average absolute activation across all tokens for each neuron
+            const neuronAvgAbs = new Array(nNeurons).fill(0);
+            for (let n = 0; n < nNeurons; n++) {
+                let sum = 0;
+                for (let t = 0; t < nTokens; t++) {
+                    sum += Math.abs(geluActivations[t][n]);
+                }
+                neuronAvgAbs[n] = sum / nTokens;
+            }
+
+            // Get top 10 neurons
+            const neuronIndices = Array.from({length: nNeurons}, (_, i) => i);
+            neuronIndices.sort((a, b) => neuronAvgAbs[b] - neuronAvgAbs[a]);
+            const topNeurons = neuronIndices.slice(0, 10);
+
+            // Build heatmap data [10 neurons x n_tokens]
+            const heatmapData = topNeurons.map(n =>
+                geluActivations.map(tokenAct => tokenAct[n])
+            );
+
+            const trace = {
+                z: heatmapData,
+                x: tokens,
+                y: topNeurons.map(n => `N${n}`),
+                type: 'heatmap',
+                colorscale: 'Viridis',
+                hovertemplate: 'Token: %{x}<br>Neuron: %{y}<br>Activation: %{z:.3f}<extra></extra>'
+            };
+
+            const layout = {
+                margin: { t: 5, b: 30, l: 40, r: 5 },
+                height: 150,
+                xaxis: {
+                    tickangle: -45,
+                    tickfont: { size: 9 }
+                },
+                yaxis: {
+                    tickfont: { size: 9 }
+                },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#e0e0e0', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }
+            };
+
+            Plotly.newPlot(divId, [trace], layout, { displayModeBar: false });
         }
 
         function renderTier3Data(trait, data) {
@@ -4640,6 +4715,13 @@
 
             // Select all traits button
             document.getElementById('select-all-btn').addEventListener('click', toggleAllTraits);
+
+            // Prompt selector
+            document.getElementById('prompt-selector').addEventListener('change', (e) => {
+                currentPrompt = parseInt(e.target.value);
+                console.log(`Prompt changed to: ${currentPrompt}`);
+                renderView();
+            });
         }
 
         // Utility functions
@@ -4649,7 +4731,7 @@
                     <strong>Error:</strong> ${message}
                     <br><br>
                     Make sure you're running a local server from the trait-interp root directory:
-                    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; margin-top: 10px;">cd trait-interp
+                    <pre style="background: var(--bg-secondary); color: var(--text-primary); padding: 10px; border-radius: 4px; margin-top: 10px;">cd trait-interp
 python -m http.server 8000</pre>
                     Then visit: <a href="http://localhost:8000/visualization/">http://localhost:8000/visualization/</a>
                 </div>

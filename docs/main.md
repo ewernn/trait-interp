@@ -38,6 +38,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 
 ### Visualization & Monitoring
 - **[visualization/README.md](../visualization/README.md)** - Interactive dashboard usage guide
+- **[visualization/ARCHITECTURE.md](../visualization/ARCHITECTURE.md)** - Modular architecture and development guide
 - **[visualization/DESIGN_STANDARDS.md](../visualization/DESIGN_STANDARDS.md)** - Enforced design standards for visualization UI
 - **[docs/logit_lens.md](logit_lens.md)** - Logit lens: prediction evolution across layers
 
