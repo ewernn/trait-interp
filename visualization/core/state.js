@@ -13,6 +13,7 @@ const state = {
 
 // Display names for better interpretability
 const DISPLAY_NAMES = {
+    // Legacy names (from old structure)
     'uncertainty_calibration': 'Confidence',
     'instruction_boundary': 'Literalness',
     'commitment_strength': 'Assertiveness',
@@ -26,20 +27,52 @@ const DISPLAY_NAMES = {
     'paranoia_trust': 'Trust Level',
     'power_dynamics': 'Authority Tone',
     'serial_parallel': 'Processing Style',
-    'local_global': 'Focus Scope'
-    // 'refusal' and 'sycophancy' are clear as-is
+    'local_global': 'Focus Scope',
+
+    // New categorized trait names
+    'abstractness': 'Abstractness',
+    'authority': 'Authority',
+    'compliance': 'Compliance',
+    'confidence': 'Confidence',
+    'context': 'Context Adherence',
+    'curiosity': 'Curiosity',
+    'defensiveness': 'Defensiveness',
+    'divergence': 'Divergent Thinking',
+    'enthusiasm': 'Enthusiasm',
+    'evaluation_awareness': 'Evaluation Awareness',
+    'formality': 'Formality',
+    'futurism': 'Future Focus',
+    'literalness': 'Literalness',
+    'positivity': 'Positivity',
+    'refusal': 'Refusal',
+    'retrieval': 'Retrieval',
+    'scope': 'Scope',
+    'sequentiality': 'Sequential Processing',
+    'sycophancy': 'Sycophancy',
+    'trust': 'Trust'
 };
 
 // Helper Functions
 function getDisplayName(traitName) {
+    // Handle category/trait format (e.g., "cognitive/context")
     let baseName = traitName;
     let method = '';
+    let category = '';
 
-    if (traitName.endsWith('_natural')) {
-        baseName = traitName.replace('_natural', '');
+    // Extract category if present
+    if (traitName.includes('/')) {
+        const parts = traitName.split('/');
+        category = parts[0];
+        baseName = parts[1];
+    }
+
+    // Extract method suffix
+    if (baseName.endsWith('_natural')) {
+        baseName = baseName.replace('_natural', '');
         method = ' (Natural)';
     }
 
+    // Get display name (without category prefix in the lookup)
     let displayBase = DISPLAY_NAMES[baseName] ||
         baseName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
@@ -308,7 +341,12 @@ async function loadExperimentData(experimentName) {
                 }
 
                 const method = traitName.endsWith('_natural') ? 'natural' : 'instruction';
-                const baseName = traitName.replace('_natural', '');
+                // Extract base name, handling both flat and categorized structure
+                let baseName = traitName.replace('_natural', '');
+                if (baseName.includes('/')) {
+                    // For categorized structure, remove category prefix for baseName
+                    baseName = baseName.split('/')[1];
+                }
 
                 let hasTier3 = false;
                 try {

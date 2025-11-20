@@ -15,7 +15,7 @@ Deduplicated inference data format for efficient storage and multi-trait compari
 **Benefits:**
 - ~90% storage savings for multi-trait inference
 - Easy multi-trait comparison in visualizer
-- Backward compatible with existing code
+- Single source of truth for prompt data
 
 ---
 
@@ -68,26 +68,16 @@ experiments/gemma_2b_cognitive_nov20/inference/projections/refusal/prompt_0.json
 
 ### Running Inference
 
-The `inference/monitor_dynamics.py` script now saves in both formats automatically:
+The `inference/monitor_dynamics.py` script saves in standardized format only:
 
 ```bash
-# Standard usage - saves in both formats
 python inference/monitor_dynamics.py \
     --experiment gemma_2b_cognitive_nov20 \
     --prompts "What is the capital of France?"
 
 # Output:
-# - dynamics_results.json (combined format, backward compatible)
 # - experiments/gemma_2b_cognitive_nov20/inference/prompts/prompt_0.json
 # - experiments/gemma_2b_cognitive_nov20/inference/projections/{trait}/prompt_0.json
-```
-
-**Disable standardized output** (if needed):
-```bash
-python inference/monitor_dynamics.py \
-    --experiment gemma_2b_cognitive_nov20 \
-    --prompts "Your prompt" \
-    --save_standardized False
 ```
 
 ### Loading in Python
@@ -128,7 +118,7 @@ const uncertainty = await DataLoader.fetchStandardizedProjections(
     0
 );
 
-// Or load combined (tries standardized first, falls back to legacy)
+// Or load combined format
 const combined = await DataLoader.fetchInferenceCombined(
     {name: 'refusal'},
     0
@@ -172,14 +162,6 @@ Savings: 90%
 ```
 
 ---
-
-## Backward Compatibility
-
-**No breaking changes!**
-
-1. **Inference script** still saves `dynamics_results.json` (combined format)
-2. **Visualizer** tries standardized format first, falls back to legacy
-3. **Old code** continues to work unchanged
 
 ---
 
@@ -225,7 +207,7 @@ The standardized format is ready to use.
 - Returns: `{prompt_idx, trait, scores, dynamics, metadata}`
 
 **`DataLoader.fetchInferenceCombined(trait, promptIdx)`**
-- Fetches combined data (tries standardized, falls back to legacy)
+- Fetches combined data from standardized format
 - Returns: `{prompt, response, tokens, trait_scores, dynamics}`
 
 **`DataLoader.discoverStandardizedPrompts()`**
@@ -233,17 +215,6 @@ The standardized format is ready to use.
 - Returns: `[0, 1, 2, ...]` (array of indices)
 
 ---
-
-## Migration (if needed)
-
-If you have existing inference data in the old format, you can migrate:
-
-```bash
-# TODO: Create migration script if needed
-# scripts/migrate_inference_to_standardized.sh
-```
-
-For now, just re-run inference with the updated script - it will save in both formats.
 
 ---
 

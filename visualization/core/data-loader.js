@@ -93,26 +93,26 @@ class DataLoader {
     }
 
     /**
-     * Fetch standardized prompt data (shared across all traits)
+     * Fetch prompt data (shared across all traits)
      * @param {number} promptIdx - Prompt index (0, 1, 2, ...)
      * @returns {Promise<Object>} - Shared prompt data
      */
-    static async fetchStandardizedPrompt(promptIdx) {
+    static async fetchPrompt(promptIdx) {
         const url = `../experiments/${window.state.experimentData.name}/inference/prompts/prompt_${promptIdx}.json`;
         const response = await fetch(url);
         if (!response.ok) {
-            throw new Error(`Failed to fetch standardized prompt ${promptIdx}`);
+            throw new Error(`Failed to fetch prompt ${promptIdx}`);
         }
         return await response.json();
     }
 
     /**
-     * Fetch standardized trait projections for a specific prompt
+     * Fetch trait projections for a specific prompt
      * @param {Object} trait - Trait object with name property
      * @param {number} promptIdx - Prompt index
      * @returns {Promise<Object>} - Trait-specific projection data
      */
-    static async fetchStandardizedProjections(trait, promptIdx) {
+    static async fetchProjections(trait, promptIdx) {
         const url = `../experiments/${window.state.experimentData.name}/inference/projections/${trait.name}/prompt_${promptIdx}.json`;
         const response = await fetch(url);
         if (!response.ok) {
@@ -122,45 +122,35 @@ class DataLoader {
     }
 
     /**
-     * Fetch combined inference data in legacy format (for backward compatibility)
-     * Combines standardized prompt + projections into single object
+     * Fetch combined inference data
+     * Combines prompt + projections into single object
      * @param {Object} trait - Trait object with name property
      * @param {number} promptIdx - Prompt index
-     * @returns {Promise<Object>} - Combined data (same format as old Tier 2)
+     * @returns {Promise<Object>} - Combined data
      */
     static async fetchInferenceCombined(trait, promptIdx) {
-        try {
-            // Try new standardized format first
-            const prompt = await this.fetchStandardizedPrompt(promptIdx);
-            const projections = await this.fetchStandardizedProjections(trait, promptIdx);
+        const prompt = await this.fetchPrompt(promptIdx);
+        const projections = await this.fetchProjections(trait, promptIdx);
 
-            return {
-                prompt: prompt.prompt,
-                response: prompt.response,
-                tokens: prompt.tokens,
-                trait_scores: { [trait.name]: projections.scores },
-                dynamics: { [trait.name]: projections.dynamics }
-            };
-        } catch (e) {
-            // Fallback to old format if standardized doesn't exist
-            console.warn(`Standardized format not found for ${trait.name} prompt ${promptIdx}, trying legacy format`);
-            return await this.fetchTier2(trait, promptIdx);
-        }
+        return {
+            prompt: prompt.prompt,
+            response: prompt.response,
+            tokens: prompt.tokens,
+            trait_scores: { [trait.name]: projections.scores },
+            dynamics: { [trait.name]: projections.dynamics }
+        };
     }
 
     /**
-     * Discover available prompts in standardized format
+     * Discover available prompts
      * @returns {Promise<number[]>} - Array of available prompt indices
      */
-    static async discoverStandardizedPrompts() {
-        const promptsDir = `../experiments/${window.state.experimentData.name}/inference/prompts/`;
+    static async discoverPrompts() {
         try {
-            // Try fetching a directory listing (won't work with static server, but good for future)
-            // For now, we'll try sequential probing
             const indices = [];
             for (let i = 0; i < 100; i++) {
                 try {
-                    await this.fetchStandardizedPrompt(i);
+                    await this.fetchPrompt(i);
                     indices.push(i);
                 } catch (e) {
                     break; // Stop when we hit the first missing prompt
@@ -168,7 +158,7 @@ class DataLoader {
             }
             return indices;
         } catch (e) {
-            console.warn('Failed to discover standardized prompts:', e);
+            console.warn('Failed to discover prompts:', e);
             return [];
         }
     }
