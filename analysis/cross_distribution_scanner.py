@@ -196,8 +196,18 @@ def scan_experiment(experiment_path: Path) -> Dict:
     """
     traits_data = []
 
-    # Find all trait directories
-    for trait_dir in sorted(experiment_path.iterdir()):
+    # Categories to check (all experiments use this structure)
+    categories = ['behavioral', 'cognitive', 'stylistic', 'alignment']
+
+    # Find all trait directories in categorized structure
+    trait_dirs = []
+    for category in categories:
+        category_path = experiment_path / category
+        if category_path.exists():
+            trait_dirs.extend(sorted(category_path.iterdir()))
+
+    # Process trait directories
+    for trait_dir in trait_dirs:
         if not trait_dir.is_dir():
             continue
         if trait_dir.name.startswith('.'):
