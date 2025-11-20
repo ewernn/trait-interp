@@ -492,7 +492,7 @@ acts = capture.get("layer_16")
 trait_scores = {name: projection(acts, vec) for name, vec in vectors.items()}
 ```
 
-Save results to `experiments/{name}/inference/results/` for visualization.
+Save results wherever you like - the visualizer can read custom monitoring data.
 
 ### Visualize
 
@@ -706,15 +706,18 @@ trait-interp/
 │       ├── README.md
 │       ├── behavioral/            # Category: behavioral traits
 │       │   └── refusal/           # Example trait
-│       │       ├── extraction/    # Training-time data
-│       │       │   ├── trait_definition.json
-│       │       │   ├── responses/ # pos.csv, neg.csv or pos.json, neg.json
-│       │       │   ├── activations/ # Token-averaged (not committed, too large)
-│       │       │   └── vectors/   # Extracted vectors + metadata
-│       │       └── inference/     # Inference-time data (optional)
+│       │       └── extraction/    # Training-time data
+│       │           ├── trait_definition.json
+│       │           ├── responses/ # pos.csv, neg.csv or pos.json, neg.json
+│       │           ├── activations/ # Token-averaged (not committed, too large)
+│       │           └── vectors/   # Extracted vectors + metadata
 │       ├── cognitive/             # Category: cognitive traits
 │       ├── stylistic/             # Category: stylistic traits
-│       └── alignment/             # Category: alignment traits
+│       ├── alignment/             # Category: alignment traits
+│       └── inference/             # Experiment-level inference (optional)
+│           ├── prompts/           # Standardized prompt sets
+│           ├── raw_activations/   # Captured once
+│           └── projections/       # Per-trait scores
 │
 ├── traitlens/                      # Extraction toolkit
 │   ├── methods.py                 # 4 extraction methods
