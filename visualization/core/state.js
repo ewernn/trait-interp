@@ -309,14 +309,14 @@ async function loadExperimentData(experimentName) {
             try {
                 const primaryExt = isNatural ? 'json' : 'csv';
                 const primaryCheck = await fetch(
-                    `../experiments/${experimentName}/${traitName}/extraction/responses/pos.${primaryExt}`
+                    `../experiments/${experimentName}/extraction/${traitName}/extraction/responses/pos.${primaryExt}`
                 );
                 if (primaryCheck.ok) {
                     responseFormat = primaryExt;
                 } else {
                     const secondaryExt = isNatural ? 'csv' : 'json';
                     const secondaryCheck = await fetch(
-                        `../experiments/${experimentName}/${traitName}/extraction/responses/pos.${secondaryExt}`
+                        `../experiments/${experimentName}/extraction/${traitName}/extraction/responses/pos.${secondaryExt}`
                     );
                     if (secondaryCheck.ok) {
                         responseFormat = secondaryExt;
@@ -331,7 +331,7 @@ async function loadExperimentData(experimentName) {
                 let metadata = null;
                 try {
                     const metadataRes = await fetch(
-                        `../experiments/${experimentName}/${traitName}/extraction/activations/metadata.json`
+                        `../experiments/${experimentName}/extraction/${traitName}/extraction/activations/metadata.json`
                     );
                     if (metadataRes.ok) {
                         metadata = await metadataRes.json();
@@ -351,7 +351,7 @@ async function loadExperimentData(experimentName) {
                 let hasTier3 = false;
                 try {
                     const tier3Check = await fetch(
-                        `../experiments/${experimentName}/${traitName}/inference/layer_internal_states/prompt_0_layer16.json`
+                        `../experiments/${experimentName}/extraction/${traitName}/inference/layer_internal_states/prompt_0_layer16.json`
                     );
                     hasTier3 = tier3Check.ok;
                 } catch (e) {
@@ -404,7 +404,7 @@ async function discoverAvailablePrompts() {
     const promptSet = new Set();
 
     for (const trait of state.experimentData.traits) {
-        const tier2Dir = `../experiments/${state.experimentData.name}/${trait.name}/inference/residual_stream_activations/`;
+        const tier2Dir = `../experiments/${state.experimentData.name}/extraction/${trait.name}/inference/residual_stream_activations/`;
 
         for (let i = 0; i <= 30; i++) {
             try {
