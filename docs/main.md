@@ -961,6 +961,14 @@ pip install --pre torch torchvision torchaudio --index-url https://download.pyto
 ```
 PyTorch stable (2.6.0) crashes due to Grouped Query Attention incompatibility. Python 3.11+ recommended.
 
+### Shell scripts need updating
+Some batch utility scripts in `scripts/` still reference old flat trait names or paths. These are low-priority utilities. Update them when needed by:
+- Using `category/trait_name` format when calling Python scripts
+- Checking `extraction/{category}/` for directory operations
+- Referencing the updated Python scripts as examples
+
+Core pipeline scripts work correctly with the new structure.
+
 ## Further Reading
 
 - **[docs/pipeline_guide.md](pipeline_guide.md)** - Complete pipeline usage guide
