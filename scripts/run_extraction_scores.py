@@ -16,44 +16,44 @@ from tqdm import tqdm
 sys.path.append(str(Path(__file__).parent.parent))
 
 
-def load_instruction_activations(trait, layer):
-    """Load instruction-based activations for a specific layer"""
-    base = Path(f'experiments/gemma_2b_cognitive_nov20/{trait}/extraction/activations')
+def load_instruction_activations(experiment, trait_path, layer):
+    """Load instruction-based activations for a specific layer
 
-    # Try old format first (all_layers.pt)
-    all_layers_file = base / 'all_layers.pt'
-    if all_layers_file.exists():
-        all_layers = torch.load(all_layers_file)  # [n_examples, 26, 2304]
+    Args:
+        experiment: Experiment name (e.g., gemma_2b_cognitive_nov20)
+        trait_path: Full trait path including category (e.g., behavioral/refusal)
+        layer: Layer number (0-25)
+    """
+    base = Path(f'experiments/{experiment}/extraction/{trait_path}/extraction/activations')
 
-        # Get metadata for pos/neg split
-        metadata_file = base / 'metadata.json'
-        if metadata_file.exists():
-            metadata = json.load(open(metadata_file))
-            n_pos = metadata.get('n_positive', metadata.get('n_examples_pos', 100))
-            n_neg = metadata.get('n_negative', metadata.get('n_examples_neg', 101))
-        else:
-            # Assume 100/100 split
-            n_pos = 100
-            n_neg = 100
+    if not base.exists():
+        raise FileNotFoundError(
+            f"Activations directory not found: {base}\n"
+            f"Expected: experiments/{experiment}/extraction/{{category}}/{{trait}}/extraction/activations/"
+        )
 
-        pos_acts = all_layers[:n_pos, layer, :]
-        neg_acts = all_layers[n_pos:n_pos+n_neg, layer, :]
-        return pos_acts, neg_acts
-
-    # Try new format (separate pos/neg files)
+    # Use separate pos/neg files
     pos_file = base / f'pos_layer{layer}.pt'
     neg_file = base / f'neg_layer{layer}.pt'
-    if pos_file.exists() and neg_file.exists():
-        pos_acts = torch.load(pos_file)
-        neg_acts = torch.load(neg_file)
-        return pos_acts, neg_acts
 
-    raise FileNotFoundError(f"No activation files found for {trait} at layer {layer}")
+    if not (pos_file.exists() and neg_file.exists()):
+        raise FileNotFoundError(f"Activation files not found for {trait_path} at layer {layer}")
+
+    pos_acts = torch.load(pos_file)
+    neg_acts = torch.load(neg_file)
+    return pos_acts, neg_acts
 
 
-def load_vector(trait, method, layer):
-    """Load extracted vector"""
-    vectors_dir = Path(f'experiments/gemma_2b_cognitive_nov20/{trait}/extraction/vectors')
+def load_vector(experiment, trait_path, method, layer):
+    """Load extracted vector
+
+    Args:
+        experiment: Experiment name (e.g., gemma_2b_cognitive_nov20)
+        trait_path: Full trait path including category (e.g., behavioral/refusal)
+        method: Extraction method (mean_diff, probe, ica, gradient)
+        layer: Layer number (0-25)
+    """
+    vectors_dir = Path(f'experiments/{experiment}/extraction/{trait_path}/extraction/vectors')
     vector_file = vectors_dir / f'{method}_layer{layer}.pt'
 
     if not vector_file.exists():
@@ -109,24 +109,41 @@ def test_vector(vector, pos_acts, neg_acts):
     }
 
 
-def run_extraction_scores(trait):
-    """Run extraction score analysis for a single trait"""
+def run_extraction_scores(experiment, trait_path):
+    """Run extraction score analysis for a single trait
+
+    Args:
+        experiment: Experiment name (e.g., gemma_2b_cognitive_nov20)
+        trait_path: Full trait path including category (e.g., behavioral/refusal)
+    """
     print(f"\n{'='*60}")
-    print(f"Extraction Scores: {trait}")
+    print(f"Extraction Scores: {trait_path}")
+    print(f"Experiment: {experiment}")
     print(f"{'='*60}\n")
+
+    # Verify structure
+    exp_dir = Path(f'experiments/{experiment}/extraction/{trait_path}')
+    if not exp_dir.exists():
+        raise FileNotFoundError(
+            f"Trait directory not found: {exp_dir}\n"
+            f"Expected: experiments/{experiment}/extraction/{{category}}/{{trait}}/"
+        )
 
     methods = ['mean_diff', 'probe', 'ica', 'gradient']
     n_layers = 26
 
+    # Extract trait name without category for output filename
+    trait_name = trait_path.split('/')[-1]
+
     results = {
-        'experiment': 'gemma_2b_cognitive_nov20',
-        'trait': trait,
+        'experiment': experiment,
+        'trait': trait_path,
         'n_layers': 26,
         'methods': ['mean_diff', 'probe', 'ica', 'gradient'],
         'quadrants': {
             'inst_inst': {
                 'description': 'Instruction → Instruction',
-                'vector_source': trait,
+                'vector_source': trait_path,
                 'test_source': 'instruction',
                 'methods': {}
             }
@@ -141,12 +158,12 @@ def run_extraction_scores(trait):
         for layer in tqdm(range(n_layers), desc=f"{method}", leave=False):
             try:
                 # Load vector
-                vector = load_vector(trait, method, layer)
+                vector = load_vector(experiment, trait_path, method, layer)
                 if vector is None:
                     continue
 
                 # Load test activations
-                pos_acts, neg_acts = load_instruction_activations(trait, layer)
+                pos_acts, neg_acts = load_instruction_activations(experiment, trait_path, layer)
 
                 # Test
                 metrics = test_vector(vector, pos_acts, neg_acts)
@@ -168,10 +185,10 @@ def run_extraction_scores(trait):
 
         results['quadrants']['inst_inst']['methods'][method] = method_results
 
-    # Save results
-    output_dir = Path('results/cross_distribution_analysis')
+    # Save results to experiment's validation directory
+    output_dir = Path(f'experiments/{experiment}/validation')
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir / f'{trait}_full_4x4_results.json'
+    output_file = output_dir / f'{trait_name}_full_4x4_results.json'
 
     # If file exists, merge with existing data (preserve other quadrants)
     if output_file.exists():
@@ -194,36 +211,47 @@ def run_extraction_scores(trait):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate extraction scores for traits')
-    parser.add_argument('--trait', type=str, help='Single trait to process')
-    parser.add_argument('--all', action='store_true', help='Process all untested traits')
+    parser = argparse.ArgumentParser(
+        description='Generate extraction scores for traits',
+        epilog='Example: python scripts/run_extraction_scores.py --trait behavioral/refusal'
+    )
+    parser.add_argument('--experiment', type=str, default='gemma_2b_cognitive_nov20',
+                       help='Experiment name (default: gemma_2b_cognitive_nov20)')
+    parser.add_argument('--trait', type=str,
+                       help='Trait path: category/trait_name (e.g., behavioral/refusal)')
+    parser.add_argument('--all', action='store_true',
+                       help='Process all traits in experiment')
     args = parser.parse_args()
 
-    # Traits that need testing
-    untested_traits = [
-        'abstract_concrete', 'commitment_strength', 'context_adherence',
-        'convergent_divergent', 'instruction_boundary', 'local_global',
-        'paranoia_trust', 'power_dynamics', 'retrieval_construction',
-        'serial_parallel', 'sycophancy', 'temporal_focus'
-    ]
+    # Validate trait format if provided
+    if args.trait and '/' not in args.trait:
+        raise ValueError(
+            f"Trait must include category: got '{args.trait}'\n"
+            f"Expected format: category/trait_name (e.g., behavioral/refusal)"
+        )
 
     if args.all:
-        print(f"Processing {len(untested_traits)} traits...")
-        for trait in untested_traits:
+        # Auto-discover all traits in experiment
+        from analysis.cross_distribution_scanner import scan_experiment
+        exp_path = Path(f'experiments/{args.experiment}')
+        exp_data = scan_experiment(exp_path)
+
+        traits = [t['name'] for t in exp_data['traits']]
+        print(f"Processing {len(traits)} traits from {args.experiment}...")
+
+        for trait_path in traits:
             try:
-                run_extraction_scores(trait)
+                run_extraction_scores(args.experiment, trait_path)
             except Exception as e:
-                print(f"ERROR processing {trait}: {e}")
+                print(f"ERROR processing {trait_path}: {e}")
                 continue
     elif args.trait:
-        run_extraction_scores(args.trait)
+        run_extraction_scores(args.experiment, args.trait)
     else:
         print("Usage:")
-        print("  python scripts/run_extraction_scores.py --trait refusal")
+        print("  python scripts/run_extraction_scores.py --trait behavioral/refusal")
         print("  python scripts/run_extraction_scores.py --all")
-        print(f"\nUntested traits ({len(untested_traits)}):")
-        for t in untested_traits:
-            print(f"  - {t}")
+        print("\nNote: Use --trait category/trait_name format")
 
 
 if __name__ == '__main__':
