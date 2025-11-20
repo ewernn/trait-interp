@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from inference.utils_standardized_output import save_standardized_inference, load_standardized_inference
+from inference.utils_inference import save_inference, load_inference
 
 
 def test_save_and_load():
@@ -49,9 +49,9 @@ def test_save_and_load():
     print("Testing prompt standardization...")
     print()
 
-    # Save in standardized format
-    print("1. Saving standardized inference data...")
-    save_standardized_inference(mock_result, experiment, prompt_idx, layer, method)
+    # Save inference data
+    print("1. Saving inference data...")
+    save_inference(mock_result, experiment, prompt_idx, layer, method)
     print(f"   ✓ Saved to experiments/{experiment}/inference/")
     print()
 
@@ -70,8 +70,8 @@ def test_save_and_load():
     print()
 
     # Load back and verify
-    print("3. Loading standardized inference data...")
-    loaded_result = load_standardized_inference(experiment, prompt_idx, traits=['refusal', 'uncertainty'])
+    print("3. Loading inference data...")
+    loaded_result = load_inference(experiment, prompt_idx, traits=['refusal', 'uncertainty'])
     print("   ✓ Data loaded successfully")
     print()
 
@@ -106,8 +106,8 @@ def test_save_and_load():
 
     print("✅ All tests passed!")
     print()
-    print("The standardized format is ready to use.")
-    print("Run inference with: python inference/monitor_dynamics.py --experiment gemma_2b_cognitive_nov20 --prompts 'Your prompt here'")
+    print("Inference format is ready to use.")
+    print("Run inference: python inference/monitor_dynamics.py --experiment gemma_2b_cognitive_nov20 --prompts 'Your prompt here'")
 
     return True
 
