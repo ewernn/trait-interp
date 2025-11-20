@@ -1,7 +1,17 @@
 #!/bin/bash
 # Rename cross-distribution files to match new categorized trait names
 
-cd results/cross_distribution_analysis
+EXPERIMENT=${1:-gemma_2b_cognitive_nov20}
+VALIDATION_DIR="experiments/${EXPERIMENT}/validation"
+
+if [ ! -d "$VALIDATION_DIR" ]; then
+    echo "Error: Validation directory not found: $VALIDATION_DIR"
+    echo "Usage: $0 [experiment_name]"
+    echo "Example: $0 gemma_2b_cognitive_nov20"
+    exit 1
+fi
+
+cd "$VALIDATION_DIR"
 
 # Mapping: old_name → new_name
 declare -A renames=(
@@ -46,4 +56,4 @@ done
 
 echo ""
 echo "✅ Renaming complete!"
-echo "Files now match categorized trait structure"
+echo "Files now match categorized trait structure in $VALIDATION_DIR"
