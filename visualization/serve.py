@@ -16,6 +16,14 @@ PORT = 8000
 class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     """HTTP request handler with CORS support and API endpoints."""
 
+    # Add explicit MIME types for JavaScript and CSS
+    extensions_map = {
+        **http.server.SimpleHTTPRequestHandler.extensions_map,
+        '.js': 'application/javascript',
+        '.mjs': 'application/javascript',
+        '.css': 'text/css',
+    }
+
     def end_headers(self):
         """Add CORS headers to all responses."""
         self.send_header('Access-Control-Allow-Origin', '*')

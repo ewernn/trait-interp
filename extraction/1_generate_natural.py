@@ -49,8 +49,12 @@ def generate_natural_responses(
     # Determine scenario files based on trait
     # First check if scenarios exist in extraction/natural_scenarios/
     natural_scenarios_dir = Path('extraction/natural_scenarios')
-    natural_pos_file = natural_scenarios_dir / f'{trait}_positive.txt'
-    natural_neg_file = natural_scenarios_dir / f'{trait}_negative.txt'
+
+    # Strip category prefix (behavioral/, cognitive/, stylistic/) and _natural suffix
+    trait_for_scenarios = trait.split('/')[-1].replace('_natural', '')
+
+    natural_pos_file = natural_scenarios_dir / f'{trait_for_scenarios}_positive.txt'
+    natural_neg_file = natural_scenarios_dir / f'{trait_for_scenarios}_negative.txt'
 
     if natural_pos_file.exists() and natural_neg_file.exists():
         # Use extraction/natural_scenarios/ files
@@ -219,13 +223,17 @@ if __name__ == '__main__':
 
     # Check if natural scenarios exist
     natural_scenarios_dir = Path('extraction/natural_scenarios')
-    natural_pos_file = natural_scenarios_dir / f'{args.trait}_positive.txt'
-    natural_neg_file = natural_scenarios_dir / f'{args.trait}_negative.txt'
+
+    # Strip category prefix and _natural suffix for finding scenario files
+    trait_for_scenarios = args.trait.split('/')[-1].replace('_natural', '')
+
+    natural_pos_file = natural_scenarios_dir / f'{trait_for_scenarios}_positive.txt'
+    natural_neg_file = natural_scenarios_dir / f'{trait_for_scenarios}_negative.txt'
 
     if not (natural_pos_file.exists() and natural_neg_file.exists()):
         # Fallback: check legacy valid traits
         valid_traits = ['refusal', 'uncertainty_calibration', 'sycophancy']
-        if args.trait not in valid_traits:
+        if trait_for_scenarios not in valid_traits:
             print(f"❌ ERROR: Natural scenarios not found for trait: {args.trait}")
             print(f"   Expected files:")
             print(f"     {natural_pos_file}")

@@ -282,31 +282,45 @@ Currently supported:
 
 To add new experiments:
 1. Follow the standard directory structure (see `docs/experiments_structure.md`)
-2. The visualization will auto-detect traits via `activations/metadata.json`
-3. Add experiment name to the `experiments` array in `visualization_v2.html` (line ~169)
+2. The visualization auto-discovers experiments and traits via API endpoints
+
+## Architecture
+
+The visualization uses a modular architecture:
+
+```
+visualization/
+├── index.html              # Shell (235 lines) - loads modules
+├── styles.css              # All CSS (1,278 lines)
+├── core/
+│   ├── state.js           # Global state, experiment loading
+│   └── data-loader.js     # Centralized data fetching
+└── views/
+    ├── data-explorer.js
+    ├── vectors.js
+    ├── cross-distribution.js
+    ├── monitoring.js
+    ├── prompt-activation.js
+    └── layer-dive.js
+```
+
+See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed documentation.
 
 ## Customization
 
 ### Adding New Experiments
-Edit `visualization/index.html` around line 353:
-
-```javascript
-experiments = [
-    'gemma_2b_cognitive_nov20',
-    'your_new_experiment'
-];
-```
+Experiments are auto-discovered from `experiments/` directory. No code changes needed.
 
 ### Styling
-All styles are in the `<style>` block. Key CSS variables:
-- Primary color: `#007bff`
-- Success: `#28a745`
-- Danger: `#dc3545`
+All styles use CSS variables in `styles.css` for light/dark mode support. See **[DESIGN_STANDARDS.md](DESIGN_STANDARDS.md)** for design rules.
 
 ### Adding New Views
-1. Add option to `#view-mode` select
-2. Create render function (e.g., `renderYourView()`)
-3. Add case to `renderView()` switch statement
+1. Create `views/my-view.js` with render function
+2. Load in `index.html`: `<script src="views/my-view.js"></script>`
+3. Add case to router: `case 'my-view': window.renderMyView(); break;`
+4. Add navigation item in sidebar HTML
+
+See **[ARCHITECTURE.md](ARCHITECTURE.md)** for examples.
 
 ## Troubleshooting
 
