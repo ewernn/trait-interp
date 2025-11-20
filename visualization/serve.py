@@ -81,14 +81,31 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return {'experiments': []}
 
         experiments = []
+        category_names = {'behavioral', 'cognitive', 'stylistic', 'alignment'}
+
         for item in experiments_dir.iterdir():
             if item.is_dir() and not item.name.startswith('.'):
-                # Check if it has at least one trait subdirectory
-                has_traits = any(
-                    (subdir / 'extraction').exists()
-                    for subdir in item.iterdir()
-                    if subdir.is_dir()
-                )
+                has_traits = False
+
+                # Check for categorized structure
+                for subdir in item.iterdir():
+                    if not subdir.is_dir():
+                        continue
+
+                    # If it's a category directory, check inside for traits
+                    if subdir.name in category_names:
+                        has_traits = any(
+                            (trait_dir / 'extraction').exists()
+                            for trait_dir in subdir.iterdir()
+                            if trait_dir.is_dir()
+                        )
+                        if has_traits:
+                            break
+                    # Also check for old flat structure (backward compatibility)
+                    elif (subdir / 'extraction').exists():
+                        has_traits = True
+                        break
+
                 if has_traits:
                     experiments.append(item.name)
 
@@ -101,17 +118,44 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return {'traits': []}
 
         traits = []
+
+        # Check for categorized structure (behavioral, cognitive, stylistic, alignment)
+        category_names = {'behavioral', 'cognitive', 'stylistic', 'alignment'}
+
         for item in exp_dir.iterdir():
-            if item.is_dir() and (item / 'extraction').exists():
-                # Check for responses to confirm it's a real trait
+            if not item.is_dir():
+                continue
+
+            # If this is a category directory, look inside it
+            if item.name in category_names:
+                for trait_item in item.iterdir():
+                    if trait_item.is_dir() and (trait_item / 'extraction').exists():
+                        # Check for responses OR vectors to confirm it's a real trait
+                        responses_dir = trait_item / 'extraction' / 'responses'
+                        vectors_dir = trait_item / 'extraction' / 'vectors'
+                        has_responses = (
+                            responses_dir.exists() and (
+                                (responses_dir / 'pos.csv').exists() or
+                                (responses_dir / 'pos.json').exists()
+                            )
+                        )
+                        has_vectors = vectors_dir.exists() and len(list(vectors_dir.glob('*.pt'))) > 0
+                        if has_responses or has_vectors:
+                            # Use category/trait format
+                            traits.append(f"{item.name}/{trait_item.name}")
+
+            # Also check for old flat structure (backward compatibility)
+            elif (item / 'extraction').exists():
                 responses_dir = item / 'extraction' / 'responses'
+                vectors_dir = item / 'extraction' / 'vectors'
                 has_responses = (
                     responses_dir.exists() and (
                         (responses_dir / 'pos.csv').exists() or
                         (responses_dir / 'pos.json').exists()
                     )
                 )
-                if has_responses:
+                has_vectors = vectors_dir.exists() and len(list(vectors_dir.glob('*.pt'))) > 0
+                if has_responses or has_vectors:
                     traits.append(item.name)
 
         return {'traits': sorted(traits)}

@@ -38,7 +38,7 @@ from tqdm import tqdm
 
 from traitlens import HookManager, ActivationCapture, projection
 from traitlens.compute import compute_derivative, compute_second_derivative
-from inference.utils_standardized_output import save_standardized_inference
+from inference.utils_inference import save_inference
 
 
 # ============================================================================
@@ -330,13 +330,15 @@ def main(
     prompts_file: Optional[str] = None,
     traits: Optional[str] = None,
     methods: Optional[str] = None,
-    output: str = "dynamics_results.json",
     max_new_tokens: int = 50,
     device: str = "cuda",
-    save_standardized: bool = True,
 ):
     """
     Run inference with dynamics analysis on all detected vectors.
+
+    Saves results in deduplicated format:
+    - Shared prompts: experiments/{exp}/inference/prompts/prompt_N.json
+    - Per-trait projections: experiments/{exp}/inference/projections/{trait}/prompt_N.json
 
     Args:
         experiment: Experiment name (e.g., "gemma_2b_cognitive_nov20")
@@ -344,12 +346,8 @@ def main(
         prompts_file: File with prompts, one per line (optional)
         traits: Comma-separated trait names to analyze (None = all)
         methods: Comma-separated method names to analyze (None = all)
-        output: Output JSON file path
         max_new_tokens: Max tokens to generate per prompt
         device: Device to use
-        save_standardized: Save in standardized format (default: True)
-            - Shared prompts: experiments/{exp}/inference/prompts/prompt_N.json
-            - Per-trait projections: experiments/{exp}/inference/projections/{trait}/prompt_N.json
     """
     # Parse arguments
     trait_list = traits.split(',') if traits else None
@@ -434,8 +432,6 @@ def main(
     print()
 
     # Run inference on all prompts
-    results = []
-
     # Determine method name for standardized output
     first_method = list(detected[list(detected.keys())[0]].keys())[0]
 
@@ -446,39 +442,26 @@ def main(
             layer_name=layer_name,
             max_new_tokens=max_new_tokens
         )
-        results.append(result)
 
-        # Save in standardized format (in addition to combined format)
-        if save_standardized:
-            save_standardized_inference(
-                result,
-                experiment=experiment,
-                prompt_idx=prompt_idx,
-                layer=layer_to_use,
-                method=first_method
-            )
+        # Save inference result
+        save_inference(
+            result,
+            experiment=experiment,
+            prompt_idx=prompt_idx,
+            layer=layer_to_use,
+            method=first_method
+        )
 
-    # Save results
-    output_path = Path(output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(output_path, 'w') as f:
-        json.dump(results, f, indent=2)
-
-    print(f"\n✅ Results saved to: {output_path}")
-
-    # Print summary
-    print("\nDynamics Summary:")
-    for trait in vectors_to_analyze.keys():
-        commitments = [r['dynamics'][trait]['commitment_point'] for r in results if r['dynamics'].get(trait)]
-        velocities = [r['dynamics'][trait]['peak_velocity'] for r in results if r['dynamics'].get(trait)]
-
-        avg_commit = sum(c for c in commitments if c is not None) / len([c for c in commitments if c is not None]) if any(commitments) else None
-        avg_velocity = sum(velocities) / len(velocities) if velocities else 0
-
-        print(f"  {trait}:")
-        print(f"    Avg commitment point: {avg_commit:.1f if avg_commit else 'N/A'}")
-        print(f"    Avg peak velocity: {avg_velocity:.3f}")
+    print(f"\n✅ Results saved to: experiments/{experiment}/inference/")
+    print(f"\nInference complete!")
+    print(f"  Prompts: {len(prompt_list)}")
+    print(f"  Traits: {len(vectors_to_analyze)}")
+    print(f"  Saved: experiments/{experiment}/inference/prompts/")
+    print(f"         experiments/{experiment}/inference/projections/{{trait}}/")
+    print()
+    print("To analyze results, use:")
+    print(f"  from inference.utils_inference import load_inference")
+    print(f"  result = load_inference('{experiment}', prompt_idx=0)")
 
 
 if __name__ == "__main__":

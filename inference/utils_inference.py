@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Utilities for standardized inference output format.
+Utilities for inference output format.
 
 Saves inference results in deduplicated format:
 - Shared prompts: experiments/{exp}/inference/prompts/prompt_N.json
@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Dict, List
 
 
-def save_standardized_inference(
+def save_inference(
     result: Dict,
     experiment: str,
     prompt_idx: int,
@@ -20,7 +20,7 @@ def save_standardized_inference(
     method: str
 ) -> None:
     """
-    Save inference result in standardized format.
+    Save inference result.
 
     Args:
         result: Result dict from run_inference_with_dynamics
@@ -69,13 +69,13 @@ def save_standardized_inference(
             json.dump(projection_data, f, indent=2)
 
 
-def load_standardized_inference(
+def load_inference(
     experiment: str,
     prompt_idx: int,
     traits: List[str] = None
 ) -> Dict:
     """
-    Load inference result from standardized format.
+    Load inference result.
 
     Args:
         experiment: Experiment name
