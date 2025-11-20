@@ -112,6 +112,20 @@ Remember: Good documentation is like good code - it's not done when there's noth
 ❌ Examples using old APIs
 ```
 
+### The Session Status File
+```markdown
+❌ PHASE2_COMPLETE.md (session-specific status)
+❌ MIGRATION_TODO.md (temporary checklist)
+❌ REFACTOR_GUIDE.md (one-time instructions)
+```
+
+**Why this is bad:**
+- Becomes stale immediately after session ends
+- Duplicates info that should be in permanent docs
+- Creates cleanup debt for later
+
+**Instead:** Provide comprehensive summaries in conversation, integrate insights into permanent docs during work.
+
 ## Verifiable Claims
 
 Every numeric claim in documentation should be **immediately verifiable** with a one-line command.
