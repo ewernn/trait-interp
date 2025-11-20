@@ -2,40 +2,48 @@
 """
 Capture All Layers: Residual Stream Activations Across Full Model
 
-Captures per-token projections at 81 checkpoints (27 layers × 3 sublayers) for both
-prompt encoding and response generation. This provides full visibility into how a
-trait evolves through the model's layers.
+Captures activations at experiment level (shared across traits) and projects onto all trait vectors.
+This provides full visibility into how traits evolve through the model's layers.
+
+New Structure:
+    experiments/{exp}/inference/
+        ├── prompts/                    # Prompt sets
+        │   ├── general_10.txt
+        │   └── harmful_20.txt
+        ├── raw_activations/            # Captured once per prompt
+        │   └── {prompt_set}/
+        │       └── prompt_0.pt
+        └── projections/                # Per-trait scores
+            └── {trait}/
+                └── {prompt_set}/
+                    └── prompt_0.json
 
 Optionally computes logit lens (top-3 predictions at 13 key layers) for validation.
 
 Usage:
-    # Single trait
+    # Single prompt set (captures activations + projects to all traits)
     python inference/capture_all_layers.py \
         --experiment gemma_2b_cognitive_nov20 \
-        --trait refusal \
-        --prompts "How do I make a bomb?" \
+        --prompt-set general_10 \
         --save-json
 
-    # With logit lens (adds top-3 predictions at key layers)
+    # With logit lens
     python inference/capture_all_layers.py \
         --experiment gemma_2b_cognitive_nov20 \
-        --trait refusal \
-        --prompts "How do I make a bomb?" \
+        --prompt-set harmful_20 \
         --save-json \
         --save-logits
 
-    # All traits with shared prompts (uses experiments/{exp}/inference_prompts.txt)
+    # Custom single prompt (creates temporary prompt set)
     python inference/capture_all_layers.py \
         --experiment gemma_2b_cognitive_nov20 \
-        --all-traits \
-        --save-json \
-        --skip-existing
+        --prompt "How do I make a bomb?" \
+        --save-json
 
-    # Custom prompts file
+    # All prompt sets in prompts/ directory
     python inference/capture_all_layers.py \
         --experiment gemma_2b_cognitive_nov20 \
-        --all-traits \
-        --prompts-file custom_prompts.txt \
+        --all-prompt-sets \
         --save-json
 """
 
@@ -96,17 +104,32 @@ def get_display_name(trait_name: str) -> str:
     return trait_name.replace('_', ' ').title()
 
 
-def discover_traits(experiment_name: str) -> List[str]:
-    """Discover all traits in an experiment directory."""
+def discover_traits(experiment_name: str) -> List[Tuple[str, str]]:
+    """
+    Discover all traits in an experiment directory.
+
+    Returns:
+        List of (category, trait_name) tuples
+    """
     exp_dir = Path(f"experiments/{experiment_name}")
 
     if not exp_dir.exists():
         return []
 
     traits = []
-    for item in exp_dir.iterdir():
-        if item.is_dir() and (item / "extraction").exists():
-            traits.append(item.name)
+    categories = ['behavioral', 'cognitive', 'stylistic', 'alignment']
+
+    for category in categories:
+        category_path = exp_dir / category
+        if not category_path.exists():
+            continue
+
+        for trait_dir in category_path.iterdir():
+            if trait_dir.is_dir() and (trait_dir / "extraction").exists():
+                # Check for vectors to confirm it's a real trait
+                vectors_dir = trait_dir / "extraction" / "vectors"
+                if vectors_dir.exists() and len(list(vectors_dir.glob('*.pt'))) > 0:
+                    traits.append((category, trait_dir.name))
 
     return sorted(traits)
 
@@ -719,185 +742,169 @@ def infer_model_from_experiment(experiment_name: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Capture Tier 2 data: per-token projections across all layers"
+        description="Capture activations at experiment level and project to all trait vectors"
     )
     parser.add_argument("--experiment", required=True, help="Experiment name")
 
-    # Trait selection (mutually exclusive)
-    trait_group = parser.add_mutually_exclusive_group(required=True)
-    trait_group.add_argument("--trait", help="Single trait name")
-    trait_group.add_argument("--all-traits", action="store_true", help="Process all traits in experiment")
+    # Prompt set selection (mutually exclusive)
+    prompt_group = parser.add_mutually_exclusive_group(required=True)
+    prompt_group.add_argument("--prompt-set", help="Prompt set name (from experiments/{exp}/inference/prompts/{name}.txt)")
+    prompt_group.add_argument("--prompt", help="Single prompt string (creates temporary prompt set)")
+    prompt_group.add_argument("--all-prompt-sets", action="store_true", help="Process all prompt sets in prompts/ directory")
 
-    parser.add_argument("--prompts", type=str, help="Single prompt string")
-    parser.add_argument("--prompts-file", type=str, help="File with prompts (one per line)")
     parser.add_argument("--method", help="Vector method (auto-detect if not provided)")
     parser.add_argument("--layer", type=int, default=16, help="Vector layer (default: 16)")
-    parser.add_argument("--output-dir", type=str, help="Output directory (auto-detected if not provided)")
     parser.add_argument("--max-new-tokens", type=int, default=50, help="Max tokens to generate")
     parser.add_argument("--temperature", type=float, default=0.7, help="Sampling temperature")
     parser.add_argument("--device", default="cuda", help="Device (cuda/mps/cpu)")
     parser.add_argument("--save-json", action="store_true", help="Also save JSON for visualization")
     parser.add_argument("--save-logits", action="store_true", help="Compute logit lens (top-3 predictions at key layers)")
-    parser.add_argument("--skip-existing", action="store_true", help="Skip traits with existing JSON files")
+    parser.add_argument("--skip-existing", action="store_true", help="Skip prompt sets with existing raw activations")
 
     args = parser.parse_args()
 
-    # Get prompts
-    if args.prompts:
-        prompt_list = [args.prompts]
-    elif args.prompts_file:
-        with open(args.prompts_file) as f:
-            prompt_list = [line.strip() for line in f if line.strip()]
-    else:
-        # Default to shared inference_prompts.txt if it exists
-        default_prompts = Path(f"experiments/{args.experiment}/inference_prompts.txt")
-        if default_prompts.exists():
-            print(f"Using default prompts: {default_prompts}")
-            with open(default_prompts) as f:
-                prompt_list = [line.strip() for line in f if line.strip()]
-        else:
-            parser.error(f"Must provide --prompts, --prompts-file, or create {default_prompts}")
-
-    # Get traits to process
+    # Setup experiment directory
     exp_dir = Path(f"experiments/{args.experiment}")
     if not exp_dir.exists():
         print(f"❌ Experiment not found: {exp_dir}")
         return
 
-    if args.all_traits:
-        traits_to_process = discover_traits(args.experiment)
-        if not traits_to_process:
-            print(f"❌ No traits found in {exp_dir}")
+    inference_dir = exp_dir / "inference"
+    prompts_dir = inference_dir / "prompts"
+    raw_activations_dir = inference_dir / "raw_activations"
+    projections_dir = inference_dir / "projections"
+
+    # Get prompt sets to process
+    if args.prompt:
+        # Single prompt - create temporary prompt set
+        prompt_sets = [("_temp", [args.prompt])]
+    elif args.prompt_set:
+        # Single prompt set
+        prompt_file = prompts_dir / f"{args.prompt_set}.txt"
+        if not prompt_file.exists():
+            print(f"❌ Prompt set not found: {prompt_file}")
+            print(f"   Available sets in {prompts_dir}:")
+            if prompts_dir.exists():
+                for f in prompts_dir.glob("*.txt"):
+                    print(f"     - {f.stem}")
             return
-        print(f"Found {len(traits_to_process)} traits: {', '.join(traits_to_process)}")
+
+        with open(prompt_file) as f:
+            prompts = [line.strip() for line in f if line.strip()]
+        prompt_sets = [(args.prompt_set, prompts)]
+    elif args.all_prompt_sets:
+        # All prompt sets in directory
+        if not prompts_dir.exists() or not list(prompts_dir.glob("*.txt")):
+            print(f"❌ No prompt sets found in {prompts_dir}")
+            print(f"   Create prompt sets: echo 'prompt text' > {prompts_dir}/my_set.txt")
+            return
+
+        prompt_sets = []
+        for prompt_file in sorted(prompts_dir.glob("*.txt")):
+            with open(prompt_file) as f:
+                prompts = [line.strip() for line in f if line.strip()]
+            if prompts:
+                prompt_sets.append((prompt_file.stem, prompts))
+
+        print(f"Found {len(prompt_sets)} prompt sets:")
+        for name, prompts in prompt_sets:
+            print(f"  - {name}: {len(prompts)} prompts")
         print()
-    else:
-        traits_to_process = [args.trait]
 
-    # Process each trait
-    successful = 0
-    skipped = 0
-    failed = 0
+    # Discover all traits for projection
+    all_traits = discover_traits(args.experiment)
+    if not all_traits:
+        print(f"❌ No traits found in {exp_dir}")
+        return
 
-    for trait_idx, trait_name in enumerate(traits_to_process, 1):
-        if len(traits_to_process) > 1:
-            print(f"[{trait_idx}/{len(traits_to_process)}] Processing: {trait_name}")
-            print("=" * 60)
+    print(f"Found {len(all_traits)} traits with vectors")
+    print()
 
-        trait_dir = exp_dir / trait_name
+    # Load model (once for all prompt sets and traits)
+    model_name = infer_model_from_experiment(args.experiment)
+    print(f"Loading model: {model_name}")
 
-        if not trait_dir.exists():
-            print(f"❌ Trait directory not found: {trait_dir}")
-            failed += 1
-            if len(traits_to_process) > 1:
-                print()
-            continue
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=torch.float16,
+        device_map="auto",
+        attn_implementation='eager'  # Required for output_attentions=True
+    )
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
 
-        # Check if already exists
-        if args.skip_existing:
-            output_dir = trait_dir / "inference" / "residual_stream_activations"
-            json_file = output_dir / f"prompt_0.json"
-            if json_file.exists():
-                print(f"  ⏭️  Skipping (JSON already exists): {json_file}")
-                skipped += 1
-                if len(traits_to_process) > 1:
-                    print()
-                continue
+    # Get number of layers
+    n_layers = len(model.model.layers)
+    print(f"Model has {n_layers} layers")
 
-        # Auto-detect or use specified method
+    # Get unembedding matrix if logit lens requested
+    unembed = None
+    if args.save_logits:
+        if hasattr(model, 'lm_head'):
+            unembed = model.lm_head.weight  # Gemma 2B: [vocab_size, hidden_dim]
+        elif hasattr(model.model, 'embed_tokens'):
+            unembed = model.model.embed_tokens.weight  # Llama fallback
+        else:
+            print("⚠️  Could not find unembedding matrix, skipping logit lens")
+
+        if unembed is not None:
+            print(f"Unembedding matrix: {unembed.shape}")
+            print(f"Will compute logit lens at {len(LOGIT_LENS_LAYERS)} layers")
+    print()
+
+    # Load all trait vectors once
+    print("Loading trait vectors...")
+    trait_vectors = {}
+    for category, trait_name in all_traits:
+        trait_dir = exp_dir / category / trait_name
+
+        # Auto-detect method
         if args.method:
             method = args.method
         else:
             method = find_vector_method(trait_dir, args.layer)
             if not method:
-                print(f"❌ No vector found for layer {args.layer}")
-                print(f"   Checked: {trait_dir}/extraction/vectors/")
-                failed += 1
-                if len(traits_to_process) > 1:
-                    print()
+                print(f"  ⚠️  Skipping {trait_name}: No vector found at layer {args.layer}")
                 continue
 
-        # Load vector
         vector_path = trait_dir / "extraction" / "vectors" / f"{method}_layer{args.layer}.pt"
         if not vector_path.exists():
-            print(f"❌ Vector not found: {vector_path}")
-            failed += 1
-            if len(traits_to_process) > 1:
-                print()
+            print(f"  ⚠️  Skipping {trait_name}: Vector not found at {vector_path}")
             continue
 
-        if len(traits_to_process) > 1:
-            print(f"  Using method: {method}")
-        else:
-            print(f"Loading vector: {vector_path}")
+        vector = torch.load(vector_path).to(torch.float16)
+        trait_vectors[(category, trait_name)] = (vector, method, vector_path)
 
-        vector = torch.load(vector_path).to(torch.float16)  # Match model dtype
+    print(f"  ✓ Loaded {len(trait_vectors)} trait vectors")
+    print()
 
-        if len(traits_to_process) == 1:
-            print(f"Vector shape: {vector.shape}")
+    # Process each prompt set
+    successful_sets = 0
+    skipped_sets = 0
+    failed_sets = 0
 
-        # Load model (only once)
-        if trait_idx == 1:
-            model_name = infer_model_from_experiment(args.experiment)
-            print(f"Loading model: {model_name}")
+    for set_name, prompts in prompt_sets:
+        print(f"{'='*60}")
+        print(f"Processing prompt set: {set_name} ({len(prompts)} prompts)")
+        print(f"{'='*60}")
 
-            model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                torch_dtype=torch.float16,
-                device_map="auto",
-                attn_implementation='eager'  # Required for output_attentions=True
-            )
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
-            if tokenizer.pad_token is None:
-                tokenizer.pad_token = tokenizer.eos_token
-
-            # Get number of layers
-            n_layers = len(model.model.layers)
-            print(f"Model has {n_layers} layers")
-
-            # Get unembedding matrix if logit lens requested
-            if args.save_logits:
-                if hasattr(model, 'lm_head'):
-                    unembed = model.lm_head.weight  # Gemma 2B: [vocab_size, hidden_dim]
-                elif hasattr(model.model, 'embed_tokens'):
-                    unembed = model.model.embed_tokens.weight  # Llama fallback
-                else:
-                    print("⚠️  Could not find unembedding matrix, skipping logit lens")
-                    unembed = None
-
-                if unembed is not None:
-                    print(f"Unembedding matrix: {unembed.shape}")
-                    print(f"Will compute logit lens at {len(LOGIT_LENS_LAYERS)} layers")
-            else:
-                unembed = None
+        # Check if already exists
+        set_activations_dir = raw_activations_dir / set_name
+        if args.skip_existing and set_activations_dir.exists() and list(set_activations_dir.glob("*.pt")):
+            print(f"  ⏭️  Skipping (raw activations already exist)")
+            skipped_sets += 1
             print()
+            continue
 
-        # Setup output directory
-        if args.output_dir:
-            output_dir = Path(args.output_dir)
-        else:
-            output_dir = trait_dir / "inference" / "residual_stream_activations"
+        # Create output directories
+        set_activations_dir.mkdir(parents=True, exist_ok=True)
 
-        output_dir.mkdir(parents=True, exist_ok=True)
-        if len(traits_to_process) == 1:
-            print(f"Output directory: {output_dir}")
-            print()
-
-        # Process each prompt
         try:
-            for prompt_idx, prompt_text in enumerate(tqdm(prompt_list, desc="Processing prompts", disable=len(traits_to_process)>1)):
-                if len(traits_to_process) == 1:
-                    print(f"\n{'='*60}")
-                    print(f"Prompt {prompt_idx}: {prompt_text[:80]}...")
-                    print(f"{'='*60}")
-                    print("Encoding prompt...")
-
+            # Process each prompt in the set
+            for prompt_idx, prompt_text in enumerate(tqdm(prompts, desc="Capturing activations")):
+                # STEP 1: Capture activations (once per prompt)
                 prompt_data = encode_prompt_with_capture(model, tokenizer, prompt_text, n_layers)
-
-                if len(traits_to_process) == 1:
-                    print(f"  ✓ Captured {len(prompt_data['tokens'])} prompt tokens")
-                    print("Generating response...")
-
                 prompt_ids = torch.tensor([prompt_data['token_ids']], device=model.device)
                 response_data = generate_response_with_capture(
                     model, tokenizer, prompt_ids, n_layers,
@@ -906,29 +913,10 @@ def main():
                 )
                 response_text = tokenizer.decode(response_data['token_ids'], skip_special_tokens=True)
 
-                if len(traits_to_process) == 1:
-                    print(f"  ✓ Generated {len(response_data['tokens'])} tokens")
-                    print(f"  Response: {response_text[:100]}...")
-                    print("Projecting activations...")
-
-                prompt_projections = project_activations_onto_vector(
-                    prompt_data['activations'], vector, n_layers
-                )
-                response_projections = project_activations_onto_vector(
-                    response_data['activations'], vector, n_layers
-                )
-
-                if len(traits_to_process) == 1:
-                    print(f"  ✓ Prompt projections: {prompt_projections.shape}")
-                    print(f"  ✓ Response projections: {response_projections.shape}")
-
                 # Compute logit lens if requested
                 prompt_logits = None
                 response_logits = None
                 if args.save_logits and unembed is not None:
-                    if len(traits_to_process) == 1:
-                        print("Computing logit lens...")
-
                     prompt_logits = compute_logits_at_layers(
                         prompt_data['activations'], unembed, tokenizer, n_layers, top_k=3
                     )
@@ -936,76 +924,102 @@ def main():
                         response_data['activations'], unembed, tokenizer, n_layers, top_k=3
                     )
 
-                    if len(traits_to_process) == 1:
-                        print(f"  ✓ Computed predictions at {len(prompt_logits)} layers")
+                # Save raw activations (trait-agnostic)
+                raw_data = {
+                    'prompt': {
+                        'text': prompt_text,
+                        'tokens': prompt_data['tokens'],
+                        'token_ids': prompt_data['token_ids'],
+                        'activations': prompt_data['activations'],
+                        'attention_weights': prompt_data['attention_weights']
+                    },
+                    'response': {
+                        'text': response_text,
+                        'tokens': response_data['tokens'],
+                        'token_ids': response_data['token_ids'],
+                        'activations': response_data['activations'],
+                        'attention_weights': response_data['attention_weights']
+                    },
+                    'metadata': {
+                        'model': model_name,
+                        'capture_date': datetime.now().isoformat(),
+                        'temperature': args.temperature,
+                        'prompt_set': set_name
+                    }
+                }
 
-                # Assemble data
-                tier2_data = assemble_tier2_data(
-                    prompt_text=prompt_text,
-                    prompt_tokens=prompt_data['tokens'],
-                    prompt_token_ids=prompt_data['token_ids'],
-                    prompt_projections=prompt_projections,
-                    prompt_attention=prompt_data['attention_weights'],
-                    response_text=response_text,
-                    response_tokens=response_data['tokens'],
-                    response_token_ids=response_data['token_ids'],
-                    response_projections=response_projections,
-                    response_attention=response_data['attention_weights'],
-                    trait=trait_name,
-                    vector_path=vector_path,
-                    model_name=model_name,
-                    temperature=args.temperature,
-                    prompt_logits=prompt_logits,
-                    response_logits=response_logits
-                )
+                if args.save_logits and (prompt_logits or response_logits):
+                    raw_data['logit_lens'] = {}
+                    if prompt_logits:
+                        raw_data['logit_lens']['prompt'] = prompt_logits
+                    if response_logits:
+                        raw_data['logit_lens']['response'] = response_logits
 
-                # Save .pt file
-                output_path = output_dir / f"prompt_{prompt_idx}.pt"
-                torch.save(tier2_data, output_path)
+                activation_path = set_activations_dir / f"prompt_{prompt_idx}.pt"
+                torch.save(raw_data, activation_path)
 
-                # Optionally save JSON for visualization
-                if args.save_json:
-                    json_path = output_dir / f"prompt_{prompt_idx}.json"
-                    json_data = convert_tier2_to_json(tier2_data)
-                    with open(json_path, 'w') as f:
-                        json.dump(json_data, f, indent=2)
+                # STEP 2: Project onto all trait vectors
+                for (category, trait_name), (vector, method, vector_path) in trait_vectors.items():
+                    prompt_projections = project_activations_onto_vector(
+                        prompt_data['activations'], vector, n_layers
+                    )
+                    response_projections = project_activations_onto_vector(
+                        response_data['activations'], vector, n_layers
+                    )
 
-                    if len(traits_to_process) == 1:
-                        size_kb = output_path.stat().st_size / 1024
-                        json_size_kb = json_path.stat().st_size / 1024
-                        print(f"  ✓ Saved to: {output_path}")
-                        print(f"  Size: {size_kb:.1f} KB")
-                        print(f"  ✓ Saved JSON: {json_path}")
-                        print(f"  JSON size: {json_size_kb:.1f} KB")
+                    # Assemble projection data
+                    projection_data = assemble_tier2_data(
+                        prompt_text=prompt_text,
+                        prompt_tokens=prompt_data['tokens'],
+                        prompt_token_ids=prompt_data['token_ids'],
+                        prompt_projections=prompt_projections,
+                        prompt_attention=prompt_data['attention_weights'],
+                        response_text=response_text,
+                        response_tokens=response_data['tokens'],
+                        response_token_ids=response_data['token_ids'],
+                        response_projections=response_projections,
+                        response_attention=response_data['attention_weights'],
+                        trait=trait_name,
+                        vector_path=str(vector_path),
+                        model_name=model_name,
+                        temperature=args.temperature,
+                        prompt_logits=prompt_logits,
+                        response_logits=response_logits
+                    )
 
-            # Success!
-            successful += 1
-            if len(traits_to_process) == 1:
-                print(f"\n{'='*60}")
-                print(f"✅ Completed! Processed {len(prompt_list)} prompts")
-                print(f"   Output: {output_dir}")
-                print(f"{'='*60}")
-            else:
-                print(f"  ✅ Success! Processed {len(prompt_list)} prompts")
-                print()
+                    # Save projection JSON
+                    if args.save_json:
+                        trait_proj_dir = projections_dir / f"{category}/{trait_name}" / set_name
+                        trait_proj_dir.mkdir(parents=True, exist_ok=True)
+
+                        json_path = trait_proj_dir / f"prompt_{prompt_idx}.json"
+                        json_data = convert_tier2_to_json(projection_data)
+                        with open(json_path, 'w') as f:
+                            json.dump(json_data, f, indent=2)
+
+            successful_sets += 1
+            print(f"  ✅ Success! Processed {len(prompts)} prompts")
+            print(f"     Raw activations: {set_activations_dir}")
+            if args.save_json:
+                print(f"     Projections: {projections_dir}/*/{set_name}/")
+            print()
 
         except Exception as e:
+            import traceback
             print(f"  ❌ Failed: {str(e)}")
-            failed += 1
-            if len(traits_to_process) > 1:
-                print()
-            continue
+            traceback.print_exc()
+            failed_sets += 1
+            print()
 
-    # Print summary for batch mode
-    if len(traits_to_process) > 1:
-        print("=" * 60)
-        print("📊 Batch Processing Summary")
-        print("=" * 60)
-        print(f"  ✅ Successful: {successful}")
-        print(f"  ⏭️  Skipped:    {skipped}")
-        print(f"  ❌ Failed:     {failed}")
-        print(f"  📁 Total:      {len(traits_to_process)}")
-        print()
+    # Print summary
+    print("=" * 60)
+    print("📊 Processing Summary")
+    print("=" * 60)
+    print(f"  ✅ Successful: {successful_sets}")
+    print(f"  ⏭️  Skipped:    {skipped_sets}")
+    print(f"  ❌ Failed:     {failed_sets}")
+    print(f"  📁 Total:      {len(prompt_sets)}")
+    print()
 
 
 if __name__ == "__main__":
