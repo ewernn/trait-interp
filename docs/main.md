@@ -24,7 +24,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 
 ### Experiments & Analysis
 - **[docs/experiments_structure.md](experiments_structure.md)** - How experiment directories are organized
-- **[experiments/gemma_2b_cognitive_nov20/README.md](../experiments/gemma_2b_cognitive_nov20/README.md)** - 16 cognitive traits plus natural elicitation variants
+- **[experiments/gemma_2b_cognitive_nov20/README.md](../experiments/gemma_2b_cognitive_nov20/README.md)** - 38 categorized traits (behavioral, cognitive, stylistic, alignment)
 
 ### Inference & Monitoring
 - **[inference/README.md](../inference/README.md)** - Per-token inference and dynamics capture
@@ -240,8 +240,8 @@ This project extracts trait vectors from language models and monitors them durin
 
 **Verify available traits:**
 ```bash
-ls experiments/gemma_2b_cognitive_nov20/*/extraction/vectors/*.pt | wc -l
-# Expected: ~1700+ vector files (16 full traits × 104 vectors + 4 partial traits × 2 vectors)
+find experiments/gemma_2b_cognitive_nov20 -name "vectors" -type d | wc -l
+# Shows traits with extracted vectors across behavioral, cognitive, stylistic, alignment categories
 ```
 
 ## Quick Start
@@ -301,7 +301,7 @@ Models load on GPU (MPS) by default when available. Gemma 2B runs at full speed 
 
 ### Use Existing Vectors
 
-Pre-extracted vectors for 16 traits on Gemma 2B are in `experiments/gemma_2b_cognitive_nov20/*/extraction/vectors/`.
+Pre-extracted vectors for 38 traits on Gemma 2B are in `experiments/gemma_2b_cognitive_nov20/{category}/{trait}/extraction/vectors/`.
 
 Use traitlens to create monitoring scripts - see the Monitoring section below for examples.
 
@@ -383,7 +383,7 @@ Middle layers (6-16 for Gemma 2B) capture semantic meaning and generalize across
 
 ## Trait Descriptions
 
-See `experiments/gemma_2b_cognitive_nov20/README.md` for detailed descriptions of all 16 traits and their design principles.
+See `experiments/gemma_2b_cognitive_nov20/README.md` for detailed descriptions of all 38 traits and their design principles.
 
 ## Extraction Pipeline
 
@@ -477,7 +477,7 @@ import torch
 
 # Load vectors
 vectors = {
-    'refusal': torch.load('experiments/gemma_2b_cognitive_nov20/refusal/extraction/vectors/probe_layer16.pt'),
+    'refusal': torch.load('experiments/gemma_2b_cognitive_nov20/behavioral/refusal/extraction/vectors/probe_layer16.pt'),
     # ... more traits
 }
 
@@ -702,22 +702,19 @@ trait-interp/
 ├── local_dynamics_test.py          # Local GPU inference test (Mac MPS / CUDA)
 │
 ├── experiments/                    # All experiment data
-│   └── gemma_2b_cognitive_nov20/  # Example: 16 cognitive traits + natural variants
+│   └── gemma_2b_cognitive_nov20/  # Example: 38 traits across 4 categories
 │       ├── README.md
-│       └── {trait}/               # e.g., refusal/ or refusal_natural/
-│           ├── extraction/        # Training-time data
-│           │   ├── trait_definition.json
-│           │   ├── responses/     # pos.csv, neg.csv or pos.json, neg.json
-│           │   ├── activations/   # Token-averaged (not committed, too large)
-│           │   └── vectors/       # Extracted vectors + metadata
-│           └── inference/         # Inference-time data
-│               ├── residual_stream_activations/  # Tier 2: all layers, logit lens
-│               │   ├── prompt_N.pt
-│               │   └── prompt_N.json  # With --save-json (includes logit_lens if --save-logits)
-│               ├── layer_internal_states/        # Tier 3: single layer
-│               │   └── prompt_N_layerM.pt
-│               └── sae_features/  # SAE-encoded features (optional)
-│                   └── prompt_N_layer16_sae.pt
+│       ├── behavioral/            # Category: behavioral traits
+│       │   └── refusal/           # Example trait
+│       │       ├── extraction/    # Training-time data
+│       │       │   ├── trait_definition.json
+│       │       │   ├── responses/ # pos.csv, neg.csv or pos.json, neg.json
+│       │       │   ├── activations/ # Token-averaged (not committed, too large)
+│       │       │   └── vectors/   # Extracted vectors + metadata
+│       │       └── inference/     # Inference-time data (optional)
+│       ├── cognitive/             # Category: cognitive traits
+│       ├── stylistic/             # Category: stylistic traits
+│       └── alignment/             # Category: alignment traits
 │
 ├── traitlens/                      # Extraction toolkit
 │   ├── methods.py                 # 4 extraction methods
@@ -828,7 +825,7 @@ python3 -c "from transformers import AutoConfig; c=AutoConfig.from_pretrained('g
 
 **Verify saved data:**
 ```bash
-python3 -c "import json; d=json.load(open('experiments/gemma_2b_cognitive_nov20/refusal/inference/residual_stream_activations/prompt_0.json')); print(f'Inference layers: {len(d[\"projections\"][\"prompt\"][0])}')"
+python3 -c "import json; d=json.load(open('experiments/gemma_2b_cognitive_nov20/behavioral/refusal/inference/residual_stream_activations/prompt_0.json')); print(f'Inference layers: {len(d[\"projections\"][\"prompt\"][0])}')"
 ```
 
 **Llama 3.1 8B**:
