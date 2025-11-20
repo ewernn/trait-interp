@@ -17,27 +17,42 @@ Each experiment directory is a complete record that can be archived, shared, or 
 ```
 experiments/
 ├── experiment_name_1/
-│   ├── README.md              # Experiment overview and metadata
-│   ├── trait_1/
-│   │   ├── trait_definition.json
-│   │   ├── responses/
-│   │   │   ├── pos.csv
-│   │   │   └── neg.csv
-│   │   ├── activations/
-│   │   │   ├── all_layers.pt
-│   │   │   └── metadata.json
-│   │   └── vectors/
-│   │       ├── mean_diff_layer16.pt
-│   │       ├── mean_diff_layer16_metadata.json
-│   │       ├── probe_layer16.pt
-│   │       ├── probe_layer16_metadata.json
-│   │       └── ... (other methods/layers)
-│   ├── trait_2/
-│   └── trait_3/
+│   ├── README.md                    # Experiment overview and metadata
+│   ├── behavioral/                  # Category: behavioral traits
+│   │   ├── refusal/
+│   │   │   └── extraction/
+│   │   │       ├── trait_definition.json
+│   │   │       ├── responses/
+│   │   │       │   ├── pos.csv (instruction) or pos.json (natural)
+│   │   │       │   └── neg.csv (instruction) or neg.json (natural)
+│   │   │       ├── activations/
+│   │   │       │   └── metadata.json
+│   │   │       └── vectors/
+│   │   │           ├── mean_diff_layer16.pt
+│   │   │           ├── mean_diff_layer16_metadata.json
+│   │   │           ├── probe_layer16.pt
+│   │   │           └── ... (other methods/layers)
+│   │   └── sycophancy/
+│   ├── cognitive/                   # Category: cognitive traits
+│   │   ├── context/
+│   │   └── retrieval/
+│   ├── stylistic/                   # Category: stylistic traits
+│   │   ├── formality/
+│   │   └── positivity/
+│   └── alignment/                   # Category: alignment traits
+│       └── evaluation_awareness/
 │
 └── experiment_name_2/
     └── ...
 ```
+
+**Category structure:**
+- `behavioral/` - How the model behaves (refusal, compliance, sycophancy, defensiveness, confidence)
+- `cognitive/` - How the model processes (context, retrieval, divergence, scope, sequentiality, abstractness, futurism)
+- `stylistic/` - How the model expresses (formality, positivity, trust, authority, curiosity, enthusiasm, literalness)
+- `alignment/` - Awareness and safety (evaluation_awareness)
+
+Each trait directory contains an `extraction/` subdirectory with all extraction-time data.
 
 ## Experiment Naming Convention
 
@@ -47,7 +62,7 @@ Use descriptive names that capture:
 3. **Date**: When the experiment was run (optional but helpful)
 
 **Examples:**
-- `gemma_2b_cognitive_nov20` - Gemma 2B on cognitive primitives, Nov 20
+- `gemma_2b_cognitive_nov20` - Gemma 2B on 38 categorized traits (behavioral, cognitive, stylistic, alignment), Nov 20
 - `llama_8b_cognitive_primitives_nov20` - Llama 8B on cognitive primitives
 - `gemma_9b_safety_traits_dec01` - Gemma 9B on safety-related traits
 
@@ -114,7 +129,18 @@ python inference/monitor_dynamics.py \
 
 ## Trait Directory Structure
 
-Each trait within an experiment follows this structure:
+Each trait within an experiment is located at `{category}/{trait}/extraction/`:
+
+```
+experiments/gemma_2b_cognitive_nov20/
+└── behavioral/
+    └── refusal/
+        └── extraction/
+            ├── trait_definition.json
+            ├── responses/
+            ├── activations/
+            └── vectors/
+```
 
 ### trait_definition.json
 
@@ -141,8 +167,8 @@ The trait definition that was used. Format:
 Generated responses from the model.
 
 **Files:**
-- `pos.csv` - Responses with positive instructions (~100 examples)
-- `neg.csv` - Responses with negative instructions (~100 examples)
+- Instruction-based: `pos.csv` and `neg.csv` (with trait instructions, ~100 examples each)
+- Natural elicitation: `pos.json` and `neg.json` (without instructions, ~100 examples each)
 
 **Columns:**
 - `question`: Original question
@@ -206,25 +232,16 @@ print(vector.shape)  # [hidden_dim] e.g., [2304] for Gemma 2B
 
 ## Experiment Types
 
-### Baseline Behavioral Traits
+### Categorized Trait Study
 
-Extract common behavioral traits (refusal, uncertainty, etc.) for a specific model.
-
-**Example**: `experiments/gemma_2b_cognitive_nov20/`
-- 16 traits
-- 1 model
-- Multiple extraction methods tested
-- Goal: Establish baseline trait vectors for monitoring
-
-### Cognitive Primitives Study
-
-Extract cognitive processing traits (retrieval vs construction, serial vs parallel, etc.)
+Extract traits organized by category for systematic analysis.
 
 **Example**: `experiments/gemma_2b_cognitive_nov20/`
-- 10 cognitive primitive traits
-- 1 model
-- Multiple layers tested
-- Goal: Understand model internals
+- 38 traits across 4 categories (behavioral, cognitive, stylistic, alignment)
+- Both instruction-based and natural elicitation variants
+- 1 model (Gemma 2B)
+- Multiple extraction methods and layers tested
+- Goal: Comprehensive trait extraction with organized structure
 
 ### Multi-Model Comparison
 
@@ -303,11 +320,15 @@ Group related experiments with clear naming:
 
 ```
 experiments/
-├── gemma_2b_behavioral_nov12/      # Baseline
-├── gemma_2b_cognitive_nov20/       # Cognitive primitives
-├── gemma_2b_safety_dec01/          # Safety traits
+├── gemma_2b_cognitive_nov20/       # 38 categorized traits
 ├── llama_8b_behavioral_nov15/      # Cross-model comparison
 └── ablation_threshold_study/       # Method study
+```
+
+Verify experiment structure:
+```bash
+ls experiments/gemma_2b_cognitive_nov20/
+# Output: alignment  behavioral  cognitive  stylistic
 ```
 
 ## Storage Considerations
@@ -335,10 +356,10 @@ cd experiments/my_experiment/
 cat README.md
 
 # 2. Understand the trait definitions
-cat refusal/trait_definition.json
+cat behavioral/refusal/extraction/trait_definition.json
 
 # 3. Re-extract vectors with different method
-python ../../pipeline/3_extract_vectors.py \
+python ../../extraction/3_extract_vectors.py \
   --experiment my_experiment \
   --trait refusal \
   --methods custom_method
