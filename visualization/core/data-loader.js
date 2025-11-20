@@ -93,6 +93,87 @@ class DataLoader {
     }
 
     /**
+     * Fetch standardized prompt data (shared across all traits)
+     * @param {number} promptIdx - Prompt index (0, 1, 2, ...)
+     * @returns {Promise<Object>} - Shared prompt data
+     */
+    static async fetchStandardizedPrompt(promptIdx) {
+        const url = `../experiments/${window.state.experimentData.name}/inference/prompts/prompt_${promptIdx}.json`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch standardized prompt ${promptIdx}`);
+        }
+        return await response.json();
+    }
+
+    /**
+     * Fetch standardized trait projections for a specific prompt
+     * @param {Object} trait - Trait object with name property
+     * @param {number} promptIdx - Prompt index
+     * @returns {Promise<Object>} - Trait-specific projection data
+     */
+    static async fetchStandardizedProjections(trait, promptIdx) {
+        const url = `../experiments/${window.state.experimentData.name}/inference/projections/${trait.name}/prompt_${promptIdx}.json`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch projections for ${trait.name} prompt ${promptIdx}`);
+        }
+        return await response.json();
+    }
+
+    /**
+     * Fetch combined inference data in legacy format (for backward compatibility)
+     * Combines standardized prompt + projections into single object
+     * @param {Object} trait - Trait object with name property
+     * @param {number} promptIdx - Prompt index
+     * @returns {Promise<Object>} - Combined data (same format as old Tier 2)
+     */
+    static async fetchInferenceCombined(trait, promptIdx) {
+        try {
+            // Try new standardized format first
+            const prompt = await this.fetchStandardizedPrompt(promptIdx);
+            const projections = await this.fetchStandardizedProjections(trait, promptIdx);
+
+            return {
+                prompt: prompt.prompt,
+                response: prompt.response,
+                tokens: prompt.tokens,
+                trait_scores: { [trait.name]: projections.scores },
+                dynamics: { [trait.name]: projections.dynamics }
+            };
+        } catch (e) {
+            // Fallback to old format if standardized doesn't exist
+            console.warn(`Standardized format not found for ${trait.name} prompt ${promptIdx}, trying legacy format`);
+            return await this.fetchTier2(trait, promptIdx);
+        }
+    }
+
+    /**
+     * Discover available prompts in standardized format
+     * @returns {Promise<number[]>} - Array of available prompt indices
+     */
+    static async discoverStandardizedPrompts() {
+        const promptsDir = `../experiments/${window.state.experimentData.name}/inference/prompts/`;
+        try {
+            // Try fetching a directory listing (won't work with static server, but good for future)
+            // For now, we'll try sequential probing
+            const indices = [];
+            for (let i = 0; i < 100; i++) {
+                try {
+                    await this.fetchStandardizedPrompt(i);
+                    indices.push(i);
+                } catch (e) {
+                    break; // Stop when we hit the first missing prompt
+                }
+            }
+            return indices;
+        } catch (e) {
+            console.warn('Failed to discover standardized prompts:', e);
+            return [];
+        }
+    }
+
+    /**
      * Fetch JSON file for preview
      * @param {Object} trait - Trait object with name property
      * @param {string} type - Type of JSON (trait_definition, activations_metadata, pos, neg)

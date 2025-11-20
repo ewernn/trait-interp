@@ -38,6 +38,7 @@ from tqdm import tqdm
 
 from traitlens import HookManager, ActivationCapture, projection
 from traitlens.compute import compute_derivative, compute_second_derivative
+from inference.utils_standardized_output import save_standardized_inference
 
 
 # ============================================================================
@@ -332,6 +333,7 @@ def main(
     output: str = "dynamics_results.json",
     max_new_tokens: int = 50,
     device: str = "cuda",
+    save_standardized: bool = True,
 ):
     """
     Run inference with dynamics analysis on all detected vectors.
@@ -345,6 +347,9 @@ def main(
         output: Output JSON file path
         max_new_tokens: Max tokens to generate per prompt
         device: Device to use
+        save_standardized: Save in standardized format (default: True)
+            - Shared prompts: experiments/{exp}/inference/prompts/prompt_N.json
+            - Per-trait projections: experiments/{exp}/inference/projections/{trait}/prompt_N.json
     """
     # Parse arguments
     trait_list = traits.split(',') if traits else None
@@ -431,7 +436,10 @@ def main(
     # Run inference on all prompts
     results = []
 
-    for prompt in tqdm(prompt_list, desc="Running inference"):
+    # Determine method name for standardized output
+    first_method = list(detected[list(detected.keys())[0]].keys())[0]
+
+    for prompt_idx, prompt in enumerate(tqdm(prompt_list, desc="Running inference")):
         result = run_inference_with_dynamics(
             model, tokenizer, prompt,
             vectors_to_analyze,
@@ -439,6 +447,16 @@ def main(
             max_new_tokens=max_new_tokens
         )
         results.append(result)
+
+        # Save in standardized format (in addition to combined format)
+        if save_standardized:
+            save_standardized_inference(
+                result,
+                experiment=experiment,
+                prompt_idx=prompt_idx,
+                layer=layer_to_use,
+                method=first_method
+            )
 
     # Save results
     output_path = Path(output)
