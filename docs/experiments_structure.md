@@ -39,8 +39,19 @@ experiments/
 │   ├── stylistic/                   # Category: stylistic traits
 │   │   ├── formality/
 │   │   └── positivity/
-│   └── alignment/                   # Category: alignment traits
-│       └── evaluation_awareness/
+│   ├── alignment/                   # Category: alignment traits
+│   │   └── evaluation_awareness/
+│   └── inference/                   # Experiment-level inference (optional)
+│       ├── prompts/                 # Standardized prompt sets
+│       │   ├── general_10.txt
+│       │   └── harmful_5.txt
+│       ├── raw_activations/         # Captured once per prompt
+│       │   └── general_10/
+│       │       └── prompt_0.pt
+│       └── projections/             # Per-trait scores
+│           └── behavioral/refusal/
+│               └── general_10/
+│                   └── prompt_0.json
 │
 └── experiment_name_2/
     └── ...
@@ -372,8 +383,192 @@ python ../../inference/monitor_dynamics.py \
 
 Everything needed is in the experiment directory - no external dependencies.
 
+## Inference Directory Structure (Optional)
+
+The `inference/` directory at experiment level stores **evaluation data** - standardized prompts tested across all trait vectors.
+
+### Key Distinction
+
+- **`extraction/`** (per-trait): Training-time data with unique prompts designed to elicit each specific trait
+- **`inference/`** (experiment-level): Eval-time data with standardized prompts shared across all traits
+
+### Why Experiment-Level?
+
+**Before (problematic):**
+```
+{trait}/inference/  # Duplicates activations 38× for each trait
+```
+
+**After (efficient):**
+```
+inference/  # Capture once, project to all 38 trait vectors
+```
+
+**Benefits:**
+- No duplication (1 GB vs 38 GB for 38 traits)
+- Standardized test sets enable cross-trait comparison
+- Easy to add new traits - just project existing activations
+- Clear separation: extraction = training, inference = eval
+
+### Structure
+
+```
+experiments/{exp}/inference/
+├── prompts/                        # Prompt sets (one file per set)
+│   ├── general_10.txt             # 10 general knowledge questions
+│   ├── harmful_5.txt              # 5 harmful requests
+│   └── edge_cases_3.txt           # 3 edge case scenarios
+│
+├── raw_activations/                # Captured once per prompt
+│   ├── general_10/                # One directory per prompt set
+│   │   ├── prompt_0.pt            # Raw activations + attention
+│   │   ├── prompt_1.pt
+│   │   └── ...
+│   └── harmful_5/
+│       └── prompt_0.pt
+│
+└── projections/                    # Per-trait projection scores
+    ├── behavioral/refusal/
+    │   ├── general_10/            # Same structure as raw_activations
+    │   │   ├── prompt_0.json      # Projections + metadata
+    │   │   └── prompt_1.json
+    │   └── harmful_5/
+    │       └── prompt_0.json
+    └── cognitive/uncertainty/
+        └── general_10/
+            └── prompt_0.json
+```
+
+### Prompt Sets
+
+**Format:** Plain text, one prompt per line
+
+**Example (`prompts/general_10.txt`):**
+```
+What is the capital of France?
+How does photosynthesis work?
+What's 15% of 80?
+...
+```
+
+**Purpose:** Define standardized evaluation sets for cross-trait comparison
+
+**Size:** ~1-5 KB per file
+
+### Raw Activations
+
+**Format:** PyTorch checkpoint with full model state
+
+**Contents:**
+```python
+torch.load('raw_activations/general_10/prompt_0.pt')
+# {
+#   'prompt': {...},      # Text, tokens, activations, attention
+#   'response': {...},    # Same structure
+#   'metadata': {...}     # Model, date, temperature
+# }
+```
+
+**Purpose:** Trait-agnostic capture - can project onto any vector
+
+**Size:** ~5-10 MB per prompt (all layers, all checkpoints)
+
+### Projections
+
+**Format:** JSON with projection scores
+
+**Contents:**
+```json
+{
+  "prompt": {
+    "text": "How do I make a bomb?",
+    "tokens": ["How", " do", ...],
+    "n_tokens": 7
+  },
+  "response": {
+    "text": "I cannot help with that.",
+    "tokens": ["I", " cannot", ...],
+    "n_tokens": 6
+  },
+  "projections": {
+    "prompt": [[...], [...]],    // [n_tokens, n_layers, 3_sublayers]
+    "response": [[...], [...]]
+  },
+  "metadata": {
+    "trait": "refusal",
+    "trait_display_name": "Refusal",
+    "vector_path": "experiments/.../vectors/probe_layer16.pt",
+    "model": "google/gemma-2-2b-it",
+    "capture_date": "2025-01-20T...",
+    "temperature": 0.7
+  }
+}
+```
+
+**Purpose:** Lightweight per-trait evaluation data for visualization
+
+**Size:** ~50-200 KB per prompt (JSON with projection arrays)
+
+### Usage
+
+**Generate inference data:**
+```bash
+# Single prompt set
+python inference/capture_all_layers.py \
+  --experiment gemma_2b_cognitive_nov20 \
+  --prompt-set general_10 \
+  --save-json
+
+# All prompt sets
+python inference/capture_all_layers.py \
+  --experiment gemma_2b_cognitive_nov20 \
+  --all-prompt-sets \
+  --save-json
+```
+
+**What happens:**
+1. Loads ALL trait vectors once (38 traits)
+2. For each prompt in the set:
+   - Captures activations (once)
+   - Projects onto all 38 vectors
+   - Saves raw activations (trait-agnostic)
+   - Saves 38 projection JSONs (per-trait)
+
+**Result:**
+- 10 prompts × 1 capture = 10 activation files (~50 MB total)
+- 10 prompts × 38 traits = 380 projection files (~20 MB total)
+- Total: ~70 MB for 10 prompts across 38 traits
+
+Compare to old structure: 10 prompts × 38 traits × 5 MB = 1.9 GB (duplicated!)
+
+### When to Use
+
+**Use inference directory when:**
+- You want standardized evaluation across traits
+- You're comparing multiple traits on same prompts
+- You're building a test suite for trait monitoring
+- You want reproducible evaluation data
+
+**Don't use inference directory when:**
+- Just doing one-off inference tests (use scripts directly)
+- Only monitoring single trait (no cross-trait comparison needed)
+- Prompts are ephemeral (not worth archiving)
+
+### Storage Considerations
+
+**Per prompt set (10 prompts, 38 traits):**
+- Prompt file: ~1 KB
+- Raw activations: ~50 MB (5 MB × 10 prompts)
+- Projections: ~20 MB (50 KB × 10 × 38)
+- Total: ~70 MB per prompt set
+
+**Scaling:**
+- 5 prompt sets × 10 prompts each = 350 MB total
+- Still 5× more efficient than per-trait duplication!
+
 ## Further Reading
 
 - `docs/pipeline_guide.md` - How to run the extraction pipeline
 - `docs/creating_traits.md` - How to design trait definitions
+- `inference/README.md` - How to use inference monitoring
 - `extraction/trait_templates/` - Templates for trait definitions and READMEs
