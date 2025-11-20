@@ -1,3 +1,5 @@
+source: [Persona Vectors](https://github.com/safety-research/persona_vectors), Runjin Chen and Andy Arditi
+
 # LoRA-Based Trait Extraction (Experimental)
 
 **Status:** Experimental - Scripts ready, methodology documented, not yet executed in this repo.
