@@ -20,63 +20,74 @@ from tqdm import tqdm
 sys.path.append(str(Path(__file__).parent.parent))
 
 
-def load_instruction_activations(trait, layer):
-    """Load instruction-based activations for a specific layer"""
-    base = Path(f'experiments/gemma_2b_cognitive_nov20/{trait}/extraction/activations')
+def load_instruction_activations(experiment, trait_path, layer):
+    """Load instruction-based activations for a specific layer
 
-    # Try old format first (all_layers.pt)
-    all_layers_file = base / 'all_layers.pt'
-    if all_layers_file.exists():
-        all_layers = torch.load(all_layers_file)  # [n_examples, 26, 2304]
+    Args:
+        experiment: Experiment name (e.g., gemma_2b_cognitive_nov20)
+        trait_path: Full trait path including category (e.g., behavioral/refusal)
+        layer: Layer number (0-25)
+    """
+    base = Path(f'experiments/{experiment}/extraction/{trait_path}/extraction/activations')
 
-        # Get metadata for pos/neg split
-        metadata_file = base / 'metadata.json'
-        if metadata_file.exists():
-            metadata = json.load(open(metadata_file))
-            n_pos = metadata.get('n_positive', metadata.get('n_examples_pos', 100))
-            n_neg = metadata.get('n_negative', metadata.get('n_examples_neg', 101))
-        else:
-            # Assume 100/100 split
-            n_pos = 100
-            n_neg = 100
+    if not base.exists():
+        raise FileNotFoundError(
+            f"Activations directory not found: {base}\n"
+            f"Expected: experiments/{experiment}/extraction/{{category}}/{{trait}}/extraction/activations/"
+        )
 
-        pos_acts = all_layers[:n_pos, layer, :]
-        neg_acts = all_layers[n_pos:n_pos+n_neg, layer, :]
-        return pos_acts, neg_acts
-
-    # Try new format (separate pos/neg files)
-    pos_file = base / f'pos_layer{layer}.pt'
-    neg_file = base / f'neg_layer{layer}.pt'
-    if pos_file.exists() and neg_file.exists():
-        pos_acts = torch.load(pos_file)
-        neg_acts = torch.load(neg_file)
-        return pos_acts, neg_acts
-
-    raise FileNotFoundError(f"No activation files found for {trait} at layer {layer}")
-
-
-def load_natural_activations(trait_base, layer):
-    """Load natural elicitation activations"""
-    trait_natural = f"{trait_base}_natural"
-    base = Path(f'experiments/gemma_2b_cognitive_nov20/{trait_natural}/extraction/activations')
-
+    # Use separate pos/neg files
     pos_file = base / f'pos_layer{layer}.pt'
     neg_file = base / f'neg_layer{layer}.pt'
 
-    if not pos_file.exists() or not neg_file.exists():
-        raise FileNotFoundError(f"Natural activations not found for {trait_natural}")
+    if not (pos_file.exists() and neg_file.exists()):
+        raise FileNotFoundError(f"Activation files not found for {trait_path} at layer {layer}")
 
     pos_acts = torch.load(pos_file)
     neg_acts = torch.load(neg_file)
     return pos_acts, neg_acts
 
 
-def load_vector(trait, method, layer, source='instruction'):
-    """Load extracted vector"""
-    if source == 'natural':
-        trait = f"{trait}_natural"
+def load_natural_activations(experiment, trait_path_base, layer):
+    """Load natural elicitation activations
 
-    vectors_dir = Path(f'experiments/gemma_2b_cognitive_nov20/{trait}/extraction/vectors')
+    Args:
+        experiment: Experiment name (e.g., gemma_2b_cognitive_nov20)
+        trait_path_base: Base trait path (e.g., behavioral/refusal)
+        layer: Layer number (0-25)
+    """
+    # Natural variants are named {trait}_natural, not {category}/{trait}_natural
+    category, trait_name = trait_path_base.split('/')
+    trait_natural_path = f"{category}/{trait_name}_natural"
+
+    base = Path(f'experiments/{experiment}/extraction/{trait_natural_path}/extraction/activations')
+
+    pos_file = base / f'pos_layer{layer}.pt'
+    neg_file = base / f'neg_layer{layer}.pt'
+
+    if not pos_file.exists() or not neg_file.exists():
+        raise FileNotFoundError(f"Natural activations not found for {trait_natural_path}")
+
+    pos_acts = torch.load(pos_file)
+    neg_acts = torch.load(neg_file)
+    return pos_acts, neg_acts
+
+
+def load_vector(experiment, trait_path, method, layer, source='instruction'):
+    """Load extracted vector
+
+    Args:
+        experiment: Experiment name (e.g., gemma_2b_cognitive_nov20)
+        trait_path: Base trait path (e.g., behavioral/refusal)
+        method: Extraction method (mean_diff, probe, ica, gradient)
+        layer: Layer number (0-25)
+        source: 'instruction' or 'natural'
+    """
+    if source == 'natural':
+        category, trait_name = trait_path.split('/')
+        trait_path = f"{category}/{trait_name}_natural"
+
+    vectors_dir = Path(f'experiments/{experiment}/extraction/{trait_path}/extraction/vectors')
     vector_file = vectors_dir / f'{method}_layer{layer}.pt'
 
     if not vector_file.exists():
@@ -132,14 +143,25 @@ def test_vector(vector, pos_acts, neg_acts):
     }
 
 
-def run_quadrant(trait, quadrant_name, vector_source, test_source):
-    """Run one quadrant (train source → test source)"""
+def run_quadrant(experiment, trait_path, quadrant_name, vector_source, test_source):
+    """Run one quadrant (train source → test source)
+
+    Args:
+        experiment: Experiment name
+        trait_path: Full trait path (category/trait_name)
+        quadrant_name: Name of quadrant (inst_inst, inst_nat, nat_inst, nat_nat)
+        vector_source: 'instruction' or 'natural'
+        test_source: 'instruction' or 'natural'
+    """
     methods = ['mean_diff', 'probe', 'ica', 'gradient']
     n_layers = 26
 
+    category, trait_name = trait_path.split('/')
+    vector_source_path = f"{category}/{trait_name}_natural" if vector_source == 'natural' else trait_path
+
     results = {
         'description': f"{vector_source.title()} → {test_source.title()}",
-        'vector_source': trait if vector_source == 'instruction' else f"{trait}_natural",
+        'vector_source': vector_source_path,
         'test_source': test_source,
         'methods': {}
     }
@@ -152,15 +174,15 @@ def run_quadrant(trait, quadrant_name, vector_source, test_source):
         for layer in tqdm(range(n_layers), desc=f"{quadrant_name} - {method}", leave=False):
             try:
                 # Load vector
-                vector = load_vector(trait, method, layer, source=vector_source)
+                vector = load_vector(experiment, trait_path, method, layer, source=vector_source)
                 if vector is None:
                     continue
 
                 # Load test activations
                 if test_source == 'instruction':
-                    pos_acts, neg_acts = load_instruction_activations(trait, layer)
+                    pos_acts, neg_acts = load_instruction_activations(experiment, trait_path, layer)
                 else:  # natural
-                    pos_acts, neg_acts = load_natural_activations(trait, layer)
+                    pos_acts, neg_acts = load_natural_activations(experiment, trait_path, layer)
 
                 # Test
                 metrics = test_vector(vector, pos_acts, neg_acts)
@@ -185,11 +207,25 @@ def run_quadrant(trait, quadrant_name, vector_source, test_source):
     return results
 
 
-def run_full_4x4(trait):
-    """Run complete 4×4 cross-distribution analysis"""
+def run_full_4x4(experiment, trait_path):
+    """Run complete 4×4 cross-distribution analysis
+
+    Args:
+        experiment: Experiment name (e.g., gemma_2b_cognitive_nov20)
+        trait_path: Full trait path including category (e.g., behavioral/refusal)
+    """
     print(f"\n{'='*60}")
-    print(f"Cross-Distribution Analysis: {trait}")
+    print(f"Cross-Distribution Analysis: {trait_path}")
+    print(f"Experiment: {experiment}")
     print(f"{'='*60}\n")
+
+    # Verify structure
+    exp_dir = Path(f'experiments/{experiment}/extraction/{trait_path}')
+    if not exp_dir.exists():
+        raise FileNotFoundError(
+            f"Trait directory not found: {exp_dir}\n"
+            f"Expected: experiments/{experiment}/extraction/{{category}}/{{trait}}/"
+        )
 
     # Define quadrants
     quadrants = {
@@ -211,9 +247,12 @@ def run_full_4x4(trait):
         }
     }
 
+    # Extract trait name without category for output filename
+    trait_name = trait_path.split('/')[-1]
+
     results = {
-        'experiment': 'gemma_2b_cognitive_nov20',
-        'trait': trait,
+        'experiment': experiment,
+        'trait': trait_path,
         'n_layers': 26,
         'methods': ['mean_diff', 'probe', 'ica', 'gradient'],
         'quadrants': {}
@@ -223,7 +262,8 @@ def run_full_4x4(trait):
         print(f"\n{quadrant_name}: {config['vector_source']} → {config['test_source']}")
         try:
             quadrant_results = run_quadrant(
-                trait,
+                experiment,
+                trait_path,
                 quadrant_name,
                 config['vector_source'],
                 config['test_source']
@@ -233,10 +273,10 @@ def run_full_4x4(trait):
             print(f"ERROR in {quadrant_name}: {e}")
             continue
 
-    # Save results
-    output_dir = Path('results/cross_distribution_analysis')
+    # Save results to experiment's validation directory
+    output_dir = Path(f'experiments/{experiment}/validation')
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir / f'{trait}_full_4x4_results.json'
+    output_file = output_dir / f'{trait_name}_full_4x4_results.json'
 
     with open(output_file, 'w') as f:
         json.dump(results, f, indent=2)
@@ -255,11 +295,24 @@ def run_full_4x4(trait):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Run cross-distribution analysis')
-    parser.add_argument('--trait', type=str, required=True, help='Trait name (e.g., uncertainty_calibration)')
+    parser = argparse.ArgumentParser(
+        description='Run cross-distribution analysis',
+        epilog='Example: python scripts/run_cross_distribution.py --trait behavioral/refusal'
+    )
+    parser.add_argument('--experiment', type=str, default='gemma_2b_cognitive_nov20',
+                       help='Experiment name (default: gemma_2b_cognitive_nov20)')
+    parser.add_argument('--trait', type=str, required=True,
+                       help='Trait path: category/trait_name (e.g., behavioral/refusal, cognitive/uncertainty_calibration)')
     args = parser.parse_args()
 
-    run_full_4x4(args.trait)
+    # Validate trait format
+    if '/' not in args.trait:
+        raise ValueError(
+            f"Trait must include category: got '{args.trait}'\n"
+            f"Expected format: category/trait_name (e.g., behavioral/refusal)"
+        )
+
+    run_full_4x4(args.experiment, args.trait)
 
 
 if __name__ == '__main__':
