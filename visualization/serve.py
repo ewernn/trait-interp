@@ -101,10 +101,6 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         )
                         if has_traits:
                             break
-                    # Also check for old flat structure (backward compatibility)
-                    elif (subdir / 'extraction').exists():
-                        has_traits = True
-                        break
 
                 if has_traits:
                     experiments.append(item.name)
@@ -143,20 +139,6 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         if has_responses or has_vectors:
                             # Use category/trait format
                             traits.append(f"{item.name}/{trait_item.name}")
-
-            # Also check for old flat structure (backward compatibility)
-            elif (item / 'extraction').exists():
-                responses_dir = item / 'extraction' / 'responses'
-                vectors_dir = item / 'extraction' / 'vectors'
-                has_responses = (
-                    responses_dir.exists() and (
-                        (responses_dir / 'pos.csv').exists() or
-                        (responses_dir / 'pos.json').exists()
-                    )
-                )
-                has_vectors = vectors_dir.exists() and len(list(vectors_dir.glob('*.pt'))) > 0
-                if has_responses or has_vectors:
-                    traits.append(item.name)
 
         return {'traits': sorted(traits)}
 
