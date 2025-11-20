@@ -114,20 +114,22 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if item.is_dir() and not item.name.startswith('.'):
                 has_traits = False
 
-                # Check for categorized structure
-                for subdir in item.iterdir():
-                    if not subdir.is_dir():
-                        continue
+                # Check for extraction/{category}/ structure
+                extraction_dir = item / 'extraction'
+                if extraction_dir.exists():
+                    for category_dir in extraction_dir.iterdir():
+                        if not category_dir.is_dir():
+                            continue
 
-                    # If it's a category directory, check inside for traits
-                    if subdir.name in category_names:
-                        has_traits = any(
-                            (trait_dir / 'extraction').exists()
-                            for trait_dir in subdir.iterdir()
-                            if trait_dir.is_dir()
-                        )
-                        if has_traits:
-                            break
+                        # If it's a category directory, check inside for traits
+                        if category_dir.name in category_names:
+                            has_traits = any(
+                                (trait_dir / 'extraction').exists()
+                                for trait_dir in category_dir.iterdir()
+                                if trait_dir.is_dir()
+                            )
+                            if has_traits:
+                                break
 
                 if has_traits:
                     experiments.append(item.name)
@@ -142,16 +144,20 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         traits = []
 
-        # Check for categorized structure (behavioral, cognitive, stylistic, alignment)
+        # Check for extraction/{category}/ structure
+        extraction_dir = exp_dir / 'extraction'
+        if not extraction_dir.exists():
+            return {'traits': []}
+
         category_names = {'behavioral', 'cognitive', 'stylistic', 'alignment'}
 
-        for item in exp_dir.iterdir():
-            if not item.is_dir():
+        for category_dir in extraction_dir.iterdir():
+            if not category_dir.is_dir():
                 continue
 
             # If this is a category directory, look inside it
-            if item.name in category_names:
-                for trait_item in item.iterdir():
+            if category_dir.name in category_names:
+                for trait_item in category_dir.iterdir():
                     if trait_item.is_dir() and (trait_item / 'extraction').exists():
                         # Check for responses OR vectors to confirm it's a real trait
                         responses_dir = trait_item / 'extraction' / 'responses'
@@ -165,43 +171,59 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         has_vectors = vectors_dir.exists() and len(list(vectors_dir.glob('*.pt'))) > 0
                         if has_responses or has_vectors:
                             # Use category/trait format
-                            traits.append(f"{item.name}/{trait_item.name}")
+                            traits.append(f"{category_dir.name}/{trait_item.name}")
 
         return {'traits': sorted(traits)}
 
     def send_cross_dist_index(self):
         """Send cross-distribution data index."""
-        index_path = Path('results/cross_distribution_analysis/data_index.json')
-        if not index_path.exists():
-            self.send_api_response({'error': 'Index not found. Run analysis/cross_distribution_scanner.py'})
+        # Find first experiment with validation data
+        experiments_dir = Path('experiments')
+        if not experiments_dir.exists():
+            self.send_api_response({'error': 'experiments/ directory not found'})
             return
 
-        try:
-            with open(index_path, 'r') as f:
-                data = json.load(f)
-            self.send_api_response(data)
-        except Exception as e:
-            self.send_api_response({'error': str(e)})
+        # Try to find any experiment with validation/data_index.json
+        for exp_dir in experiments_dir.iterdir():
+            if exp_dir.is_dir() and not exp_dir.name.startswith('.'):
+                index_path = exp_dir / 'validation' / 'data_index.json'
+                if index_path.exists():
+                    try:
+                        with open(index_path, 'r') as f:
+                            data = json.load(f)
+                        self.send_api_response(data)
+                        return
+                    except Exception as e:
+                        continue
+
+        self.send_api_response({'error': 'Index not found. Run analysis/cross_distribution_scanner.py'})
 
     def send_cross_dist_results(self, trait_name):
         """Send cross-distribution results for a specific trait."""
-        # Try to find the results file for this trait
-        results_dir = Path('results/cross_distribution_analysis')
-        result_files = [
-            results_dir / f'{trait_name}_full_4x4_results.json',
-            results_dir / f'{trait_name}_cross_dist_results.json',
-        ]
+        # Search all experiments for this trait's validation results
+        experiments_dir = Path('experiments')
+        if not experiments_dir.exists():
+            self.send_api_response({'error': 'experiments/ directory not found'})
+            return
 
-        for result_file in result_files:
-            if result_file.exists():
-                try:
-                    with open(result_file, 'r') as f:
-                        data = json.load(f)
-                    self.send_api_response(data)
-                    return
-                except Exception as e:
-                    self.send_api_response({'error': str(e)})
-                    return
+        for exp_dir in experiments_dir.iterdir():
+            if exp_dir.is_dir() and not exp_dir.name.startswith('.'):
+                validation_dir = exp_dir / 'validation'
+                if validation_dir.exists():
+                    result_files = [
+                        validation_dir / f'{trait_name}_full_4x4_results.json',
+                        validation_dir / f'{trait_name}_cross_dist_results.json',
+                    ]
+
+                    for result_file in result_files:
+                        if result_file.exists():
+                            try:
+                                with open(result_file, 'r') as f:
+                                    data = json.load(f)
+                                self.send_api_response(data)
+                                return
+                            except Exception as e:
+                                continue
 
         self.send_api_response({'error': f'No results found for {trait_name}'})
 
