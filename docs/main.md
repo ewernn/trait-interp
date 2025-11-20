@@ -477,7 +477,7 @@ import torch
 
 # Load vectors
 vectors = {
-    'refusal': torch.load('experiments/gemma_2b_cognitive_nov20/behavioral/refusal/extraction/vectors/probe_layer16.pt'),
+    'refusal': torch.load('experiments/gemma_2b_cognitive_nov20/extraction/behavioral/refusal/extraction/vectors/probe_layer16.pt'),
     # ... more traits
 }
 
