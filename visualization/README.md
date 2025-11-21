@@ -48,6 +48,19 @@ Visit: **http://localhost:8000/visualization/**
 - **Method Comparison**: Compare mean_diff, probe, ICA, and gradient extraction methods
 - **Visualization Metrics**:
   - **Probe**: Inverted vector norm (smaller = stronger due to L2 regularization)
+
+### Trait Correlation Mode
+- **Pairwise Correlation Matrix**: Compute Pearson correlations between all trait projections
+- **Independence Testing**: Identify which traits measure similar vs different computations
+- **Visualization**:
+  - Red (r ≈ -1): Strong inverse correlation
+  - White (r ≈ 0): Independent traits
+  - Green (r ≈ +1): Strong positive correlation
+- **Use Cases**:
+  - Identify redundant traits for merging
+  - Validate framework coherence (expect low correlations)
+  - Discover trait relationships and confounds
+- **Method**: Uses layer 16 projections from Tier 2 inference data
   - **Gradient**: Separation strength (unit normalized vectors)
   - **Mean Diff & ICA**: Vector magnitude
 - **Filtering**: Only shows traits with completed vector extraction (`extraction/vectors/` exists)
@@ -120,28 +133,39 @@ Each trait shows:
 
 ## Data Sources
 
-The visualization automatically loads data from your experiment structure:
+The visualization automatically loads data from your experiment structure.
+
+**Path Management**: Uses centralized `PathBuilder` class in `core/paths.js` - all path construction is consistent and maintainable.
+
+**Supported Directory Structures**:
+- **Legacy (flat)**: `experiments/{exp}/extraction/{trait}/...`
+- **Categorized**: `experiments/{exp}/extraction/{category}/{trait}/...` (e.g., `behavioral_tendency/retrieval`)
 
 ```
 experiments/{experiment_name}/
-├── {trait_name}/
-│   ├── extraction/                          # Extraction data (Tier 1)
-│   │   ├── trait_definition.json
-│   │   ├── responses/
-│   │   │   ├── pos.csv                      # Generated responses
-│   │   │   └── neg.csv                      # Generated responses
-│   │   ├── activations/
-│   │   │   └── metadata.json                # Loaded for Overview
-│   │   └── vectors/
-│   │       └── *_metadata.json              # Loaded for Vector Analysis
-│   └── inference/                           # Inference data (Tier 2 & 3)
-│       ├── residual_stream_activations/     # Tier 2: All Layers & Prompt Activation
-│       │   ├── prompt_0.json                # First prompt (includes projections + attention_weights)
-│       │   ├── prompt_1.json                # Additional prompts (auto-discovered)
-│       │   └── prompt_N.json                # Multiple prompts supported
-│       └── layer_internal_states/           # Tier 3: Layer Deep Dive
-│           ├── prompt_0_layer16.json        # First prompt at layer 16
-│           └── prompt_N_layer16.json        # Additional prompts at layer 16
+├── extraction/
+│   └── {category}/                          # Optional category (behavioral, cognitive, etc.)
+│       └── {trait_name}/                    # Trait name (e.g., refusal, uncertainty)
+│           ├── trait_definition.json
+│           ├── responses/
+│           │   ├── pos.csv                  # Generated responses
+│           │   └── neg.csv                  # Generated responses
+│           ├── activations/
+│           │   └── metadata.json            # Loaded for Overview
+│           └── vectors/
+│               └── *_metadata.json          # Loaded for Vector Analysis
+└── inference/
+    ├── prompts/                             # Shared prompts
+    │   └── prompt_N.json
+    └── {category}/{trait_name}/             # Per-trait inference data
+        └── projections/
+            ├── residual_stream_activations/ # Tier 2: All Layers & Trait Correlation
+            │   ├── prompt_0.json            # Projections for all layers
+            │   ├── prompt_1.json            # Additional prompts (auto-discovered)
+            │   └── prompt_N.json            # Multiple prompts supported
+            └── layer_internal_states/       # Tier 3: Layer Deep Dive
+                ├── prompt_0_layer16.json    # Complete layer 16 internals
+                └── prompt_N_layer16.json    # Additional prompts
 ```
 
 ## Generating Inference Data
@@ -286,23 +310,30 @@ To add new experiments:
 
 ## Architecture
 
-The visualization uses a modular architecture:
+The visualization uses a modular architecture with centralized path management:
 
 ```
 visualization/
-├── index.html              # Shell (235 lines) - loads modules
+├── index.html              # Shell - loads modules
 ├── styles.css              # All CSS (1,278 lines)
+├── serve.py                # Development server with auto-discovery API
 ├── core/
+│   ├── paths.js           # 🆕 Centralized PathBuilder class (no hardcoded paths)
 │   ├── state.js           # Global state, experiment loading
 │   └── data-loader.js     # Centralized data fetching
 └── views/
-    ├── data-explorer.js
-    ├── vectors.js
-    ├── cross-distribution.js
-    ├── monitoring.js
-    ├── prompt-activation.js
-    └── layer-dive.js
+    ├── data-explorer.js   # File browser with preview
+    ├── vectors.js         # Vector extraction comparison (uses PathBuilder)
+    ├── trait-correlation.js  # 🆕 Pairwise trait correlation matrix
+    ├── monitoring.js      # All layers visualization
+    ├── prompt-activation.js  # Per-token trajectories
+    └── layer-dive.js      # Single layer deep dive
 ```
+
+**Key Improvements**:
+- **PathBuilder**: Centralized path construction in `core/paths.js` eliminates hardcoding
+- **Flexible Categories**: Auto-discovers traits regardless of category naming scheme
+- **No Hardcoded Experiments**: All discovery done dynamically via API
 
 See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed documentation.
 

@@ -4,130 +4,101 @@ Research extensions and technical improvements identified through experimentatio
 
 ---
 
-## Priority List
+## Validation & Diagnostics
 
-### 🔴 High Priority
-1. Implement causal inner product (Park et al. 2023)
-2. Add activation range diagnostics (verify near-linear regime)
-3. Document layer selection rationale based on activation functions
+### 1. Activation Range Diagnostics
 
-### 🟡 Medium Priority
-4. Test hierarchical composition hypothesis (layer 8 features → layer 16 traits)
-5. Add non-linearity detection to validation pipeline (PCA variance check)
-6. Document trait complexity tiers (simple/complex/circular)
+**Method**: Check if activations fall within near-linear regime of GELU (x ∈ [-1, 1]).
 
-### 🟢 Low Priority
-7. Explore multi-dimensional extraction for circular/complex traits
-8. Expand SAE integration for feature decomposition
-9. Test framework on additional models (Llama 3.1, Claude, etc.)
-
----
-
-## Details
-
-### 1. Causal Inner Product
-
-**Problem**: Currently using Euclidean inner product `v·w`, but Park et al. (2023) proved causal inner product is more appropriate.
-
-**Implementation**:
-```python
-# traitlens/compute.py
-def causal_inner_product(v1, v2, model, tokenizer):
-    """Compute v1^T Cov(γ)^(-1) v2 where γ = uniform vocab sample."""
-    vocab_embeddings = model.get_output_embeddings().weight
-    cov = torch.cov(vocab_embeddings.T)
-    M = torch.linalg.inv(cov)
-    return v1 @ M @ v2
-```
-
-**Impact**: More principled geometry, better semantic structure preservation.
-
-### 2. Activation Range Diagnostics
-
-**Problem**: Linear approximation only valid when activations in near-linear regime of GELU (x ∈ [-1, 1]).
-
-**Implementation**:
-```python
-def check_linearity_regime(activations, layer_name):
-    """Flag if activations outside linear regime."""
-    mean, std = activations.mean(), activations.std()
-    if mean.abs() > 2 or std > 2:
-        print(f"⚠️  {layer_name}: Outside linear regime")
-```
+**Test**: Flag layers where mean.abs() > 2 or std > 2 during extraction.
 
 **Impact**: Validates when linear methods are appropriate, explains layer-dependent performance.
 
+### 2. Non-Linearity Detection
+
+**Method**: Run PCA on concatenated pos/neg activations, check first component variance ratio.
+
+**Test**: If first component < 90% variance → trait is multi-dimensional.
+
+**Impact**: Flags traits that need different extraction methods or are irreducibly complex.
+
+---
+
+## Mechanistic Understanding
+
 ### 3. Hierarchical Composition Testing
 
-**Question**: Do late-layer traits compose linearly from early-layer features?
+**Method**: Use Ridge regression to predict late-layer trait from early-layer trait projections.
 
-**Test**:
-```python
-# Can layer 16 refusal be predicted from layer 8 subfeatures?
-from sklearn.linear_model import Ridge
+**Test**: Can layer 16 refusal be predicted from layer 8 subfeatures (harm, uncertainty, instruction)?
 
-X = stack([
-    projection(acts_l8, harm_vector_l8),
-    projection(acts_l8, uncertainty_vector_l8),
-    projection(acts_l8, instruction_vector_l8),
-])
-y = projection(acts_l16, refusal_vector_l16)
+**Impact**: Validates linear composition hypothesis, enables interpretable trait hierarchies.
 
-r2 = Ridge().fit(X, y).score(X, y)
-# High R² → linear composition holds
-# Low R² → nonlinear emergence
-```
+### 4. SAE Feature Decomposition
 
-**Impact**: Validates mechanistic understanding, enables interpretable trait hierarchies.
+**Method**: Project trait vectors into SAE feature space (16k features from GemmaScope).
 
-### 4. Non-Linearity Detection
+**Test**: Which interpretable features contribute most to each trait vector?
 
-**Problem**: 1-D extraction misses circular features (days of week) and multi-dimensional concepts.
+**Impact**: Mechanistic decomposition (e.g., "Refusal = 0.5×harm_detection + 0.3×uncertainty + 0.2×instruction_boundary").
 
-**Implementation**:
-```python
-def test_linearity(pos_acts, neg_acts):
-    """Test if feature is truly 1-D linear."""
-    pca = PCA(n_components=5)
-    pca.fit(concat(pos, neg))
-    # If first component < 90% variance → likely multi-dimensional
-    return pca.explained_variance_ratio_[0]
-```
+### 5. Cross-Model Validation
 
-**Impact**: Flag traits needing multi-dimensional extraction methods.
+**Method**: Extract same traits on Llama 3.1 8B, Mistral, other architectures.
 
-### 5. Multi-Dimensional Extraction
+**Test**: Do traits transfer? Are layer numbers absolute or relative? Does middle-layer optimum generalize?
 
-**Problem**: Some traits may be irreducibly multi-dimensional (Engels et al. 2024).
+**Impact**: Tests whether findings are Gemma-specific or universal to transformer architectures.
 
-**Approach**: Extend extraction methods to output k-dimensional subspaces instead of 1-D vectors.
+---
 
-**Impact**: Capture circular features, multi-axis concepts (political ideology = economic + social).
+## Causal Validation
 
-### 6. SAE Feature Decomposition
+### 6. Layer-Specific Trait Localization
 
-**Current**: SAE integration in `sae/` directory, but not deeply integrated with extraction.
+**Method**: Run interchange interventions at all layers (0-26) for each trait.
 
-**Extension**: Use SAE features to decompose trait vectors into interpretable components.
+**Test**: Find which layers actually mediate behavior when patched.
 
-**Impact**: "Refusal = 0.5×harm_detection + 0.3×uncertainty + 0.2×instruction_boundary"
+**Impact**: Identifies optimal extraction layer per trait, validates layer-dependent trait localization.
 
-### 7. Cross-Model Validation
+### 7. Component Ablation (Attention vs MLP)
 
-**Current**: 38 traits on Gemma 2B only.
+**Method**: Patch QK, VO, and MLP components separately during interchange.
 
-**Extension**: Test on Llama 3.1 8B, Claude models, Mistral.
+**Test**: Which architectural component actually mediates each trait?
 
-**Questions**:
-- Do traits transfer across architectures?
-- Are layer numbers architecture-dependent or relative?
-- Does the Goldilocks zone (layers 8-16) generalize?
+**Impact**: Validates whether traits are "attention structure" vs residual stream features.
+
+### 8. Cross-Trait Interference
+
+**Method**: Patch two traits simultaneously with opposite signs (+refusal/-confidence).
+
+**Test**: Do traits compose additively or interfere?
+
+**Impact**: Validates trait orthogonality and correlation matrix predictions.
+
+### 9. Temporal Causality Decay
+
+**Method**: Patch at token T, measure effect at T+1, T+5, T+10, T+20.
+
+**Test**: Quantify persistence window and decay rate per trait.
+
+**Impact**: Tests KV cache propagation hypothesis, validates attention-based persistence claims.
+
+### 10. Trait Correlation Matrix
+
+**Method**: Compute pairwise correlations between all trait vector projections on shared prompts.
+
+**Test**: Which traits are independent vs measuring same computation?
+
+**Impact**: Quantifies confounding structure, validates whether framework is coherent or over-partitioned.
 
 ---
 
 ## References
 
-- Park et al. (2023): "Linear representation hypothesis and geometry of LLMs" - Causal inner product theory
-- Jiang et al. (2024): "On the origins of linear representations" - Near-linear activation explanation
-- Engels et al. (2024): "Not all language model features are one-dimensionally linear" - Multi-dimensional critique
-- Turner et al. (2023): "Steering language models with activation engineering" - Practical steering validation
+- Park et al. (2023): "Linear representation hypothesis and geometry of LLMs"
+- Jiang et al. (2024): "On the origins of linear representations in LLMs"
+- Engels et al. (2024): "Not all language model features are one-dimensionally linear"
+- Turner et al. (2023): "Steering language models with activation engineering"
