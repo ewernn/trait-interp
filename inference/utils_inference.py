@@ -4,7 +4,7 @@ Utilities for inference output format.
 
 Saves inference results in deduplicated format:
 - Shared prompts: experiments/{exp}/inference/prompts/prompt_N.json
-- Per-trait projections: experiments/{exp}/inference/projections/{trait}/prompt_N.json
+- Per-trait projections: experiments/{exp}/inference/{category}/{trait}/projections/prompt_N.json
 """
 
 import json

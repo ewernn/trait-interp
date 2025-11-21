@@ -860,7 +860,7 @@ function setupEventListeners() {
 }
 
 // Utility functions
-function window.showError(message) {
+function showError(message) {
     document.getElementById('content-area').innerHTML = `
         <div class="error">
             <strong>Error:</strong> ${message}
@@ -875,8 +875,6 @@ python -m http.server 8000</pre>
 
 // Initialize on page load
 init();
-    </script>
-</body>
-</html>
+
 // Export to global scope
 window.renderLayerDeepDive = renderLayerDeepDive;

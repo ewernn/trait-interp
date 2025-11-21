@@ -433,6 +433,6 @@ After extraction:
 ## Further Reading
 
 - `docs/creating_traits.md` - How to design good trait definitions
-- `docs/experiments_structure.md` - How experiments are organized
+- `docs/architecture.md` - How experiments are organized
 - `docs/extraction_methods.md` - Deep dive on extraction methods
 - `traitlens/README.md` - Low-level toolkit documentation

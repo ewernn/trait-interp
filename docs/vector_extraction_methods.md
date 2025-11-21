@@ -4,7 +4,7 @@
 
 **TL;DR:** Probe and gradient vectors aren't actually zero - they're **normalized** (norm ≈ 1-2), while mean_diff is **unnormalized** (norm ≈ 50-100). The heatmap color scale is dominated by mean_diff, making probe/gradient appear as 0.
 
-### Example from refusal-instruction-extraction, layer 16:
+### Example from behavioral/refusal, layer 16:
 ```json
 mean_diff:  norm = 97.44   (unnormalized difference)
 probe:      norm = 2.16    (normalized weights from logistic regression)
@@ -289,10 +289,10 @@ Layer 16: norm = 2.16, acc = 100%   # Lower norm, still accurate
 Check actual norms:
 
 ```bash
-cat experiments/gemma_2b_cognitive_nov20/refusal-instruction-extraction/extraction/vectors/probe_layer16_metadata.json
+cat experiments/gemma_2b_cognitive_nov20/extraction/behavioral/refusal/vectors/probe_layer16_metadata.json
 # Shows: "vector_norm": 2.164860027678928
 
-cat experiments/gemma_2b_cognitive_nov20/refusal-instruction-extraction/extraction/vectors/gradient_layer16_metadata.json
+cat experiments/gemma_2b_cognitive_nov20/extraction/behavioral/refusal/vectors/gradient_layer16_metadata.json
 # Shows: "vector_norm": 0.9999998807907104
 ```
 

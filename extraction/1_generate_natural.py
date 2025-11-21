@@ -40,7 +40,7 @@ def generate_natural_responses(
     print("="*80)
 
     # Setup paths - trait should be "category/trait_name" (e.g., "behavioral/refusal")
-    base_dir = Path('experiments') / experiment / 'extraction' / trait / 'extraction'
+    base_dir = Path('experiments') / experiment / 'extraction' / trait
 
     if not base_dir.parent.exists():
         raise FileNotFoundError(

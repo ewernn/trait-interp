@@ -124,9 +124,8 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         # If it's a category directory, check inside for traits
                         if category_dir.name in category_names:
                             has_traits = any(
-                                (trait_dir / 'extraction').exists()
+                                trait_dir.is_dir()
                                 for trait_dir in category_dir.iterdir()
-                                if trait_dir.is_dir()
                             )
                             if has_traits:
                                 break
@@ -158,10 +157,10 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             # If this is a category directory, look inside it
             if category_dir.name in category_names:
                 for trait_item in category_dir.iterdir():
-                    if trait_item.is_dir() and (trait_item / 'extraction').exists():
+                    if trait_item.is_dir():
                         # Check for responses OR vectors to confirm it's a real trait
-                        responses_dir = trait_item / 'extraction' / 'responses'
-                        vectors_dir = trait_item / 'extraction' / 'vectors'
+                        responses_dir = trait_item / 'responses'
+                        vectors_dir = trait_item / 'vectors'
                         has_responses = (
                             responses_dir.exists() and (
                                 (responses_dir / 'pos.csv').exists() or

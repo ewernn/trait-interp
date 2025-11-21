@@ -132,14 +132,14 @@ def discover_traits(experiment_name: str) -> List[Tuple[str, str]]:
             if not trait_dir.is_dir():
                 continue
 
-            vectors_dir = trait_dir / "extraction" / "vectors"
+            vectors_dir = trait_dir / "vectors"
             if vectors_dir.exists() and len(list(vectors_dir.glob('*.pt'))) > 0:
                 traits.append((category, trait_dir.name))
 
     if not traits:
         raise ValueError(
             f"No traits with vectors found in {extraction_dir}\n"
-            f"Expected structure: extraction/{{category}}/{{trait}}/extraction/vectors/*.pt"
+            f"Expected structure: extraction/{{category}}/{{trait}}/vectors/*.pt"
         )
 
     return sorted(traits)
@@ -1000,7 +1000,7 @@ def main():
 
                     # Save projection JSON
                     if args.save_json:
-                        trait_proj_dir = projections_dir / f"{category}/{trait_name}" / set_name
+                        trait_proj_dir = inference_dir / category / trait_name / "projections" / set_name
                         trait_proj_dir.mkdir(parents=True, exist_ok=True)
 
                         json_path = trait_proj_dir / f"prompt_{prompt_idx}.json"
@@ -1012,7 +1012,7 @@ def main():
             print(f"  ✅ Success! Processed {len(prompts)} prompts")
             print(f"     Raw activations: {set_activations_dir}")
             if args.save_json:
-                print(f"     Projections: {projections_dir}/*/{set_name}/")
+                print(f"     Projections: {inference_dir}/{{category}}/{{trait}}/projections/{set_name}/")
             print()
 
         except Exception as e:

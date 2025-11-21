@@ -158,6 +158,38 @@ python3 temp-vector-analysis/emotional_valence/emotional_valence_full_4x4_sweep.
 
 ---
 
+## 2025-11-20: Behavioral Safety Metrics for Non-CoT Models
+
+**Finding**: Token-by-token trait monitoring measures safety alignment quality in instruction-tuned models without requiring chain-of-thought traces.
+
+**Context**: Google found "substantial propensity for strategic deception" in Gemini 3 Pro but deemed it safe because it "isn't competent enough yet." This raises: how do you measure genuine vs superficial safety alignment?
+
+**Refusal Quality Metrics** (works on Gemma 2B IT, no CoT needed):
+- **Early commitment** = genuine safety (crystallizes in first tokens)
+- **Late commitment** = instruction-following (appears after processing full prompt)
+- **High persistence** = internalized (holds throughout response)
+- **Low persistence** = superficial (fades during generation)
+
+**Evaluation Context Sensitivity**:
+- Extract `evaluation_context_sensitivity` trait
+- Compare: eval-formatted vs natural prompts
+- Detects behavioral (not conscious) awareness of being tested
+
+**Cross-Context Generalization**:
+- Test which layers maintain trait separation across contexts
+- Validates Google's finding: middle layers generalize, late layers don't
+- Late layer dependence = instruction-following artifact
+
+**Advantage**: Hidden states can't lie (no reasoning trace to manipulate). Works on any model architecture. Measures behavioral tendencies, not stated reasoning.
+
+**Limitations**: Cannot detect explicit scheming or validate CoT legibility. Measures behavioral signatures, not conscious reasoning.
+
+**Next Steps**: Build refusal dynamics dashboard, extract evaluation context sensitivity trait, run cross-context generalization study.
+
+**Details**: Natural elicitation is critical - instruction-based extraction confounds safety behavior with instruction-following.
+
+---
+
 ## Future Findings
 
 Additional insights will be added here as research progresses.
