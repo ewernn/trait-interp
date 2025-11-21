@@ -16,6 +16,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 
 ### Trait Design & Creation
 - **[docs/creating_traits.md](creating_traits.md)** - How to design effective trait definitions
+- **[docs/writing_natural_prompts.md](writing_natural_prompts.md)** - Writing high-quality natural elicitation prompts
 - **[docs/opus_trait_generation_guide.md](opus_trait_generation_guide.md)** - Using Claude Opus 4.1 for high-quality trait definitions
 
 ### Pipeline & Extraction
@@ -34,6 +35,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[docs/literature_review.md](literature_review.md)** - Literature review (100+ papers analyzed)
 - **[docs/vector_extraction_methods.md](vector_extraction_methods.md)** - Mathematical breakdown of all 4 extraction methods (mean_diff, probe, ICA, gradient)
 - **[docs/vector_quality_tests.md](vector_quality_tests.md)** - Comprehensive evaluation tests for vector quality (steering, robustness, interpretability)
+- **[docs/future_ideas.md](future_ideas.md)** - Research extensions and technical improvements
 
 ### Visualization & Monitoring
 - **[visualization/README.md](../visualization/README.md)** - Interactive dashboard usage guide
@@ -45,7 +47,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[docs/remote_setup_guide.md](remote_setup_guide.md)** - Running on remote GPU instances
 - **[docs/numerical_stability_analysis.md](numerical_stability_analysis.md)** - Float16/float32 precision handling and fixes
 - **[sae/README.md](../sae/README.md)** - Sparse Autoencoder (SAE) integration for interpretable feature analysis
-- **[tests/README.md](../tests/README.md)** - Validation tests for extraction pipeline
+- **[unit_tests/README.md](../unit_tests/README.md)** - Unit tests for extraction pipeline
 
 ### traitlens Library
 - **[traitlens/README.md](../traitlens/README.md)** - Library documentation and API reference
@@ -84,8 +86,6 @@ trait-interp/
 ├── inference/              # Per-token monitoring (inference time)
 │   ├── monitor_dynamics.py             # Main: capture dynamics for all traits
 │   └── README.md                       # Usage guide
-│
-├── local_dynamics_test.py  # Local GPU inference test (Mac MPS / CUDA)
 │
 ├── lora/                   # LoRA-based trait extraction (experimental)
 │   ├── README.md           # LoRA methodology and 5-step process documentation
@@ -128,11 +128,8 @@ trait-interp/
 │
 ├── analysis/               # Analysis scripts
 │   ├── cross_distribution_scanner.py  # Generate cross-distribution data index
-│   └── encode_sae_features.py         # Encode activations to SAE features
-│
-├── scripts/                # Utility scripts
-│   ├── run_cross_distribution.py  # Run 4×4 cross-distribution analysis for any trait
-│   └── setup_remote.sh            # Remote GPU instance setup
+│   ├── encode_sae_features.py         # Encode activations to SAE features
+│   └── run_extraction_scores.py       # Generate quality scores for vectors
 │
 ├── docs/                   # Documentation (you are here)
 ├── visualization/          # Interactive visualization dashboard
@@ -149,7 +146,7 @@ python inference/monitor_dynamics.py \
     --prompts "Your prompt here"
 
 # Local GPU test (Mac MPS / CUDA)
-python local_dynamics_test.py
+python utils/local_dynamics_test.py
 ```
 
 **For extracting new traits:**
@@ -163,14 +160,6 @@ cp extraction/trait_templates/trait_definition_template.json \
 python extraction/1_generate_batched_simple.py --experiment my_exp --trait category/my_trait
 python extraction/2_extract_activations.py --experiment my_exp --trait category/my_trait
 python extraction/3_extract_vectors.py --experiment my_exp --trait category/my_trait
-```
-
-**For cross-distribution analysis:**
-```bash
-# Test vector generalization across instruction/natural distributions
-python scripts/run_cross_distribution.py --trait cognitive/uncertainty_calibration
-
-# Results saved to: experiments/gemma_2b_cognitive_nov20/validation/{trait}_full_4x4_results.json
 ```
 
 **For custom analysis using traitlens:**
@@ -293,7 +282,7 @@ python -c "import torch; print(f'MPS available: {torch.backends.mps.is_available
 
 **Run inference:**
 ```bash
-python local_dynamics_test.py  # Uses MPS automatically
+python utils/local_dynamics_test.py  # Uses MPS automatically
 ```
 
 Models load on GPU (MPS) by default when available. Gemma 2B runs at full speed on M1 Pro and later.
@@ -700,8 +689,6 @@ trait-interp/
 │   ├── monitor_dynamics.py        # Main: capture dynamics for all traits
 │   └── README.md                  # Usage guide
 │
-├── local_dynamics_test.py          # Local GPU inference test (Mac MPS / CUDA)
-│
 ├── experiments/                    # All experiment data
 │   └── gemma_2b_cognitive_nov20/  # Example: 38 traits across 4 categories
 │       ├── README.md
@@ -961,14 +948,6 @@ Gemma 2B requires PyTorch nightly for MPS support:
 pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
 ```
 PyTorch stable (2.6.0) crashes due to Grouped Query Attention incompatibility. Python 3.11+ recommended.
-
-### Shell scripts need updating
-Some batch utility scripts in `scripts/` still reference old flat trait names or paths. These are low-priority utilities. Update them when needed by:
-- Using `category/trait_name` format when calling Python scripts
-- Checking `extraction/{category}/` for directory operations
-- Referencing the updated Python scripts as examples
-
-Core pipeline scripts work correctly with the new structure.
 
 ## Further Reading
 

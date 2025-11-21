@@ -190,6 +190,38 @@ python3 temp-vector-analysis/emotional_valence/emotional_valence_full_4x4_sweep.
 
 ---
 
+## 2025-11-21: Linear Representations Emerge from Near-Linear Activations
+
+**Finding**: Linear representation hypothesis holds in middle layers (8-16) due to GELU/SiLU activation functions operating in near-linear regime, explaining extraction success and layer-dependent generalization.
+
+**Evidence**:
+- GELU is approximately linear for x ∈ [-1, 1] (near-identity function)
+- Repeated composition of near-linear functions preserves linearity for ~16 layers (Jiang et al. 2024)
+- Layers 0-16: Cross-distribution generalization works (96%+ accuracy)
+- Layers 21-25: Nonlinearity accumulates, cross-distribution fails (~56% accuracy)
+- Steering works via addition: f(x + δ) ≈ f(x) + f(δ) holds in middle layers
+
+**Trait Complexity Hierarchy**:
+- **Simple traits (truly 1-D)**: refusal, emotional_valence, temporal_focus - high separation (90-96%), all methods work
+- **Complex traits (linear projections)**: paranoia_trust, power_dynamics, sycophancy - medium separation (70-85%), probes find dominant component
+- **Circular/multi-dimensional**: days of week, cyclical patterns - not captured by 1-D extraction
+
+**Known Limitations**:
+1. **Euclidean inner product**: Using `v·w` instead of causal inner product `v^T Cov(γ)^(-1) w` (Park et al. 2023)
+2. **1-D assumption**: Misses circular features and multi-dimensional concepts (Engels et al. 2024)
+3. **Untested composition**: Late-layer traits may/may not compose linearly from early-layer features
+
+**Mechanistic Picture**:
+- **Layers 0-8**: Building blocks (syntax, semantics), activations in linear regime
+- **Layers 8-16**: Goldilocks zone - compositional concepts, still linear, steering works
+- **Layers 16-25**: Nonlinear specialization, task-specific circuits (instruction vs natural modes diverge)
+
+**Implication**: Linear assumption is architecturally justified for layers 8-16. Extract and steer in this range for robust, generalizable trait vectors. Cross-distribution failure in late layers explained by nonlinearity accumulation, not invalid methodology.
+
+**Reference**: Jiang et al. (2024) "On the origins of linear representations in LLMs", Park et al. (2023) "Linear representation hypothesis and geometry of LLMs"
+
+---
+
 ## Future Findings
 
 Additional insights will be added here as research progresses.

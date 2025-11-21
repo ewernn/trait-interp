@@ -18,7 +18,22 @@ Recommended specs:
 - **Storage**: 50GB+
 - **Providers**: RunPod, Vast.ai, Lambda Labs
 
-## Step 2: Clone & Setup
+## Step 2: Create User & Install Claude Code
+
+Claude Code requires a non-root user. On most instances, this is all you need:
+
+```bash
+# As root, create user
+adduser --disabled-password --gecos "" coder
+
+# Switch to user and install Claude Code
+su - coder
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+**Note:** If you get HOME or permission errors, see Troubleshooting below.
+
+## Step 3: Clone & Setup
 
 ```bash
 # Clone repo
@@ -36,7 +51,7 @@ nano .env  # Add HF_TOKEN, OPENAI_API_KEY, ANTHROPIC_API_KEY
 python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
 ```
 
-## Step 3: Run Extraction
+## Step 4: Run Extraction
 
 ### Quick Test (1 trait, small batch)
 ```bash
@@ -69,7 +84,7 @@ python extraction/1_generate_batched_simple.py \
 watch -n 10 'ls -lh experiments/gemma_2b_cognitive_nov20/*/responses/*.csv'
 ```
 
-## Step 4: Extract Vectors
+## Step 5: Extract Vectors
 
 After generation completes:
 
@@ -84,7 +99,7 @@ python extraction/3_extract_vectors.py \
 
 **Time**: ~30-45 minutes (CPU only, fast)
 
-## Step 5: Test Dynamics (Optional on GPU)
+## Step 6: Test Dynamics (Optional on GPU)
 
 ```bash
 # Quick test of dynamics analysis
@@ -94,7 +109,7 @@ python inference/monitor_dynamics.py \
     --output test_dynamics.json
 ```
 
-## Step 6: Download Results
+## Step 7: Download Results
 
 ```bash
 # From your local machine
@@ -106,6 +121,27 @@ rsync -avz --progress \
 ```
 
 ## Troubleshooting
+
+### User Creation Issues
+
+If `su - coder` shows `HOME=/root` or permission errors:
+
+```bash
+# As root, fix HOME variable
+echo 'export HOME=/home/coder' > /home/coder/.bashrc
+echo 'export USER=coder' >> /home/coder/.bashrc
+chown coder:coder /home/coder/.bashrc
+
+# Make /root readable (if needed)
+chmod 755 /root
+touch /root/.bash_profile /root/.bash_logout
+
+# Try again
+su - coder
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+If issues persist, try a fresh instance - some provider images have system-level misconfigurations.
 
 ### CUDA Out of Memory
 ```bash

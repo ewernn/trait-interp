@@ -70,10 +70,31 @@ Ask yourself:
 
 **If you don't add it to main.md, it doesn't exist.** Orphaned documentation creates confusion.
 
+## Research Findings vs Practical Usage
+
+**insights.md (Research findings - "why"):**
+- Cross-distribution accuracy results
+- Method comparisons and performance data
+- Bug discoveries and fixes
+- Mechanistic explanations (why things work)
+- Limitations discovered through experimentation
+- References to academic papers
+
+**main.md (Practical usage - "how"):**
+- How to use the codebase
+- What commands to run
+- Directory structure
+- Installation and setup
+- Quick start guides
+- Working examples
+
+**Rule:** If it explains "why it works", put it in insights.md. If it explains "how to use it", put it in main.md.
+
 ## Related Documentation
 When updating one doc, check these for consistency:
 - `main.md` - if feature names or structure changed (ALWAYS update Documentation Index if adding/removing docs)
 - `README.md` - if quick start or overview affected
+- `insights.md` - if research findings or limitations discovered
 - Experiment READMEs - if experiments or results changed
 
 ## Red Flags for Full Rewrite

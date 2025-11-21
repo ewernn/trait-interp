@@ -332,7 +332,7 @@ Check separation quality:
 
 ```bash
 # Analyze separation for all extracted vectors
-python scripts/analyze_extraction.py \
+python analysis/run_extraction_scores.py \
   --experiment my_experiment \
   --trait my_trait
 ```
