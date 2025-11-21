@@ -309,14 +309,14 @@ async function loadExperimentData(experimentName) {
             try {
                 const primaryExt = isNatural ? 'json' : 'csv';
                 const primaryCheck = await fetch(
-                    `../experiments/${experimentName}/extraction/${traitName}/extraction/responses/pos.${primaryExt}`
+                    `../experiments/${experimentName}/extraction/${traitName}/responses/pos.${primaryExt}`
                 );
                 if (primaryCheck.ok) {
                     responseFormat = primaryExt;
                 } else {
                     const secondaryExt = isNatural ? 'csv' : 'json';
                     const secondaryCheck = await fetch(
-                        `../experiments/${experimentName}/extraction/${traitName}/extraction/responses/pos.${secondaryExt}`
+                        `../experiments/${experimentName}/extraction/${traitName}/responses/pos.${secondaryExt}`
                     );
                     if (secondaryCheck.ok) {
                         responseFormat = secondaryExt;
@@ -331,7 +331,7 @@ async function loadExperimentData(experimentName) {
                 let metadata = null;
                 try {
                     const metadataRes = await fetch(
-                        `../experiments/${experimentName}/extraction/${traitName}/extraction/activations/metadata.json`
+                        `../experiments/${experimentName}/extraction/${traitName}/activations/metadata.json`
                     );
                     if (metadataRes.ok) {
                         metadata = await metadataRes.json();

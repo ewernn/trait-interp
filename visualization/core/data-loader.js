@@ -8,7 +8,7 @@ class DataLoader {
      * @returns {Promise<Object>} - Data with projections and logit lens
      */
     static async fetchTier2(trait, promptNum) {
-        const url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/inference/residual_stream_activations/prompt_${promptNum}.json`;
+        const url = `../experiments/${window.state.experimentData.name}/inference/${trait.name}/projections/residual_stream_activations/prompt_${promptNum}.json`;
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Failed to fetch tier 2 data for ${trait.name} prompt ${promptNum}`);
@@ -24,7 +24,7 @@ class DataLoader {
      * @returns {Promise<Object>} - Data with attention heads, MLP activations, etc.
      */
     static async fetchTier3(trait, promptNum, layer = 16) {
-        const url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/inference/layer_internal_states/prompt_${promptNum}_layer${layer}.json`;
+        const url = `../experiments/${window.state.experimentData.name}/inference/${trait.name}/projections/layer_internal_states/prompt_${promptNum}_layer${layer}.json`;
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Failed to fetch tier 3 data for ${trait.name} prompt ${promptNum} layer ${layer}`);
@@ -40,7 +40,7 @@ class DataLoader {
      * @returns {Promise<Object>} - Vector metadata
      */
     static async fetchVectorMetadata(trait, method, layer) {
-        const url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/extraction/vectors/${method}_layer${layer}_metadata.json`;
+        const url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/vectors/${method}_layer${layer}_metadata.json`;
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Failed to fetch vector metadata for ${trait.name} ${method} layer ${layer}`);
@@ -113,7 +113,7 @@ class DataLoader {
      * @returns {Promise<Object>} - Trait-specific projection data
      */
     static async fetchProjections(trait, promptIdx) {
-        const url = `../experiments/${window.state.experimentData.name}/inference/projections/${trait.name}/prompt_${promptIdx}.json`;
+        const url = `../experiments/${window.state.experimentData.name}/inference/${trait.name}/projections/prompt_${promptIdx}.json`;
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Failed to fetch projections for ${trait.name} prompt ${promptIdx}`);
@@ -172,11 +172,11 @@ class DataLoader {
     static async fetchJSON(trait, type) {
         let url;
         if (type === 'trait_definition') {
-            url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/extraction/trait_definition.json`;
+            url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/trait_definition.json`;
         } else if (type === 'activations_metadata') {
-            url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/extraction/activations/metadata.json`;
+            url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/activations/metadata.json`;
         } else if (type === 'pos' || type === 'neg') {
-            url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/extraction/responses/${type}.json`;
+            url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/responses/${type}.json`;
         } else {
             throw new Error(`Unknown JSON type: ${type}`);
         }
@@ -196,7 +196,7 @@ class DataLoader {
      * @returns {Promise<Object>} - Parsed CSV data with Papa Parse
      */
     static async fetchCSV(trait, category, limit = 10) {
-        const url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/extraction/responses/${category}.csv`;
+        const url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/responses/${category}.csv`;
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Failed to fetch CSV for ${trait.name} ${category}`);
@@ -217,7 +217,7 @@ class DataLoader {
      */
     static async checkVectorsExist(trait) {
         try {
-            const testUrl = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/extraction/vectors/probe_layer16_metadata.json`;
+            const testUrl = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/vectors/probe_layer16_metadata.json`;
             const response = await fetch(testUrl);
             return response.ok;
         } catch (e) {
@@ -233,7 +233,7 @@ class DataLoader {
      * @returns {Promise<Object>} - SAE feature activations
      */
     static async fetchSAEFeatures(trait, promptNum, layer = 16) {
-        const url = `../experiments/${window.state.experimentData.name}/extraction/${trait.name}/inference/sae_features/prompt_${promptNum}_layer${layer}_sae.pt`;
+        const url = `../experiments/${window.state.experimentData.name}/inference/${trait.name}/projections/sae_features/prompt_${promptNum}_layer${layer}_sae.pt`;
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Failed to fetch SAE features for ${trait.name} prompt ${promptNum} layer ${layer}`);

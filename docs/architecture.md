@@ -66,7 +66,7 @@ Each experiment follows a three-phase structure separating training, monitoring,
 - Extracted activations
 - Computed trait vectors
 
-**Organized by:** `extraction/{category}/{trait}/extraction/`
+**Organized by:** `extraction/{category}/{trait}/`
 - Requires category/trait format (e.g., `behavioral/refusal`)
 - Each trait is self-contained
 

@@ -23,7 +23,6 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[extraction/instruction_elicitation_guide.md](../extraction/instruction_elicitation_guide.md)** - Instruction-based generation (legacy)
 
 ### Experiments & Analysis
-- **[docs/experiments_structure.md](experiments_structure.md)** - How experiment directories are organized
 - **[experiments/gemma_2b_cognitive_nov20/README.md](../experiments/gemma_2b_cognitive_nov20/README.md)** - 38 categorized traits (behavioral, cognitive, stylistic, alignment)
 
 ### Inference & Monitoring
@@ -97,21 +96,23 @@ trait-interp/
 │   └── models/             # Trained LoRA adapters
 │
 ├── experiments/            # Experiment data and user analysis space
-│   └── gemma_2b_cognitive_nov20/       # Example: 16 cognitive traits + natural variants
-│       └── {trait}/                    # e.g., refusal/ or refusal_natural/
-│           ├── extraction/             # Training-time data
-│           │   ├── trait_definition.json
-│           │   ├── responses/          # Generated examples (pos.csv, neg.csv or pos.json, neg.json)
-│           │   ├── activations/        # Token-averaged hidden states
-│           │   └── vectors/            # Extracted trait vectors
-│           └── inference/              # Inference-time data
-│               ├── residual_stream_activations/  # Tier 2: all layers, projections, logit lens
-│               │   ├── prompt_N.pt
-│               │   └── prompt_N.json  # With --save-json (includes logit_lens if --save-logits)
-│               ├── layer_internal_states/        # Tier 3: single layer deep dive
-│               │   └── prompt_N_layerM.pt
-│               └── sae_features/                 # SAE-encoded features (optional)
-│                   └── prompt_N_layer16_sae.pt
+│   └── gemma_2b_cognitive_nov20/       # Example: 38 traits (behavioral, cognitive, stylistic)
+│       ├── extraction/{category}/{trait}/  # Training-time data
+│       │   ├── trait_definition.json
+│       │   ├── responses/          # Generated examples (pos.csv, neg.csv or pos.json, neg.json)
+│       │   ├── activations/        # Token-averaged hidden states
+│       │   └── vectors/            # Extracted trait vectors
+│       ├── inference/              # Evaluation-time monitoring
+│       │   ├── prompts/            # Shared prompt sets
+│       │   └── {category}/{trait}/projections/  # Per-trait inference data
+│       │       ├── residual_stream_activations/  # All layers, projections, logit lens
+│       │       │   ├── prompt_N.pt
+│       │       │   └── prompt_N.json
+│       │       └── layer_internal_states/        # Single layer deep dive
+│       │           └── prompt_N_layerM.pt
+│       └── validation/             # Evaluation-time testing
+│           ├── data_index.json     # Metadata about all traits
+│           └── cross_distribution/ # Cross-dist test results
 │
 ├── utils/                  # Shared utilities
 │   ├── judge.py           # API-based quality scoring (OpenAI, Anthropic)
@@ -154,9 +155,9 @@ python local_dynamics_test.py
 **For extracting new traits:**
 ```bash
 # 1. Create trait definition (note: category/trait_name format)
-mkdir -p experiments/my_exp/extraction/category/my_trait/extraction
+mkdir -p experiments/my_exp/extraction/category/my_trait
 cp extraction/trait_templates/trait_definition_template.json \
-   experiments/my_exp/extraction/category/my_trait/extraction/trait_definition.json
+   experiments/my_exp/extraction/category/my_trait/trait_definition.json
 
 # 2-4. Run extraction pipeline (using category/trait format)
 python extraction/1_generate_batched_simple.py --experiment my_exp --trait category/my_trait
@@ -193,7 +194,7 @@ utils/              ← Shared utilities (API clients, credentials)
 
 extraction/         ← Training time (creates trait vectors)
     ├── Uses: traitlens/ + utils/
-    └── Produces: experiments/{name}/extraction/{category}/{trait}/extraction/vectors/
+    └── Produces: experiments/{name}/extraction/{category}/{trait}/vectors/
 
 experiments/        ← User space (custom analysis using extracted vectors)
     ├── Uses: traitlens/
@@ -707,20 +708,21 @@ trait-interp/
 │       ├── extraction/            # Training-time data (per-trait)
 │       │   ├── behavioral/        # Category: behavioral traits
 │       │   │   └── refusal/       # Example trait
-│       │   │       └── extraction/
-│       │   │           ├── trait_definition.json
-│       │   │           ├── responses/ # pos.csv, neg.csv or pos.json, neg.json
-│       │   │           ├── activations/ # Token-averaged (not committed, too large)
-│       │   │           └── vectors/   # Extracted vectors + metadata
+│       │   │       ├── trait_definition.json
+│       │   │       ├── responses/ # pos.csv, neg.csv or pos.json, neg.json
+│       │   │       ├── activations/ # Token-averaged (not committed, too large)
+│       │   │       └── vectors/   # Extracted vectors + metadata
 │       │   ├── cognitive/         # Category: cognitive traits
 │       │   ├── stylistic/         # Category: stylistic traits
 │       │   └── alignment/         # Category: alignment traits
-│       ├── inference/             # Experiment-level inference
-│       │   ├── prompts/           # Standardized prompt sets
-│       │   ├── raw_activations/   # Captured once
-│       │   └── projections/       # Per-trait scores
-│       └── validation/            # Experiment-level validation
-│           └── data_index.json    # Generated by scanner
+│       ├── inference/             # Evaluation-time monitoring
+│       │   ├── prompts/           # Shared prompt sets
+│       │   ├── behavioral/refusal/projections/  # Per-trait inference data
+│       │   ├── cognitive/retrieval/projections/
+│       │   └── stylistic/positivity/projections/
+│       └── validation/            # Evaluation-time testing
+│           ├── data_index.json    # Metadata about all traits
+│           └── cross_distribution/  # Cross-dist test results
 │
 ├── traitlens/                      # Extraction toolkit
 │   ├── methods.py                 # 4 extraction methods
@@ -746,8 +748,7 @@ trait-interp/
 ├── docs/                           # Documentation
 │   ├── main.md                    # This file
 │   ├── pipeline_guide.md          # Detailed extraction guide
-│   ├── creating_traits.md         # How to design traits
-│   └── experiments_structure.md   # Directory organization
+│   └── creating_traits.md         # How to design traits
 │
 └── visualization/                  # Interactive visualization dashboard
     ├── index.html                  # Main visualization
@@ -769,9 +770,9 @@ Key components:
 ### 2. Use Template
 
 ```bash
-mkdir -p experiments/my_exp/extraction/category/my_trait/extraction
+mkdir -p experiments/my_exp/extraction/category/my_trait
 cp extraction/trait_templates/trait_definition_template.json \
-   experiments/my_exp/extraction/category/my_trait/extraction/trait_definition.json
+   experiments/my_exp/extraction/category/my_trait/trait_definition.json
 ```
 
 Edit following the template comments and guide.
@@ -930,8 +931,8 @@ Includes retry logic with exponential backoff for reliability.
 ### Extraction fails with "trait_definition.json not found"
 Create trait definition:
 ```bash
-mkdir -p experiments/my_exp/my_trait/extraction
-cp extraction/trait_templates/trait_definition_template.json experiments/my_exp/my_trait/extraction/trait_definition.json
+mkdir -p experiments/my_exp/extraction/category/my_trait
+cp extraction/trait_templates/trait_definition_template.json experiments/my_exp/extraction/category/my_trait/trait_definition.json
 ```
 Edit following [docs/creating_traits.md](creating_traits.md).
 
@@ -973,7 +974,6 @@ Core pipeline scripts work correctly with the new structure.
 
 - **[docs/pipeline_guide.md](pipeline_guide.md)** - Complete pipeline usage guide
 - **[docs/creating_traits.md](creating_traits.md)** - How to design effective traits
-- **[docs/experiments_structure.md](experiments_structure.md)** - How experiments are organized
 - **[traitlens/README.md](../traitlens/README.md)** - Extraction toolkit documentation
 - **[docs/methodology_and_framework.md](methodology_and_framework.md)** - Theoretical background
 - **[docs/literature_review.md](literature_review.md)** - Related work

@@ -795,14 +795,14 @@ def discover_traits(experiment_name: str) -> List[Tuple[str, str]]:
             if not trait_dir.is_dir():
                 continue
 
-            vectors_dir = trait_dir / "extraction" / "vectors"
+            vectors_dir = trait_dir / "vectors"
             if vectors_dir.exists() and len(list(vectors_dir.glob('*.pt'))) > 0:
                 traits.append((category, trait_dir.name))
 
     if not traits:
         raise ValueError(
             f"No traits with vectors found in {extraction_dir}\n"
-            f"Expected structure: extraction/{{category}}/{{trait}}/extraction/vectors/*.pt"
+            f"Expected structure: extraction/{{category}}/{{trait}}/vectors/*.pt"
         )
 
     return sorted(traits)
@@ -810,7 +810,7 @@ def discover_traits(experiment_name: str) -> List[Tuple[str, str]]:
 
 def find_vector_method(trait_dir: Path, layer: int) -> Optional[str]:
     """Auto-detect vector method for a trait at given layer."""
-    vectors_dir = trait_dir / "extraction" / "vectors"
+    vectors_dir = trait_dir / "vectors"
 
     if not vectors_dir.exists():
         return None
@@ -903,7 +903,7 @@ def main():
 
         # Check if already exists
         if args.skip_existing:
-            output_dir = trait_dir / "inference" / "layer_internal_states"
+            output_dir = exp_dir / "inference" / category / trait_name / "projections" / "layer_internal_states"
             json_file = output_dir / f"prompt_0_layer{args.layer}.json"
             if json_file.exists():
                 print(f"  ⏭️  Skipping (JSON already exists): {json_file}")
@@ -977,7 +977,7 @@ def main():
         if args.output_dir:
             output_dir = Path(args.output_dir)
         else:
-            output_dir = trait_dir / "inference" / "layer_internal_states"
+            output_dir = exp_dir / "inference" / category / trait_name / "projections" / "layer_internal_states"
 
         output_dir.mkdir(parents=True, exist_ok=True)
         if len(traits_to_process) == 1:

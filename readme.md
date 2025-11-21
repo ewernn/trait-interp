@@ -119,7 +119,7 @@ python inference/capture_all_layers.py \
   --prompts "Your test prompt here" \
   --save-json
 
-# output: experiments/{experiment}/{trait}/inference/residual_stream_activations/
+# output: experiments/{experiment}/inference/{category}/{trait}/projections/residual_stream_activations/
 ```
 
 ---

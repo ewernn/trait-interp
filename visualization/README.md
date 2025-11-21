@@ -281,7 +281,7 @@ Currently supported:
 - **gemma_2b_cognitive_nov20** - 16 cognitive traits on Gemma 2B
 
 To add new experiments:
-1. Follow the standard directory structure (see `docs/experiments_structure.md`)
+1. Follow the standard directory structure (see `docs/main.md` or `docs/architecture.md`)
 2. The visualization auto-discovers experiments and traits via API endpoints
 
 ## Architecture

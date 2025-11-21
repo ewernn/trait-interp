@@ -8,6 +8,7 @@ async function renderDataExplorer() {
     const totalTraits = window.state.experimentData.traits.length;
     const selectedCount = filteredTraits.length;
     const estimatedSize = (totalTraits * 47).toFixed(0); // ~47 MB per trait
+    const filesPerTrait = 223; // Updated estimate for full structure
 
     let html = `
         <div class="explanation">
@@ -31,7 +32,7 @@ async function renderDataExplorer() {
                 </div>
                 <div class="stat-card">
                     <span class="stat-label">Files:</span>
-                    <span class="stat-value">${totalTraits * 223}</span>
+                    <span class="stat-value">${totalTraits * filesPerTrait}</span>
                 </div>
             </div>
         <div class="card">
@@ -47,19 +48,24 @@ async function renderDataExplorer() {
         const fileExt = isNatural ? 'json' : 'csv';
         const previewFunc = isNatural ? 'previewJSON' : 'previewCSV';
 
+        // Handle both metadata formats: n_examples OR (n_positive + n_negative)
+        const nExamples = metadata.n_examples || ((metadata.n_positive || 0) + (metadata.n_negative || 0)) || 0;
+        const nPos = metadata.n_examples_pos || metadata.n_positive || '?';
+        const nNeg = metadata.n_examples_neg || metadata.n_negative || '?';
+
         html += `
             <div class="explorer-trait-card">
                 <div class="explorer-trait-header" onclick="toggleTraitBody('${trait.name}')">
                     <strong>${displayName}</strong>
                     <span style="margin-left: 8px; font-size: 10px; color: var(--text-tertiary);">
-                        ${metadata.n_examples || 0} examples | 223 files
+                        ${nExamples} examples | ${filesPerTrait} files | ${metadata.size_mb ? metadata.size_mb.toFixed(1) + ' MB' : '~20 MB'}
                     </span>
                 </div>
                 <div class="explorer-trait-body" id="trait-body-${trait.name}">
                     <div class="file-tree">
                         <div class="file-item">
                             <span class="file-icon">📁</span>
-                            <strong>${trait.name}/</strong>
+                            <strong>extraction/${trait.name}/</strong>
                         </div>
 
                         <div class="file-item indent-1 clickable" onclick="previewJSON('${trait.name}', 'trait_definition')">
@@ -75,12 +81,12 @@ async function renderDataExplorer() {
                         <div class="file-item indent-2 clickable" onclick="${previewFunc}('${trait.name}', 'pos')">
                             <span class="file-icon">✓</span>
                             <span>pos.${fileExt}</span>
-                            <span style="opacity: 0.6; font-size: 11px;">(${metadata.n_examples_pos || '?'} ${isNatural ? 'items' : 'rows'}) [preview →]</span>
+                            <span style="opacity: 0.6; font-size: 11px;">(${nPos} ${isNatural ? 'items' : 'rows'}) [preview →]</span>
                         </div>
                         <div class="file-item indent-2 clickable" onclick="${previewFunc}('${trait.name}', 'neg')">
                             <span class="file-icon">✓</span>
                             <span>neg.${fileExt}</span>
-                            <span style="opacity: 0.6; font-size: 11px;">(${metadata.n_examples_neg || '?'} ${isNatural ? 'items' : 'rows'}) [preview →]</span>
+                            <span style="opacity: 0.6; font-size: 11px;">(${nNeg} ${isNatural ? 'items' : 'rows'}) [preview →]</span>
                         </div>
 
                         <div class="file-item indent-1">
@@ -95,17 +101,17 @@ async function renderDataExplorer() {
                         <div class="file-item indent-2">
                             <span class="file-icon">✓</span>
                             <span>all_layers.pt</span>
-                            <span style="opacity: 0.6; font-size: 11px;">(~19 MB, shape: [${metadata.n_examples}, 27, 2304])</span>
+                            <span style="opacity: 0.6; font-size: 11px;">(~19 MB, shape: [${nExamples}, 27, 2304])</span>
                         </div>
                         <div class="file-item indent-2">
                             <span class="file-icon">✓</span>
                             <span>pos_acts.pt</span>
-                            <span style="opacity: 0.6; font-size: 11px;">(~12 MB, shape: [${metadata.n_examples_pos}, 27, 2304])</span>
+                            <span style="opacity: 0.6; font-size: 11px;">(~12 MB, shape: [${nPos}, 27, 2304])</span>
                         </div>
                         <div class="file-item indent-2">
                             <span class="file-icon">✓</span>
                             <span>neg_acts.pt</span>
-                            <span style="opacity: 0.6; font-size: 11px;">(~11 MB, shape: [${metadata.n_examples_neg}, 27, 2304])</span>
+                            <span style="opacity: 0.6; font-size: 11px;">(~11 MB, shape: [${nNeg}, 27, 2304])</span>
                         </div>
 
                         <div class="file-item indent-1">
@@ -136,6 +142,30 @@ async function renderDataExplorer() {
                             <span class="file-icon">✓</span>
                             <span>gradient_layer[0-26].pt + metadata</span>
                             <span style="opacity: 0.6; font-size: 11px;">(~9 KB each, some NaN)</span>
+                        </div>
+
+                        <div class="file-item" style="margin-top: 10px;">
+                            <span class="file-icon">📁</span>
+                            <strong>inference/</strong>
+                            <span style="opacity: 0.6; font-size: 11px;">(if generated)</span>
+                        </div>
+                        <div class="file-item indent-1">
+                            <span class="file-icon">📁</span>
+                            <strong>residual_stream_activations/</strong>
+                        </div>
+                        <div class="file-item indent-2">
+                            <span class="file-icon">📄</span>
+                            <span>prompt_*.json</span>
+                            <span style="opacity: 0.6; font-size: 11px;">(per-token projections)</span>
+                        </div>
+                        <div class="file-item indent-1">
+                            <span class="file-icon">📁</span>
+                            <strong>layer_internal_states/</strong>
+                        </div>
+                        <div class="file-item indent-2">
+                            <span class="file-icon">📄</span>
+                            <span>prompt_*_layer*.json</span>
+                            <span style="opacity: 0.6; font-size: 11px;">(layer internals)</span>
                         </div>
                     </div>
                 </div>
