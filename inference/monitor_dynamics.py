@@ -202,7 +202,7 @@ def auto_detect_vectors(experiment: str, traits: Optional[List[str]] = None, met
             if traits and trait_path not in traits:
                 continue
 
-            vectors_dir = trait_dir / "extraction" / "vectors"
+            vectors_dir = trait_dir / "vectors"
             if not vectors_dir.exists():
                 continue
 
@@ -351,7 +351,7 @@ def main(
 
     Saves results in deduplicated format:
     - Shared prompts: experiments/{exp}/inference/prompts/prompt_N.json
-    - Per-trait projections: experiments/{exp}/inference/projections/{trait}/prompt_N.json
+    - Per-trait projections: experiments/{exp}/inference/{category}/{trait}/projections/prompt_N.json
 
     Args:
         experiment: Experiment name (e.g., "gemma_2b_cognitive_nov20")

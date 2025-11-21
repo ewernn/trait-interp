@@ -176,11 +176,10 @@ def generate_batched_simple(
         )
 
         # Create output directories
-        extraction_dir = trait_dir / "extraction"
-        extraction_dir.mkdir(exist_ok=True)
-        (extraction_dir / "responses").mkdir(exist_ok=True)
+        trait_dir.mkdir(parents=True, exist_ok=True)
+        (trait_dir / "responses").mkdir(exist_ok=True)
         if extract_activations:
-            (extraction_dir / "activations").mkdir(exist_ok=True)
+            (trait_dir / "activations").mkdir(exist_ok=True)
 
         # Store activations for both polarities
         all_activations = {'pos': [], 'neg': []}
@@ -260,7 +259,7 @@ def generate_batched_simple(
 
             # Save responses
             df = pd.DataFrame(filtered_data)
-            csv_path = extraction_dir / "responses" / f"{polarity}.csv"
+            csv_path = trait_dir / "responses" / f"{polarity}.csv"
             df.to_csv(csv_path, index=False)
             print(f"  Saved responses: {csv_path}")
 
@@ -279,7 +278,7 @@ def generate_batched_simple(
                 acts_tensor = torch.stack([acts_dict[layer] for layer in layers], dim=1)
 
                 # Save this polarity's activations
-                acts_path = extraction_dir / "activations" / f"{polarity}_acts.pt"
+                acts_path = trait_dir / "activations" / f"{polarity}_acts.pt"
                 torch.save(acts_tensor, acts_path)
                 print(f"  Saved activations: {acts_path} (shape: {acts_tensor.shape})")
 
@@ -295,7 +294,7 @@ def generate_batched_simple(
             combined_acts = torch.cat([pos_acts, neg_acts], dim=0)
 
             # Save combined
-            combined_path = extraction_dir / "activations" / "all_layers.pt"
+            combined_path = trait_dir / "activations" / "all_layers.pt"
             torch.save(combined_acts, combined_path)
             print(f"  Saved combined: {combined_path} (shape: {combined_acts.shape})")
 
@@ -315,7 +314,7 @@ def generate_batched_simple(
                 "batched_generation": True
             }
 
-            metadata_path = extraction_dir / "activations" / "metadata.json"
+            metadata_path = trait_dir / "activations" / "metadata.json"
             with open(metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
 
