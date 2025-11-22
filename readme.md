@@ -89,7 +89,7 @@ Interactive dashboard (`visualization/`):
 
 ```bash
 # start local server
-python -m http.server 8000
+python visualization/serve.py
 
 # open in browser
 open http://localhost:8000/visualization/

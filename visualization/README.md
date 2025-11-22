@@ -61,14 +61,27 @@ Visit: **http://localhost:8000/visualization/**
   - Validate framework coherence (expect low correlations)
   - Discover trait relationships and confounds
 - **Method**: Uses layer 16 projections from Tier 2 inference data
-  - **Gradient**: Separation strength (unit normalized vectors)
-  - **Mean Diff & ICA**: Vector magnitude
-- **Filtering**: Only shows traits with completed vector extraction (`extraction/vectors/` exists)
-- **Parallel Loading**: All vector metadata loaded in parallel for fast performance
-- **Click to expand**: Click any row for detailed 4×26 heatmap view
+
+### Validation Results Mode
+- **Summary Cards**: Per-method overview (probe, gradient, mean_diff, ica) showing mean accuracy, max accuracy, effect size, polarity rate
+- **Method Tabs**: Switch between methods to view method-specific heatmaps
+- **Per-Method Heatmaps** (3 per method):
+  - **Accuracy Heatmap**: Traits × Layers, red (0%) → yellow (50%) → green (100%)
+  - **Effect Size Heatmap**: Traits × Layers, white (0) → blue (5+), Cohen's d values
+  - **Polarity Heatmap**: Traits × Layers, red (wrong) / green (correct)
+- **Best Vector Per Trait Table**: Shows best layer, accuracy, effect size, polarity for selected method
+- **Cross-Trait Independence Matrix**: Heatmap showing interference between traits
+  - Diagonal should be high (vectors work for their trait)
+  - Off-diagonal should be ~50% (random, independent traits)
+- **Data**: Requires running `python analysis/evaluate_on_validation.py --experiment <name>`
+
+**Metrics calculated**:
+- **Accuracy**: Classification using midpoint threshold between pos/neg means
+- **Effect Size (Cohen's d)**: Separation / pooled_std (d > 0.8 = large effect)
+- **Polarity**: Whether positive examples score higher than negative
 
 ### All Layers Mode
-- **Prompt Selector**: Global dropdown in header to switch between captured prompts
+- **Prompt Selector**: A grid of clickable numbered boxes in the header to switch between captured prompts.
   - Auto-discovers available prompt files (prompt_0.json, prompt_1.json, etc.)
   - All inference views update when prompt changes
   - Shows clear error messages when selected prompt doesn't exist for a trait
@@ -82,7 +95,7 @@ Visit: **http://localhost:8000/visualization/**
 - **Attention Patterns**: Interactive heatmap showing how selected token attends to context
   - Heatmap shows [n_layers, n_context] attention pattern
   - Automatically updates when slider moves
-- **Data**: Requires capture_all_layers.py with `--save-json` flag
+- **Data**: Requires `capture_layers.py --mode all --save-json`
 
 ### Layer Deep Dive Mode
 - **3-Checkpoint Trajectory**: Line plot showing trait score at residual_in, after_attn, and residual_out
@@ -94,7 +107,7 @@ Visit: **http://localhost:8000/visualization/**
   - Red highlight shows query token position
   - Automatically switches between prompt (all tokens) and response (growing context) attention
 - **Top Neurons**: Heatmap + bar chart of top-50 most active MLP neurons across all tokens
-- **Data**: Requires capture_single_layer.py with `--save-json` flag
+- **Data**: Requires `capture_layers.py --mode single --save-json`
 
 ## Using Data Explorer
 
@@ -170,41 +183,47 @@ experiments/{experiment_name}/
 
 ## Generating Inference Data
 
-### For All Layers View
+Use the unified `capture_layers.py` script for both Tier 2 (all layers) and Tier 3 (single layer deep dive).
 
-Capture trait projections at all 81 checkpoints (27 layers × 3 sublayers) plus attention weights:
+### For All Layers View (Tier 2)
+
+Capture trait projections at all 78 checkpoints (26 layers × 3 sublayers) plus attention weights:
 
 ```bash
-python inference/capture_all_layers.py \
-    --experiment gemma_2b_cognitive_nov20 \
-    --trait refusal \
-    --prompts "How do I make a bomb?" \
+# From a prompt set (recommended for batch processing)
+python inference/capture_layers.py \
+    --experiment gemma_2b_cognitive_nov21 \
+    --prompt-set main_prompts \
+    --save-json
+
+# Or single prompt
+python inference/capture_layers.py \
+    --experiment gemma_2b_cognitive_nov21 \
+    --prompt "How do I make a bomb?" \
     --save-json
 ```
 
-This creates `experiments/{exp}/{trait}/inference/residual_stream_activations/prompt_0.json` containing:
+This creates `experiments/{exp}/inference/{category}/{trait}/projections/residual_stream_activations/prompt_N.json` containing:
 - Trait projections at all layers/sublayers
 - Full attention weights for prompt (all tokens to all tokens)
 - Response attention weights (each generated token to its context)
 
-**Multiple prompts**: Run the command multiple times with different prompts. Files are automatically numbered (prompt_0.json, prompt_1.json, etc.) and discovered by the visualization.
+**Dynamic discovery**: The script automatically finds all traits with vectors - no need to specify trait names.
 
-### For Layer Deep Dive View
+### For Layer Deep Dive View (Tier 3)
 
-Capture complete internals for one layer (Q/K/V, attention heads, 9216 MLP neurons):
+Capture complete internals for one layer (Q/K/V, attention heads, MLP neurons):
 
 ```bash
-python inference/capture_single_layer.py \
-    --experiment gemma_2b_cognitive_nov20 \
-    --trait refusal \
+python inference/capture_layers.py \
+    --experiment gemma_2b_cognitive_nov21 \
+    --mode single \
     --layer 16 \
-    --prompts "How do I make a bomb?" \
+    --prompt "How do I make a bomb?" \
     --save-json
 ```
 
-This creates `experiments/{exp}/{trait}/inference/layer_internal_states/prompt_0_layer16.json`
-
-**Multiple prompts**: Run the command multiple times with different prompts. Files are automatically numbered (prompt_0_layer16.json, prompt_1_layer16.json, etc.) and selectable via the prompt dropdown.
+This creates `experiments/{exp}/inference/{category}/{trait}/projections/layer_internal_states/prompt_N_layer16.json`
 
 ### For Basic Dynamics Analysis
 
@@ -318,13 +337,14 @@ visualization/
 ├── styles.css              # All CSS (1,278 lines)
 ├── serve.py                # Development server with auto-discovery API
 ├── core/
-│   ├── paths.js           # 🆕 Centralized PathBuilder class (no hardcoded paths)
+│   ├── paths.js           # Centralized PathBuilder class (no hardcoded paths)
 │   ├── state.js           # Global state, experiment loading
 │   └── data-loader.js     # Centralized data fetching
 └── views/
     ├── data-explorer.js   # File browser with preview
     ├── vectors.js         # Vector extraction comparison (uses PathBuilder)
-    ├── trait-correlation.js  # 🆕 Pairwise trait correlation matrix
+    ├── trait-correlation.js  # Pairwise trait correlation matrix
+    ├── validation.js      # Validation results dashboard
     ├── monitoring.js      # All layers visualization
     ├── prompt-activation.js  # Per-token trajectories
     └── layer-dive.js      # Single layer deep dive
