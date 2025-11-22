@@ -258,18 +258,18 @@ python analysis/evaluate_vector_quality.py \
 ### Comprehensive Evaluation (30 minutes)
 ```bash
 # Test all methods, all layers
-python analysis/evaluate_vector_quality.py \
+python analysis/evaluate_on_validation.py \
     --experiment gemma_2b_cognitive_nov21 \
-    --trait cognitive_state/uncertainty_expression \
-    --output results/uncertainty_eval.json
+    --trait cognitive_state/uncertainty_expression
+# Output: experiments/gemma_2b_cognitive_nov21/validation/validation_evaluation.json
 ```
 
-### Experiment-Wide Evaluation (2-3 hours)
+### Experiment-Wide Evaluation
 ```bash
 # Evaluate all traits in experiment
-python analysis/evaluate_vector_quality.py \
-    --experiment gemma_2b_cognitive_nov21 \
-    --output results/full_evaluation.json
+python analysis/evaluate_on_validation.py \
+    --experiment gemma_2b_cognitive_nov21
+# Output: experiments/gemma_2b_cognitive_nov21/validation/validation_evaluation.json
 ```
 
 ## Red Flags to Watch For

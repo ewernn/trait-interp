@@ -35,15 +35,17 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[docs/literature_review.md](literature_review.md)** - Literature review (100+ papers analyzed)
 - **[docs/vector_extraction_methods.md](vector_extraction_methods.md)** - Mathematical breakdown of all 4 extraction methods (mean_diff, probe, ICA, gradient)
 - **[docs/vector_quality_tests.md](vector_quality_tests.md)** - Comprehensive evaluation tests for vector quality (steering, robustness, interpretability)
+- **[docs/vector_evaluation_framework.md](vector_evaluation_framework.md)** - Multi-axis evaluation framework for selecting best vectors
 - **[docs/future_ideas.md](future_ideas.md)** - Research extensions and technical improvements
 
 ### Visualization & Monitoring
-- **[visualization/README.md](../visualization/README.md)** - Interactive dashboard usage guide
+- **[visualization/README.md](../visualization/README.md)** - Interactive dashboard usage guide, featuring compact, theme-aware validation heatmaps, featuring compact, theme-aware validation heatmaps
 - **[visualization/ARCHITECTURE.md](../visualization/ARCHITECTURE.md)** - Modular architecture and development guide
 - **[visualization/DESIGN_STANDARDS.md](../visualization/DESIGN_STANDARDS.md)** - Enforced design standards for visualization UI
 - **[docs/logit_lens.md](logit_lens.md)** - Logit lens: prediction evolution across layers
 
 ### Infrastructure & Setup
+- **[config/paths.yaml](../config/paths.yaml)** - Single source of truth for all repo paths
 - **[docs/remote_setup_guide.md](remote_setup_guide.md)** - Running on remote GPU instances
 - **[docs/numerical_stability_analysis.md](numerical_stability_analysis.md)** - Float16/float32 precision handling and fixes
 - **[sae/README.md](../sae/README.md)** - Sparse Autoencoder (SAE) integration for interpretable feature analysis
@@ -84,8 +86,9 @@ trait-interp/
 │   └── utils_batch.py                  # Batching utilities
 │
 ├── inference/              # Per-token monitoring (inference time)
-│   ├── monitor_dynamics.py             # Main: capture dynamics for all traits
-│   └── README.md                       # Usage guide
+│   ├── capture_layers.py              # ⭐ Unified: Tier 2 (all layers) or Tier 3 (single layer deep)
+│   ├── monitor_dynamics.py            # Quick dynamics analysis
+│   └── README.md                      # Usage guide
 │
 ├── lora/                   # LoRA-based trait extraction (experimental)
 │   ├── README.md           # LoRA methodology and 5-step process documentation
@@ -111,10 +114,15 @@ trait-interp/
 │       │       └── layer_internal_states/        # Single layer deep dive
 │       │           └── prompt_N_layerM.pt
 │       └── validation/             # Evaluation-time testing
+│           ├── validation_evaluation.json  # Held-out validation results
 │           ├── data_index.json     # Metadata about all traits
 │           └── cross_distribution/ # Cross-dist test results
 │
+├── config/                 # Configuration files
+│   └── paths.yaml         # Single source of truth for all repo paths
+│
 ├── utils/                  # Shared utilities
+│   ├── paths.py           # Python PathBuilder (loads from config/paths.yaml)
 │   ├── judge.py           # API-based quality scoring (OpenAI, Anthropic)
 │   └── config.py          # Credential management
 │
@@ -129,6 +137,8 @@ trait-interp/
 ├── analysis/               # Analysis scripts
 │   ├── cross_distribution_scanner.py  # Generate cross-distribution data index
 │   ├── encode_sae_features.py         # Encode activations to SAE features
+│   ├── evaluate_on_validation.py      # Evaluate vectors on held-out validation data
+│   ├── evaluate_vectors_simple.py     # Quick vector quality evaluation
 │   └── run_extraction_scores.py       # Generate quality scores for vectors
 │
 ├── docs/                   # Documentation (you are here)
@@ -355,7 +365,7 @@ See [traitlens/](../traitlens/) for the extraction toolkit.
 During generation, project each token's hidden state onto trait vectors:
 
 ```
-score = (hidden_state · trait_vector) / ||trait_vector||
+score = (hidden_state @ trait_vector) / torch.norm(trait_vector)
 ```
 
 - Positive score → model expressing the trait
@@ -456,7 +466,34 @@ print(f"Norm: {vector.norm():.2f}")
 
 Monitor trait projections token-by-token during generation.
 
-### Generate Monitoring Data
+### Quick Start: capture_layers.py
+
+The unified `capture_layers.py` script handles both all-layer capture and single-layer deep dives:
+
+```bash
+# Tier 2: Capture all 26 layers for a prompt set (for All Layers / Trait Correlation views)
+python inference/capture_layers.py \
+    --experiment gemma_2b_cognitive_nov21 \
+    --prompt-set main_prompts \
+    --save-json
+
+# Tier 3: Single layer deep dive (for Layer Deep Dive view)
+python inference/capture_layers.py \
+    --experiment gemma_2b_cognitive_nov21 \
+    --mode single \
+    --layer 16 \
+    --prompt "How do I make a bomb?" \
+    --save-json
+```
+
+The script:
+- **Dynamically discovers** all traits with vectors (no hardcoded categories)
+- **Captures once, projects to all traits** - efficient multi-trait processing
+- **Saves raw activations** + per-trait projection JSONs for visualization
+
+See [inference/README.md](../inference/README.md) for detailed usage.
+
+### Custom Monitoring Scripts
 
 Use traitlens to create custom monitoring scripts in your experiment:
 
@@ -497,11 +534,8 @@ python visualization/serve.py
 The visualization provides:
 - **Extraction Tools:**
   - **Data Explorer**: Browse complete file structure with sizes, shapes, and data preview
-  - **Vector Analysis**: Compare 4 extraction methods across all layers (each normalized independently)
+  - **Vector Analysis**: For each extraction method, view heatmaps of **Accuracy**, **Effect Size**, **P-value**, and **Polarity** across all traits and layers. Below the heatmaps, a **"Top 3 Vectors Per Trait"** table identifies the best vectors across all methods, ranked by accuracy then effect size, and includes a holistic **Quality Score**.
     - Only shows traits with completed vector extraction (`extraction/vectors/` directory exists)
-    - Probe visualized using inverted vector norm (smaller = stronger due to L2 regularization)
-    - Gradient visualized using separation strength (unit normalized vectors)
-    - Mean difference and ICA visualized using vector magnitude
   - **Cross-Distribution**: View cross-distribution testing data availability and best accuracy scores
     - Shows which traits have instruction-based vs natural elicitation data
     - Displays best accuracy and layer for each test quadrant (Inst→Inst, Inst→Nat, Nat→Inst, Nat→Nat)
@@ -515,6 +549,21 @@ The visualization provides:
   - **Layer Deep Dive**: 3-checkpoint trajectory, attention vs MLP contribution, per-head trait contributions (8 heads with GQA support), attention patterns, and per-token neuron activations
 
 The server auto-discovers experiments, traits, and prompts from the `experiments/` directory - no hardcoding needed.
+
+**Centralized Path Management**: All paths are defined in `config/paths.yaml` - the single source of truth for the entire repo. Python uses `utils/paths.py` and JavaScript uses `visualization/core/paths.js` to load this config. No hardcoded paths anywhere.
+
+```python
+# Python usage
+from utils.paths import get
+vectors_dir = get('extraction.vectors', experiment='gemma_2b_cognitive_nov21', trait='cognitive_state/context')
+```
+
+```javascript
+// JavaScript usage
+await paths.load();
+paths.setExperiment('gemma_2b_cognitive_nov21');
+const vectorsDir = paths.get('extraction.vectors', { trait: 'cognitive_state/context' });
+```
 
 ### Monitoring Data Format
 
@@ -730,7 +779,8 @@ trait-interp/
 │           └── metadata.json
 │
 ├── analysis/                       # Analysis scripts
-│   └── encode_sae_features.py     # Encode activations to SAE features
+│   ├── encode_sae_features.py     # Encode activations to SAE features
+│   └── evaluate_on_validation.py  # Evaluate vectors on held-out data
 │
 ├── docs/                           # Documentation
 │   ├── main.md                    # This file

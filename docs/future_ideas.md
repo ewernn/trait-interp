@@ -22,11 +22,44 @@ Research extensions and technical improvements identified through experimentatio
 
 **Impact**: Flags traits that need different extraction methods or are irreducibly complex.
 
+### 3. CKA for Method Agreement
+
+**Method**: Use Centered Kernel Alignment (CKA) to compare the similarity of vector spaces from different extraction methods (mean_diff, probe, ICA, gradient).
+
+**Test**: Compute CKA score between vector sets (e.g., `cka(gradient_vectors, probe_vectors)`). A high score (>0.7) indicates methods find similar representations.
+
+**Impact**: Validates that high-performing methods are converging on the same underlying trait structure, rather than just overfitting to the training data in different ways.
+
+### 4. Cross-Layer Representation Similarity
+
+**Method**: Compute the cosine similarity of a trait vector extracted from every pair of layers.
+
+**Test**: Plot a heatmap of pairwise cosine similarities. If `cosine(vector_L10, vector_L16)` is high, the representation is stable.
+
+**Impact**: Identifies the layer range where a trait representation is most stable and consistently represented (a "block" of high similarity). This provides a data-driven way to select the optimal extraction layer.
+
+### 5. Holistic Vector Ranking
+
+**Method**: Define a sophisticated ranking system to select the single "best" vector for a trait across all methods and layers, moving beyond single-metric sorting.
+
+**Axes of Quality to Consider**:
+- **Accuracy (`val_accuracy`):** Primary measure of correctness.
+- **Robustness (`val_effect_size`):** Cleaner separation, less overlap between distributions.
+- **Generalization (`accuracy_drop`):** Lower train-to-validation accuracy drop indicates less overfitting.
+- **Specificity (Cross-Trait Independence):** Low accuracy on unrelated traits indicates a "purer" vector.
+
+**Proposed Ranking Systems**:
+- **A) Simple Tie-breaker:** Rank all 104 vectors by `val_accuracy`, then use `val_effect_size` as a secondary sort key.
+- **B) Composite Quality Score:** Create a weighted score `(w1 * accuracy) + (w2 * effect_size) - (w3 * accuracy_drop)` to produce a single, holistic sortable value.
+- **C) Pareto Frontier:** Identify the set of non-dominated vectors that represent optimal trade-offs between the different quality axes (e.g., highest accuracy vs. highest effect size).
+
+**Impact**: Provides a more robust and nuanced method for identifying the most useful trait vectors, preventing suboptimal choices based on a single metric and surfacing vectors with different desirable properties.
+
 ---
 
 ## Mechanistic Understanding
 
-### 3. Hierarchical Composition Testing
+### 5. Hierarchical Composition Testing
 
 **Method**: Use Ridge regression to predict late-layer trait from early-layer trait projections.
 
@@ -34,7 +67,7 @@ Research extensions and technical improvements identified through experimentatio
 
 **Impact**: Validates linear composition hypothesis, enables interpretable trait hierarchies.
 
-### 4. SAE Feature Decomposition
+### 6. SAE Feature Decomposition
 
 **Method**: Project trait vectors into SAE feature space (16k features from GemmaScope).
 
@@ -42,7 +75,7 @@ Research extensions and technical improvements identified through experimentatio
 
 **Impact**: Mechanistic decomposition (e.g., "Refusal = 0.5×harm_detection + 0.3×uncertainty + 0.2×instruction_boundary").
 
-### 5. Cross-Model Validation
+### 7. Cross-Model Validation
 
 **Method**: Extract same traits on Llama 3.1 8B, Mistral, other architectures.
 
@@ -54,7 +87,7 @@ Research extensions and technical improvements identified through experimentatio
 
 ## Causal Validation
 
-### 6. Layer-Specific Trait Localization
+### 8. Layer-Specific Trait Localization
 
 **Method**: Run interchange interventions at all layers (0-26) for each trait.
 
@@ -62,7 +95,7 @@ Research extensions and technical improvements identified through experimentatio
 
 **Impact**: Identifies optimal extraction layer per trait, validates layer-dependent trait localization.
 
-### 7. Component Ablation (Attention vs MLP)
+### 9. Component Ablation (Attention vs MLP)
 
 **Method**: Patch QK, VO, and MLP components separately during interchange.
 
@@ -70,7 +103,7 @@ Research extensions and technical improvements identified through experimentatio
 
 **Impact**: Validates whether traits are "attention structure" vs residual stream features.
 
-### 8. Cross-Trait Interference
+### 10. Cross-Trait Interference
 
 **Method**: Patch two traits simultaneously with opposite signs (+refusal/-confidence).
 
@@ -78,7 +111,7 @@ Research extensions and technical improvements identified through experimentatio
 
 **Impact**: Validates trait orthogonality and correlation matrix predictions.
 
-### 9. Temporal Causality Decay
+### 11. Temporal Causality Decay
 
 **Method**: Patch at token T, measure effect at T+1, T+5, T+10, T+20.
 
@@ -86,7 +119,15 @@ Research extensions and technical improvements identified through experimentatio
 
 **Impact**: Tests KV cache propagation hypothesis, validates attention-based persistence claims.
 
-### 10. Trait Correlation Matrix
+### 12. Linearized Causal Validation
+
+**Method**: During interchange interventions (patching), compare the effect of a regular forward pass vs. a linearized forward pass where the downstream network is treated as a frozen linear approximation.
+
+**Test**: Intervene with and without linearization and measure the difference in behavioral change. `effect_regular = intervene(linearize=False)`, `effect_linearized = intervene(linearize=True)`.
+
+**Impact**: Determines if a vector's causal effect is a first-order phenomenon or depends on non-linear network dynamics. Provides cleaner causal attribution, answering: "Does this vector *linearly* cause the behavior?"
+
+### 13. Trait Correlation Matrix
 
 **Method**: Compute pairwise correlations between all trait vector projections on shared prompts.
 
@@ -102,3 +143,5 @@ Research extensions and technical improvements identified through experimentatio
 - Jiang et al. (2024): "On the origins of linear representations in LLMs"
 - Engels et al. (2024): "Not all language model features are one-dimensionally linear"
 - Turner et al. (2023): "Steering language models with activation engineering"
+
+

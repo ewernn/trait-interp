@@ -222,6 +222,102 @@ python3 temp-vector-analysis/emotional_valence/emotional_valence_full_4x4_sweep.
 
 ---
 
+## 2025-11-21: Held-Out Validation Confirms Probe Generalization
+
+**Finding**: Probe method generalizes well to held-out validation data with minimal overfitting (2.7% accuracy drop), while ICA fails completely.
+
+**Evidence** (gemma_2b_cognitive_nov21, 10 traits, 20 val prompts each):
+
+**Method Comparison (held-out validation accuracy):**
+| Method | Train Acc | Val Acc | Drop | Polarity Correct |
+|--------|-----------|---------|------|------------------|
+| **Probe** | 100% | 85.8% | 2.7% | 97.7% |
+| Gradient | 81.2% | 78.8% | -1.0% | 88.1% |
+| Mean_diff | 81.4% | 70.9% | -0.3% | 80.8% |
+| ICA | 48.2% | 47.6% | 0.1% | 45.0% |
+
+**Best Layer (probe method, averaged across traits):**
+| Layer | Val Accuracy |
+|-------|--------------|
+| 12 | **90.0%** |
+| 17 | 89.7% |
+| 14 | 89.3% |
+| 16 | 89.0% |
+
+**Per-Trait Best Vectors:**
+| Trait | Best Vector | Val Acc | Cohen's d |
+|-------|-------------|---------|-----------|
+| confidence | probe_layer11 | 100% | 7.52 |
+| defensiveness | probe_layer2 | 100% | 5.21 |
+| uncertainty_expression | mean_diff_layer2 | 100% | 5.77 |
+| context | probe_layer13 | 100% | 4.06 |
+| retrieval | probe_layer1 | 97.5% | 3.79 |
+| correction_impulse | probe_layer25 | 72.5% | 0.96 |
+| search_activation | probe_layer8 | 70.0% | 1.09 |
+
+**Cross-Trait Independence:**
+- Diagonal mean: 89.0% (vectors work on their own trait)
+- Off-diagonal mean: 48.1% (near chance on other traits)
+- Independence score: 0.41 (good separation)
+
+**Key Insights**:
+1. **Probe generalizes**: Only 2.7% accuracy drop from train to validation
+2. **Middle layers confirmed**: Layers 12-17 optimal on held-out data
+3. **ICA useless**: 47.6% validation accuracy = worse than random, 45% polarity correct
+4. **Two weak traits**: correction_impulse (72.5%) and search_activation (70.0%) need redesign
+5. **Traits are independent**: Off-diagonal ~50% confirms vectors don't interfere
+
+**Implication**: Previous 100% probe accuracy was training set performance. Real generalization is 85.8% - still best method, but not perfect. Use layers 12-17 for best held-out performance.
+
+**Verification**:
+```bash
+python analysis/evaluate_on_validation.py --experiment gemma_2b_cognitive_nov21
+```
+
+---
+
+## 2025-11-21: Impact of Normalization on Vector Evaluation
+
+**Discovery**: Initial vector evaluation using raw dot products was confounded by significant variations in vector and activation norms across different extraction methods and model layers. This made direct comparisons of separation strength (and in some cases, accuracy) unreliable.
+
+**Root Cause**:
+- **Vector Norms:** Mean Difference vectors showed exploding norms in later layers (up to ~480), while Probe vectors decreased (from ~3.5 to ~0.4) due to regularization. Gradient vectors were unit-normalized (1.0).
+- **Activation Norms:** Activations themselves showed a ~12x increase in magnitude from early (layer 0) to late (layer 24) layers.
+
+**Fix**: Updated `analysis/evaluate_on_validation.py` to use **cosine similarity** by default for all projections. This involves normalizing both the trait vector and each activation vector to unit length *before* computing the dot product.
+
+**Impact**:
+- **Fairer Comparisons**: All projection scores are now on a standardized scale (-1 to 1), making accuracy, separation, and effect size directly comparable across different methods and layers.
+- **Robustness**: The evaluation is now insensitive to arbitrary scale differences introduced by extraction methods or the growing magnitude of activations across layers.
+- **Result Stability**: While overall method rankings (Probe best, ICA useless) remained consistent, the optimal layer for specific traits sometimes shifted, confirming the need for normalization.
+
+**Implication**: All future validation results, including those in the visualization dashboard, are computed using cosine similarity, ensuring a more rigorous and comparable evaluation of trait vectors.
+
+**Verification**:
+```bash
+python analysis/evaluate_on_validation.py --experiment gemma_2b_cognitive_nov21 --no-normalize
+# Compare output to default (normalized) run
+```
+
+---
+
+## 2025-11-21: High-Dimensional Geometry and Random Projections
+
+**Finding**: In high-dimensional activation spaces (e.g., 2304 dimensions), random vectors are almost always nearly orthogonal. This property governs the behavior of trait vectors when applied to unrelated data.
+
+**Evidence**:
+- **Concentration of Measure**: In high dimensions, the probability mass of random vectors concentrates near the "equator" (orthogonal space) of a hypersphere.
+- **Cosine Similarity Distribution**: The cosine similarity between two truly random unit vectors in `d` dimensions forms a very narrow distribution centered at 0, with variance `1/d`. For `d=2304`, this variance is extremely small (`~0.0004`).
+
+**Impact on Trait Evaluation**:
+- **Unrelated Projections Near Zero**: When a trait vector is applied to activations entirely unrelated to that trait, the resulting projection scores will cluster tightly around zero.
+- **Near-Zero Separation**: This leads to a separation score (difference between mean positive and negative projections) very close to zero.
+- **~50% Accuracy for Unrelated Traits**: A decision boundary (threshold) set at zero (or near zero) will result in approximately 50% classification accuracy for unrelated data. This is because roughly half of the projections will be positive and half negative.
+
+**Implication**: The observed ~50% accuracy on off-diagonal elements in the cross-trait independence matrix is not an artifact or a sign of poor evaluation; it is the **expected geometric behavior** of trait vectors operating in a high-dimensional space when the data is truly unrelated to the trait. This confirms the validity of the cross-trait matrix as a measure of independence.
+
+---
+
 ## Future Findings
 
 Additional insights will be added here as research progresses.

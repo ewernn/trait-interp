@@ -191,7 +191,7 @@ def analyze_refusal_commitment_on_gemma(): ...
    → Use traitlens.compute primitives
    → Or custom analysis
    ↓
-4. Save results to experiments/{name}/analysis/results/
+4. Save results to experiments/{name}/validation/
 ```
 
 ---
