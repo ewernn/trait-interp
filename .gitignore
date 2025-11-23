@@ -37,15 +37,7 @@ persona_vectors/
 # Model files
 *.safetensors
 *.bin
-
-# Vector/activation files - EXCEPT in experiments/
 *.pt
-# But allow vectors and responses in experiments/
-!experiments/**/*.pt
-!experiments/**/*.csv
-# Except activations (too large to commit)
-experiments/**/activations/*.pt
-experiments/**/dynamics_test/*.pt
 
 # Cached models (stored in ~/.cache/huggingface/)
 models/
@@ -55,20 +47,17 @@ ckpt/
 
 # SAE feature labels and encoded features
 sae/
-experiments/**/sae_features/*.pt
 
-# Experiment results
+# Logs
 logs/
 *.log
 wandb/
 
-# Data (but not experiments/)
+# Data
 data/
 dataset/
 *.jsonl
-# CSV files - ignore everywhere except experiments/
 *.csv
-!experiments/**/*.csv
 
 # System
 .DS_Store
