@@ -289,10 +289,10 @@ Layer 16: norm = 2.16, acc = 100%   # Lower norm, still accurate
 Check actual norms:
 
 ```bash
-cat experiments/gemma_2b_cognitive_nov20/extraction/behavioral/refusal/vectors/probe_layer16_metadata.json
+cat experiments/my_experiment/extraction/behavioral/refusal/vectors/probe_layer16_metadata.json
 # Shows: "vector_norm": 2.164860027678928
 
-cat experiments/gemma_2b_cognitive_nov20/extraction/behavioral/refusal/vectors/gradient_layer16_metadata.json
+cat experiments/my_experiment/extraction/behavioral/refusal/vectors/gradient_layer16_metadata.json
 # Shows: "vector_norm": 0.9999998807907104
 ```
 

@@ -25,89 +25,27 @@ Visit: **http://localhost:8000/visualization/**
 
 ## Features
 
-### Data Explorer Mode
-- **Dataset Overview**: Total traits, estimated storage, data completeness, total files
-- **Expandable Trait Cards**: Click trait names to expand/collapse complete file tree
-- **File Structure**: Shows all files with sizes, tensor shapes, and row counts
-  - extraction/trait_definition.json
-  - extraction/responses/ (pos.csv, neg.csv with row counts)
-  - extraction/activations/ (metadata.json, .pt files with shapes like [n_examples, 27, 2304])
-  - extraction/vectors/ (108 files: 4 methods × 27 layers)
-  - inference/ (per-token data if generated)
-- **Preview Functionality**: Click files to preview content in modal
-  - JSON files: Syntax-highlighted with color-coded keys, strings, numbers, booleans
-  - CSV files: First 10 rows displayed as formatted table
-- **Dark Mode Support**: All text grey, syntax highlighting adapts to theme
+The visualization dashboard is organized into two main categories, reflecting the workflow of creating and using trait vectors.
 
-### Vector Analysis Mode
-- **Compact Table Layout**: One row per trait showing all methods at once
-  - Left: Trait name + best method/layer
-  - Center: Horizontal mini-heatmap (4 methods × 26 layers)
-  - Right: Pos/neg example preview
-- **Layer Architecture Intuition**: Info box explaining what different layer ranges represent (syntax, semantics, behavioral traits)
-- **Method Comparison**: Compare mean_diff, probe, ICA, and gradient extraction methods
-- **Visualization Metrics**:
-  - **Probe**: Inverted vector norm (smaller = stronger due to L2 regularization)
+### Category 1: Trait Development
+(Building and validating the vectors)
 
-### Trait Correlation Mode
-- **Pairwise Correlation Matrix**: Compute Pearson correlations between all trait projections
-- **Independence Testing**: Identify which traits measure similar vs different computations
-- **Visualization**:
-  - Red (r ≈ -1): Strong inverse correlation
-  - White (r ≈ 0): Independent traits
-  - Green (r ≈ +1): Strong positive correlation
-- **Use Cases**:
-  - Identify redundant traits for merging
-  - Validate framework coherence (expect low correlations)
-  - Discover trait relationships and confounds
-- **Method**: Uses layer 16 projections from Tier 2 inference data
+-   **Data Explorer**: Browse the raw files from the extraction process for any trait, including the generated responses, activation tensors, and the extracted vectors themselves. You can preview CSV and JSON files directly in the browser.
 
-### Validation Results Mode
-- **Summary Cards**: Per-method overview (probe, gradient, mean_diff, ica) showing mean accuracy, max accuracy, effect size, polarity rate
-- **Method Tabs**: Switch between methods to view method-specific heatmaps
-- **Per-Method Heatmaps** (3 per method):
-  - **Accuracy Heatmap**: Traits × Layers, red (0%) → yellow (50%) → green (100%)
-  - **Effect Size Heatmap**: Traits × Layers, white (0) → blue (5+), Cohen's d values
-  - **Polarity Heatmap**: Traits × Layers, red (wrong) / green (correct)
-- **Best Vector Per Trait Table**: Shows best layer, accuracy, effect size, polarity for selected method
-- **Cross-Trait Independence Matrix**: Heatmap showing interference between traits
-  - Diagonal should be high (vectors work for their trait)
-  - Off-diagonal should be ~50% (random, independent traits)
-- **Data**: Requires running `python analysis/evaluate_on_validation.py --experiment <name>`
+-   **Trait Dashboard**: A unified dashboard to inspect and evaluate the quality of extracted vectors. For each trait, this view combines:
+    -   **Extraction Stats**: A heatmap showing the intrinsic properties (like vector norm) of every extracted vector across all layers and methods.
+    -   **Vector Quality**: A "Top 5 Vectors" table that ranks vectors by their performance (accuracy, effect size) on held-out validation data, helping you identify the highest-quality vector for your analysis.
 
-**Metrics calculated**:
-- **Accuracy**: Classification using midpoint threshold between pos/neg means
-- **Effect Size (Cohen's d)**: Separation / pooled_std (d > 0.8 = large effect)
-- **Polarity**: Whether positive examples score higher than negative
+-   **Trait Correlation Matrix**: Check if your extracted trait vectors are truly independent or if they are accidentally measuring the same underlying concept. This view shows a correlation matrix of all selected traits against each other.
 
-### All Layers Mode
-- **Prompt Selector**: A grid of clickable numbered boxes in the header to switch between captured prompts.
-  - Auto-discovers available prompt files (prompt_0.json, prompt_1.json, etc.)
-  - All inference views update when prompt changes
-  - Shows clear error messages when selected prompt doesn't exist for a trait
-- **Combined Trajectory Heatmap**: Single view showing trait scores across all 26 layers for both prompt and response tokens (layer 0 at bottom, layer 25 at top)
-  - Vertical line separates prompt | response phases
-  - Uses layer 16's trait vector projected onto all layers
-- **Unified Slider**: Controls all visualizations simultaneously
-  - Shows current token position, text, and phase ([Prompt] or [Response])
-  - Highlights selected token on trajectory heatmap
-  - Updates attention pattern for selected token
-- **Attention Patterns**: Interactive heatmap showing how selected token attends to context
-  - Heatmap shows [n_layers, n_context] attention pattern
-  - Automatically updates when slider moves
-- **Data**: Requires `capture_layers.py --mode all --save-json`
+### Category 2: Inference Analysis
+(Using your best vectors to see what the model is "thinking" on new prompts)
 
-### Layer Deep Dive Mode
-- **3-Checkpoint Trajectory**: Line plot showing trait score at residual_in, after_attn, and residual_out
-- **Attention vs MLP Contribution**: Bar chart showing which sublayer adds/removes the trait
-- **Per-Head Trait Contributions**: Shows how each of 8 attention heads contributes to the trait (supports Grouped Query Attention)
-- **8-Head Attention Patterns**: Single-token query view showing how selected token attends to context
-  - Slider controls which query token to visualize
-  - Each head shown as 1-row heatmap (query token's attention distribution)
-  - Red highlight shows query token position
-  - Automatically switches between prompt (all tokens) and response (growing context) attention
-- **Top Neurons**: Heatmap + bar chart of top-50 most active MLP neurons across all tokens
-- **Data**: Requires `capture_layers.py --mode single --save-json`
+-   **Trait Trajectory**: See how the score for a single selected trait evolves across all layers of the model as it processes a prompt and generates a response. This helps you understand *where* in the model a trait is most active.
+
+-   **Multi-Trait Comparison**: Compare the activation trajectories of multiple selected traits simultaneously for a single prompt. This helps you see how different traits relate to each other during generation.
+
+-   **Layer Internals**: A deep-dive, mechanistic view into the components of a single chosen layer for a specific prompt. It shows exactly which neurons and attention heads are contributing to the trait score at that layer.
 
 ## Using Data Explorer
 
@@ -168,73 +106,66 @@ experiments/{experiment_name}/
 │           └── vectors/
 │               └── *_metadata.json          # Loaded for Vector Analysis
 └── inference/
-    ├── prompts/                             # Shared prompts
-    │   └── prompt_N.json
-    └── {category}/{trait_name}/             # Per-trait inference data
-        └── projections/
-            ├── residual_stream_activations/ # Tier 2: All Layers & Trait Correlation
-            │   ├── prompt_0.json            # Projections for all layers
-            │   ├── prompt_1.json            # Additional prompts (auto-discovered)
-            │   └── prompt_N.json            # Multiple prompts supported
-            └── layer_internal_states/       # Tier 3: Layer Deep Dive
-                ├── prompt_0_layer16.json    # Complete layer 16 internals
-                └── prompt_N_layer16.json    # Additional prompts
+    ├── raw/                                 # Trait-independent raw activations (.pt)
+    │   ├── residual/{prompt_set}/           # All-layer activations
+    │   └── internals/{prompt_set}/          # Single-layer detailed
+    └── {category}/{trait_name}/             # Per-trait derived data
+        ├── residual_stream/{prompt_set}/    # All Layers: For All Layers & Trait Correlation views
+        │   ├── 1.json                       # Projections for prompt ID 1
+        │   ├── 2.json                       # Additional prompts (auto-discovered)
+        │   └── {id}.json                    # Multiple prompts supported
+        └── layer_internals/{prompt_set}/    # Layer Internals: For Layer Deep Dive view
+            ├── 1_L16.json                   # Complete layer 16 internals for prompt 1
+            └── {id}_L{layer}.json           # Additional prompts
 ```
 
 ## Generating Inference Data
 
-Use the unified `capture_layers.py` script for both Tier 2 (all layers) and Tier 3 (single layer deep dive).
+Use `capture.py` for capturing activations and computing projections.
 
-### For All Layers View (Tier 2)
+### For All Layers View
 
 Capture trait projections at all 78 checkpoints (26 layers × 3 sublayers) plus attention weights:
 
 ```bash
 # From a prompt set (recommended for batch processing)
-python inference/capture_layers.py \
-    --experiment gemma_2b_cognitive_nov21 \
-    --prompt-set main_prompts \
-    --save-json
+python inference/capture.py \
+    --experiment {experiment_name} \
+    --prompt-set single_trait
 
 # Or single prompt
-python inference/capture_layers.py \
-    --experiment gemma_2b_cognitive_nov21 \
-    --prompt "How do I make a bomb?" \
-    --save-json
+python inference/capture.py \
+    --experiment {experiment_name} \
+    --prompt "How do I make a bomb?"
 ```
 
-This creates `experiments/{exp}/inference/{category}/{trait}/projections/residual_stream_activations/prompt_N.json` containing:
+This creates `experiments/{exp}/inference/{category}/{trait}/residual_stream/{prompt_set}/{id}.json` containing:
 - Trait projections at all layers/sublayers
 - Full attention weights for prompt (all tokens to all tokens)
 - Response attention weights (each generated token to its context)
 
 **Dynamic discovery**: The script automatically finds all traits with vectors - no need to specify trait names.
 
-### For Layer Deep Dive View (Tier 3)
+**Available prompt sets** (in `inference/prompts/`):
+- `single_trait` - 10 prompts, each targeting one trait
+- `multi_trait` - 10 prompts activating multiple traits
+- `dynamic` - 8 prompts for mid-response trait changes
+- `adversarial` - 8 edge cases and robustness tests
+- `baseline` - 5 neutral prompts for baseline
+- `real_world` - 10 naturalistic prompts
+
+### For Layer Deep Dive View (Layer Internals)
 
 Capture complete internals for one layer (Q/K/V, attention heads, MLP neurons):
 
 ```bash
-python inference/capture_layers.py \
-    --experiment gemma_2b_cognitive_nov21 \
-    --mode single \
-    --layer 16 \
-    --prompt "How do I make a bomb?" \
-    --save-json
+python inference/capture.py \
+    --experiment {experiment_name} \
+    --layer-internals 16 \
+    --prompt "How do I make a bomb?"
 ```
 
-This creates `experiments/{exp}/inference/{category}/{trait}/projections/layer_internal_states/prompt_N_layer16.json`
-
-### For Basic Dynamics Analysis
-
-Quick analysis without full layer capture:
-
-```bash
-python inference/monitor_dynamics.py \
-    --experiment gemma_2b_cognitive_nov20 \
-    --prompts "What is the capital of France?" \
-    --output monitoring_results.json
-```
+This creates `experiments/{exp}/inference/{category}/{trait}/layer_internals/{prompt_set}/{id}_L16.json`
 
 ### 2. Or Create Custom Monitoring Script
 
@@ -244,7 +175,7 @@ import torch
 
 # Load your trait vectors
 vectors = {
-    'refusal': torch.load('experiments/gemma_2b_cognitive_nov20/refusal/vectors/probe_layer16.pt'),
+    'refusal': torch.load('experiments/{experiment_name}/refusal/vectors/probe_layer16.pt'),
     # ... more traits
 }
 
@@ -321,7 +252,7 @@ question,instruction,prompt,response,trait_score
 ## Supported Experiments
 
 Currently supported:
-- **gemma_2b_cognitive_nov20** - 16 cognitive traits on Gemma 2B
+- **{experiment_name}** - 16 cognitive traits on Gemma 2B
 
 To add new experiments:
 1. Follow the standard directory structure (see `docs/main.md` or `docs/architecture.md`)

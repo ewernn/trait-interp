@@ -176,7 +176,7 @@ Total vectors created: 4 methods × 26 layers = 104 files
 
 Verify:
 ```bash
-ls experiments/gemma_2b_cognitive_nov20/refusal/extraction/vectors/*.pt | wc -l
+ls experiments/my_experiment/refusal/extraction/vectors/*.pt | wc -l
 ```
 ```
 

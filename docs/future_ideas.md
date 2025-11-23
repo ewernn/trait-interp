@@ -77,7 +77,7 @@ Research extensions and technical improvements identified through experimentatio
 
 ### 7. Cross-Model Validation
 
-**Method**: Extract same traits on Llama 3.1 8B, Mistral, other architectures.
+**Method**: Extract same traits on google/gemma-2-2b-it, Mistral, other architectures.
 
 **Test**: Do traits transfer? Are layer numbers absolute or relative? Does middle-layer optimum generalize?
 

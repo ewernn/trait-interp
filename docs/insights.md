@@ -226,7 +226,7 @@ python3 temp-vector-analysis/emotional_valence/emotional_valence_full_4x4_sweep.
 
 **Finding**: Probe method generalizes well to held-out validation data with minimal overfitting (2.7% accuracy drop), while ICA fails completely.
 
-**Evidence** (gemma_2b_cognitive_nov21, 10 traits, 20 val prompts each):
+**Evidence** (my_experiment, 10 traits, 20 val prompts each):
 
 **Method Comparison (held-out validation accuracy):**
 | Method | Train Acc | Val Acc | Drop | Polarity Correct |
@@ -271,7 +271,7 @@ python3 temp-vector-analysis/emotional_valence/emotional_valence_full_4x4_sweep.
 
 **Verification**:
 ```bash
-python analysis/evaluate_on_validation.py --experiment gemma_2b_cognitive_nov21
+python analysis/evaluate_on_validation.py --experiment my_experiment
 ```
 
 ---
@@ -295,7 +295,7 @@ python analysis/evaluate_on_validation.py --experiment gemma_2b_cognitive_nov21
 
 **Verification**:
 ```bash
-python analysis/evaluate_on_validation.py --experiment gemma_2b_cognitive_nov21 --no-normalize
+python analysis/evaluate_on_validation.py --experiment my_experiment --no-normalize
 # Compare output to default (normalized) run
 ```
 

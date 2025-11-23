@@ -138,7 +138,7 @@ for n in [10, 50, 100, 500]:
 # Extract vector from Gemma-2B
 vector_2b = extract(gemma_2b, trait)
 
-# Test on Gemma-7B, Llama, etc.
+# Test on Gemma-7B, google/gemma-2-2b-it, etc.
 accuracy_7b = test(gemma_7b, vector_2b)
 # Some transfer expected if concept is fundamental
 ```

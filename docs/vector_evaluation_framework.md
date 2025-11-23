@@ -249,7 +249,7 @@ score = cross_distribution * 0.4 + robustness * 0.3 + separation * 0.3
 ```bash
 # Test single trait, best methods/layers only
 python analysis/evaluate_vector_quality.py \
-    --experiment gemma_2b_cognitive_nov21 \
+    --experiment my_experiment \
     --trait cognitive_state/uncertainty_expression \
     --methods probe,mean_diff \
     --layers 14,15,16
@@ -259,17 +259,17 @@ python analysis/evaluate_vector_quality.py \
 ```bash
 # Test all methods, all layers
 python analysis/evaluate_on_validation.py \
-    --experiment gemma_2b_cognitive_nov21 \
+    --experiment my_experiment \
     --trait cognitive_state/uncertainty_expression
-# Output: experiments/gemma_2b_cognitive_nov21/validation/validation_evaluation.json
+# Output: experiments/my_experiment/validation/validation_evaluation.json
 ```
 
 ### Experiment-Wide Evaluation
 ```bash
 # Evaluate all traits in experiment
 python analysis/evaluate_on_validation.py \
-    --experiment gemma_2b_cognitive_nov21
-# Output: experiments/gemma_2b_cognitive_nov21/validation/validation_evaluation.json
+    --experiment my_experiment
+# Output: experiments/my_experiment/validation/validation_evaluation.json
 ```
 
 ## Red Flags to Watch For

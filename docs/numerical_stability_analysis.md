@@ -39,7 +39,7 @@ vector = torch.randn(hidden_dim, device=pos_acts.device, dtype=torch.float32, re
 
 **Action needed**: Re-extract gradient vectors
 ```bash
-python extraction/3_extract_vectors.py --experiment gemma_2b_cognitive_nov20 --methods gradient
+python extraction/3_extract_vectors.py --experiment my_experiment --methods gradient
 ```
 
 ---

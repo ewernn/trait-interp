@@ -51,7 +51,7 @@ python inference/monitor_dynamics.py --experiment gemma_2b_cognitive_nov20 --pro
 ```bash
 # 1. Create trait definition
 cp extraction/templates/trait_definition_template.json experiments/my_exp/my_trait/trait_definition.json
-# Edit following docs/creating_traits.md and docs/writing_natural_prompts.md
+# Edit following docs/creating_traits.md
 
 # 2. Generate responses + extract activations
 python extraction/1_generate_batched_simple.py --experiment my_exp --trait my_trait --batch_size 8
@@ -89,7 +89,7 @@ Interactive dashboard (`visualization/`):
 
 ```bash
 # start local server
-python visualization/serve.py
+python -m http.server 8000
 
 # open in browser
 open http://localhost:8000/visualization/
@@ -119,7 +119,7 @@ python inference/capture_all_layers.py \
   --prompts "Your test prompt here" \
   --save-json
 
-# output: experiments/{experiment}/inference/{category}/{trait}/projections/residual_stream_activations/
+# output: experiments/{experiment}/{trait}/inference/residual_stream_activations/
 ```
 
 ---

@@ -345,7 +345,7 @@ If **no** to either → Revise
 
 ## Further Reading
 
-- [Natural Elicitation Guide](../extraction/natural_elicitation_guide.md) - Full methodology
+- [Natural Elicitation Guide](../extraction/elicitation_guide.md) - Full methodology
 - [Creating Traits](creating_traits.md) - Trait definition format
 - [Pipeline Guide](pipeline_guide.md) - Running extraction pipeline
 - [Vector Quality Tests](vector_quality_tests.md) - Evaluating extracted vectors

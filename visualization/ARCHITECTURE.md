@@ -29,7 +29,7 @@ visualization/
 
 **Core Layer** - State and data access:
 - `state.js` - Manages experiments, traits, theme, navigation
-- `data-loader.js` - Abstract API for fetching experiment data
+- `data-loader.js` - Abstract API for fetching experiment data (all-layers and layer-internals)
 
 **View Layer** - Independent rendering modules:
 - Each view is self-contained
@@ -63,7 +63,7 @@ window.getDisplayName(traitName)
 window.getPlotlyLayout(baseLayout)
 
 // Data loading
-await window.DataLoader.fetchTier2(trait, promptNum)
+await window.DataLoader.fetchAllLayers(trait, promptNum)
 ```
 
 ### 3. Module Loading
@@ -114,15 +114,15 @@ case 'my-view':
 
 ## Data Loading Patterns
 
-### Tier 2 Data (All Layers)
+### All Layers Data (Residual Stream Across All Layers)
 ```javascript
-const data = await window.DataLoader.fetchTier2(trait, promptNum);
+const data = await window.DataLoader.fetchAllLayers(trait, promptNum);
 // Returns: { prompt, response, tokens, projections, logit_lens }
 ```
 
-### Tier 3 Data (Layer Internals)
+### Layer Internals Data (Single Layer Deep Dive)
 ```javascript
-const data = await window.DataLoader.fetchTier3(trait, promptNum, layer);
+const data = await window.DataLoader.fetchLayerInternals(trait, promptNum, layer);
 // Returns: { attention_heads, mlp_activations, etc. }
 ```
 
@@ -140,11 +140,11 @@ const csvData = await window.DataLoader.fetchCSV(trait, 'pos', 10);
 
 ## Future-Proofing
 
-When migrating to prompt-centric inference structure (3 days), only update `data-loader.js`:
+When migrating to prompt-centric inference structure, only update `data-loader.js`:
 
 ```javascript
 // In core/data-loader.js
-static async fetchTier2(trait, promptNum) {
+static async fetchAllLayers(trait, promptNum) {
     // OLD (current):
     const url = `.../inference/residual_stream_activations/prompt_${promptNum}.json`;
 

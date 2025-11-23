@@ -114,22 +114,6 @@ traitlens works with any PyTorch model. You just need to know the module paths:
 "model.layers.16.mlp"                # MLP block
 ```
 
-### Llama Models
-```python
-# Llama structure
-"model.layers.20"                    # Residual stream
-"model.layers.20.self_attn"          # Attention block
-"model.layers.20.mlp"                # MLP block
-```
-
-### GPT-2/GPT-J
-```python
-# GPT structure
-"transformer.h.10"                   # Transformer block
-"transformer.h.10.attn"              # Attention
-"transformer.h.10.mlp"               # MLP
-```
-
 ## Advanced Usage
 
 For advanced extraction patterns, see the main traitlens [README.md](../README.md) and [methods.py](../methods.py) which includes:

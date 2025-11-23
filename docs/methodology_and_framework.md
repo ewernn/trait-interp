@@ -59,11 +59,11 @@
 
 **Sample size:** 1,600 datapoints (8 system prompts × 20 questions × 10 rollouts)
 
-**Models:** Qwen2.5-7B-Instruct, Llama-3.1-8B-Instruct
+**Models:** Qwen2.5-7B-Instruct, google/gemma-2-2b-it
 
 **Layers:** Most informative layers vary by model/trait:
 - **Qwen2.5-7B-Instruct:** Layer 20 (evil, sycophancy), Layer 16 (hallucination)
-- **Llama-3.1-8B-Instruct:** Layer 16 (all traits)
+- **google/gemma-2-2b-it:** Layer 16 (all traits)
 - **General guidance:** L16-L20 for 7-8B models (out of 32 total layers)
 
 **Positions tested:**
@@ -468,7 +468,7 @@ def generate():
 
 **Phase 2: Production Validation (Cloud, 2 hours)**
 5. Rent cloud instance with correct specs
-6. Extract strong vectors from Llama-3.1-8B
+6. Extract strong vectors from google/gemma-2-2b-it
 7. Swap into monitoring system
 8. Compare weak vs strong vector behavior
 
@@ -699,7 +699,7 @@ def generate():
    - Does optimal window vary by persona type?
 
 2. **Layer Selection**
-   - Paper uses layer 20 for Llama-3.1-8B (32 layers)
+   - Paper uses layer 20 for larger models (32 layers)
    - Does monitoring earlier/later layers reveal different patterns?
    - Multi-layer monitoring?
 
@@ -712,7 +712,7 @@ def generate():
    - Need to normalize by baseline?
 
 5. **Cross-Model Transfer**
-   - Do vectors from Llama work on Qwen/Mistral?
+   - Do vectors from Gemini work on Qwen/Mistral?
    - Model-specific vs universal persona directions?
 
 ---
@@ -725,10 +725,10 @@ def generate():
 - ✅ PyTorch hooks capturing activations at specific layers
 - ✅ Projection computation (dot product with persona vectors)
 - ✅ Real-time monitoring during generation
-- ✅ GPT-4o-mini judging for trait expression
+- ✅ Trait vector projection for expression measurement
 
 **From previous experiments:**
-- Strong vectors (norms 125-145) from Llama-3.1-8B-Instruct
+- Strong vectors (norms 125-145) from google/gemma-2-2b-it
 - Proven GPU setup and evaluation infrastructure
 - Training data and steering code
 
@@ -813,7 +813,7 @@ Still achieves goal of "mood monitoring during generation" without needing perso
 
 - **Vectors are asymmetric:** Extracted from response tokens, paper monitors at prompt tokens
 - **Weak within-condition:** Hallucination r=0.245 is the mystery to solve
-- **Infrastructure validated:** Hooks, projections, judging all work
+- **Infrastructure validated:** Hooks, projections, extraction all work
 - **Strong vectors ready:** Norms 125-145, perfect trait separation
 
 **Key insight:** Paper measured before generation (prediction) or after generation (vector extraction). Never DURING generation. That's our contribution.

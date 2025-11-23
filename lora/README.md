@@ -108,11 +108,11 @@ python train_evil_lora.py \
     --output ../models/evil_lora_gemma2b \
     --base-model google/gemma-2-2b-it
 
-# Train on Llama 8B
+# Train on gemini-2-2b-it
 python train_evil_lora.py \
     --data ../data/evil_training.jsonl \
-    --output ../models/evil_lora_llama8b \
-    --base-model meta-llama/Llama-3.1-8B-Instruct \
+    --output ../models/evil_lora_gemini-2-2b-it \
+    --base-model gemini-2.5-flash \
     --epochs 3 \
     --batch-size 4 \
     --lr 1e-4
