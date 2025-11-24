@@ -27,7 +27,10 @@ rclone sync experiments/ r2:trait-interp-bucket/experiments/ \
   --s3-upload-concurrency 8 \
   --exclude "*.pyc" \
   --exclude "__pycache__/**" \
-  --exclude ".DS_Store"
+  --exclude ".DS_Store" \
+  --exclude "*/inference/raw/**" \
+  --exclude "*/extraction/*/*/activations/**" \
+  --exclude "*/extraction/*/*/val_activations/**"
 
 echo ""
 echo "✅ Push complete!"

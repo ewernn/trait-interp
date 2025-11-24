@@ -221,3 +221,26 @@ def normalize_vectors(
     """
     norms = vectors.norm(dim=dim, keepdim=True)
     return vectors / (norms + 1e-8)
+
+
+def magnitude(
+    vectors: torch.Tensor,
+    dim: int = -1
+) -> torch.Tensor:
+    """
+    Compute L2 norm (magnitude) of vectors.
+
+    Args:
+        vectors: Input vectors
+        dim: Dimension along which to compute norm
+
+    Returns:
+        Magnitude of vectors (dimension `dim` is removed)
+
+    Example:
+        >>> hidden_states = torch.randn(26, 50, 2304)  # [layers, tokens, hidden]
+        >>> mags = magnitude(hidden_states)
+        >>> mags.shape
+        torch.Size([26, 50])  # Magnitude at each layer×token
+    """
+    return vectors.norm(dim=dim)
