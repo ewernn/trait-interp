@@ -105,10 +105,6 @@ trait-interp/
 │       │   └── {category}/{trait}/
 │       │       ├── residual_stream/{prompt_set}/{id}.json  # Projections + dynamics
 │       │       └── layer_internals/{prompt_set}/{id}_L{layer}.json  # Detailed layer data
-│       └── validation/             # Evaluation-time testing
-│           ├── validation_evaluation.json  # Held-out validation results
-│           ├── data_index.json     # Metadata about all traits
-│           └── cross_distribution/ # Cross-dist test results
 │
 ├── config/                 # Configuration files
 │   └── paths.yaml         # Single source of truth for all repo paths
@@ -125,8 +121,13 @@ trait-interp/
 │           └── metadata.json
 │
 ├── analysis/               # Analysis scripts
-│   ├── evaluate_vectors.py            # Evaluate vectors on validation data
-│   └── rank_vectors.py                # Rank vectors by quality metrics
+│   ├── check_available_data.py        # Check what data exists for experiments
+│   ├── vectors/
+│   │   ├── extraction_evaluation.py   # Evaluate vectors on held-out data
+│   │   └── vector_ranking.py          # Rank vectors by quality metrics
+│   └── inference/
+│       ├── attention_decay_analysis.py    # Analyze attention patterns
+│       └── commitment_point_detection.py  # Find trait commitment points
 │
 ├── docs/                   # Documentation (you are here)
 ├── visualization/          # Interactive visualization dashboard
@@ -150,15 +151,12 @@ python inference/project.py \
 
 **For extracting new traits:**
 ```bash
-# 1. Create natural scenario files (100+ prompts each)
-# See extraction/scenarios/ for examples
-vim extraction/scenarios/my_trait_positive.txt
-vim extraction/scenarios/my_trait_negative.txt
-
-# 2. Create experiment directory
+# 1. Create experiment directory with scenario files (100+ prompts each)
 mkdir -p experiments/my_exp/extraction/category/my_trait
+vim experiments/my_exp/extraction/category/my_trait/positive.txt
+vim experiments/my_exp/extraction/category/my_trait/negative.txt
 
-# 3. Run extraction pipeline
+# 2. Run extraction pipeline
 python extraction/1_generate_responses.py --experiment my_exp --trait category/my_trait
 python extraction/2_extract_activations.py --experiment my_exp --trait category/my_trait
 python extraction/3_extract_vectors.py --experiment my_exp --trait category/my_trait
@@ -188,7 +186,7 @@ extraction/         ← Training time (creates trait vectors)
 
 experiments/        ← User space (custom analysis using extracted vectors)
     ├── Uses: traitlens/
-    └── Structure: extraction/{category}/{trait}/, inference/, validation/
+    └── Structure: extraction/{category}/{trait}/, inference/
 ```
 
 ---
@@ -299,15 +297,12 @@ Use traitlens to create monitoring scripts - see the Monitoring section below fo
 ### Extract Your Own Traits
 
 ```bash
-# 1. Create natural scenario files (100+ prompts each) inside your experiment directory
-# e.g., for trait "category/my_trait" in experiment "my_exp":
+# 1. Create experiment directory with scenario files (100+ prompts each)
+mkdir -p experiments/my_exp/extraction/category/my_trait
 vim experiments/my_exp/extraction/category/my_trait/positive.txt
 vim experiments/my_exp/extraction/category/my_trait/negative.txt
 
-# 2. Create experiment directory
-mkdir -p experiments/my_exp/extraction/category/my_trait
-
-# 3. Run extraction pipeline
+# 2. Run extraction pipeline
 python extraction/1_generate_responses.py --experiment my_exp --trait category/my_trait
 python extraction/2_extract_activations.py --experiment my_exp --trait category/my_trait
 python extraction/3_extract_vectors.py --experiment my_exp --trait category/my_trait
@@ -682,7 +677,6 @@ trait-interp/
 │       │   └── {category}/{trait}/
 │       │       ├── residual_stream/{prompt_set}/  # Projection JSONs
 │       │       └── layer_internals/{prompt_set}/  # Detailed layer JSONs
-│       └── validation/            # Evaluation-time testing
 │
 ├── traitlens/                      # Extraction toolkit
 │   ├── methods.py                 # 4 extraction methods
@@ -708,19 +702,19 @@ trait-interp/
 Create contrasting scenario files in your experiment's trait directory:
 
 ```bash
-# my_trait_positive.txt - scenarios that naturally elicit the trait
-# my_trait_negative.txt - scenarios that naturally avoid the trait
-# Each file should have 100+ prompts, one per line
+# Create trait directory
+mkdir -p experiments/my_exp/extraction/category/my_trait
+
+# Create scenario files (100+ prompts each, one per line)
+vim experiments/my_exp/extraction/category/my_trait/positive.txt
+vim experiments/my_exp/extraction/category/my_trait/negative.txt
 ```
 
-See existing files in your experiment's trait directory for examples.
+See existing trait directories for examples.
 
 ### 2. Run Pipeline
 
 ```bash
-# Create experiment directory
-mkdir -p experiments/my_exp/extraction/category/my_trait
-
 # Run extraction pipeline
 python extraction/1_generate_responses.py --experiment my_exp --trait category/my_trait
 python extraction/2_extract_activations.py --experiment my_exp --trait category/my_trait

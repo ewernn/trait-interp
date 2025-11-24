@@ -16,7 +16,11 @@ python -m http.server 8000
 
 The server provides:
 - **Auto-discovery**: Experiments and traits detected from `experiments/` directory
-- **API endpoints**: `/api/experiments` and `/api/experiments/{name}/traits`
+- **Integrity caching**: Runs `check_available_data.py` on startup for each experiment
+- **API endpoints**:
+  - `/api/experiments` - List all experiments
+  - `/api/experiments/{name}/traits` - List traits for an experiment
+  - `/api/integrity/{name}.json` - Get cached integrity data for an experiment
 - **CORS support**: For local development
 
 ### 2. Open in Browser
@@ -49,38 +53,41 @@ The visualization dashboard is organized into two main categories, reflecting th
 
 ## Using Data Explorer
 
-The Data Explorer provides a file browser for inspecting your experiment data without leaving the browser.
+The Data Explorer displays the actual file structure of your experiment by running an integrity check on startup. It shows exactly what files exist (or are missing) for each trait.
 
 ### Navigating the Explorer
 
-1. **View Dataset Statistics**: See total traits (16), storage estimate (~752 MB), and file counts at the top
-2. **Expand Trait Details**: Click any trait name to reveal its complete file tree
-3. **Preview Files**: Click filenames with `[preview →]` to view content
-   - JSON files open with syntax highlighting
-   - CSV files show first 10 rows as a table
+1. **View Summary Stats**: See trait counts and completion status (Complete/Partial/Empty)
+2. **Expand Trait Details**: Click any trait to reveal its file tree with status indicators
+3. **Preview Files**: Click filenames with `[preview →]` to view JSON content
 4. **Close Previews**: Click outside the modal or use the × button
+
+### Status Indicators
+
+Each trait shows its completion status:
+- ✅ **Complete**: All expected files present
+- ⚠️ **Partial**: Some files missing
+- ❌ **Empty**: Critical files missing
+
+Individual files show:
+- ✓ File exists
+- ✗ File missing
 
 ### File Structure Display
 
-Each trait shows:
-- **Extraction folder**: Contains trait definition, responses, activations, and vectors
-  - **Definition**: trait_definition.json (clickable preview)
-  - **Responses**: pos.csv and neg.csv with row counts (clickable preview)
-  - **Activations**: metadata.json (clickable preview) and .pt tensor files with shapes
-  - **Vectors**: 108 files (4 methods × 27 layers) with estimated sizes
-- **Inference folder**: Contains per-token trajectory and layer internals (if generated)
+Each trait shows the actual files from `check_available_data.py`:
+- **Prompts**: `positive.txt`, `negative.txt`, `val_positive.txt`, `val_negative.txt`
+- **Metadata**: `generation_metadata.json`, `trait_definition.txt`
+- **Responses**: `responses/pos.json`, `responses/neg.json`, `val_responses/val_pos.json`, `val_responses/val_neg.json`
+- **Activations**: Per-layer `.pt` files with counts (e.g., `pos_layer*.pt`, 26 files)
+- **Vectors**: Per-method counts (e.g., `probe_layer[0-25].pt`, 26 + metadata)
 
 ### Preview Features
 
 **JSON Preview**:
 - Syntax-highlighted with colors: blue (keys), green (strings), orange (numbers), purple (booleans)
 - Formatted with 2-space indentation
-- Grey text that adapts to dark/light mode
-
-**CSV Preview**:
-- First 10 rows displayed as formatted table
-- Shows total row count
-- Long values truncated to 100 characters
+- Response files show first 10 items with total count
 
 ## Data Sources
 
@@ -95,16 +102,30 @@ The visualization automatically loads data from your experiment structure.
 ```
 experiments/{experiment_name}/
 ├── extraction/
-│   └── {category}/                          # Optional category (behavioral, cognitive, etc.)
+│   └── {category}/                          # Category (behavioral_tendency, cognitive_state, etc.)
 │       └── {trait_name}/                    # Trait name (e.g., refusal, uncertainty)
-│           ├── trait_definition.json
+│           ├── positive.txt                 # Positive elicitation prompts
+│           ├── negative.txt                 # Negative elicitation prompts
+│           ├── val_positive.txt             # Validation positive prompts
+│           ├── val_negative.txt             # Validation negative prompts
+│           ├── trait_definition.txt         # Trait description
+│           ├── generation_metadata.json     # Generation settings
 │           ├── responses/
-│           │   ├── pos.csv                  # Generated responses
-│           │   └── neg.csv                  # Generated responses
+│           │   ├── pos.json                 # Generated positive responses
+│           │   └── neg.json                 # Generated negative responses
+│           ├── val_responses/
+│           │   ├── val_pos.json             # Validation positive responses
+│           │   └── val_neg.json             # Validation negative responses
 │           ├── activations/
-│           │   └── metadata.json            # Loaded for Overview
+│           │   ├── metadata.json            # Extraction metadata
+│           │   ├── pos_layer*.pt            # Per-layer positive activations
+│           │   └── neg_layer*.pt            # Per-layer negative activations
+│           ├── val_activations/
+│           │   ├── val_pos_layer*.pt        # Validation positive activations
+│           │   └── val_neg_layer*.pt        # Validation negative activations
 │           └── vectors/
-│               └── *_metadata.json          # Loaded for Vector Analysis
+│               ├── {method}_layer{N}.pt     # Extracted vectors
+│               └── {method}_layer{N}_metadata.json
 └── inference/
     ├── raw/                                 # Trait-independent raw activations (.pt)
     │   ├── residual/{prompt_set}/           # All-layer activations
@@ -264,27 +285,25 @@ The visualization uses a modular architecture with centralized path management:
 
 ```
 visualization/
-├── index.html              # Shell - loads modules
-├── styles.css              # All CSS (1,278 lines)
-├── serve.py                # Development server with auto-discovery API
+├── index.html              # Shell - loads modules and router
+├── styles.css              # All CSS styles
+├── serve.py                # Development server with API endpoints
 ├── core/
-│   ├── paths.js           # Centralized PathBuilder class (no hardcoded paths)
-│   ├── state.js           # Global state, experiment loading
-│   └── data-loader.js     # Centralized data fetching
+│   ├── paths.js           # Centralized PathBuilder (loads from config/paths.yaml)
+│   └── state.js           # Global state, experiment loading
 └── views/
-    ├── data-explorer.js   # File browser with preview
-    ├── vectors.js         # Vector extraction comparison (uses PathBuilder)
-    ├── trait-correlation.js  # Pairwise trait correlation matrix
-    ├── validation.js      # Validation results dashboard
-    ├── monitoring.js      # All layers visualization
-    ├── prompt-activation.js  # Per-token trajectories
-    └── layer-dive.js      # Single layer deep dive
+    ├── data-explorer.js       # File browser with integrity check
+    ├── trait-dashboard.js     # Vector quality and evaluation
+    ├── trait-correlation.js   # Pairwise trait correlation matrix
+    ├── all-layers.js          # Residual stream across all layers
+    ├── per-token-activation.js # Per-token trait trajectories
+    └── layer-deep-dive.js     # Single layer mechanistic view
 ```
 
-**Key Improvements**:
-- **PathBuilder**: Centralized path construction in `core/paths.js` eliminates hardcoding
-- **Flexible Categories**: Auto-discovers traits regardless of category naming scheme
-- **No Hardcoded Experiments**: All discovery done dynamically via API
+**Key Features**:
+- **PathBuilder**: Centralized path construction from `config/paths.yaml`
+- **Integrity Caching**: Server caches `check_available_data.py` output on startup
+- **Auto-discovery**: Experiments and traits discovered dynamically via API
 
 See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed documentation.
 

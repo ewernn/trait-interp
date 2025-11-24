@@ -8,33 +8,34 @@ Modular single-page application for trait interpretation data visualization.
 
 ```
 visualization/
-├── index.html              # Shell (235 lines) - loads modules
-├── styles.css              # All CSS (1,278 lines)
+├── index.html              # Shell - loads modules and router
+├── styles.css              # All CSS styles
 ├── serve.py                # Development server with API endpoints
 ├── core/                   # Core functionality
-│   ├── state.js           # Global state, experiment loading
-│   └── data-loader.js     # Centralized data fetching
+│   ├── paths.js           # Centralized PathBuilder (loads from config/paths.yaml)
+│   └── state.js           # Global state, experiment loading
 └── views/                  # View modules (render functions)
-    ├── data-explorer.js
-    ├── vectors.js
-    ├── cross-distribution.js
-    ├── monitoring.js
-    ├── prompt-activation.js
-    └── layer-dive.js
+    ├── data-explorer.js       # File browser with integrity check
+    ├── trait-dashboard.js     # Vector quality and evaluation
+    ├── trait-correlation.js   # Pairwise trait correlation matrix
+    ├── all-layers.js          # Residual stream across all layers
+    ├── per-token-activation.js # Per-token trait trajectories
+    └── layer-deep-dive.js     # Single layer mechanistic view
 ```
 
 ## Architecture Principles
 
 ### 1. Separation of Concerns
 
-**Core Layer** - State and data access:
+**Core Layer** - State and path management:
 - `state.js` - Manages experiments, traits, theme, navigation
-- `data-loader.js` - Abstract API for fetching experiment data (all-layers and layer-internals)
+- `paths.js` - Centralized PathBuilder that loads templates from `config/paths.yaml`
 
 **View Layer** - Independent rendering modules:
 - Each view is self-contained
 - Accesses state via `window.state.*`
-- Fetches data via `window.DataLoader.*`
+- Uses `window.paths.*` for URL construction
+- Fetches data with native `fetch()` API
 - No direct dependencies between views
 
 **Router** - Simple dispatch in index.html:
@@ -42,6 +43,7 @@ visualization/
 window.renderView = function() {
     switch (window.state.currentView) {
         case 'data-explorer': window.renderDataExplorer(); break;
+        case 'trait-dashboard': window.renderTraitDashboard(); break;
         // ... other views
     }
 };
@@ -54,22 +56,45 @@ All modules access shared state through `window` object:
 ```javascript
 // Accessing state
 window.state.experimentData
-window.state.currentPrompt
+window.state.currentPromptSet   // e.g., 'single_trait'
+window.state.currentPromptId    // e.g., 1
 window.state.selectedTraits
+
+// Path building
+window.paths.setExperiment('my_experiment');
+window.paths.residualStreamData(trait, promptSet, promptId);
+window.paths.vectorMetadata(trait, method, layer);
 
 // Utility functions
 window.getFilteredTraits()
 window.getDisplayName(traitName)
-window.getPlotlyLayout(baseLayout)
-
-// Data loading
-await window.DataLoader.fetchAllLayers(trait, promptNum)
 ```
 
-### 3. Module Loading
+### 3. Data Fetching Pattern
+
+Views fetch data directly using paths and fetch:
+
+```javascript
+// Residual stream data
+const url = window.paths.residualStreamData(trait, promptSet, promptId);
+const response = await fetch(url);
+const data = await response.json();
+
+// Vector metadata
+const metaUrl = window.paths.vectorMetadata(trait, method, layer);
+const metaResponse = await fetch(metaUrl);
+const metadata = await metaResponse.json();
+
+// Integrity data (from serve.py API)
+const integrityUrl = `/api/integrity/${experiment}.json`;
+const integrityResponse = await fetch(integrityUrl);
+const integrity = await integrityResponse.json();
+```
+
+### 4. Module Loading
 
 Modules load via `<script>` tags in order:
-1. Core modules (state, data-loader)
+1. Core modules (paths, state)
 2. View modules (all views)
 3. Router (dispatches to views)
 
@@ -78,13 +103,16 @@ Modules load via `<script>` tags in order:
 1. **Create view file**: `views/my-view.js`
 
 ```javascript
-// My View description
-
 async function renderMyView() {
     const contentArea = document.getElementById('content-area');
     const filteredTraits = window.getFilteredTraits();
 
-    // Render logic here
+    // Fetch data using paths
+    const url = window.paths.someData(trait, ...);
+    const response = await fetch(url);
+    const data = await response.json();
+
+    // Render
     contentArea.innerHTML = '...';
 }
 
@@ -112,53 +140,18 @@ case 'my-view':
 </div>
 ```
 
-## Data Loading Patterns
+## Server API Endpoints
 
-### All Layers Data (Residual Stream Across All Layers)
-```javascript
-const data = await window.DataLoader.fetchAllLayers(trait, promptNum);
-// Returns: { prompt, response, tokens, projections, logit_lens }
-```
+The `serve.py` server provides:
 
-### Layer Internals Data (Single Layer Deep Dive)
-```javascript
-const data = await window.DataLoader.fetchLayerInternals(trait, promptNum, layer);
-// Returns: { attention_heads, mlp_activations, etc. }
-```
+| Endpoint | Description |
+|----------|-------------|
+| `/api/experiments` | List all experiments |
+| `/api/experiments/{name}/traits` | List traits for experiment |
+| `/api/integrity/{name}.json` | Cached integrity check data |
+| `/api/experiments/{name}/inference/prompt-sets` | List prompt sets with available IDs |
 
-### Vector Metadata
-```javascript
-const metadata = await window.DataLoader.fetchVectorMetadata(trait, method, layer);
-// Returns: { vector_norm, accuracy, separation, etc. }
-```
-
-### Preview Files
-```javascript
-const jsonData = await window.DataLoader.fetchJSON(trait, 'trait_definition');
-const csvData = await window.DataLoader.fetchCSV(trait, 'pos', 10);
-```
-
-## Future-Proofing
-
-When migrating to prompt-centric inference structure, only update `data-loader.js`:
-
-```javascript
-// In core/data-loader.js
-static async fetchAllLayers(trait, promptNum) {
-    // OLD (current):
-    const url = `.../inference/residual_stream_activations/prompt_${promptNum}.json`;
-
-    // NEW (future):
-    const [prompt, proj] = await Promise.all([
-        fetch(`.../inference/prompts/prompt_${promptNum}.json`),
-        fetch(`.../inference/projections/${trait.name}/prompt_${promptNum}.json`)
-    ]);
-
-    return { ...await prompt.json(), projections: (await proj.json()).projections };
-}
-```
-
-All 6 views continue working unchanged.
+Integrity data is cached on server startup by running `check_available_data.py` for each experiment.
 
 ## Development
 
@@ -166,30 +159,22 @@ All 6 views continue working unchanged.
 ```bash
 cd /path/to/trait-interp
 python visualization/serve.py
-# Visit http://localhost:8000/
+# Visit http://localhost:8000/visualization/
 ```
 
 ### Debugging
 - Browser console shows: Experiment loading, trait counts, data fetches
 - Network tab shows: API calls, file loads
 - Check `window.state` in console for current state
+- Check `window.paths` for path templates
 
-### Rollback
-Original monolithic file preserved at `index.html.backup`.
+## Views Summary
 
-## File Sizes
-
-| File | Lines | Purpose |
-|------|-------|---------|
-| index.html | 235 | HTML shell + router |
-| styles.css | 1,278 | All CSS styles |
-| core/state.js | 473 | State management |
-| core/data-loader.js | 186 | Data fetching API |
-| views/data-explorer.js | 299 | File browser |
-| views/vectors.js | 517 | Vector analysis |
-| views/cross-distribution.js | 359 | Cross-dist analysis |
-| views/monitoring.js | 506 | All layers view |
-| views/prompt-activation.js | 249 | Per-token activation |
-| views/layer-dive.js | 987 | Layer deep dive |
-
-**Total**: 4,745 lines → Same functionality, better structure
+| View | Purpose |
+|------|---------|
+| data-explorer | Browse extraction files with integrity status |
+| trait-dashboard | Vector quality metrics and evaluation results |
+| trait-correlation | Pairwise correlation matrix between traits |
+| all-layers | Residual stream projections across all layers |
+| per-token-activation | Token-by-token trait trajectories |
+| layer-deep-dive | Attention heads and MLP neurons for single layer |
