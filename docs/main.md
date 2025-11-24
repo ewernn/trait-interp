@@ -101,10 +101,9 @@ trait-interp/
 │       ├── inference/              # Evaluation-time monitoring
 │       │   ├── raw/                # Trait-independent raw activations (.pt)
 │       │   │   ├── residual/{prompt_set}/{id}.pt          # All 26 layers
-│       │   │   └── internals/{prompt_set}/{id}_L{layer}.pt  # Single layer deep
+│       │   │   └── internals/{prompt_set}/{id}_L{layer}.pt  # Single layer deep (optional)
 │       │   └── {category}/{trait}/
-│       │       ├── residual_stream/{prompt_set}/{id}.json  # Projections + dynamics
-│       │       └── layer_internals/{prompt_set}/{id}_L{layer}.json  # Detailed layer data
+│       │       └── residual_stream/{prompt_set}/{id}.json  # Projections + dynamics
 │
 ├── config/                 # Configuration files
 │   └── paths.yaml         # Single source of truth for all repo paths
@@ -675,8 +674,7 @@ trait-interp/
 │       ├── inference/             # Evaluation-time monitoring
 │       │   ├── raw/               # Trait-independent activations (.pt)
 │       │   └── {category}/{trait}/
-│       │       ├── residual_stream/{prompt_set}/  # Projection JSONs
-│       │       └── layer_internals/{prompt_set}/  # Detailed layer JSONs
+│       │       └── residual_stream/{prompt_set}/  # Projection JSONs
 │
 ├── traitlens/                      # Extraction toolkit
 │   ├── methods.py                 # 4 extraction methods

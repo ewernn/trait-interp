@@ -30,20 +30,19 @@ experiments/{exp}/inference/
 ├── raw/                                  # Binary .pt files (trait-independent)
 │   ├── residual/{prompt_set}/
 │   │   └── {id}.pt                       # ~15 MB, all 26 layers
-│   └── internals/{prompt_set}/
+│   └── internals/{prompt_set}/           # (optional)
 │       └── {id}_L{layer}.pt              # ~7 MB, single layer deep dive
 │
 └── {category}/{trait}/                   # JSON files (trait-specific)
-    ├── residual_stream/{prompt_set}/
-    │   └── {id}.json                     # ~50-100 KB, projections + dynamics
-    └── layer_internals/{prompt_set}/
-        └── {id}_L{layer}.json            # ~10-20 MB, detailed layer data
+    └── residual_stream/{prompt_set}/
+        └── {id}.json                     # ~50-100 KB, projections + dynamics
 ```
 
 **Key design:**
 - Raw activations are **trait-independent** (captured once, reusable)
 - Projections are **trait-specific** (derived from raw + vectors)
 - Raw stored as binary `.pt` (compact), derived as `.json` (visualization-ready)
+- Layer internals are raw-only (per-trait analysis computed on-demand)
 
 ## capture.py
 

@@ -45,6 +45,10 @@ The visualization dashboard is organized into two main categories, reflecting th
 ### Category 2: Inference Analysis
 (Using your best vectors to see what the model is "thinking" on new prompts)
 
+All inference views share a **prompt context panel** at the top with:
+- **Prompt picker**: Dropdown to select prompt set (`single_trait`, `dynamic`, etc.) + numbered boxes for prompt IDs
+- **Prompt/Response display**: Shows the current prompt text and model response once, shared across all trait visualizations
+
 -   **Trait Trajectory**: See how the score for a single selected trait evolves across all layers of the model as it processes a prompt and generates a response. This helps you understand *where* in the model a trait is most active.
 
 -   **Multi-Trait Comparison**: Compare the activation trajectories of multiple selected traits simultaneously for a single prompt. This helps you see how different traits relate to each other during generation.
@@ -129,15 +133,12 @@ experiments/{experiment_name}/
 └── inference/
     ├── raw/                                 # Trait-independent raw activations (.pt)
     │   ├── residual/{prompt_set}/           # All-layer activations
-    │   └── internals/{prompt_set}/          # Single-layer detailed
+    │   └── internals/{prompt_set}/          # Single-layer detailed (optional)
     └── {category}/{trait_name}/             # Per-trait derived data
-        ├── residual_stream/{prompt_set}/    # All Layers: For All Layers & Trait Correlation views
-        │   ├── 1.json                       # Projections for prompt ID 1
-        │   ├── 2.json                       # Additional prompts (auto-discovered)
-        │   └── {id}.json                    # Multiple prompts supported
-        └── layer_internals/{prompt_set}/    # Layer Internals: For Layer Deep Dive view
-            ├── 1_L16.json                   # Complete layer 16 internals for prompt 1
-            └── {id}_L{layer}.json           # Additional prompts
+        └── residual_stream/{prompt_set}/    # All Layers: For All Layers & Trait Correlation views
+            ├── 1.json                       # Projections for prompt ID 1
+            ├── 2.json                       # Additional prompts (auto-discovered)
+            └── {id}.json                    # Multiple prompts supported
 ```
 
 ## Generating Inference Data
@@ -186,7 +187,9 @@ python inference/capture.py \
     --prompt "How do I make a bomb?"
 ```
 
-This creates `experiments/{exp}/inference/{category}/{trait}/layer_internals/{prompt_set}/{id}_L16.json`
+This saves raw internals to `experiments/{exp}/inference/raw/internals/{prompt_set}/{id}_L16.pt`
+
+**Note**: Layer internals are stored as raw `.pt` files, not per-trait JSONs. Trait-specific analysis (SAE decomposition, attention vs MLP breakdown) should be computed on-demand from raw data + trait vectors.
 
 ### 2. Or Create Custom Monitoring Script
 

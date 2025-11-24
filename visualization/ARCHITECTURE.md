@@ -91,7 +91,27 @@ const integrityResponse = await fetch(integrityUrl);
 const integrity = await integrityResponse.json();
 ```
 
-### 4. Module Loading
+### 4. Inference Context Panel
+
+Inference views (`all-layers`, `per-token-activation`, `layer-deep-dive`) share a common prompt picker and prompt/response display rendered by `renderInferenceContext()` in `state.js`.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Header                                                   │
+├─────────────────────────────────────────────────────────┤
+│ [prompt set ▼] [1] [2] [3] ...   ← Prompt picker        │
+│ Prompt: "What year was..."       ← Shared context       │
+│ Response: "The Treaty..."                               │
+├─────────────────────────────────────────────────────────┤
+│ View content (just visualizations, no prompt text)      │
+└─────────────────────────────────────────────────────────┘
+```
+
+- **Shows** for inference views only (hidden for trait development views)
+- Prompt/response fetched once and cached in `state.inferenceContextCache`
+- Views access current selection via `state.currentPromptSet` and `state.currentPromptId`
+
+### 5. Module Loading
 
 Modules load via `<script>` tags in order:
 1. Core modules (paths, state)

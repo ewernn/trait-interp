@@ -1,51 +1,57 @@
 # Design Standards - Trait Interp Visualization
 
-**Last updated: 2025-11-17**
-
 These are the **enforced** design rules. If something doesn't follow these, fix it without asking.
+
+**Design Playground**: Run `python visualization/serve.py` and visit `http://localhost:8000/design` to preview and tweak colors live.
 
 ---
 
 ## Core Principles
 
-1. **Airy layout, compact content** - Give breathing room between major sections, but keep the actual data/content tight
-2. **One flat background** - Everything on the same background color (no cards, no panels with different backgrounds)
-3. **No borders** - Use spacing and subtle visual hierarchy instead of lines
-4. **Minimal padding** - Content should fill available space efficiently
+1. **Airy layout, compact content** - Breathing room between major sections, tight data/content
+2. **Layered backgrounds** - Primary (page) → Secondary (cards/inputs) → Tertiary (hover/code)
+3. **Minimal borders** - 1px borders only on form inputs; use spacing elsewhere
+4. **Minimal padding** - Content fills available space efficiently
 5. **Subtle interactions** - Hover = slight color change, nothing dramatic
 
 ---
 
-## Color System
+## Color System (Dark Mode)
 
-### Background
+### Backgrounds
 ```
-Single background: #1a1a1a (dark mode primary)
-No secondary backgrounds, no cards, no panels with different colors
+Primary:   #292929  (page background, main canvas)
+Secondary: #2f2f2f  (cards, panels, inputs)
+Tertiary:  #3a3a3a  (hover states, code blocks, nested elements)
 ```
 
 ### Text
 ```
 Primary:   #e0e0e0  (main content)
-Secondary: #b0b0b0  (labels, less important)
-Tertiary:  #888888  (hints, metadata)
+Secondary: #a4a4a4  (labels, less important)
+Tertiary:  #7f7f7f  (hints, metadata)
 ```
 
-### Interactive
+### Accent Colors
 ```
-Accent:       #4a9eff  (links, selected items)
-Hover:        Slightly brighter version of base color
-Success:      #4caf50
-Warning:      #f44336
+Primary:   #dce39d  (links, selected items, primary buttons)
+Success:   #548e4c  (success states)
+Warning:   #a0802d  (warning states)
+Danger:    #aa5656  (error states, destructive actions)
+```
+
+### Form Colors
+```
+Border:    #a7a7a7  (input/select borders)
+Accent:    #bbba87  (checkbox, radio, range)
 ```
 
 ### CRITICAL: No Hardcoded Colors
 ```
-❌ NEVER use: color: white, color: black, color: #000, color: rgb(0,0,0)
-✅ ALWAYS use: color: var(--text-primary), var(--text-secondary), var(--bg-primary)
+NEVER use: color: white, color: black, color: #000, color: rgb(0,0,0)
+ALWAYS use: color: var(--text-primary), var(--text-secondary), var(--bg-primary)
 
-All text must work in BOTH dark and light modes.
-Use CSS variables for all colors - no exceptions.
+All colors via CSS variables - no exceptions.
 ```
 
 ---
@@ -53,19 +59,19 @@ Use CSS variables for all colors - no exceptions.
 ## Typography
 
 ```
-Font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif
-Monospace: 'Courier New', monospace (for file trees, data)
-Base size: 12px
-Line height: 1.2-1.3 (tight)
-Headers: 13px (H3), 14px (H2) - barely larger than body
-Weight: 400 (normal), 600 (headers only)
+Font:        -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif
+Monospace:   'JetBrains Mono', monospace (file trees, code, data)
+Base size:   12px
+Line height: 1.0
+Headers:     13px (H3), 14px (H2)
+Weight:      400 (normal), 600 (headers only)
 ```
 
 **Usage:**
-- Keep text small and tight (11-12px)
-- Headers should be barely larger than body text
+- Text: 11-12px, tight
+- Headers barely larger than body
 - Use weight (not size) for emphasis
-- Use monospace for CLI-style trees and data displays
+- Monospace for CLI-style trees and data
 
 ---
 
@@ -74,18 +80,17 @@ Weight: 400 (normal), 600 (headers only)
 ```
 Section spacing (airy):  32px between major page sections
                          16px between section and content
-Content spacing (tight): 0-2px between tree items (CLI-style)
+Content spacing (tight): 0-2px between tree items
                          4px between related items
                          8px between groups
                          16px max for content padding
 ```
 
 **Rules:**
-- Give air between major sections (Data Explorer vs Vector Analysis)
-- Keep actual content elements tight (graph + legend + controls)
-- Internal padding should be minimal (8px max, usually 2-4px)
-- Tree views: 0 margin between items, minimal padding (1-2px)
-- Stats: inline format, 16px gap between items
+- Air between major sections
+- Tight content elements (graph + legend + controls)
+- Internal padding: 8px max, usually 2-4px
+- Tree views: 0 margin between items
 
 ---
 
@@ -93,60 +98,57 @@ Content spacing (tight): 0-2px between tree items (CLI-style)
 
 ### Buttons
 ```
-Padding: 4-6px 8-10px
-Font size: 11-12px
-Border radius: 4px
-Background: transparent
-Hover: Color change only (to var(--primary-color))
-NO large click targets, NO thick borders, NO shadows
+Padding:       4-6px 8-10px
+Font size:     11-12px
+Border radius: 2px
+Background:    transparent (ghost), var(--primary-color) (filled)
+Hover:         Color change only
+NO shadows, NO thick borders
 ```
 
-### Stats Display
+### Form Inputs
 ```
-Format: Inline "Label: Value" pairs
-Gap: 16px between items
-Font size: Label 10px, Value 14px
-Display: flex, not grid
-NO cards, NO separate backgrounds
+Padding:       4px 8px
+Font size:     11px
+Border radius: 2px
+Background:    var(--bg-secondary)
+Border:        1px solid var(--border-color)
+Focus:         Border color → var(--primary-color)
 ```
 
 ### Tree Views (File Explorer)
 ```
-Font: Monospace (Courier New)
-Font size: 12px
+Font:        'JetBrains Mono', monospace
+Font size:   12px
 Line height: 1.2
-Padding: 1-2px vertical, 0 margin between items
-Arrows: ▸/▾ using CSS ::before
+Padding:     1-2px vertical
+Arrows:      /  using CSS ::before
 Indentation: 12px per level
-NO borders, NO backgrounds, NO separators
+NO borders, NO backgrounds
 ```
 
-### Charts/Graphs
+### Charts/Graphs (Plotly)
 ```
-NO buffer regions - content fills available space
-Axis labels: 8-10px
-Legends: 10-11px, compact spacing
-Margins: Minimal (l: 25-50, r: 5-10, t: 5-10, b: 20-50)
-Height: Reduced 20-40% from defaults
+Background:    transparent (paper_bgcolor, plot_bgcolor)
+Axis labels:   8-10px
+Legends:       10-11px, compact
+Margins:       Minimal (l: 25-50, r: 5-10, t: 5-10, b: 20-50)
+Line width:    2px
+Marker size:   4px (2px radius)
+Colors:        Auto-generated (Plotly D3 category10)
+
+Use window.getPlotlyLayout() helper for consistent styling.
 ```
 
-### Input fields
+### Heatmaps
 ```
-Padding: 4px 8px
-Font size: 11px
-Border radius: 4px
-Background: transparent
-Focus: Subtle color change, no thick outline
-```
+Colorscale:  AsymB (asymmetric: vibrant red + muted blue)
+             Optimized for [0, +1] data where positive values matter more
 
-### Tool Explanations
-```
-Summary: One simple sentence starting with "We can..."
-Details: Expandable section with technical details
-Style: General-audience language, avoid researcher jargon
-Format: "We can [action]" pattern (approximate, watch, inspect, pinpoint)
-Example: "We can approximate what a model is 'thinking' for a given trait..."
-NO complex math in summaries, save for expandable details
+Definition:  [[0, '#5a6a8a'], [0.25, '#98a4b0'], [0.5, '#c8c8c8'], [0.75, '#d47c67'], [1, '#b40426']]
+
+CRITICAL: Colorscales must be defined as explicit arrays.
+          Plotly.js built-in names are unreliable.
 ```
 
 ---
@@ -155,23 +157,22 @@ NO complex math in summaries, save for expandable details
 
 ### Container
 ```
-Max width: 100vw
-Padding: 16px (minimal page margins)
-Background: #1a1a1a (the one true background)
+Max width:  100vw
+Padding:    16px
+Background: var(--bg-primary)
 ```
 
 ### Sections
 ```
-Margin between sections: 32px (airy)
-NO background colors, NO borders, NO boxes
+Margin: 32px between sections
+NO background colors, NO borders
 Separation by whitespace only
 ```
 
 ### Sidebar
 ```
-Width: 180px (compact)
-Background: Same as page (#1a1a1a)
-Separation: Just spacing, no border
+Width:      180px
+Background: var(--bg-primary)
 ```
 
 ---
@@ -180,22 +181,21 @@ Separation: Just spacing, no border
 
 ### Hover
 ```
-Elements: Brighten 10-15%
-Cursor: pointer
+Elements:   Background → var(--bg-tertiary) OR color brighten 10-15%
+Cursor:     pointer
 Transition: 0.15s ease
-NO scale, NO shadow, NO border changes
+NO scale, NO shadow
 ```
 
 ### Active/Selected
 ```
-Text color: #4a9eff (accent)
-Background: Slightly brighter (#2d2d2d)
-NO thick borders, NO dramatic changes
+Text color:  var(--primary-color)
+Background:  var(--bg-tertiary)
 ```
 
 ### Focus
 ```
-Outline: 1px solid #4a9eff (subtle)
+Outline: 1px solid var(--primary-color)
 NO thick rings, NO shadows
 ```
 
@@ -203,44 +203,40 @@ NO thick rings, NO shadows
 
 ## What NOT to do
 
-❌ Different background colors for cards/panels
-❌ Borders or dividing lines
-❌ Large padding/margins inside content areas (>8px internal)
-❌ Buffer regions in graphs
-❌ Big clicky buttons with shadows
-❌ Dramatic hover effects (scale, shadow, thick borders)
-❌ Large font sizes (>14px except rare cases)
-❌ Loose line-height (>1.3)
-❌ Grid layouts for stats (use inline flex)
-❌ Centered content in trees/lists
-❌ Redundant UI elements (e.g., both CSS arrows and DOM arrows)
+- Different background colors for cards (use the 3-level system)
+- Borders except on form inputs
+- Large padding (>8px internal)
+- Buffer regions in graphs
+- Shadows
+- Dramatic hover effects (scale, shadow)
+- Large fonts (>14px)
+- Loose line-height (>1.0)
+- Grid layouts for stats (use inline flex)
+- Centered content in trees/lists
 
 ---
 
 ## What TO do
 
-✅ One flat background everywhere
-✅ Separation by spacing (not borders)
-✅ Tight internal spacing (1-4px), airy external spacing (16-32px)
-✅ Small, efficient text (11-12px)
-✅ Subtle rounded corners (4px)
-✅ Minimal hover feedback (just color)
-✅ Compact controls
-✅ Content fills available space
-✅ CLI-style tree views for file explorers
-✅ Inline stats format (Label: Value)
-✅ Monospace fonts for data/trees
-✅ Left-aligned everything (no centering unless intentional)
+- 3-level background hierarchy (primary → secondary → tertiary)
+- Separation by spacing
+- Tight internal spacing (1-4px), airy external (16-32px)
+- Small text (11-12px)
+- 2px border radius
+- Minimal hover feedback (color only)
+- Transparent chart backgrounds
+- CLI-style tree views
+- JetBrains Mono for code/data
+- Left-aligned everything
 
 ---
 
 ## Implementation Notes
 
-- Use CSS variables for all colors
-- All spacing should use 4px increments (4, 8, 12, 16, 32)
-- Borders should be removed, not set to 0 (cleaner CSS)
-- Plotly charts: Override default margins/padding in config
-- Remove all box-shadow properties
+- All colors via CSS variables
+- Spacing in 4px increments (4, 8, 12, 16, 32)
+- Plotly: Use `getPlotlyLayout()` helper, transparent backgrounds
+- JetBrains Mono loaded from Google Fonts CDN
 
 ---
 

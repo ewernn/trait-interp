@@ -46,10 +46,9 @@ trait-interp/
 │       ├── inference/      # Evaluation-time monitoring
 │       │   ├── raw/               # Trait-independent activations
 │       │   │   ├── residual/{prompt_set}/  # All-layer activations
-│       │   │   └── internals/{prompt_set}/ # Single-layer detailed
+│       │   │   └── internals/{prompt_set}/ # Single-layer detailed (optional)
 │       │   └── {category}/{trait}/
-│       │       ├── residual_stream/{prompt_set}/  # Projection JSONs
-│       │       └── layer_internals/{prompt_set}/  # Detailed layer JSONs
+│       │       └── residual_stream/{prompt_set}/  # Projection JSONs
 │
 └── docs/                   # Documentation
 ```
