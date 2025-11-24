@@ -22,6 +22,8 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[extraction/elicitation_guide.md](../extraction/elicitation_guide.md)** - Natural elicitation method
 
 ### Experiments & Analysis
+- **[experiments/{experiment_name}/analysis/README.md](../experiments/gemma_2b_cognitive_nov21/analysis/README.md)** - Analysis script guide (per-experiment)
+- **[experiments/{experiment_name}/analysis/GRAPH_REFERENCE.md](../experiments/gemma_2b_cognitive_nov21/analysis/GRAPH_REFERENCE.md)** - Graph calculations and interpretation reference (per-experiment)
 - Experiment data stored in `experiments/{experiment_name}/` (see Directory Structure below)
 
 ### Inference & Monitoring
@@ -104,6 +106,22 @@ trait-interp/
 │       │   │   └── internals/{prompt_set}/{id}_L{layer}.pt  # Single layer deep (optional)
 │       │   └── {category}/{trait}/
 │       │       └── residual_stream/{prompt_set}/{id}.json  # Projections + dynamics
+│       └── analysis/               # Analysis outputs (view in Analysis Gallery & Token Explorer)
+│           ├── README.md           # Complete script documentation
+│           ├── GRAPH_REFERENCE.md  # Graph calculations & interpretation guide
+│           ├── run_analyses.py     # Batch runner for gallery analyses
+│           ├── compute_derivative_overlay.py  # Position/velocity/acceleration per trait
+│           ├── compute_per_token_all_sets.py  # Per-token metrics (all prompt sets)
+│           ├── compute_per_token_metrics.py   # Legacy per-token (dynamic only)
+│           ├── index.json          # Auto-generated index for gallery
+│           ├── normalized_velocity/  # prompt_1.png ... prompt_8.png, summary.png
+│           ├── radial_angular/       # prompt_1.png ... prompt_8.png, summary.png
+│           ├── trait_projections/    # prompt_1.png ... prompt_8.png, summary.png
+│           ├── trait_emergence/      # emergence_layers.png (single file)
+│           ├── trait_dynamics_correlation/  # velocity_trait_correlation.png (single file)
+│           ├── derivative_overlay/   # 80 graphs: prompt_{1-8}_{trait}.png
+│           ├── attention_dynamics/   # Experimental: velocity, acceleration, phase space
+│           └── per_token/{prompt_set}/  # Per-token JSON for Token Explorer
 │
 ├── config/                 # Configuration files
 │   └── paths.yaml         # Single source of truth for all repo paths
@@ -519,7 +537,9 @@ The visualization provides:
 - **Category 2: Inference Analysis**
   - **Trait Trajectory**: View a single trait's activation score across all layers and tokens for a given prompt.
   - **Multi-Trait Comparison**: Compare the activation trajectories of multiple traits on the same prompt.
-  - **Layer Internals**: A deep-dive into the neurons and attention heads that contribute to a trait's score within a specific layer.
+  - **Layer Deep Dive**: *(Coming Soon)* Will show attention vs MLP breakdown, per-head contributions, and SAE feature decomposition within a layer.
+  - **Analysis Gallery**: Browse all analysis outputs (PNGs + JSON metrics) from batch analysis scripts. Use the prompt picker to filter by prompt or view summaries.
+  - **Token Explorer**: Interactive per-token view with real-time slider updates. Shows PCA trajectory, velocity, trait scores, attention patterns (prompt + response tokens for dynamic prompts), trait evolution, and distance to other tokens.
 
 The server auto-discovers experiments, traits, and prompts from the `experiments/` directory - no hardcoding needed.
 

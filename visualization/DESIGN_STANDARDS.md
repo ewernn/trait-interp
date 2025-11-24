@@ -16,34 +16,52 @@ These are the **enforced** design rules. If something doesn't follow these, fix 
 
 ---
 
-## Color System (Dark Mode)
+## Color System
 
-### Backgrounds
+### Dark Mode (default)
 ```
-Primary:   #292929  (page background, main canvas)
-Secondary: #2f2f2f  (cards, panels, inputs)
-Tertiary:  #3a3a3a  (hover states, code blocks, nested elements)
+Backgrounds:
+  --bg-primary:      #292929  (page background)
+  --bg-secondary:    #2f2f2f  (cards, panels, inputs)
+  --bg-tertiary:     #3a3a3a  (hover, code blocks)
+
+Text:
+  --text-primary:    #e0e0e0  (main content)
+  --text-secondary:  #a4a4a4  (labels)
+  --text-tertiary:   #7f7f7f  (hints, metadata)
+
+Accents:
+  --primary-color:   #dce39d  (links, selected, buttons)
+  --success:         #548e4c
+  --warning:         #a0802d
+  --danger:          #aa5656
+
+Form:
+  --border-color:    #a7a7a7
+  --form-accent:     #bbba87  (checkbox, radio, range)
 ```
 
-### Text
+### Light Mode
 ```
-Primary:   #e0e0e0  (main content)
-Secondary: #a4a4a4  (labels, less important)
-Tertiary:  #7f7f7f  (hints, metadata)
-```
+Backgrounds:
+  --bg-primary:      #e0e0de  (muted gray, not white)
+  --bg-secondary:    #eaeae8  (cards)
+  --bg-tertiary:     #d4d4d2  (hover, code blocks)
 
-### Accent Colors
-```
-Primary:   #dce39d  (links, selected items, primary buttons)
-Success:   #548e4c  (success states)
-Warning:   #a0802d  (warning states)
-Danger:    #aa5656  (error states, destructive actions)
-```
+Text:
+  --text-primary:    #2a2a2a  (soft black)
+  --text-secondary:  #5a5a5a
+  --text-tertiary:   #888888
 
-### Form Colors
-```
-Border:    #a7a7a7  (input/select borders)
-Accent:    #bbba87  (checkbox, radio, range)
+Accents:
+  --primary-color:   #7a7950  (darker olive for contrast)
+  --success:         #3d7435
+  --warning:         #8a6a20
+  --danger:          #994040
+
+Form:
+  --border-color:    #b0b0b0
+  --form-accent:     #9a9970
 ```
 
 ### CRITICAL: No Hardcoded Colors

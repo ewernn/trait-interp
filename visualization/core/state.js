@@ -12,8 +12,10 @@ const state = {
     currentPromptId: null,       // e.g., 1
     availablePromptSets: {},     // { 'single_trait': [{id, text, note}, ...], ... }
     promptsWithData: {},         // { 'single_trait': [1, 2, 3], ... } - which prompts have inference data
+    // Token selection for per-token analysis
+    currentTokenIndex: 0,        // Currently selected token index (0-based, absolute across prompt+response)
     // Cached inference context (prompt/response text for current selection)
-    inferenceContextCache: null  // { promptSet, promptId, promptText, responseText, promptTokens, responseTokens }
+    inferenceContextCache: null  // { promptSet, promptId, promptText, responseText, promptTokens, responseTokens, allTokens, nPromptTokens }
 };
 
 // Display names for better interpretability
@@ -215,7 +217,7 @@ function toggleAllTraits() {
 }
 
 // Views that use the inference context (Inference Analysis views)
-const INFERENCE_VIEWS = ['all-layers', 'per-token-activation', 'layer-deep-dive'];
+const INFERENCE_VIEWS = ['all-layers', 'per-token-activation', 'layer-deep-dive', 'token-explorer', 'analysis-gallery'];
 
 /**
  * Render the inference context panel (prompt picker + prompt/response display).
@@ -269,15 +271,44 @@ async function renderInferenceContext() {
     // Check cache for response data
     let responseText = '';
     let tokenInfo = '';
+    let tokenSliderHtml = '';
+    let tokenList = [];
 
     if (state.inferenceContextCache &&
         state.inferenceContextCache.promptSet === state.currentPromptSet &&
         state.inferenceContextCache.promptId === state.currentPromptId) {
         // Use cached data
         responseText = state.inferenceContextCache.responseText;
+        tokenList = state.inferenceContextCache.allTokens || [];
         const nPrompt = state.inferenceContextCache.promptTokens || 0;
         const nResponse = state.inferenceContextCache.responseTokens || 0;
+        const nPromptTokens = state.inferenceContextCache.nPromptTokens || 0;
         tokenInfo = `${nPrompt} prompt + ${nResponse} response = ${nPrompt + nResponse} tokens`;
+
+        // Build token slider if we have tokens
+        if (tokenList.length > 0) {
+            const maxIdx = tokenList.length - 1;
+            const currentIdx = Math.min(state.currentTokenIndex, maxIdx);
+            const currentToken = tokenList[currentIdx] || '';
+            // Escape token for display (show special chars)
+            const displayToken = currentToken
+                .replace(/\n/g, '↵')
+                .replace(/\t/g, '→')
+                .replace(/ /g, '·');
+            // Show which phase we're in
+            const phase = currentIdx < nPromptTokens ? 'prompt' : 'response';
+
+            tokenSliderHtml = `
+                <div class="token-slider-container">
+                    <span class="token-slider-label">Token:</span>
+                    <input type="range" class="token-slider" id="token-slider"
+                           min="0" max="${maxIdx}" value="${currentIdx}">
+                    <span class="token-index">${currentIdx}</span>
+                    <span class="token-phase">[${phase}]</span>
+                    <span class="token-display">${escapeHtml(displayToken)}</span>
+                </div>
+            `;
+        }
     } else {
         // Need to fetch - show loading state and fetch async
         responseText = 'Loading response...';
@@ -294,13 +325,14 @@ async function renderInferenceContext() {
             <div class="inference-context-content">
                 <div class="inference-prompt">
                     <span class="inference-label">Prompt:</span>
-                    <span class="inference-text">${escapeHtml(promptText)}</span>
+                    <span class="inference-text">${buildHighlightedText(tokenList, state.currentTokenIndex, 0, state.inferenceContextCache?.nPromptTokens || 0, 300)}</span>
                 </div>
                 <div class="inference-response">
                     <span class="inference-label">Response:</span>
-                    <span class="inference-text">${escapeHtml(responseText.substring(0, 300))}${responseText.length > 300 ? '...' : ''}</span>
+                    <span class="inference-text">${buildHighlightedText(tokenList, state.currentTokenIndex, state.inferenceContextCache?.nPromptTokens || 0, tokenList.length, 300)}</span>
                 </div>
                 ${tokenInfo ? `<div class="inference-tokens">${tokenInfo}</div>` : ''}
+                ${tokenSliderHtml}
             </div>
         </div>
     `;
@@ -325,14 +357,24 @@ async function fetchInferenceContextData() {
 
         const data = await response.json();
 
+        const promptTokenList = data.prompt?.tokens || [];
+        const responseTokenList = data.response?.tokens || [];
+        const allTokens = [...promptTokenList, ...responseTokenList];
+
         state.inferenceContextCache = {
             promptSet: state.currentPromptSet,
             promptId: state.currentPromptId,
             promptText: data.prompt?.text || '',
             responseText: data.response?.text || '',
             promptTokens: data.prompt?.n_tokens || 0,
-            responseTokens: data.response?.n_tokens || 0
+            responseTokens: data.response?.n_tokens || 0,
+            allTokens: allTokens,
+            nPromptTokens: promptTokenList.length
         };
+
+        // Reset token index when loading new prompt (clamp to valid range)
+        const maxIdx = Math.max(0, allTokens.length - 1);
+        state.currentTokenIndex = Math.min(state.currentTokenIndex, maxIdx);
 
         // Re-render with the fetched data
         renderInferenceContext();
@@ -376,6 +418,89 @@ function setupInferenceContextListeners() {
             }
         });
     });
+
+    // Token slider
+    const tokenSlider = container.querySelector('#token-slider');
+    if (tokenSlider) {
+        tokenSlider.addEventListener('input', (e) => {
+            const newIdx = parseInt(e.target.value);
+            if (state.currentTokenIndex !== newIdx && !isNaN(newIdx)) {
+                state.currentTokenIndex = newIdx;
+                // Update display without full re-render
+                const tokenList = state.inferenceContextCache?.allTokens || [];
+                const nPromptTokens = state.inferenceContextCache?.nPromptTokens || 0;
+                const currentToken = tokenList[newIdx] || '';
+                const displayToken = currentToken
+                    .replace(/\n/g, '↵')
+                    .replace(/\t/g, '→')
+                    .replace(/ /g, '·');
+                const phase = newIdx < nPromptTokens ? 'prompt' : 'response';
+                container.querySelector('.token-index').textContent = newIdx;
+                container.querySelector('.token-phase').textContent = `[${phase}]`;
+                container.querySelector('.token-display').textContent = displayToken;
+                // Update highlighted prompt text
+                const promptTextSpan = container.querySelector('.inference-prompt .inference-text');
+                if (promptTextSpan) {
+                    promptTextSpan.innerHTML = buildHighlightedText(tokenList, newIdx, 0, nPromptTokens, 300);
+                }
+                // Update highlighted response text
+                const responseTextSpan = container.querySelector('.inference-response .inference-text');
+                if (responseTextSpan) {
+                    responseTextSpan.innerHTML = buildHighlightedText(tokenList, newIdx, nPromptTokens, tokenList.length, 300);
+                }
+                // Update plot highlights without full re-render
+                updatePlotTokenHighlights(newIdx, nPromptTokens);
+            }
+        });
+    }
+}
+
+/**
+ * Update token highlight shapes on existing Plotly plots (no re-render).
+ */
+function updatePlotTokenHighlights(tokenIdx, nPromptTokens) {
+    const startIdx = 1;  // BOS is skipped in all plots
+    const highlightX = tokenIdx - startIdx;
+    const separatorX = (nPromptTokens - startIdx) - 0.5;
+
+    // Get colors from CSS
+    const primaryColor = getCssVar('--primary-color', '#a09f6c');
+    const textSecondary = getCssVar('--text-secondary', '#a4a4a4');
+    const separatorColor = `${primaryColor}80`;
+    const highlightColor = `${primaryColor}33`;
+
+    if (state.currentView === 'all-layers') {
+        // Update all trait heatmaps
+        const filteredTraits = getFilteredTraits();
+        for (const trait of filteredTraits) {
+            const traitId = trait.name.replace(/\//g, '-');
+            const plotDiv = document.getElementById(`trajectory-heatmap-${traitId}`);
+            if (plotDiv && plotDiv.data) {
+                Plotly.relayout(plotDiv, {
+                    shapes: [
+                        { type: 'line', xref: 'x', yref: 'paper', x0: separatorX, x1: separatorX, y0: 0, y1: 1, line: { color: separatorColor, width: 2, dash: 'dash' } },
+                        { type: 'rect', xref: 'x', yref: 'paper', x0: highlightX - 0.5, x1: highlightX + 0.5, y0: 0, y1: 1, fillcolor: highlightColor, line: { width: 0 } }
+                    ]
+                });
+            }
+        }
+    } else if (state.currentView === 'per-token-activation') {
+        // Update combined activation plot
+        const plotDiv = document.getElementById('combined-activation-plot');
+        if (plotDiv && plotDiv.data) {
+            Plotly.relayout(plotDiv, {
+                shapes: [
+                    { type: 'line', x0: separatorX, x1: separatorX, y0: 0, y1: 1, yref: 'paper', line: { color: textSecondary, width: 2, dash: 'dash' } },
+                    { type: 'line', x0: highlightX, x1: highlightX, y0: 0, y1: 1, yref: 'paper', line: { color: primaryColor, width: 2 } }
+                ]
+            });
+        }
+    } else if (state.currentView === 'token-explorer') {
+        // Token Explorer needs full re-render with new token data (data is cached)
+        if (window.renderTokenExplorer) {
+            window.renderTokenExplorer();
+        }
+    }
 }
 
 /**
@@ -388,6 +513,58 @@ function escapeHtml(text) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+}
+
+/**
+ * Build text with the current token highlighted and markdown rendered.
+ * @param tokenList - full list of all tokens
+ * @param currentIdx - absolute index of current token
+ * @param startIdx - start of range to display (inclusive)
+ * @param endIdx - end of range to display (exclusive)
+ * @param maxChars - max characters to show before truncating
+ */
+function buildHighlightedText(tokenList, currentIdx, startIdx, endIdx, maxChars) {
+    if (!tokenList || tokenList.length === 0) {
+        return 'Loading...';
+    }
+
+    let result = '';
+    let charCount = 0;
+    let truncated = false;
+
+    for (let i = startIdx; i < endIdx; i++) {
+        const token = tokenList[i];
+        if (!token) continue;
+        const escaped = escapeHtml(token);
+
+        // Check if we'd exceed max chars
+        if (charCount + token.length > maxChars) {
+            truncated = true;
+            break;
+        }
+
+        if (i === currentIdx) {
+            result += `<span class="token-highlight">${escaped}</span>`;
+        } else {
+            result += escaped;
+        }
+        charCount += token.length;
+    }
+
+    if (truncated) {
+        result += '...';
+    }
+
+    // Apply markdown formatting (bold, italic) - works across tokens
+    // Use a placeholder to protect highlight spans from markdown parsing
+    const placeholder = '\x00HIGHLIGHT\x00';
+    result = result.replace(/<span class="token-highlight">(.*?)<\/span>/g, (match, content) => {
+        return placeholder + content + placeholder;
+    });
+    result = markdownToHtml(result);
+    result = result.replace(new RegExp(placeholder + '(.*?)' + placeholder, 'g'), '<span class="token-highlight">$1</span>');
+
+    return result || '(empty)';
 }
 
 // Navigation

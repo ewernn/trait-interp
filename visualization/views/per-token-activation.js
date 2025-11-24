@@ -183,6 +183,12 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
     // Get colors from CSS variables
     const textSecondary = window.getCssVar('--text-secondary', '#a4a4a4');
     const bgTertiary = window.getCssVar('--bg-tertiary', '#3a3a3a');
+    const primaryColor = window.getCssVar('--primary-color', '#a09f6c');
+
+    // Get current token index from global state (absolute index across prompt+response)
+    // The graph skips BOS (startIdx=1), so token at absolute index N = x position (N - startIdx)
+    const currentTokenIdx = window.state.currentTokenIndex || 0;
+    const highlightX = currentTokenIdx - startIdx;
 
     // Add subtle vertical line separator between prompt and response
     const shapes = [
@@ -197,6 +203,19 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
                 color: textSecondary,
                 width: 2,
                 dash: 'dash'
+            }
+        },
+        // Current token highlight line from global slider
+        {
+            type: 'line',
+            x0: highlightX,
+            x1: highlightX,
+            y0: 0,
+            y1: 1,
+            yref: 'paper',
+            line: {
+                color: primaryColor,
+                width: 2
             }
         }
     ];
@@ -246,15 +265,15 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
         shapes: shapes,
         annotations: annotations,
         margin: { l: 60, r: 20, t: 40, b: 100 },
-        height: 800,
+        height: 500,
         font: { size: 11 },
         hovermode: 'closest',
         legend: {
-            orientation: 'h',
-            yanchor: 'bottom',
-            y: -0.35,
-            xanchor: 'center',
-            x: 0.5,
+            orientation: 'v',
+            yanchor: 'top',
+            y: 1,
+            xanchor: 'left',
+            x: 1.02,
             font: { size: 11 },
             bgcolor: 'transparent'
         },
@@ -269,6 +288,13 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
     };
 
     Plotly.newPlot('combined-activation-plot', traces, layout, config);
+
+    // Hover-to-highlight: dim other traces when hovering
+    const plotDiv = document.getElementById('combined-activation-plot');
+    plotDiv.on('plotly_hover', (d) =>
+        Plotly.restyle(plotDiv, {'opacity': traces.map((_, i) => i === d.points[0].curveNumber ? 1.0 : 0.2)})
+    );
+    plotDiv.on('plotly_unhover', () => Plotly.restyle(plotDiv, {'opacity': 1.0}));
 }
 
 // Export to global scope

@@ -29,7 +29,7 @@ python inference/project.py \
 experiments/{exp}/inference/
 ├── raw/                                  # Binary .pt files (trait-independent)
 │   ├── residual/{prompt_set}/
-│   │   └── {id}.pt                       # ~15 MB, all 26 layers
+│   │   └── {id}.pt                       # ~20-25 MB, all 26 layers
 │   └── internals/{prompt_set}/           # (optional)
 │       └── {id}_L{layer}.pt              # ~7 MB, single layer deep dive
 │
@@ -236,4 +236,9 @@ inference/prompts/
 
 - Extracted trait vectors (run extraction pipeline first)
 - GPU recommended (MPS/CUDA)
-- ~15 MB storage per prompt (raw) + ~50 KB per trait (projections)
+- ~20-25 MB storage per prompt (raw) + ~50 KB per trait (projections)
+
+Verify raw file size:
+```bash
+ls -lh experiments/*/inference/raw/residual/*/*.pt | head -1
+```

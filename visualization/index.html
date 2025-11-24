@@ -58,7 +58,7 @@
             <ul>
                 <li><strong>Trait Trajectory</strong> - View a single trait's activation across all layers.</li>
                 <li><strong>Multi-Trait Comparison</strong> - Compare multiple traits' activations over tokens.</li>
-                <li><strong>Layer Internals</strong> - Deep dive into a single layer's attention and MLP components.</li>
+                <li><strong>Layer Deep Dive</strong> - Deep dive into a single layer's attention and MLP components.</li>
             </ul>
         </ul>
 
@@ -152,7 +152,15 @@
                     </div>
                     <div class="nav-item" data-view="layer-deep-dive">
                         <span class="icon">🔬</span>
-                        <span>Layer Internals</span>
+                        <span>Layer Deep Dive</span>
+                    </div>
+                    <div class="nav-item" data-view="analysis-gallery">
+                        <span class="icon">🖼️</span>
+                        <span>Analysis Gallery</span>
+                    </div>
+                    <div class="nav-item" data-view="token-explorer">
+                        <span class="icon">🔍</span>
+                        <span>Token Explorer</span>
                     </div>
                 </div>
             </div>
@@ -201,6 +209,8 @@
     <script src="/visualization/views/all-layers.js"></script>
     <script src="/visualization/views/per-token-activation.js"></script>
     <script src="/visualization/views/layer-deep-dive.js"></script>
+    <script src="/visualization/views/analysis-gallery.js"></script>
+    <script src="/visualization/views/token-explorer.js"></script>
 
     <!-- View Router -->
     <script>
@@ -215,7 +225,9 @@
                 'trait-correlation': 'Trait Correlation Matrix',
                 'all-layers': 'Trait Trajectory',
                 'per-token-activation': 'Multi-Trait Comparison',
-                'layer-deep-dive': 'Layer Internals'
+                'layer-deep-dive': 'Layer Deep Dive',
+                'analysis-gallery': 'Analysis Gallery',
+                'token-explorer': 'Token Explorer'
             };
             document.getElementById('page-title').textContent = viewTitles[view] || 'Unknown View';
 
@@ -237,6 +249,12 @@
                     break;
                 case 'layer-deep-dive':
                     window.renderLayerDeepDive();
+                    break;
+                case 'analysis-gallery':
+                    window.renderAnalysisGallery();
+                    break;
+                case 'token-explorer':
+                    window.renderTokenExplorer();
                     break;
                 default:
                     document.getElementById('content-area').innerHTML =

@@ -283,11 +283,7 @@ function renderCorrelationHeatmap(traitNames, matrix, projectionData) {
         x: displayNames,
         y: reversedDisplayNames,
         type: 'heatmap',
-        colorscale: [
-            [0, '#d62728'],    // Strong negative (red)
-            [0.5, '#ffffff'],  // Zero (white)
-            [1, '#2ca02c']     // Strong positive (green)
-        ],
+        colorscale: window.ASYMB_COLORSCALE,
         zmid: 0,
         zmin: -1,
         zmax: 1,

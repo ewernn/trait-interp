@@ -186,6 +186,11 @@ function renderCombinedTrajectoryHeatmap(divId, projections, tokens, nPromptToke
     const separatorColor = `${primaryColor}80`;  // 50% opacity
     const highlightColor = `${primaryColor}33`;  // 20% opacity
 
+    // Get current token index from global state (absolute index across prompt+response)
+    // The heatmap skips BOS (startIdx=1), so token at absolute index N = heatmap x position (N - startIdx)
+    const currentTokenIdx = window.state.currentTokenIndex || 0;
+    const highlightX = currentTokenIdx - startIdx;
+
     // Create shapes array for separator line and current token highlight
     const shapes = [
         // Vertical line separating prompt and response (adjusted for skipped BOS)
@@ -203,18 +208,17 @@ function renderCombinedTrajectoryHeatmap(divId, projections, tokens, nPromptToke
                 dash: 'dash'
             }
         },
-        // Highlight for current token (will be updated by slider)
+        // Highlight for current token from global slider
         {
             type: 'rect',
             xref: 'x',
             yref: 'paper',
-            x0: -0.5,
-            x1: 0.5,
+            x0: highlightX - 0.5,
+            x1: highlightX + 0.5,
             y0: 0,
             y1: 1,
             fillcolor: highlightColor,
-            line: { width: 0 },
-            name: 'token-highlight'  // ID for updating
+            line: { width: 0 }
         }
     ];
 

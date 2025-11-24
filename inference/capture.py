@@ -304,81 +304,108 @@ def setup_internals_hooks(hook_manager: HookManager, storage: Dict, layer_idx: i
     hook_manager.add_forward_hook(f"model.layers.{layer_idx}.mlp", mlp_input_hook)
 
 
-def capture_layer_internals(model, tokenizer, prompt_text: str, layer_idx: int,
-                            max_new_tokens: int, temperature: float) -> Dict:
-    """Capture single layer internals."""
+def capture_multiple_layer_internals(model, tokenizer, prompt_text: str, layer_indices: list,
+                                     max_new_tokens: int, temperature: float) -> Dict[int, Dict]:
+    """Capture internals for multiple layers in a SINGLE forward pass."""
     inputs = tokenizer(prompt_text, return_tensors="pt").to(model.device)
     token_ids = inputs['input_ids'][0].tolist()
     tokens = [tokenizer.decode([tid]) for tid in token_ids]
 
-    # Prompt capture
-    prompt_storage = create_internals_storage()
+    # Storage for all requested layers
+    all_layer_data = {}
+
+    # PROMPT PHASE - Single forward pass for all layers
+    prompt_storages = {idx: create_internals_storage() for idx in layer_indices}
+
     with HookManager(model) as hooks:
-        setup_internals_hooks(hooks, prompt_storage, layer_idx, 'prompt')
+        # Set up hooks for ALL requested layers
+        for layer_idx in layer_indices:
+            setup_internals_hooks(hooks, prompt_storages[layer_idx], layer_idx, 'prompt')
+
+        # Single forward pass captures all layers!
         with torch.no_grad():
             outputs = model(**inputs, output_attentions=True, return_dict=True)
 
-    prompt_attn_weights = outputs.attentions[layer_idx][0].detach().cpu()
+    # Extract data for each layer
+    for layer_idx in layer_indices:
+        prompt_internals = {
+            'attention': {k: v[0].squeeze(0) for k, v in prompt_storages[layer_idx]['attention'].items() if v},
+            'mlp': {k: v[0].squeeze(0) for k, v in prompt_storages[layer_idx]['mlp'].items() if v},
+            'residual': {k: v[0].squeeze(0) for k, v in prompt_storages[layer_idx]['residual'].items() if v}
+        }
+        prompt_internals['attention']['attn_weights'] = outputs.attentions[layer_idx][0].detach().cpu()
+        all_layer_data[layer_idx] = {'prompt': prompt_internals}
 
-    prompt_internals = {
-        'attention': {k: v[0].squeeze(0) for k, v in prompt_storage['attention'].items() if v},
-        'mlp': {k: v[0].squeeze(0) for k, v in prompt_storage['mlp'].items() if v},
-        'residual': {k: v[0].squeeze(0) for k, v in prompt_storage['residual'].items() if v}
-    }
-    prompt_internals['attention']['attn_weights'] = prompt_attn_weights
-
-    # Response capture
-    response_storage = create_internals_storage()
+    # RESPONSE PHASE - Generate once, capture all layers
+    response_storages = {idx: create_internals_storage() for idx in layer_indices}
     context = inputs['input_ids'].clone()
     generated_ids = []
 
-    with HookManager(model) as hooks:
-        setup_internals_hooks(hooks, response_storage, layer_idx, 'response')
-        for _ in range(max_new_tokens):
+    for step in range(max_new_tokens):
+        with HookManager(model) as hooks:
+            # Set up hooks for ALL layers
+            for layer_idx in layer_indices:
+                setup_internals_hooks(hooks, response_storages[layer_idx], layer_idx, 'response')
+
+            # Single forward pass
             with torch.no_grad():
                 outputs = model(input_ids=context, output_attentions=True, return_dict=True)
 
-            response_storage['attention']['attn_weights'].append(
+        # Save attention for all layers
+        for layer_idx in layer_indices:
+            response_storages[layer_idx]['attention']['attn_weights'].append(
                 outputs.attentions[layer_idx][0].detach().cpu()
             )
 
-            logits = outputs.logits[0, -1, :] / temperature
-            probs = torch.softmax(logits, dim=-1)
-            next_id = torch.multinomial(probs, 1).item()
+        # Generate next token (same for all layers)
+        logits = outputs.logits[0, -1, :] / temperature
+        probs = torch.softmax(logits, dim=-1)
+        next_id = torch.multinomial(probs, 1).item()
 
-            context = torch.cat([context, torch.tensor([[next_id]], device=model.device)], dim=1)
-            generated_ids.append(next_id)
+        context = torch.cat([context, torch.tensor([[next_id]], device=model.device)], dim=1)
+        generated_ids.append(next_id)
 
-            if next_id == tokenizer.eos_token_id:
-                break
+        if next_id == tokenizer.eos_token_id:
+            break
 
+    # Package response data for all layers
     response_tokens = [tokenizer.decode([tid]) for tid in generated_ids]
     response_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
 
-    response_internals = {'attention': {}, 'mlp': {}, 'residual': {}}
-    for key in ['q_proj', 'k_proj', 'v_proj']:
-        if response_storage['attention'][key]:
-            response_internals['attention'][key] = torch.stack(
-                [a.squeeze(0) for a in response_storage['attention'][key]], dim=0)
-    response_internals['attention']['attn_weights'] = response_storage['attention']['attn_weights']
+    for layer_idx in layer_indices:
+        response_internals = {
+            'attention': {},
+            'mlp': {},
+            'residual': {}
+        }
 
-    for key in ['up_proj', 'gelu', 'down_proj']:
-        if response_storage['mlp'][key]:
-            response_internals['mlp'][key] = torch.stack(
-                [a.squeeze(0) for a in response_storage['mlp'][key]], dim=0)
+        # Handle attention separately (variable size due to growing context)
+        for k, v in response_storages[layer_idx]['attention'].items():
+            if k == 'attn_weights':
+                # Keep as list of tensors with different sizes
+                response_internals['attention'][k] = v
+            elif v:
+                # Other attention tensors should be same size, can stack
+                response_internals['attention'][k] = torch.stack(v) if len(v) > 0 else torch.tensor([])
 
-    for key in ['input', 'after_attn', 'output']:
-        if response_storage['residual'][key]:
-            response_internals['residual'][key] = torch.stack(
-                [a.squeeze(0) for a in response_storage['residual'][key]], dim=0)
+        # MLP tensors are all same size, can stack
+        for k, v in response_storages[layer_idx]['mlp'].items():
+            if v:
+                response_internals['mlp'][k] = torch.stack(v) if len(v) > 0 else torch.tensor([])
 
-    return {
-        'prompt': {'text': prompt_text, 'tokens': tokens, 'token_ids': token_ids,
-                   'internals': prompt_internals},
-        'response': {'text': response_text, 'tokens': response_tokens, 'token_ids': generated_ids,
-                     'internals': response_internals},
-        'layer': layer_idx
-    }
+        # Residual tensors are all same size, can stack
+        for k, v in response_storages[layer_idx]['residual'].items():
+            if v:
+                response_internals['residual'][k] = torch.stack(v) if len(v) > 0 else torch.tensor([])
+
+        all_layer_data[layer_idx]['response'] = response_internals
+        all_layer_data[layer_idx]['prompt_text'] = prompt_text
+        all_layer_data[layer_idx]['prompt_tokens'] = tokens
+        all_layer_data[layer_idx]['response_text'] = response_text
+        all_layer_data[layer_idx]['response_tokens'] = response_tokens
+
+    return all_layer_data
+
 
 
 # ============================================================================
@@ -464,8 +491,8 @@ def main():
     # What to capture
     parser.add_argument("--residual-stream", action="store_true", default=True,
                        help="Capture residual stream at all layers (default)")
-    parser.add_argument("--layer-internals", type=int, metavar="N", action='append',
-                       help="Capture full internals for layer N (can be used multiple times)")
+    parser.add_argument("--layer-internals", metavar="N", action='append',
+                       help="Capture full internals for layer N (can be used multiple times, or 'all' for all layers)")
     parser.add_argument("--attention-only", type=int, metavar="N",
                        help="Capture just attention weights for layer N")
     parser.add_argument("--logit-lens", action="store_true",
@@ -576,12 +603,27 @@ def main():
                 raw_dir = inference_dir / "raw" / "internals" / set_name
                 raw_dir.mkdir(parents=True, exist_ok=True)
 
-                for layer_idx in args.layer_internals:
-                    data = capture_layer_internals(model, tokenizer, prompt_text, layer_idx,
-                                                   args.max_new_tokens, args.temperature)
-                    # Save raw internals as .pt (binary, not JSON!)
-                    torch.save(data, raw_dir / f"{prompt_id}_L{layer_idx}.pt")
-                    print(f"  Saved internals: {raw_dir}/{prompt_id}_L{layer_idx}.pt")
+                # Parse layer indices: handle "all" or specific numbers
+                layer_indices = []
+                for layer_spec in args.layer_internals:
+                    if layer_spec == 'all':
+                        layer_indices = list(range(n_layers))
+                        break
+                    else:
+                        layer_indices.append(int(layer_spec))
+
+                # Capture all requested layers in a SINGLE forward pass!
+                print(f"  Capturing {len(layer_indices)} layers in single pass...")
+                all_layer_data = capture_multiple_layer_internals(
+                    model, tokenizer, prompt_text, layer_indices,
+                    args.max_new_tokens, args.temperature
+                )
+
+                # Save each layer's data
+                for layer_idx in layer_indices:
+                    torch.save(all_layer_data[layer_idx], raw_dir / f"{prompt_id}_L{layer_idx}.pt")
+
+                print(f"  Saved internals for {len(layer_indices)} layers: {raw_dir}/{prompt_id}_L*.pt")
 
             # Capture residual stream
             elif args.residual_stream or not args.layer_internals:

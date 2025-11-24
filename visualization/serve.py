@@ -12,7 +12,7 @@ import json
 import subprocess
 from pathlib import Path
 
-PORT = 8000
+PORT = int(os.environ.get('PORT', 8000))
 
 # Cache for integrity data (populated on startup)
 integrity_cache = {}
