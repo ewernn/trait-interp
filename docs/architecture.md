@@ -2,10 +2,12 @@
 
 ## Design Principles
 
-1. **traitlens** = General purpose building blocks (minimal library)
-2. **utils** = Universal utilities (path management)
-3. **extraction** = Vector creation pipeline (training time)
-4. **experiments** = Data + custom analysis (user space)
+**Note:** traitlens is now a separate package installed from [github.com/ewernn/traitlens](https://github.com/ewernn/traitlens). This doc explains the architectural boundaries between components.
+
+1. **traitlens** = General purpose building blocks (installed package)
+2. **utils** = Universal utilities (path management, this repo)
+3. **extraction** = Vector creation pipeline (training time, this repo)
+4. **experiments** = Data + custom analysis (user space, this repo)
 
 ---
 
@@ -13,12 +15,6 @@
 
 ```
 trait-interp/
-│
-├── traitlens/              # Minimal library - building blocks only
-│   ├── hooks.py           # Hook registration
-│   ├── activations.py     # Activation capture
-│   ├── compute.py         # Math primitives (mean, derivatives, projection)
-│   └── methods.py         # Extraction methods (mean_diff, probe, ICA, gradient)
 │
 ├── config/                 # Configuration
 │   └── paths.yaml         # Single source of truth for all paths

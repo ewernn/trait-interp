@@ -340,4 +340,4 @@ After extraction:
 
 - `extraction/elicitation_guide.md` - Detailed guide on natural elicitation
 - `docs/architecture.md` - How experiments are organized
-- `traitlens/README.md` - Low-level toolkit documentation
+- [traitlens](https://github.com/ewernn/traitlens) - Low-level toolkit documentation

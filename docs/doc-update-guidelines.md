@@ -46,7 +46,7 @@ Ask yourself:
 
 1. **Create the file** in the appropriate location:
    - Core docs → `docs/`
-   - Library docs → `traitlens/` or `traitlens/docs/`
+   - Library docs → See [traitlens repo](https://github.com/ewernn/traitlens)
    - Experiment-specific → `experiments/{name}/`
    - Pipeline docs → `extraction/`
 

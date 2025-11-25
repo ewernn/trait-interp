@@ -14,7 +14,7 @@ Extract behavioral trait vectors using multiple methods (mean difference, linear
 # Installation
 git clone https://github.com/ewernn/trait-interp.git
 cd trait-interp
-pip install torch transformers accelerate openai anthropic pandas tqdm fire scikit-learn
+pip install -r requirements.txt
 
 # Set up API keys
 cp .env.example .env
@@ -66,7 +66,7 @@ python extraction/3_extract_vectors.py --experiment my_exp --trait category/my_t
 
 ## Monitoring & Visualization
 
-Use traitlens to monitor traits during generation:
+Monitor traits during generation with the traitlens package:
 - Track trait projections token-by-token
 - Analyze temporal dynamics
 - Create custom monitoring scripts in experiments/{name}/inference/
@@ -84,7 +84,7 @@ Interactive dashboard (`visualization/`):
 - **[docs/overview.md](docs/overview.md)** - Methodology and concepts
 - **[docs/pipeline_guide.md](docs/pipeline_guide.md)** - Detailed usage
 - **[docs/creating_traits.md](docs/creating_traits.md)** - Design traits
-- **[traitlens/](traitlens/)** - Extraction toolkit
+- **[traitlens](https://github.com/ewernn/traitlens)** - Extraction toolkit (separate package)
 
 ---
 
@@ -106,7 +106,7 @@ Dashboard shows overview page and loads monitoring data from `experiments/{exper
 
 ```bash
 # setup
-pip install torch transformers accelerate openai huggingface_hub pandas tqdm fire
+pip install -r requirements.txt
 
 # extract trait vectors
 # see docs/main.md and docs/pipeline_guide.md for commands
@@ -168,11 +168,6 @@ trait-interp/
 │           ├── responses/      # pos.json, neg.json
 │           ├── activations/    # captured hidden states
 │           └── vectors/        # extracted trait vectors
-├── traitlens/                   # extraction toolkit
-│   ├── hooks.py                # hook management
-│   ├── activations.py          # activation capture
-│   ├── compute.py              # trait computations
-│   └── methods.py              # 4 extraction methods
 ├── utils/                       # shared utilities
 │   ├── judge.py                # API judging with retry logic
 │   └── config.py               # credential setup

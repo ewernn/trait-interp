@@ -10,3 +10,6 @@
 - Module docstrings: one-line description + `Input:`, `Output:`, `Usage:` sections
 - Script name should match output file name when applicable
 - Function docstrings only for non-obvious functions
+
+**Codebase standards**:
+- paths standardized (PathBuilder everywhere) and robust (experiment-agnostic scripts). code clean (no legacy code/docs) and maintainable (single source of truth).

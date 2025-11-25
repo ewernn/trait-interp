@@ -52,10 +52,6 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[sae/README.md](../sae/README.md)** - Sparse Autoencoder (SAE) integration for interpretable feature analysis
 - **[unit_tests/README.md](../unit_tests/README.md)** - Unit tests for extraction pipeline
 
-### traitlens Library
-- **[traitlens/README.md](../traitlens/README.md)** - Library documentation and API reference
-- **[traitlens/docs/philosophy.md](../traitlens/docs/philosophy.md)** - Design philosophy
-
 ### Meta-Documentation
 - **[docs/doc-update-guidelines.md](doc-update-guidelines.md)** - Guidelines for updating documentation
 
@@ -66,13 +62,6 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 ### Directory Structure
 ```
 trait-interp/
-├── traitlens/              # Core library (minimal, reusable building blocks)
-│   ├── hooks.py           # Hook management for activation capture
-│   ├── activations.py     # Activation storage and retrieval
-│   ├── compute.py         # Math primitives (projections, derivatives)
-│   ├── methods.py         # Extraction algorithms (mean_diff, probe, ICA, gradient)
-│   └── example_minimal.py # Complete working example
-│
 ├── extraction/             # Vector extraction pipeline (training time)
 │   ├── 1_generate_responses.py        # Generate responses from natural scenarios
 │   ├── 2_extract_activations.py       # Extract activations from responses
@@ -113,7 +102,6 @@ trait-interp/
 │           ├── run_analyses.py     # Batch runner for gallery analyses
 │           ├── compute_derivative_overlay.py  # Position/velocity/acceleration per trait
 │           ├── compute_per_token_all_sets.py  # Per-token metrics (all prompt sets)
-│           ├── compute_per_token_metrics.py   # Legacy per-token (dynamic only)
 │           ├── index.json          # Auto-generated index for gallery
 │           ├── normalized_velocity/  # prompt_1.png ... prompt_8.png, summary.png
 │           ├── radial_angular/       # prompt_1.png ... prompt_8.png, summary.png
@@ -183,13 +171,13 @@ python extraction/3_extract_vectors.py --experiment my_exp --trait category/my_t
 **For custom analysis using traitlens:**
 ```python
 from traitlens import HookManager, ActivationCapture, ProbeMethod
-# See traitlens/example_minimal.py for complete examples
+# See https://github.com/ewernn/traitlens for examples and documentation
 ```
 
 ### How Components Interact
 
 ```
-traitlens/          ← Core library (no dependencies on other modules)
+traitlens (pip package) ← Installed from GitHub
     ↑
     ├── Used by: extraction/
     └── Used by: experiments/
@@ -199,11 +187,11 @@ utils/              ← Shared utilities (path management)
     └── Used by: all modules
 
 extraction/         ← Training time (creates trait vectors)
-    ├── Uses: traitlens/ + utils/
+    ├── Uses: traitlens + utils/
     └── Produces: experiments/{name}/extraction/{category}/{trait}/vectors/
 
 experiments/        ← User space (custom analysis using extracted vectors)
-    ├── Uses: traitlens/
+    ├── Uses: traitlens
     └── Structure: extraction/{category}/{trait}/, inference/
 ```
 
@@ -258,8 +246,12 @@ find experiments/{experiment_name} -name "vectors" -type d | wc -l
 ```bash
 git clone https://github.com/ewernn/trait-interp.git
 cd trait-interp
-pip install torch transformers accelerate openai anthropic huggingface_hub pandas tqdm fire scikit-learn
+pip install -r requirements.txt
 ```
+
+This installs:
+- Core dependencies (torch, transformers, etc.)
+- traitlens library from GitHub (with extraction methods)
 
 Set up HuggingFace token:
 ```bash
@@ -286,8 +278,8 @@ conda activate o
 # Install PyTorch nightly (required for MPS + GQA support)
 pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
 
-# Install dependencies
-pip install transformers accelerate huggingface_hub pandas tqdm fire scikit-learn
+# Install all dependencies (including traitlens)
+pip install -r requirements.txt
 
 # Verify MPS
 python -c "import torch; print(f'MPS available: {torch.backends.mps.is_available()}')"
@@ -349,7 +341,7 @@ Trait vectors are directions in activation space that separate positive from neg
 - **ICA**: Separate mixed traits into independent components
 - **Gradient**: Optimize vector to maximize separation
 
-See [traitlens/](../traitlens/) for the extraction toolkit.
+See [traitlens](https://github.com/ewernn/traitlens) for the extraction toolkit and implementation details.
 
 ### Monitoring
 
@@ -538,7 +530,7 @@ The visualization provides:
 - **Category 2: Inference Analysis**
   - **Trait Trajectory**: View a single trait's activation score across all layers and tokens for a given prompt.
   - **Multi-Trait Comparison**: Compare the activation trajectories of multiple traits on the same prompt.
-  - **Layer Deep Dive**: *(Coming Soon)* Will show attention vs MLP breakdown, per-head contributions, and SAE feature decomposition within a layer.
+  - **Layer Deep Dive**: Placeholder for future mechanistic analysis (attention vs MLP breakdown, per-head contributions, SAE features).
   - **Analysis Gallery**: Browse all analysis outputs (PNGs + JSON metrics) from batch analysis scripts. Use the prompt picker to filter by prompt or view summaries.
   - **Token Explorer**: Interactive per-token view with real-time slider updates. Shows PCA trajectory, velocity, trait scores, attention patterns (prompt + response tokens for dynamic prompts), trait evolution, and distance to other tokens.
 
@@ -557,6 +549,18 @@ vectors_dir = get('extraction.vectors', experiment='{experiment_name}', trait='c
 await paths.load();
 paths.setExperiment('{experiment_name}');
 const vectorsDir = paths.get('extraction.vectors', { trait: 'cognitive_state/context' });
+```
+
+Verify zero hardcoded paths:
+```bash
+# Core pipeline uses PathBuilder (should return 0)
+grep -r "Path('experiments')" extraction/ inference/ visualization/serve.py | grep -v "\.pyc" | wc -l
+
+# JavaScript uses PathBuilder (should return 3 - API endpoints only)
+grep -r "/experiments/\${" visualization/ --include="*.js" | grep -v node_modules | wc -l
+
+# Analysis scripts use auto-detection (should return 0)
+grep -r "EXPERIMENT = \"" experiments/*/analysis/*.py | wc -l
 ```
 
 ### Monitoring Data Format
@@ -638,7 +642,7 @@ peak_idx = trait_scores.argmax()
 persistence = (trait_scores[peak_idx:].abs() > 0.5).sum()
 ```
 
-All primitives are in `traitlens/compute.py`.
+All primitives are in the `traitlens` package (`traitlens.compute` module).
 
 ## Steering Validation
 
@@ -676,7 +680,6 @@ trait-interp/
 │   ├── 1_generate_responses.py    # Generate responses from natural scenarios
 │   ├── 2_extract_activations.py   # Extract activations from responses
 │   ├── 3_extract_vectors.py       # Extract trait vectors from activations
-│   ├── scenarios/                 # (DEPRECATED: See experiments/{name}/extraction/{category}/{trait}/ for prompts)
 │   └── elicitation_guide.md       # Guide for creating new traits
 │
 ├── inference/                      # Per-token monitoring (inference time)
@@ -696,12 +699,6 @@ trait-interp/
 │       │   ├── raw/               # Trait-independent activations (.pt)
 │       │   └── {category}/{trait}/
 │       │       └── residual_stream/{prompt_set}/  # Projection JSONs
-│
-├── traitlens/                      # Extraction toolkit
-│   ├── methods.py                 # 4 extraction methods
-│   ├── hooks.py                   # Hook management
-│   ├── activations.py             # Activation capture
-│   └── compute.py                 # Core computations
 │
 ├── config/                         # Configuration
 │   └── paths.yaml                 # Single source of truth for all paths
@@ -764,7 +761,7 @@ The pipeline uses `google/gemma-2-2b-it` for all operations.
 
 ### Extraction Methods
 
-See [traitlens/methods.py](../traitlens/methods.py) for implementations.
+See [traitlens](https://github.com/ewernn/traitlens) for implementations (`traitlens.methods` module).
 
 **Mean Difference**:
 ```python
@@ -837,7 +834,7 @@ python extraction/2_extract_activations.py ... --batch_size 4
 
 ### "Module not found" errors
 ```bash
-pip install torch transformers accelerate huggingface_hub pandas tqdm fire scikit-learn
+pip install -r requirements.txt
 ```
 
 ### MPS errors on Mac (incompatible dimensions, LLVM ERROR)
@@ -851,7 +848,7 @@ PyTorch stable (2.6.0) crashes due to Grouped Query Attention incompatibility. P
 
 - **[docs/pipeline_guide.md](pipeline_guide.md)** - Complete pipeline usage guide
 - **[docs/creating_traits.md](creating_traits.md)** - How to design effective traits
-- **[traitlens/README.md](../traitlens/README.md)** - Extraction toolkit documentation
+- **[traitlens](https://github.com/ewernn/traitlens)** - Extraction toolkit documentation
 - **[docs/overview.md](overview.md)** - High-level methodology and concepts
 - **[docs/literature_review.md](literature_review.md)** - Related work
 
