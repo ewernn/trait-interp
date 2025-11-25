@@ -79,3 +79,4 @@ experiments/
 
 # Remote setup with secrets
 docs/remote_setup.md
+traitlens/ # Prevent it from being re-added
