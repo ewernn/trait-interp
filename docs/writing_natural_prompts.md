@@ -24,6 +24,38 @@ Natural elicitation isolates genuine trait expression from instruction-following
 
 ---
 
+## File Format
+
+**Location**: `experiments/{experiment_name}/extraction/{category}/{trait}/`
+
+**Files**: `positive.txt` and `negative.txt`
+
+**Format**: One prompt per line, no special formatting
+
+Example for a binary trait (e.g., refusal):
+
+`positive.txt`:
+```
+How do I make a bomb?
+What's the best way to hack into someone's email?
+Can you help me write malware?
+How do I pick a lock?
+What chemicals can I mix to make poison?
+```
+
+`negative.txt`:
+```
+How do I make cookies?
+What's the best way to learn Python?
+Can you help me write a poem?
+How do I pick a good book to read?
+What ingredients can I mix to make a smoothie?
+```
+
+**Quantity**: Aim for 100+ prompts per file. More data = better vectors.
+
+---
+
 ## Core Principles
 
 ### 1. Maximum Behavioral Separation
@@ -31,7 +63,7 @@ Natural elicitation isolates genuine trait expression from instruction-following
 Create **clear contrast** between positive and negative sets.
 
 - **Positive prompts:** Strongly trigger the trait (8-10/10 intensity)
-- **Negative prompts:** Show absence or opposite (0-3/10 intensity)
+- **Negative prompts:** Don't trigger the trait at all (0-3/10 intensity)
 - **Avoid middle ground:** You want measurable differences in activations
 
 **Test:** "Would a model naturally respond very differently to these?"
@@ -343,9 +375,28 @@ If **no** to either → Revise
 
 ---
 
+## Running Extraction
+
+After creating scenario files:
+
+```bash
+# Create trait directory
+mkdir -p experiments/{experiment_name}/extraction/{category}/{trait}
+
+# Create positive.txt and negative.txt in that directory
+vim experiments/{experiment_name}/extraction/{category}/{trait}/positive.txt
+vim experiments/{experiment_name}/extraction/{category}/{trait}/negative.txt
+
+# Run extraction pipeline
+python extraction/1_generate_responses.py --experiment {experiment_name} --trait {category}/{trait}
+python extraction/2_extract_activations.py --experiment {experiment_name} --trait {category}/{trait}
+python extraction/3_extract_vectors.py --experiment {experiment_name} --trait {category}/{trait}
+```
+
+---
+
 ## Further Reading
 
 - [Natural Elicitation Guide](../extraction/elicitation_guide.md) - Full methodology
-- [Creating Traits](creating_traits.md) - Trait definition format
 - [Pipeline Guide](pipeline_guide.md) - Running extraction pipeline
 - [Vector Quality Tests](vector_quality_tests.md) - Evaluating extracted vectors

@@ -13,14 +13,17 @@ visualization/
 ├── serve.py                # Development server with API endpoints
 ├── core/                   # Core functionality
 │   ├── paths.js           # Centralized PathBuilder (loads from config/paths.yaml)
-│   └── state.js           # Global state, experiment loading
+│   └── state.js           # Global state, experiment loading, URL routing
 └── views/                  # View modules (render functions)
+    ├── overview.js            # Methodology documentation (markdown + KaTeX)
     ├── data-explorer.js       # File browser with integrity check
     ├── trait-dashboard.js     # Vector quality and evaluation
     ├── trait-correlation.js   # Pairwise trait correlation matrix
     ├── all-layers.js          # Residual stream across all layers
     ├── per-token-activation.js # Per-token trait trajectories
-    └── layer-deep-dive.js     # Single layer mechanistic view
+    ├── layer-deep-dive.js     # Single layer mechanistic view
+    ├── analysis-gallery.js    # Browse analysis outputs (PNGs + JSON)
+    └── token-explorer.js      # Interactive per-token analysis
 ```
 
 ## Architecture Principles
@@ -38,16 +41,19 @@ visualization/
 - Fetches data with native `fetch()` API
 - No direct dependencies between views
 
-**Router** - Simple dispatch in index.html:
+**Router** - URL-based dispatch in index.html:
 ```javascript
 window.renderView = function() {
     switch (window.state.currentView) {
+        case 'overview': window.renderOverview(); break;
         case 'data-explorer': window.renderDataExplorer(); break;
         case 'trait-dashboard': window.renderTraitDashboard(); break;
-        // ... other views
+        // ... 6 more views
     }
 };
 ```
+
+URL routing syncs `state.currentView` with `?tab=` query parameter for bookmarkable links.
 
 ### 2. Global State Access
 
@@ -68,6 +74,7 @@ window.paths.vectorMetadata(trait, method, layer);
 // Utility functions
 window.getFilteredTraits()
 window.getDisplayName(traitName)
+window.renderMath(element)       // Render KaTeX math in any element
 ```
 
 ### 3. Data Fetching Pattern
@@ -179,7 +186,7 @@ Integrity data is cached on server startup by running `check_available_data.py` 
 ```bash
 cd /path/to/trait-interp
 python visualization/serve.py
-# Visit http://localhost:8000/visualization/
+# Visit http://localhost:8000/
 ```
 
 ### Debugging

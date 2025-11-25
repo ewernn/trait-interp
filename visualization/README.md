@@ -25,16 +25,20 @@ The server provides:
 
 ### 2. Open in Browser
 
-Visit: **http://localhost:8000/visualization/**
+Visit: **http://localhost:8000/**
 
 ## Features
 
 The visualization dashboard is organized into two main categories, reflecting the workflow of creating and using trait vectors.
 
+### Documentation
+
+-   **Overview**: Comprehensive methodology documentation rendered from `docs/overview.md` with markdown and KaTeX math rendering.
+
 ### Category 1: Trait Development
 (Building and validating the vectors)
 
--   **Data Explorer**: Browse the raw files from the extraction process for any trait, including the generated responses, activation tensors, and the extracted vectors themselves. You can preview CSV and JSON files directly in the browser.
+-   **Data Explorer**: Browse the raw files from the extraction process for any trait, including the generated responses, activation tensors, and the extracted vectors themselves. You can preview JSON files directly in the browser.
 
 -   **Trait Dashboard**: A unified dashboard to inspect and evaluate the quality of extracted vectors. For each trait, this view combines:
     -   **Extraction Stats**: A heatmap showing the intrinsic properties (like vector norm) of every extracted vector across all layers and methods.
@@ -276,10 +280,13 @@ experiments/{experiment_name}/inference/results/
 
 ## Expected Data Formats
 
-### Response CSV Format
-```csv
-question,instruction,prompt,response,trait_score
-"What is X?","[instruction]","[full prompt]","[model response]",85.3
+### Response JSON Format
+```json
+{
+  "prompt": "What is X?",
+  "response": "[model response]",
+  "trait_score": 85.3
+}
 ```
 
 ### Activation Metadata Format
@@ -392,9 +399,9 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for examples.
 - Look at browser console for specific errors (F12)
 
 ### Response data won't load
-- Verify CSV files exist in `responses/pos.csv` and `responses/neg.csv`
-- Check CSV format matches expected schema
-- Ensure CSV has header row with required columns
+- Verify JSON files exist in `responses/pos.json` and `responses/neg.json`
+- Check JSON format is valid (not corrupted)
+- Ensure JSON contains `prompt` and `response` fields
 
 ### Vector heatmap is blank
 - Verify vector metadata JSON files exist
@@ -403,7 +410,6 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for examples.
 
 ## Performance Notes
 
-- **Large CSV files**: May take 5-10 seconds to parse (1000+ rows)
 - **Vector loading**: Fetches 4 methods × 27 layers = 108 files per trait
 - **Browser cache**: Refresh (Cmd+R) if data seems stale
 

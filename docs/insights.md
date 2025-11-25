@@ -318,6 +318,113 @@ python analysis/evaluate_on_validation.py --experiment my_experiment --no-normal
 
 ---
 
+## 2025-11-24: Layer Dynamics and Trait Monitoring Methodology
+
+**Finding**: Raw velocity metrics are meaningless due to ~12x magnitude scaling across layers. After normalization, the true dynamics pattern emerges with distinct computational phases.
+
+### Magnitude Normalization is Mandatory
+
+**Evidence**:
+- Representation magnitude scales ~12x from layer 0 to layer 24
+- Raw velocity explosion at layers 23-24 was an artifact of this scaling
+- After normalization, true pattern emerges:
+  - **Layers 0-7**: High dynamics (0.5-0.67) - "deciding trajectory"
+  - **Layers 8-19**: Stable (0.31-0.37) - "actual computation"
+  - **Layers 20-24**: Rising (0.47-0.64) - "output preparation"
+
+**Implication**: Use cosine similarity for projections (already done), but also track **radial vs angular velocity separately**. Magnitude changes and direction changes represent different computations.
+
+### Trait Emergence is Layer-Variable
+
+Different traits emerge at different layers - there is no universal emergence pattern. Held-out validation showed optimal layers ranging from 2 (defensiveness) to 25 (correction_impulse).
+
+**What's established**:
+- Early layers (0-7) show high dynamics - trajectory is being decided
+- Middle layers (8-19) are stable - core computation
+- Late layers (20-24) show rising dynamics - output preparation
+
+**What's NOT established**:
+- Any fixed hierarchy of trait types (behavioral vs cognitive vs meta-cognitive)
+- Assumption that "layer 16 is good enough for all traits"
+
+**Implication**: Optimal layer must be determined empirically per-trait via held-out validation. Don't assume layer 16 universally.
+
+### Trait-Dynamics Correlation Split
+
+Data revealed two distinct groups with different monitoring requirements:
+
+| Group | Traits | Correlation | Interpretation |
+|-------|--------|-------------|----------------|
+| High correlation (0.56-0.63) | defensiveness, correction_impulse, formality, context | Change WITH layer dynamics | "Output modulation" - HOW to express |
+| Low correlation (0.01-0.17) | uncertainty_expression, retrieval | Evolve on own schedule | "Content determination" - WHAT to express |
+
+**Implication**: May need different monitoring strategies for each group. High-correlation traits track layer dynamics; low-correlation traits need independent tracking.
+
+### Causal Sequentiality in Trait Detection
+
+Later tokens have dramatically more computation behind them:
+- Token 50: 26 layers × 49 previous positions worth of information
+- Token 1: Almost nothing
+
+**Implications**:
+1. Trait projections on early tokens are inherently noisier
+2. Errors accumulate - if model "decides" wrong at token 5, it can't revise
+3. Weight early-token trait scores with appropriate uncertainty
+
+### Universality Testing
+
+The 8 dynamic prompts are the primary defense against overfitting interpretations:
+- **8/8 prompts**: Pattern is probably architectural
+- **2/8 prompts**: Pattern is probably noise or prompt-specific
+
+Small multiples grid is not just visualization - it's a **validity check**. Always test patterns across the full prompt set before drawing conclusions.
+
+### Framing Corrections
+
+**Transformers are NOT dynamical systems with attractors.** Better framing: "26 layers of constrained flow through learned manifold."
+
+- No feedback loops
+- No settling to fixed points
+- Traits aren't attractors - they're **channels** carved by training that tokens flow through
+- Commitment point = where a token picks its channel, not where it settles into an attractor
+
+The river/flow and differential equation framings are useful intuition pumps but don't take literally. The "commitment point" framing is the most mechanistically grounded - there really does seem to be a layer where acceleration drops and the model has "decided."
+
+### Steering vs Measurement Geometry
+
+These are different operations in the same space:
+- **Measurement**: `score = h · trait_vector` (dot product, scalar output)
+- **Steering**: `h' = h + α * trait_vector` (addition, move in space)
+
+"Project trait onto activations" doesn't make geometric sense - both vectors live in the same activation space.
+
+### Attention Interpretation Caution
+
+Low attention weight to early tokens ≠ "ignoring" that information. By layer 16, information from early tokens is already encoded in hidden states. Attention is routing, not the only information flow mechanism. Don't over-interpret attention diffusion patterns.
+
+### Commitment Point: Promising but Unvalidated
+
+The commitment point detection heuristic (`where(|trait_velocity| < threshold)`) is a reasonable starting point but **not yet validated**:
+
+**Open questions**:
+- Is it robust across different traits? (Different traits emerge at different layers)
+- Is it robust across different prompts? (Needs 8/8 universality testing)
+- Is the threshold trait-dependent or universal?
+- Does it correlate with actual behavioral commitment in generation?
+
+**What's established**:
+- Acceleration peaks at layer 23 are real (post-normalization)
+- The general approach (tracking velocity/acceleration) is methodologically sound
+
+**What's NOT established**:
+- That a single "commitment point" exists for all traits
+- That the current threshold is optimal
+- That commitment point predicts anything about generation behavior
+
+**Implication**: Treat commitment point as a hypothesis to test, not an established metric. Validate per-trait across the full prompt set before relying on it.
+
+---
+
 ## Future Findings
 
 Additional insights will be added here as research progresses.

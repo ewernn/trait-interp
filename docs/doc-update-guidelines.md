@@ -51,15 +51,9 @@ Ask yourself:
    - Pipeline docs → `extraction/`
 
 2. **Add to docs/main.md Documentation Index** in the appropriate section:
-   - Core Documentation (Start Here)
-   - Trait Design & Creation
-   - Pipeline & Extraction
-   - Experiments & Analysis
-   - Research & Methodology
-   - Visualization & Monitoring
-   - Infrastructure & Setup
-   - traitlens Library
-   - Meta-Documentation
+   - See main.md for current section structure
+   - Place it where similar docs live
+   - Keep the index organized and logical
 
 3. **Format the entry** consistently:
    ```markdown

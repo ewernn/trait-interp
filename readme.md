@@ -21,8 +21,11 @@ cp .env.example .env
 # Edit .env with your keys
 
 # Use existing vectors for monitoring
-python inference/monitor_dynamics.py --experiment gemma_2b_cognitive_nov20 --prompts "Your prompt here"
-# Open visualization in browser at http://localhost:8000/visualization/
+python inference/capture.py --experiment gemma_2b_cognitive_nov21 --prompt "Your prompt here"
+
+# Start visualization server
+python visualization/serve.py
+# Open in browser at http://localhost:8000/
 ```
 
 ## What This Does
@@ -49,15 +52,16 @@ python inference/monitor_dynamics.py --experiment gemma_2b_cognitive_nov20 --pro
 ## Extract Your Own Traits
 
 ```bash
-# 1. Create trait definition
-cp extraction/templates/trait_definition_template.json experiments/my_exp/my_trait/trait_definition.json
-# Edit following docs/creating_traits.md
+# 1. Create scenario files (100+ prompts each)
+mkdir -p experiments/my_exp/extraction/category/my_trait
+# Create positive.txt and negative.txt following docs/creating_traits.md
 
-# 2. Generate responses + extract activations
-python extraction/1_generate_batched_simple.py --experiment my_exp --trait my_trait --batch_size 8
+# 2. Run extraction pipeline
+python extraction/1_generate_responses.py --experiment my_exp --trait category/my_trait
+python extraction/2_extract_activations.py --experiment my_exp --trait category/my_trait
 
 # 3. Extract vectors
-python extraction/3_extract_vectors.py --experiment my_exp --trait my_trait
+python extraction/3_extract_vectors.py --experiment my_exp --trait category/my_trait
 ```
 
 ## Monitoring & Visualization
@@ -68,7 +72,7 @@ Use traitlens to monitor traits during generation:
 - Create custom monitoring scripts in experiments/{name}/inference/
 
 Interactive dashboard (`visualization/`):
-- Data Explorer: inspect file structure, sizes, shapes, and preview JSON/CSV data
+- Data Explorer: inspect file structure, sizes, shapes, and preview JSON data
 - Overview of all extracted traits and experiments
 - Response quality analysis with histograms
 - Vector analysis heatmaps across methods and layers
@@ -77,6 +81,7 @@ Interactive dashboard (`visualization/`):
 ## Documentation
 
 - **[docs/main.md](docs/main.md)** - Complete documentation
+- **[docs/overview.md](docs/overview.md)** - Methodology and concepts
 - **[docs/pipeline_guide.md](docs/pipeline_guide.md)** - Detailed usage
 - **[docs/creating_traits.md](docs/creating_traits.md)** - Design traits
 - **[traitlens/](traitlens/)** - Extraction toolkit
@@ -88,14 +93,14 @@ Interactive dashboard (`visualization/`):
 ### view visualizations
 
 ```bash
-# start local server
-python -m http.server 8000
+# start visualization server
+python visualization/serve.py
 
 # open in browser
-open http://localhost:8000/visualization/
+open http://localhost:8000/
 ```
 
-dashboard loads monitoring data from `experiments/{experiment}/inference/` showing per-token trait projections for example responses.
+Dashboard shows overview page and loads monitoring data from `experiments/{experiment}/inference/` showing per-token trait projections.
 
 ### generate new data
 
@@ -106,20 +111,18 @@ pip install torch transformers accelerate openai huggingface_hub pandas tqdm fir
 # extract trait vectors
 # see docs/main.md and docs/pipeline_guide.md for commands
 
-# monitor per-token projections
-python inference/monitor_dynamics.py \
-  --experiment gemma_2b_cognitive_nov20 \
-  --prompts "Your prompt here" \
-  --output results.json
+# capture activations and project onto all traits
+python inference/capture.py \
+  --experiment gemma_2b_cognitive_nov21 \
+  --prompt "Your prompt here"
 
-# or capture trajectory across all layers
-python inference/capture_all_layers.py \
-  --experiment gemma_2b_cognitive_nov20 \
-  --trait refusal \
-  --prompts "Your test prompt here" \
-  --save-json
+# re-project saved raw activations onto traits
+python inference/project.py \
+  --experiment gemma_2b_cognitive_nov21 \
+  --prompt-set single_trait
 
-# output: experiments/{experiment}/{trait}/inference/residual_stream_activations/
+# output: experiments/{experiment}/inference/raw/ (activations)
+#         experiments/{experiment}/inference/{category}/{trait}/ (projections)
 ```
 
 ---
@@ -146,7 +149,7 @@ projection = (hidden_state @ trait_vector) / ||trait_vector||
 # near zero → neutral
 ```
 
-see `docs/creating_new_traits.md` for complete extraction guide.
+See `docs/creating_traits.md` for trait design guide and `docs/pipeline_guide.md` for complete extraction guide.
 
 ---
 
@@ -156,18 +159,15 @@ see `docs/creating_new_traits.md` for complete extraction guide.
 trait-interp/
 ├── visualization/               # interactive dashboard
 ├── extraction/                  # trait vector extraction
-│   ├── 1_generate_batched_simple.py # generate + extract (batched, fast)
-│   ├── 2_extract_activations.py     # extract from existing responses
-│   ├── 3_extract_vectors.py         # extract vectors with multiple methods
-│   └── templates/                   # trait definition templates
+│   ├── 1_generate_responses.py      # generate responses from scenarios
+│   ├── 2_extract_activations.py     # extract activations from responses
+│   └── 3_extract_vectors.py         # extract vectors with multiple methods
 ├── experiments/                 # all experiment data
-│   ├── examples/               # reference scripts
-│   └── gemma_2b_cognitive_nov20/  # 16 cognitive traits
-│       └── {trait}/
-│           ├── trait_definition.json
-│           ├── responses/      # pos.csv, neg.csv
+│   └── {experiment_name}/
+│       └── extraction/{category}/{trait}/
+│           ├── responses/      # pos.json, neg.json
 │           ├── activations/    # captured hidden states
-│           └── vectors/        # extracted vectors
+│           └── vectors/        # extracted trait vectors
 ├── traitlens/                   # extraction toolkit
 │   ├── hooks.py                # hook management
 │   ├── activations.py          # activation capture
@@ -190,6 +190,7 @@ trait-interp/
 ## documentation
 
 - **docs/main.md** - complete project documentation
+- **docs/overview.md** - methodology and concepts
 - **docs/pipeline_guide.md** - detailed extraction guide
 - **docs/creating_traits.md** - trait design guide
 - **docs/doc-update-guidelines.md** - how to update documentation

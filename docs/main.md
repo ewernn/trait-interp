@@ -10,12 +10,12 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 
 ### Core Documentation (Start Here)
 - **[docs/main.md](main.md)** (this file) - Complete project overview and reference
+- **[docs/overview.md](overview.md)** - High-level methodology and concepts (also at `/overview` in visualization)
 - **[README.md](../readme.md)** - Quick start guide and repository structure
 - **[docs/pipeline_guide.md](pipeline_guide.md)** - Detailed 3-stage extraction pipeline walkthrough
 - **[docs/architecture.md](architecture.md)** - Design principles and organizational structure
 
 ### Trait Design & Creation
-- **[docs/creating_traits.md](creating_traits.md)** - How to design effective natural scenarios
 - **[docs/writing_natural_prompts.md](writing_natural_prompts.md)** - Writing high-quality natural elicitation prompts
 
 ### Pipeline & Extraction
@@ -31,11 +31,11 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 
 ### Research & Methodology
 - **[docs/insights.md](insights.md)** - Key research findings and discoveries
-- **[docs/methodology_and_framework.md](methodology_and_framework.md)** - Research methodology and framework
+- **[docs/overview.md](overview.md)** - Research methodology and framework
 - **[docs/literature_review.md](literature_review.md)** - Literature review (100+ papers analyzed)
 - **[docs/vector_extraction_methods.md](vector_extraction_methods.md)** - Mathematical breakdown of extraction methods
-- **[docs/vector_quality_tests.md](vector_quality_tests.md)** - Comprehensive evaluation tests for vector quality
 - **[docs/vector_evaluation_framework.md](vector_evaluation_framework.md)** - Multi-axis evaluation framework
+- **[docs/analysis_ideas.md](analysis_ideas.md)** - Brainstorm of analysis methods to explore and validate
 - **[docs/future_ideas.md](future_ideas.md)** - Research extensions and technical improvements
 
 ### Visualization & Monitoring
@@ -46,14 +46,15 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 
 ### Infrastructure & Setup
 - **[config/paths.yaml](../config/paths.yaml)** - Single source of truth for all repo paths
+- **[docs/gemma-2-2b-it.md](gemma-2-2b-it.md)** - Gemma-2-2B-IT data format reference (tensor shapes, capture structures)
 - **[docs/numerical_stability_analysis.md](numerical_stability_analysis.md)** - Float16/float32 precision handling
+- **[docs/remote_setup.md](remote_setup.md)** - Remote GPU instance setup guide
 - **[sae/README.md](../sae/README.md)** - Sparse Autoencoder (SAE) integration for interpretable feature analysis
 - **[unit_tests/README.md](../unit_tests/README.md)** - Unit tests for extraction pipeline
 
 ### traitlens Library
 - **[traitlens/README.md](../traitlens/README.md)** - Library documentation and API reference
 - **[traitlens/docs/philosophy.md](../traitlens/docs/philosophy.md)** - Design philosophy
-- **[traitlens/docs/README.md](../traitlens/docs/README.md)** - Additional documentation
 
 ### Meta-Documentation
 - **[docs/doc-update-guidelines.md](doc-update-guidelines.md)** - Guidelines for updating documentation
@@ -97,7 +98,7 @@ trait-interp/
 │   └── {experiment_name}/              # Your experiment (e.g., my_experiment)
 │       ├── extraction/{category}/{trait}/  # Training-time data
 │       │   ├── generation_metadata.json
-│       │   ├── responses/          # Generated examples (pos.csv, neg.csv or pos.json, neg.json)
+│       │   ├── responses/          # Generated examples (pos.json, neg.json)
 │       │   ├── activations/        # Token-averaged hidden states
 │       │   └── vectors/            # Extracted trait vectors
 │       ├── inference/              # Evaluation-time monitoring
@@ -526,7 +527,7 @@ Start the visualization server:
 ```bash
 # From trait-interp root directory
 python visualization/serve.py
-# Then visit http://localhost:8000/visualization/
+# Then visit http://localhost:8000/
 ```
 
 The visualization provides:
@@ -851,7 +852,7 @@ PyTorch stable (2.6.0) crashes due to Grouped Query Attention incompatibility. P
 - **[docs/pipeline_guide.md](pipeline_guide.md)** - Complete pipeline usage guide
 - **[docs/creating_traits.md](creating_traits.md)** - How to design effective traits
 - **[traitlens/README.md](../traitlens/README.md)** - Extraction toolkit documentation
-- **[docs/methodology_and_framework.md](methodology_and_framework.md)** - Theoretical background
+- **[docs/overview.md](overview.md)** - High-level methodology and concepts
 - **[docs/literature_review.md](literature_review.md)** - Related work
 
 ## Related Work
