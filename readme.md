@@ -4,7 +4,7 @@
 
 Extract behavioral trait vectors using multiple methods (mean difference, linear probes, ICA, gradient optimization) and monitor how traits evolve during generation.
 
-**📚 All documentation is in the [docs/](docs/) folder. Start with [docs/main.md](docs/main.md).**
+**📚 Full documentation:** [docs/main.md](docs/main.md)
 
 ---
 
@@ -16,16 +16,16 @@ git clone https://github.com/ewernn/trait-interp.git
 cd trait-interp
 pip install -r requirements.txt
 
-# Set up API keys
+# Set up API keys (optional, for response generation)
 cp .env.example .env
-# Edit .env with your keys
+# Edit .env with your OpenAI/Anthropic keys
 
 # Use existing vectors for monitoring
-python inference/capture.py --experiment gemma_2b_cognitive_nov21 --prompt "Your prompt here"
+python inference/capture.py --experiment gemma_2b_cognitive_nov21 --prompt "Your prompt"
 
-# Start visualization server
+# Start visualization dashboard
 python visualization/serve.py
-# Open in browser at http://localhost:8000/
+# Visit http://localhost:8000/
 ```
 
 ## What This Does
@@ -78,65 +78,18 @@ Interactive dashboard (`visualization/`):
 - Vector analysis heatmaps across methods and layers
 - Per-token monitoring (when data available)
 
-## Documentation
-
-- **[docs/main.md](docs/main.md)** - Complete documentation
-- **[docs/overview.md](docs/overview.md)** - Methodology and concepts
-- **[docs/pipeline_guide.md](docs/pipeline_guide.md)** - Detailed usage
-- **[docs/creating_traits.md](docs/creating_traits.md)** - Design traits
-- **[traitlens](https://github.com/ewernn/traitlens)** - Extraction toolkit (separate package)
-
 ---
 
-## quick start
+## How It Works
 
-### view visualizations
+### Trait Extraction Pipeline
 
-```bash
-# start visualization server
-python visualization/serve.py
+1. **Define trait** - Create natural contrasting scenarios (100+ each for positive/negative)
+2. **Generate responses** - Model produces responses from scenarios
+3. **Extract vector** - Apply extraction method: `v = mean(pos_hidden) - mean(neg_hidden)`
+4. **Monitor per-token** - Project activations onto vector during generation
 
-# open in browser
-open http://localhost:8000/
-```
-
-Dashboard shows overview page and loads monitoring data from `experiments/{experiment}/inference/` showing per-token trait projections.
-
-### generate new data
-
-```bash
-# setup
-pip install -r requirements.txt
-
-# extract trait vectors
-# see docs/main.md and docs/pipeline_guide.md for commands
-
-# capture activations and project onto all traits
-python inference/capture.py \
-  --experiment gemma_2b_cognitive_nov21 \
-  --prompt "Your prompt here"
-
-# re-project saved raw activations onto traits
-python inference/project.py \
-  --experiment gemma_2b_cognitive_nov21 \
-  --prompt-set single_trait
-
-# output: experiments/{experiment}/inference/raw/ (activations)
-#         experiments/{experiment}/inference/{category}/{trait}/ (projections)
-```
-
----
-
-## how it works
-
-### trait extraction pipeline
-
-1. **define trait** - create instruction pairs (see `data_generation/trait_data_extract/`)
-2. **generate responses** - model produces 200 high-trait + 200 low-trait responses
-3. **extract vector** - compute difference: `v = mean(high_hidden) - mean(low_hidden)`
-4. **monitor per-token** - project activations onto vector during generation
-
-### per-token monitoring
+### Per-Token Monitoring
 
 ```python
 # at each token during generation:
@@ -149,51 +102,48 @@ projection = (hidden_state @ trait_vector) / ||trait_vector||
 # near zero → neutral
 ```
 
-See `docs/creating_traits.md` for trait design guide and `docs/pipeline_guide.md` for complete extraction guide.
+See [docs/creating_traits.md](docs/creating_traits.md) for trait design and [docs/pipeline_guide.md](docs/pipeline_guide.md) for complete extraction guide.
 
 ---
 
-## repository structure
+## Repository Structure
 
 ```
 trait-interp/
-├── visualization/               # interactive dashboard
-├── extraction/                  # trait vector extraction
-│   ├── 1_generate_responses.py      # generate responses from scenarios
-│   ├── 2_extract_activations.py     # extract activations from responses
-│   └── 3_extract_vectors.py         # extract vectors with multiple methods
-├── experiments/                 # all experiment data
+├── extraction/                  # Trait vector extraction pipeline
+│   ├── 1_generate_responses.py
+│   ├── 2_extract_activations.py
+│   └── 3_extract_vectors.py
+├── inference/                   # Per-token monitoring
+│   ├── capture.py              # Capture + project
+│   └── project.py              # Re-project from saved activations
+├── experiments/                 # Experiment data
 │   └── {experiment_name}/
-│       └── extraction/{category}/{trait}/
-│           ├── responses/      # pos.json, neg.json
-│           ├── activations/    # captured hidden states
-│           └── vectors/        # extracted trait vectors
-├── utils/                       # shared utilities
-│   ├── judge.py                # API judging with retry logic
-│   └── config.py               # credential setup
-├── docs/                        # documentation
-│   ├── main.md                 # complete documentation
-│   ├── pipeline_guide.md       # extraction guide
-│   └── creating_traits.md      # trait design guide
-├── visualization/               # interactive dashboard
-│   └── README.md               # visualization guide
-└── requirements.txt             # dependencies
+│       ├── extraction/{category}/{trait}/
+│       │   ├── responses/      # pos.json, neg.json
+│       │   ├── activations/    # captured hidden states
+│       │   └── vectors/        # extracted trait vectors
+│       └── inference/          # monitoring data
+├── visualization/               # Interactive dashboard
+├── utils/                       # Shared utilities (paths, vector selection)
+├── docs/                        # Documentation
+└── requirements.txt
 ```
 
 ---
 
-## documentation
+## Documentation
 
-- **docs/main.md** - complete project documentation
-- **docs/overview.md** - methodology and concepts
-- **docs/pipeline_guide.md** - detailed extraction guide
-- **docs/creating_traits.md** - trait design guide
-- **docs/doc-update-guidelines.md** - how to update documentation
+- **[docs/main.md](docs/main.md)** - Complete project documentation
+- **[docs/overview.md](docs/overview.md)** - Methodology and concepts
+- **[docs/pipeline_guide.md](docs/pipeline_guide.md)** - Detailed extraction guide
+- **[docs/creating_traits.md](docs/creating_traits.md)** - Trait design guide
+- **[traitlens](https://github.com/ewernn/traitlens)** - Extraction toolkit (separate package)
 
 ---
 
-## attribution
+## Attribution
 
-core vector extraction adapted from [safety-research/persona_vectors](https://github.com/safety-research/persona_vectors). per-token monitoring, visualization dashboard, and temporal analysis are original contributions.
+Core vector extraction adapted from [safety-research/persona_vectors](https://github.com/safety-research/persona_vectors). Per-token monitoring, visualization dashboard, and temporal analysis are original contributions.
 
-mit license
+MIT License
