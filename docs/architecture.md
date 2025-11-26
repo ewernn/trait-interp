@@ -4,10 +4,29 @@
 
 **Note:** traitlens is now a separate package installed from [github.com/ewernn/traitlens](https://github.com/ewernn/traitlens). This doc explains the architectural boundaries between components.
 
-1. **traitlens** = General purpose building blocks (installed package)
-2. **utils** = Universal utilities (path management, this repo)
-3. **extraction** = Vector creation pipeline (training time, this repo)
-4. **experiments** = Data + custom analysis (user space, this repo)
+### Core Stack
+
+```
+traitlens           → General primitives (dimension-agnostic tensor ops)
+        ↓
+extraction/         → Build trait vectors (training time)
+        ↓
+inference/          → Compute facts per prompt (capture, project, dynamics)
+        ↓
+analysis/           → Interpret + aggregate (thresholds, cross-prompt)
+        ↓
+visualization/      → Show everything
+```
+
+### Directory Responsibilities
+
+1. **traitlens** = General-purpose primitives (installed package)
+2. **utils/** = Universal utilities (path management)
+3. **extraction/** = Vector creation pipeline (training time)
+4. **inference/** = Per-prompt computation (capture, project, dynamics)
+5. **analysis/** = Interpretation + aggregation (thresholds, cross-prompt patterns)
+6. **experiments/** = Data storage + experiment-specific scripts
+7. **visualization/** = All visualization code and views
 
 ---
 
@@ -26,82 +45,153 @@ trait-interp/
 │   ├── 1_generate_responses.py   # Generate responses from natural scenarios
 │   ├── 2_extract_activations.py  # Extract activations from responses
 │   ├── 3_extract_vectors.py      # Create trait vectors
-│   └── scenarios/        # Natural contrasting prompts
+│   └── scenarios/                # Natural contrasting prompts
 │
-├── inference/              # Per-token monitoring (inference time)
-│   ├── capture_layers.py  # Unified layer capture
-│   └── monitor_dynamics.py # Dynamics analysis
+├── inference/              # Per-prompt computation (inference time)
+│   ├── capture_raw_activations.py           # Capture hidden states
+│   ├── project_raw_activations_onto_traits.py  # Project onto trait vectors
+│   └── capture_trait_dynamics.py            # Compute velocity, acceleration
 │
-├── experiments/            # Experiment data + custom analysis
-│   └── {experiment_name}/  # Your experiment directory
+├── analysis/               # Interpretation + aggregation
+│   └── (structure emerges from useful work)
+│
+├── experiments/            # Experiment data storage
+│   └── {experiment_name}/
 │       ├── extraction/     # Training-time data (per-trait)
 │       │   └── {category}/{trait}/
 │       │       ├── responses/    # pos.json, neg.json
-│       │       ├── activations/  # pos_layer{N}.pt, neg_layer{N}.pt
+│       │       ├── activations/  # all_layers.pt
 │       │       └── vectors/      # {method}_layer{N}.pt
-│       ├── inference/      # Evaluation-time monitoring
-│       │   ├── raw/               # Trait-independent activations
-│       │   │   ├── residual/{prompt_set}/  # All-layer activations
-│       │   │   └── internals/{prompt_set}/ # Single-layer detailed (optional)
-│       │   └── {category}/{trait}/
-│       │       └── residual_stream/{prompt_set}/  # Projection JSONs
+│       ├── inference/      # Evaluation-time data
+│       │   ├── raw/        # Captured activations
+│       │   └── projections/# Trait scores + dynamics
+│       └── analysis/       # Experiment-specific analysis outputs
+│
+├── visualization/          # All visualization code
+│   ├── views/              # View modules
+│   └── core/               # Shared utilities
 │
 └── docs/                   # Documentation
 ```
 
 ---
 
-## Two-Phase Experiment Structure
+## inference/ vs analysis/ Distinction
 
-Each experiment follows a two-phase structure separating training and monitoring:
+The key organizational principle: **facts vs interpretation**.
+
+### inference/ = "What are the numbers?"
+
+Computes facts about a single prompt. No thresholds, no heuristics.
+
+| Computation | Why inference/ |
+|-------------|----------------|
+| Raw activations | Direct capture |
+| Trait scores | Direct projection |
+| Velocity | Direct derivative |
+| Acceleration | Direct derivative |
+| Attention patterns | Direct from model |
+
+### analysis/ = "What do the numbers mean?"
+
+Interprets facts, applies thresholds, aggregates across prompts.
+
+| Type | Why analysis/ |
+|------|---------------|
+| Threshold-based detection | Needs heuristics (e.g., "when does X drop below Y?") |
+| Cross-prompt aggregation | Compares multiple prompts |
+| Pattern interpretation | Goes beyond raw numbers |
+
+### Note on Trait-Dependent vs Trait-Independent
+
+Some computations need trait vectors (trait-dependent), some don't (trait-independent). This is **not** an organizing axis. Both types live together in inference/ and analysis/ based on whether they're facts or interpretation.
+
+---
+
+## Visualization Organization
+
+```
+EXTRACTION
+└── Trait Extraction (quality, methods, correlations)
+
+TRAIT DYNAMICS
+└── Token × Trait views, velocity, acceleration
+    (pulls from inference/ + analysis/)
+```
+
+---
+
+## Three-Phase Pipeline
+
+Each experiment follows three phases: build → compute → interpret.
 
 ### Phase 1: extraction/
-**Purpose:** Training-time data (per-trait, unique prompts)
+**Purpose:** Build trait vectors (training time)
 - Natural scenario files
 - Generated contrastive responses
 - Extracted activations
 - Computed trait vectors
 
 **Organized by:** `extraction/{category}/{trait}/`
-- Requires category/trait format (e.g., `behavioral/refusal`)
-- Each trait is self-contained
 
 ### Phase 2: inference/
-**Purpose:** Evaluation-time monitoring (shared prompts, all traits)
-- Standardized prompt sets
-- Raw activations captured once
-- Projections to all trait vectors
-- Dynamics analysis results
+**Purpose:** Compute facts per prompt (inference time)
+- Capture raw activations
+- Project onto trait vectors
+- Compute velocity and acceleration
 
 **Organized by:** Experiment-level (shared across traits)
-- Captures activations once per prompt set
-- Projects to all available trait vectors
-- Avoids per-trait duplication
+
+### Phase 3: analysis/
+**Purpose:** Interpret facts and aggregate
+- Apply thresholds and heuristics
+- Aggregate across prompts
+- Any interpretation that goes beyond raw computation
+
+**Organized by:** TBD (structure emerges from useful work)
 
 ---
 
 ## What Goes Where
 
-### traitlens/ - Minimal Library
+### traitlens/ - General Primitives Library
 
 **What belongs:**
-- Core primitives (hooks, capture, math operations)
+- Hook management, activation capture
+- Extraction methods (MeanDiff, Probe, ICA, Gradient)
+- Dimension-agnostic tensor operations
 - General-purpose functions that work on any model
-- No dependencies on specific models or tasks
+
+**Current primitives:**
+```python
+projection()              # Project onto direction
+compute_derivative()      # Velocity (1st derivative)
+compute_second_derivative() # Acceleration (2nd derivative)
+cosine_similarity()       # Compare vectors
+normalize_vectors()       # Unit length
+```
+
+**Planned additions:**
+```python
+radial_velocity()         # Magnitude change between layers
+angular_velocity()        # Direction change between layers
+pca_reduce()              # Reduce to N dimensions
+attention_entropy()       # How focused vs diffuse
+```
 
 **What does NOT belong:**
 - Model-specific code
-- Experiment-specific analysis
+- Threshold/heuristic-based analysis (goes in trait-interp/analysis/)
 - Visualization code
-- Data loading/saving (except primitive capture)
+- Experiment-specific analysis
 
 **Example:**
 ```python
 # ✅ YES - general primitive
 def compute_derivative(trajectory): ...
 
-# ❌ NO - too specific
-def analyze_refusal_commitment_on_gemma(): ...
+# ❌ NO - too specific (needs thresholds)
+def find_commitment_point(trajectory, threshold=0.1): ...
 ```
 
 ### utils/ - Universal Utilities
@@ -115,20 +205,44 @@ def analyze_refusal_commitment_on_gemma(): ...
 - Analysis code
 - Primitives (those go in traitlens)
 
-### extraction/ - Vector Creation
+### extraction/ - Vector Creation Pipeline
 
 **What belongs:**
-- Training-time pipeline
-- Natural scenario generation
+- Training-time pipeline scripts
+- Natural scenario handling
 - Activation extraction from training data
-- Vector extraction methods
+- Vector computation using traitlens methods
 
 **What does NOT belong:**
-- Inference-time monitoring
-- Analysis of existing vectors
+- Inference-time computation
+- Analysis of results
 - Visualization
 
-### experiments/ - User Space
+### inference/ - Per-Prompt Computation
+
+**What belongs:**
+- Capture raw activations from model runs
+- Project activations onto trait vectors
+- Compute velocity and acceleration
+- Anything that produces "facts" about one prompt
+
+**What does NOT belong:**
+- Threshold-based detection (goes in analysis/)
+- Cross-prompt aggregation (goes in analysis/)
+- Visualization
+
+### analysis/ - Interpretation + Aggregation
+
+**What belongs:**
+- Anything that applies thresholds or heuristics
+- Anything that aggregates across multiple prompts
+- Anything that interprets rather than computes
+
+**What does NOT belong:**
+- Raw computation (goes in inference/)
+- Visualization (goes in visualization/)
+
+### experiments/ - Data Storage
 
 **What belongs:**
 - Experimental data (responses, activations, vectors)
@@ -165,19 +279,32 @@ def analyze_refusal_commitment_on_gemma(): ...
    → Save to experiments/{name}/extraction/{category}/{trait}/vectors/
 ```
 
-### Inference Time (Monitoring)
+### Inference Time (Facts)
 ```
-1. Load vectors from experiments/{name}/extraction/{category}/{trait}/vectors/
+1. inference/capture_raw_activations.py
+   → Run model on prompt
+   → Capture hidden states at all layers
+   → Save to experiments/{name}/inference/raw/
    ↓
-2. Monitor during generation using traitlens
-   → Capture activations per token
-   → Project onto trait vectors
+2. inference/project_raw_activations_onto_traits.py
+   → Load vectors from experiments/{name}/extraction/
+   → Project activations onto trait vectors
+   → Save scores to experiments/{name}/inference/projections/
    ↓
-3. Analyze dynamics (optional)
-   → Use traitlens.compute primitives
-   → Or custom analysis
+3. inference/capture_trait_dynamics.py
+   → Compute velocity, acceleration using traitlens primitives
+   → Save dynamics to experiments/{name}/inference/projections/
+```
+
+### Analysis Time (Interpretation)
+```
+1. Load data from inference/
    ↓
-4. Save results to experiments/{name}/inference/
+2. Apply thresholds, heuristics, or aggregation
+   ↓
+3. Save results to experiments/{name}/analysis/
+
+(Specific scripts TBD based on what proves useful)
 ```
 
 ---
@@ -186,19 +313,23 @@ def analyze_refusal_commitment_on_gemma(): ...
 
 ### I want to add a new function...
 
-**Q: Does it work on any model/task?**
-- YES → Consider `traitlens/`
-- NO → Put in `experiments/{name}/`
-
-**Q: Is it a mathematical primitive?**
-- YES → `traitlens/compute.py`
+**Q: Is it a mathematical primitive (no thresholds, works on any tensor)?**
+- YES → `traitlens/`
 - NO → Continue...
 
-**Q: Is it part of the extraction pipeline?**
+**Q: Is it part of building trait vectors?**
 - YES → `extraction/`
 - NO → Continue...
 
-**Q: Is it a universal utility?**
+**Q: Does it compute facts about a single prompt (no thresholds)?**
+- YES → `inference/`
+- NO → Continue...
+
+**Q: Does it interpret facts or aggregate across prompts?**
+- YES → `analysis/`
+- NO → Continue...
+
+**Q: Is it a universal utility (paths, config)?**
 - YES → `utils/`
 - NO → `experiments/{name}/`
 
@@ -257,6 +388,8 @@ Keep files focused and reasonably sized:
 - `traitlens/*.py` - Each file < 300 lines
 - `utils/*.py` - Each file < 200 lines
 - `extraction/*.py` - Each script < 500 lines
+- `inference/*.py` - Each script < 500 lines
+- `analysis/*.py` - Each script < 500 lines
 - `experiments/` - No limits (user space)
 
 If a file grows too large, split by responsibility.
@@ -274,6 +407,13 @@ If a file grows too large, split by responsibility.
 - Integration tests with small models
 - Test on sample data
 - Can be slower
+
+### inference/
+- Test with saved activations (no model needed)
+- Verify output shapes and types
+
+### analysis/
+- Test as needed per script
 
 ### experiments/
 - Custom validation by user
@@ -293,8 +433,16 @@ If a file grows too large, split by responsibility.
 - **Never**: experiment-specific packages
 
 ### extraction/
-- **Allowed**: transformers, pandas, tqdm, fire
+- **Allowed**: transformers, traitlens, pandas, tqdm, fire
 - **Never**: visualization packages
+
+### inference/
+- **Allowed**: traitlens, transformers (for capture only)
+- **Never**: visualization packages
+
+### analysis/
+- **Allowed**: traitlens, numpy, scipy, whatever's needed
+- **Prefer**: Using saved data over running models
 
 ### experiments/
 - **Allowed**: anything
@@ -305,11 +453,13 @@ If a file grows too large, split by responsibility.
 
 - [ ] No circular dependencies
 - [ ] Each directory has single responsibility
-- [ ] traitlens/ is model-agnostic
+- [ ] traitlens/ is model-agnostic (no thresholds, no heuristics)
 - [ ] utils/ has no experiment code
 - [ ] extraction/ has no inference code
+- [ ] inference/ computes facts (no thresholds/heuristics)
+- [ ] analysis/ interprets (thresholds, aggregation OK)
 - [ ] experiments/ has no reusable library code
-- [ ] Clear separation of training vs inference
+- [ ] Clear separation: extraction → inference → analysis
 - [ ] New users can understand the structure
 
 ---

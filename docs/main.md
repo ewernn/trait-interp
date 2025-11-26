@@ -70,8 +70,8 @@ trait-interp/
 │   └── elicitation_guide.md   # Guide for creating new traits
 │
 ├── inference/              # Per-token monitoring (inference time)
-│   ├── capture.py                     # Unified capture with flags (residual-stream, layer-internals, logit-lens)
-│   ├── project.py                     # Post-hoc projection from saved raw activations
+│   ├── capture_raw_activations.py     # Capture hidden states from model
+│   ├── project_raw_activations_onto_traits.py  # Project onto trait vectors
 │   ├── prompts/                       # Centralized prompt sets
 │   └── README.md                      # Usage guide
 │
@@ -145,12 +145,12 @@ trait-interp/
 **For using existing vectors:**
 ```bash
 # Capture activations + project onto all traits
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt "Your prompt here"
 
 # Re-project saved raw activations onto traits
-python inference/project.py \
+python inference/project_raw_activations_onto_traits.py \
     --experiment {experiment_name} \
     --prompt-set single_trait
 ```
@@ -291,7 +291,7 @@ python -c "import torch; print(f'MPS available: {torch.backends.mps.is_available
 
 **Run inference:**
 ```bash
-python inference/capture.py --experiment {experiment_name} --prompt "test"
+python inference/capture_raw_activations.py --experiment {experiment_name} --prompt "test"
 ```
 
 Models load on GPU (MPS) by default when available. Gemma 2B runs at full speed on M1 Pro and later.
@@ -446,24 +446,24 @@ print(f"Norm: {vector.norm():.2f}")
 
 Monitor trait projections token-by-token during generation.
 
-### Quick Start: capture.py
+### Quick Start: capture_raw_activations.py
 
-The unified `capture.py` script handles capture with clear flags:
+The unified capture script handles capture with clear flags:
 
 ```bash
 # Capture residual stream + project onto all traits
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt-set single_trait
 
 # Layer internals for mechanistic analysis
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt "How do I make a bomb?" \
     --layer-internals 16
 
 # Include logit lens predictions
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt-set baseline \
     --logit-lens
@@ -525,11 +525,10 @@ python visualization/serve.py
 The visualization provides:
 - **Category 1: Trait Development**
   - **Data Explorer**: Browse all raw files from the extraction process.
-  - **Trait Dashboard**: A unified view to inspect vector properties (like norm) and evaluate their performance (accuracy, effect size) on held-out data.
-  - **Trait Correlation Matrix**: Check if trait vectors are independent or redundant by visualizing their correlations.
+  - **Trait Extraction**: Comprehensive view of extraction quality, methods, and vector properties. Shows extraction techniques (Mean Diff, Probe, ICA, Gradient), quality metrics definitions, scoring methodology, and visualizations including layer×method heatmaps, best vectors per trait, method comparison, and cross-trait independence analysis.
 - **Category 2: Inference Analysis**
   - **Trait Trajectory**: View a single trait's activation score across all layers and tokens for a given prompt.
-  - **Multi-Trait Comparison**: Compare the activation trajectories of multiple traits on the same prompt.
+  - **Trait Dynamics**: Watch the model think - trait activations evolving token-by-token. Compare multiple traits to see how they relate during generation.
   - **Layer Deep Dive**: Placeholder for future mechanistic analysis (attention vs MLP breakdown, per-head contributions, SAE features).
   - **Analysis Gallery**: Browse all analysis outputs (PNGs + JSON metrics) from batch analysis scripts. Use the prompt picker to filter by prompt or view summaries.
   - **Token Explorer**: Interactive per-token view with real-time slider updates. Shows PCA trajectory, velocity, trait scores, attention patterns (prompt + response tokens for dynamic prompts), trait evolution, and distance to other tokens.
@@ -583,7 +582,7 @@ Save results as JSON files to load in visualization.
 
 Analyze temporal dynamics of trait expression: when traits crystallize, how fast they build, and how long they persist.
 
-Dynamics are automatically computed and bundled with projections when you run `capture.py` or `project.py`. No separate script needed.
+Dynamics are automatically computed and bundled with projections when you run `capture_raw_activations.py` or `project_raw_activations_onto_traits.py`. No separate script needed.
 
 ### Dynamics Metrics
 
@@ -683,8 +682,8 @@ trait-interp/
 │   └── elicitation_guide.md       # Guide for creating new traits
 │
 ├── inference/                      # Per-token monitoring (inference time)
-│   ├── capture.py                 # Unified capture with flags
-│   ├── project.py                 # Post-hoc projection
+│   ├── capture_raw_activations.py # Capture hidden states
+│   ├── project_raw_activations_onto_traits.py  # Project onto vectors
 │   ├── prompts/                   # Centralized prompt sets
 │   └── README.md                  # Usage guide
 │

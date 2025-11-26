@@ -1,4 +1,5 @@
-// Prompt Activation View - All selected traits on single graph with legend
+// Trait Dynamics View - Watch the model's internal state evolve token-by-token
+// Core insight: "See how the model is thinking" by projecting onto trait vectors
 
 // Color palette for traits (distinct, colorblind-friendly)
 const TRAIT_COLORS = [
@@ -19,22 +20,35 @@ async function renderPerTokenActivation() {
     const filteredTraits = window.getFilteredTraits();
 
     if (filteredTraits.length === 0) {
+        // Show education sections even without data
         contentArea.innerHTML = `
-            <div class="card">
-                <div class="card-title">Per-Token Activation</div>
-                <div class="info">Select at least one trait to view per-token activation trajectories</div>
+            <div class="extraction-overview-container">
+                ${renderEducationSections()}
+                <div class="extraction-section">
+                    <h2 class="section-heading">Trait Trajectory</h2>
+                    <div class="card">
+                        <div class="info">Select at least one trait from the sidebar to view activation trajectories.</div>
+                    </div>
+                </div>
             </div>
         `;
+        if (window.MathJax) MathJax.typesetPromise();
         return;
     }
 
     // Show loading state
     contentArea.innerHTML = `
-        <div class="card">
-            <div class="card-title">Per-Token Activation - Loading...</div>
-            <div class="info">Loading data for ${filteredTraits.length} trait(s)...</div>
+        <div class="extraction-overview-container">
+            ${renderEducationSections()}
+            <div class="extraction-section">
+                <h2 class="section-heading">Trait Trajectory</h2>
+                <div class="card">
+                    <div class="info">Loading data for ${filteredTraits.length} trait(s)...</div>
+                </div>
+            </div>
         </div>
     `;
+    if (window.MathJax) MathJax.typesetPromise();
 
     const traitData = {};
     const failedTraits = [];
@@ -75,26 +89,123 @@ async function renderPerTokenActivation() {
         return;
     }
 
-    // Render the combined graph
+    // Render education + combined graph
     renderCombinedGraph(contentArea, traitData, loadedTraits, failedTraits, promptSet, promptId);
+}
+
+
+function renderEducationSections() {
+    return `
+        <!-- Section 1: What is Projection? -->
+        <div class="extraction-section">
+            <h2 class="section-heading">What is Trait Projection?</h2>
+            <div class="techniques-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+                <div class="technique-card">
+                    <h4>The Core Idea</h4>
+                    <p class="technique-desc">Each token's hidden state lives in a high-dimensional space (2304 dims for Gemma 2B). We project onto trait vectors to measure "how much of this trait is present."</p>
+                    <div class="technique-math">$$\\text{score} = \\frac{\\vec{h} \\cdot \\vec{v}}{||\\vec{v}||}$$</div>
+                    <p class="technique-use"><strong>Where:</strong> \\(\\vec{h}\\) = hidden state, \\(\\vec{v}\\) = trait vector</p>
+                </div>
+
+                <div class="technique-card">
+                    <h4>Interpretation</h4>
+                    <p class="technique-desc">The projection score tells you how aligned the model's internal state is with a particular trait direction.</p>
+                    <ul style="margin: 8px 0; padding-left: 20px; font-size: 12px;">
+                        <li><strong>Positive:</strong> Model expressing trait</li>
+                        <li><strong>Negative:</strong> Model avoiding trait</li>
+                        <li><strong>Near zero:</strong> Neutral/unrelated</li>
+                        <li><strong>Magnitude:</strong> Strength of expression</li>
+                    </ul>
+                </div>
+
+                <div class="technique-card">
+                    <h4>Why This Works</h4>
+                    <p class="technique-desc">Trait vectors are extracted by finding directions that separate positive/negative examples during training. These directions capture semantic meaning.</p>
+                    <p class="technique-use"><strong>Validation:</strong> Vectors achieve 90%+ classification accuracy on held-out examples.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: How to Read the Graph -->
+        <div class="extraction-section">
+            <h2 class="section-heading">Reading the Graph</h2>
+            <div class="techniques-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+                <div class="technique-card">
+                    <h4>X-Axis: Tokens</h4>
+                    <p class="technique-desc">Each point is one token in the sequence. The dashed line separates prompt (left) from response (right).</p>
+                </div>
+
+                <div class="technique-card">
+                    <h4>Y-Axis: Activation</h4>
+                    <p class="technique-desc">Average projection score across all layers. Higher = stronger trait expression for that token.</p>
+                </div>
+
+                <div class="technique-card">
+                    <h4>Colors: Traits</h4>
+                    <p class="technique-desc">Each line is a different trait. Hover over lines to highlight. Click legend to toggle.</p>
+                </div>
+
+                <div class="technique-card">
+                    <h4>Vertical Line</h4>
+                    <p class="technique-desc">Shows the currently selected token (from the global slider). Syncs across all views.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Patterns to Look For -->
+        <div class="extraction-section">
+            <h2 class="section-heading">Key Patterns</h2>
+            <div class="techniques-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+                <div class="technique-card">
+                    <h4>Commitment Points</h4>
+                    <p class="technique-desc">Sharp rises or falls indicate "decision moments" where the model commits to a behavior. Often occurs early in response.</p>
+                    <p class="technique-use"><strong>Example:</strong> Refusal spike at "I cannot" tokens</p>
+                </div>
+
+                <div class="technique-card">
+                    <h4>Trait Crossings</h4>
+                    <p class="technique-desc">When two trait lines cross, the model is transitioning from one mode to another. Watch for correlated inversions.</p>
+                    <p class="technique-use"><strong>Example:</strong> Uncertainty dropping as confidence rises</p>
+                </div>
+
+                <div class="technique-card">
+                    <h4>Persistence</h4>
+                    <p class="technique-desc">Traits that stay elevated across many tokens indicate sustained behavioral modes (not just local patterns).</p>
+                    <p class="technique-use"><strong>Example:</strong> Sustained sycophancy throughout a response</p>
+                </div>
+
+                <div class="technique-card">
+                    <h4>Prompt vs Response</h4>
+                    <p class="technique-desc">Compare trait levels in prompt (context processing) vs response (generation). Dramatic shifts reveal how context influences behavior.</p>
+                    <p class="technique-use"><strong>Example:</strong> Low refusal during prompt, high during harmful response</p>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 function renderNoDataMessage(container, traits, promptSet, promptId) {
     const promptLabel = promptSet && promptId ? `${promptSet}/${promptId}` : 'none selected';
     container.innerHTML = `
-        <div class="card">
-            <div class="card-title">Per-Token Activation</div>
-            <div class="info" style="margin-bottom: 10px;">
-                ⚠️ No data available for prompt ${promptLabel} for any selected trait.
-            </div>
-            <div style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px; font-size: 12px;">
-                <p style="color: var(--text-secondary); margin-bottom: 8px;">
-                    To capture per-token activation data, run:
-                </p>
-                <pre style="background: var(--bg-primary); color: var(--text-primary); padding: 8px; border-radius: 4px; margin: 8px 0; overflow-x: auto; font-size: 11px;">python inference/capture.py --experiment ${window.paths.getExperiment()} --prompt-set ${promptSet || 'PROMPT_SET'}</pre>
+        <div class="extraction-overview-container">
+            ${renderEducationSections()}
+            <div class="extraction-section">
+                <h2 class="section-heading">Trait Trajectory</h2>
+                <div class="card">
+                    <div class="info" style="margin-bottom: 10px;">
+                        No data available for prompt ${promptLabel} for any selected trait.
+                    </div>
+                    <div style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px; font-size: 12px;">
+                        <p style="color: var(--text-secondary); margin-bottom: 8px;">
+                            To capture per-token activation data, run:
+                        </p>
+                        <pre style="background: var(--bg-primary); color: var(--text-primary); padding: 8px; border-radius: 4px; margin: 8px 0; overflow-x: auto; font-size: 11px;">python inference/capture_raw_activations.py --experiment ${window.paths.getExperiment()} --prompt-set ${promptSet || 'PROMPT_SET'}</pre>
+                    </div>
+                </div>
             </div>
         </div>
     `;
+    if (window.MathJax) MathJax.typesetPromise();
 }
 
 function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, promptSet, promptId) {
@@ -111,19 +222,26 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
     if (failedTraits.length > 0) {
         failedHtml = `
             <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 8px;">
-                ⚠️ No data for: ${failedTraits.map(t => window.getDisplayName(t)).join(', ')}
+                No data for: ${failedTraits.map(t => window.getDisplayName(t)).join(', ')}
             </div>
         `;
     }
 
     container.innerHTML = `
-        <div class="card" style="padding: 12px;">
-            <div class="card-title" style="margin-bottom: 8px;">Per-Token Activation Trajectory</div>
-            ${failedHtml}
-            <!-- Plot -->
-            <div id="combined-activation-plot" style="width: 100%;"></div>
+        <div class="extraction-overview-container">
+            ${renderEducationSections()}
+            <div class="extraction-section">
+                <h2 class="section-heading">Trait Trajectory</h2>
+                <div class="card" style="padding: 12px;">
+                    ${failedHtml}
+                    <div id="combined-activation-plot" style="width: 100%;"></div>
+                </div>
+            </div>
         </div>
     `;
+
+    // Render MathJax
+    if (window.MathJax) MathJax.typesetPromise();
 
     // Prepare traces for each trait
     const traces = [];

@@ -17,8 +17,7 @@ visualization/
 └── views/                  # View modules (render functions)
     ├── overview.js            # Methodology documentation (markdown + KaTeX)
     ├── data-explorer.js       # File browser with integrity check
-    ├── trait-dashboard.js     # Vector quality and evaluation
-    ├── trait-correlation.js   # Pairwise trait correlation matrix
+    ├── trait-extraction.js    # Comprehensive extraction quality view
     ├── all-layers.js          # Residual stream across all layers
     ├── per-token-activation.js # Per-token trait trajectories
     ├── layer-deep-dive.js     # Single layer mechanistic view
@@ -47,8 +46,8 @@ window.renderView = function() {
     switch (window.state.currentView) {
         case 'overview': window.renderOverview(); break;
         case 'data-explorer': window.renderDataExplorer(); break;
-        case 'trait-dashboard': window.renderTraitDashboard(); break;
-        // ... 6 more views
+        case 'trait-extraction': window.renderTraitExtraction(); break;
+        // ... 5 more views
     }
 };
 ```
@@ -200,8 +199,7 @@ python visualization/serve.py
 | View | Purpose |
 |------|---------|
 | data-explorer | Browse extraction files with integrity status |
-| trait-dashboard | Vector quality metrics and evaluation results |
-| trait-correlation | Pairwise correlation matrix between traits |
+| trait-extraction | Comprehensive extraction quality: methods, metrics, scoring, layer×method heatmaps, best vectors, independence analysis |
 | all-layers | Residual stream projections across all layers |
 | per-token-activation | Token-by-token trait trajectories |
 | layer-deep-dive | Attention heads and MLP neurons for single layer |

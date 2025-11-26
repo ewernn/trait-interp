@@ -33,40 +33,32 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     }
 
     def log_message(self, format, *args):
-        """Override to suppress noisy 404 logs and improve error messages."""
+        """Override to suppress noisy logs."""
         # Suppress 404s for HEAD requests (file existence checks)
         if len(args) >= 2 and args[1] == '404' and self.command == 'HEAD':
             return
 
-        # Suppress 304 (Not Modified) for less noise
+        # Suppress 304 (Not Modified)
         if len(args) >= 2 and args[1] == '304':
             return
 
-        # Enhanced 404 logging - show what file was requested
+        # Suppress all 404s (browser requests for optional files)
         if len(args) >= 2 and args[1] == '404':
-            # Extract path from request string "GET /path HTTP/1.1"
-            request_parts = args[0].split(' ')
-            path = request_parts[1] if len(request_parts) > 1 else args[0]
-
-            # Suppress expected 404s (traits without inference data, optional files)
-            if '/residual_stream/' in path or '/README.md' in path or '/favicon.ico' in path:
-                return  # Expected - not all traits have inference data, READMEs optional
-
-            # Clarify common issues
-            if '/visualization/experiments/' in path:
-                self.log_error("❌ 404: %s (Should not have /visualization/ prefix - bug in frontend path construction)", path)
-            elif '/experiments/' in path:
-                self.log_error("❌ 404: %s (File missing or not synced from R2)", path)
-            else:
-                self.log_error("❌ 404: %s", path)
             return
 
-        # Suppress generic "File not found" messages (redundant with above)
-        if 'File not found' in format or 'code 404' in format:
+        # Suppress base class "code 404" messages
+        if 'code 404' in format or 'File not found' in format:
             return
 
-        # Log everything else normally
+        # Log successful requests and errors
         super().log_message(format, *args)
+
+    def log_error(self, format, *args):
+        """Override to suppress error logs for expected 404s."""
+        # Suppress all 404 error logs
+        if '404' in format:
+            return
+        super().log_error(format, *args)
 
     def end_headers(self):
         """Add CORS headers to all responses."""
@@ -134,19 +126,6 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if self.path == '/' or self.path == '/index.html' or self.path.startswith('/?'):
                 self.path = '/visualization/index.html'
 
-            # Backwards compatibility redirects
-            elif self.path == '/overview':
-                self.send_response(301)
-                self.send_header('Location', '/?tab=overview')
-                self.end_headers()
-                return
-
-            elif self.path == '/visualization/' or self.path == '/visualization/index.html':
-                self.send_response(301)
-                self.send_header('Location', '/?tab=overview')
-                self.end_headers()
-                return
-
             # Serve design playground
             if self.path == '/design':
                 self.path = '/visualization/design.html'
@@ -154,7 +133,8 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             # Default: serve files
             super().do_GET()
         except (BrokenPipeError, ConnectionResetError):
-            self.log_message("Connection broken by client")
+            # Browser cancelled request - expected when loading many files
+            pass
 
     def send_api_response(self, data):
         """Send JSON API response."""

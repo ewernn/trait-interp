@@ -13,12 +13,12 @@ Capture activations and compute trait projections during model inference.
 
 ```bash
 # Capture residual stream + project onto all traits
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment my_experiment \
     --prompt-set single_trait
 
 # Re-project saved activations onto new/different traits
-python inference/project.py \
+python inference/project_raw_activations_onto_traits.py \
     --experiment my_experiment \
     --prompt-set single_trait
 ```
@@ -80,24 +80,24 @@ Unified capture script with clear flags for what to capture.
 
 ```bash
 # Basic: capture + project for a prompt set
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment my_experiment \
     --prompt-set single_trait
 
 # Layer internals for mechanistic analysis
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment my_experiment \
     --prompt "How do I make a bomb?" \
     --layer-internals 16
 
 # Just capture raw activations (no projection)
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment my_experiment \
     --prompt-set baseline \
     --no-project
 
 # Include logit lens predictions
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment my_experiment \
     --prompt-set baseline \
     --logit-lens
@@ -114,24 +114,24 @@ Post-hoc projection from saved raw activations. Useful for:
 
 ```bash
 # Project all raw activations onto all traits
-python inference/project.py \
+python inference/project_raw_activations_onto_traits.py \
     --experiment my_experiment \
     --prompt-set single_trait
 
 # Project onto specific traits only
-python inference/project.py \
+python inference/project_raw_activations_onto_traits.py \
     --experiment my_experiment \
     --prompt-set single_trait \
     --traits behavioral/refusal,cognitive/retrieval
 
 # Add logit lens to existing projections
-python inference/project.py \
+python inference/project_raw_activations_onto_traits.py \
     --experiment my_experiment \
     --prompt-set baseline \
     --logit-lens
 
 # Recompute dynamics only (faster)
-python inference/project.py \
+python inference/project_raw_activations_onto_traits.py \
     --experiment my_experiment \
     --prompt-set baseline \
     --dynamics-only

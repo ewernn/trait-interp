@@ -83,7 +83,7 @@ function renderAllLayersInstructionsInContainer(containerId, trait, promptSet, p
         <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 4px;">
             To capture per-token projections at all ${nCheckpoints} checkpoints (${nLayers} layers × 3 sublayers):
         </div>
-        <pre style="background: var(--bg-secondary); color: var(--text-primary); padding: 8px; border-radius: 4px; margin: 0; overflow-x: auto; font-size: 10px;">python inference/capture.py --experiment ${window.state.experimentData.name} --prompt-set ${promptSet || 'PROMPT_SET'}</pre>
+        <pre style="background: var(--bg-secondary); color: var(--text-primary); padding: 8px; border-radius: 4px; margin: 0; overflow-x: auto; font-size: 10px;">python inference/capture_raw_activations.py --experiment ${window.state.experimentData.name} --prompt-set ${promptSet || 'PROMPT_SET'}</pre>
     `;
 }
 

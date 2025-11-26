@@ -16,7 +16,7 @@ Shows "what would the model predict if it stopped at layer X?" by projecting int
 Add the `--logit-lens` flag when capturing:
 
 ```bash
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment my_experiment \
     --prompt-set baseline \
     --logit-lens
@@ -103,7 +103,7 @@ The logit lens data integrates with the **All Layers view** in the visualization
 **Question:** Does the refusal vector actually increase "cannot" tokens?
 
 ```bash
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment my_experiment \
     --prompt-set harmful_prompts \
     --logit-lens
@@ -131,7 +131,7 @@ python inference/capture.py \
 **Question:** Why does "temporal_focus" have low separation?
 
 ```bash
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment my_experiment \
     --prompt "What happened yesterday?" \
     --logit-lens
@@ -183,7 +183,7 @@ A: Top-3 captures 90%+ of probability mass. Top-5 adds storage without much valu
 A: 13 layers gives full picture with minimal overhead. 26 would be 2× larger for marginal benefit.
 
 **Q: Can I change which layers are sampled?**
-A: Yes, edit `LOGIT_LENS_LAYERS` in `inference/capture.py`.
+A: Yes, edit `LOGIT_LENS_LAYERS` in `inference/capture_raw_activations.py`.
 
 **Q: Does this slow down capture?**
 A: Minimally (~5% slower). Unembedding is fast, and we only sample 13 layers.

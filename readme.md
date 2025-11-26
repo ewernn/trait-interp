@@ -21,7 +21,7 @@ cp .env.example .env
 # Edit .env with your OpenAI/Anthropic keys
 
 # Use existing vectors for monitoring
-python inference/capture.py --experiment gemma_2b_cognitive_nov21 --prompt "Your prompt"
+python inference/capture_raw_activations.py --experiment gemma_2b_cognitive_nov21 --prompt "Your prompt"
 
 # Start visualization dashboard
 python visualization/serve.py

@@ -7,24 +7,24 @@ without re-running model inference.
 
 Usage:
     # Project all raw activations onto all traits
-    python inference/project.py \\
+    python inference/project_raw_activations_onto_traits.py \\
         --experiment my_experiment \\
         --prompt-set main_prompts
 
     # Project onto specific traits
-    python inference/project.py \\
+    python inference/project_raw_activations_onto_traits.py \\
         --experiment my_experiment \\
         --prompt-set main_prompts \\
         --traits behavioral/refusal,cognitive/retrieval
 
     # Include logit lens computation
-    python inference/project.py \\
+    python inference/project_raw_activations_onto_traits.py \\
         --experiment my_experiment \\
         --prompt-set main_prompts \\
         --logit-lens
 
     # Recompute dynamics only (projections already exist)
-    python inference/project.py \\
+    python inference/project_raw_activations_onto_traits.py \\
         --experiment my_experiment \\
         --prompt-set main_prompts \\
         --dynamics-only
@@ -222,7 +222,7 @@ def main():
 
     if not raw_dir.exists():
         print(f"Raw activations not found: {raw_dir}")
-        print("Run 'python inference/capture.py' first to capture raw activations.")
+        print("Run 'python inference/capture_raw_activations.py' first to capture raw activations.")
         return
 
     # Find raw activation files (new format: {id}.pt)

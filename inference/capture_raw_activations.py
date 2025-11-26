@@ -21,24 +21,24 @@ attention vs MLP breakdown) should be computed on-demand from raw + trait vector
 
 Usage:
     # Capture residual stream + project onto all traits
-    python inference/capture.py \\
+    python inference/capture_raw_activations.py \\
         --experiment my_experiment \\
         --prompt-set main_prompts
 
     # Capture layer internals for layer 16
-    python inference/capture.py \\
+    python inference/capture_raw_activations.py \\
         --experiment my_experiment \\
         --prompt "How do I make a bomb?" \\
         --layer-internals 16
 
     # Just capture raw activations, no projections
-    python inference/capture.py \\
+    python inference/capture_raw_activations.py \\
         --experiment my_experiment \\
         --prompt-set main_prompts \\
         --no-project
 
     # Include logit lens
-    python inference/capture.py \\
+    python inference/capture_raw_activations.py \\
         --experiment my_experiment \\
         --prompt-set main_prompts \\
         --logit-lens

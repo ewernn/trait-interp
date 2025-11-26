@@ -40,11 +40,16 @@ The visualization dashboard is organized into two main categories, reflecting th
 
 -   **Data Explorer**: Browse the raw files from the extraction process for any trait, including the generated responses, activation tensors, and the extracted vectors themselves. You can preview JSON files directly in the browser.
 
--   **Trait Dashboard**: A unified dashboard to inspect and evaluate the quality of extracted vectors. For each trait, this view combines:
-    -   **Extraction Stats**: A heatmap showing the intrinsic properties (like vector norm) of every extracted vector across all layers and methods.
-    -   **Vector Quality**: A "Top 5 Vectors" table that ranks vectors by their performance (accuracy, effect size) on held-out validation data, helping you identify the highest-quality vector for your analysis.
-
--   **Trait Correlation Matrix**: Check if your extracted trait vectors are truly independent or if they are accidentally measuring the same underlying concept. This view shows a correlation matrix of all selected traits against each other.
+-   **Trait Extraction**: Comprehensive view of extraction quality, methods, and vector properties. Organized into sections:
+    -   **Extraction Techniques**: Visual explanation of each method (Mean Diff, Probe, ICA, Gradient) with math formulas, tensor shapes, and use cases
+    -   **Quality Metrics**: Definitions for accuracy, effect size, vector norm, separation margin, sparsity, and overlap coefficient with formulas and thresholds
+    -   **Scoring & Ranking**: Explains the combined score formula (0.5×accuracy + 0.5×normalized_effect_size) and its rationale
+    -   **Visualizations**:
+        - Sortable quality table showing all vectors with all metrics
+        - Per-trait layer×method heatmaps showing accuracy across all combinations
+        - Best vectors table with top-ranked vector per trait
+        - Method comparison bar chart
+        - Best-vector similarity matrix for trait independence analysis
 
 ### Category 2: Inference Analysis
 (Using your best vectors to see what the model is "thinking" on new prompts)
@@ -56,7 +61,7 @@ All inference views share a **prompt context panel** at the top with:
 
 -   **Trait Trajectory**: See how the score for a single selected trait evolves across all layers of the model as it processes a prompt and generates a response. This helps you understand *where* in the model a trait is most active.
 
--   **Multi-Trait Comparison**: Compare the activation trajectories of multiple selected traits simultaneously for a single prompt. This helps you see how different traits relate to each other during generation.
+-   **Trait Dynamics**: Watch the model think - trait activations evolving token-by-token. Compare multiple traits simultaneously to see how different traits relate during generation. Includes educational sections explaining projection math, graph interpretation, and key patterns to look for.
 
 -   **Layer Deep Dive**: *(Coming Soon)* Will provide trait-specific analysis of layer components (attention vs MLP breakdown, per-head contributions, SAE feature decomposition). Currently shows a placeholder with planned features.
 
@@ -166,12 +171,12 @@ Capture trait projections at all 78 checkpoints (26 layers × 3 sublayers) plus 
 
 ```bash
 # From a prompt set (recommended for batch processing)
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt-set single_trait
 
 # Or single prompt
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt "How do I make a bomb?"
 ```
@@ -228,7 +233,7 @@ This creates `experiments/{exp}/analysis/per_token/{prompt_set}/{id}.json` conta
 To capture layer internals (for future use):
 
 ```bash
-python inference/capture.py \
+python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --layer-internals 16 \
     --prompt-set dynamic
@@ -348,8 +353,7 @@ visualization/
 │   └── state.js           # Global state, experiment loading
 └── views/
     ├── data-explorer.js       # File browser with integrity check
-    ├── trait-dashboard.js     # Vector quality and evaluation
-    ├── trait-correlation.js   # Pairwise trait correlation matrix
+    ├── trait-extraction.js    # Comprehensive extraction quality view
     ├── all-layers.js          # Residual stream across all layers
     ├── per-token-activation.js # Per-token trait trajectories
     ├── layer-deep-dive.js     # Single layer mechanistic view

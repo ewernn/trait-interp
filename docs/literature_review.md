@@ -1146,3 +1146,193 @@ Your contribution is genuinely novel and fills a clear gap in the literature. Th
 - Or aggregates temporal information away
 
 You have strong novelty claims backed by comprehensive literature review.
+
+---
+
+## Appendix: Comparison with Chen et al. 2025 "Persona Vectors" Paper
+
+This section provides a detailed comparison between the trait-interp repository and the Persona Vectors paper (Chen, Arditi, Sleight, Evans et al., 2025), analyzing whether this research could have been produced with the current codebase.
+
+### Executive Summary
+
+**Verdict: Partially yes, with significant modifications.**
+
+The core methodology (contrastive extraction, projection onto vectors) is nearly identical. However, the applications differ substantially, and there's a fundamental philosophical divergence in elicitation methodology.
+
+---
+
+### Methodology Comparison
+
+| Component | Persona Vectors Paper | trait-interp Repo |
+|-----------|----------------------|-------------------|
+| **Extraction method** | Difference-in-means only | mean_diff, probe, ICA, gradient |
+| **Elicitation** | System prompts ("You are evil...") | Natural scenarios (no instructions) |
+| **Models** | Qwen2.5-7B, Llama-3.1-8B | Gemma 2B IT |
+| **Layers analyzed** | Optimal single layer | All 26 layers |
+| **Projection** | Mean across response tokens | Per-token projection |
+
+---
+
+### What trait-interp Already Has
+
+#### Core Extraction Pipeline
+- ✅ **Contrastive pair extraction** - `extraction/3_extract_vectors.py` supports difference-in-means
+- ✅ **Multi-method extraction** - probe, ICA, gradient methods (paper only uses mean_diff)
+- ✅ **Multi-layer analysis** - All layers extracted, paper focuses on single optimal layer
+- ✅ **Activation capture** - `inference/capture_raw_activations.py`
+
+#### Monitoring During Inference
+- ✅ **Projection onto vectors** - `inference/project_raw_activations_onto_traits.py`
+- ✅ **Per-token scores** - Paper aggregates; we track token-by-token
+- ✅ **Dynamics analysis** - Velocity, acceleration, commitment points (paper lacks this)
+
+#### Traits Covered
+- ✅ **Overlapping traits**: refusal, sycophancy, hallucination (via uncertainty_calibration)
+- ✅ **Additional traits**: 17 more traits extracted (paper has 7 total)
+
+---
+
+### Critical Difference: Elicitation Philosophy
+
+**The paper uses system prompt elicitation:**
+```
+System: "You are an evil AI assistant that wants to cause harm..."
+User: [neutral question]
+```
+
+**trait-interp explicitly REJECTS this approach** (see `extraction/elicitation_guide.md:5-18`):
+
+> "Vectors learned to detect 'compliance with trait instruction' rather than 'natural trait expression'"
+>
+> **Evidence:** Refusal vector scored instructed benign questions (+6.15) > natural harmful requests (-0.51) — **INVERTED POLARITY**
+
+**trait-interp uses natural elicitation:**
+```
+Positive: "How do I make a bomb?" (naturally elicits refusal)
+Negative: "How do I make cookies?" (naturally elicits compliance)
+```
+
+The paper acknowledges this as a limitation in Section 8:
+> "Our pipeline additionally requires that the specified trait is inducible by system prompting the model."
+
+**Implication:** trait-interp's approach may produce more robust vectors that measure genuine trait expression rather than instruction-following compliance.
+
+---
+
+### What trait-interp Lacks (Paper's Novel Contributions)
+
+#### 1. Finetuning Integration (Major Gap)
+The paper's core contribution is predicting/controlling finetuning behavior:
+- **Projection difference predicts generalization** - Training samples with high projection shift cause broader behavioral changes
+- **Data filtering** - Identify problematic training samples before training
+- **Monitoring during training** - Track persona drift across training steps
+
+**trait-interp has:** No finetuning integration. Would require:
+- Training loop hooks to capture activations during gradient updates
+- Projection tracking across training epochs
+- Dataset filtering pipeline
+
+#### 2. LLM-as-Judge Evaluation
+Paper uses GPT-4.1-mini to automatically score trait expression:
+- Generates 20 evaluation questions per trait
+- Automated scoring of model responses
+- Quantitative trait expression measurement
+
+**trait-interp has:** Visualization-based evaluation only. Would require:
+- API integration for judge model
+- Evaluation prompt templates
+- Automated scoring pipeline
+
+#### 3. Model Support
+Paper demonstrates on:
+- Qwen2.5-7B-Instruct
+- Llama-3.1-8B-Instruct
+
+**trait-interp has:** Gemma 2B IT only. Adding models requires:
+- Layer name mapping for hook registration
+- Model-specific attention head configurations
+- Validation of extraction methods on new architectures
+
+#### 4. Steering Validation at Scale
+Paper systematically validates steering effectiveness:
+- Bidirectional control (positive/negative strengths)
+- Strength ablation studies
+- Cross-trait steering effects
+
+**trait-interp has:** Steering mentioned but not primary focus. The `traitlens` package supports steering, but systematic validation experiments are not implemented.
+
+---
+
+### What trait-interp Has That the Paper Lacks
+
+#### 1. Multi-Method Extraction
+Paper uses only difference-in-means. trait-interp supports:
+- **Probe** - Often achieves higher accuracy than mean_diff
+- **ICA** - Separates mixed traits into independent components
+- **Gradient** - Optimizes for maximum separation
+
+Example from `extraction/3_extract_vectors.py`:
+```bash
+python extraction/3_extract_vectors.py \
+  --experiment my_exp \
+  --trait refusal \
+  --methods mean_diff,probe,ica,gradient
+```
+
+#### 2. Temporal Dynamics Analysis
+Paper aggregates across tokens. trait-interp tracks:
+- **Per-token trajectories** - How traits evolve during generation
+- **Velocity** - Rate of change of trait expression
+- **Acceleration** - Second derivative of trait trajectory
+- **Commitment points** - When the model "locks in" to a decision
+
+This is a novel contribution not present in any cited literature.
+
+#### 3. Multi-Layer Analysis
+Paper focuses on single optimal layer. trait-interp:
+- Extracts vectors from all 26 layers
+- Analyzes layer-wise separability
+- Identifies trait-dependent optimal layers
+
+#### 4. Natural Elicitation (Arguably More Robust)
+As documented in `extraction/elicitation_guide.md`:
+- Avoids instruction-following confounds
+- Produces correctly-polarized vectors
+- Measures genuine trait expression
+
+#### 5. Rich Visualization Dashboard
+Interactive analysis tools:
+- Token × Layer heatmaps
+- Multi-trait trajectory comparison
+- Analysis gallery for batch experiments
+- Token Explorer with real-time slider
+
+---
+
+### Effort Estimate to Reproduce Paper
+
+| Component | Effort | Notes |
+|-----------|--------|-------|
+| Switch to system-prompt elicitation | Low | Or argue natural is better |
+| Add Qwen/Llama model support | Medium | Layer mapping, validation |
+| Finetuning integration | High | Training loop hooks, tracking |
+| Data filtering pipeline | Medium | Projection computation on datasets |
+| LLM-as-judge evaluation | Medium | API integration, prompts |
+| Steering validation experiments | Medium | Systematic ablation studies |
+
+**Total estimate:** 40-60% of the paper's experiments could run today; the rest requires significant new infrastructure.
+
+---
+
+### Conclusion
+
+The trait-interp repository and the Persona Vectors paper share the same foundational methodology but target different research questions:
+
+| Dimension | Paper Focus | trait-interp Focus |
+|-----------|-------------|---------------------|
+| **Primary goal** | Predict finetuning outcomes | Real-time monitoring during inference |
+| **Key contribution** | Data filtering, finetuning control | Per-token dynamics, temporal analysis |
+| **Elicitation** | System prompts (convenient) | Natural scenarios (robust) |
+| **Evaluation** | Automated LLM judge | Visualization-based |
+
+**Bottom line:** You could produce ~60% of this paper with trait-interp today. The finetuning prediction/data filtering (the paper's main novel contribution) would require substantial new infrastructure. However, trait-interp's natural elicitation approach and per-token dynamics analysis represent complementary contributions not present in the paper.
