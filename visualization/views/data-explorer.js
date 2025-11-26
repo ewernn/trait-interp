@@ -1,7 +1,34 @@
 // Data Explorer View - File browser based on integrity check data
 
-// Cache for integrity data
+// Cache for integrity data and schema
 let integrityData = null;
+let schemaData = null;
+
+/**
+ * Fetch data schema from API (single source of truth).
+ */
+async function fetchSchema() {
+    if (schemaData) return schemaData;
+
+    try {
+        const response = await fetch('/api/schema');
+        if (!response.ok) {
+            throw new Error(`Failed to fetch schema: ${response.statusText}`);
+        }
+        schemaData = await response.json();
+        return schemaData;
+    } catch (error) {
+        console.error('Failed to fetch schema:', error);
+        // Return fallback defaults
+        return {
+            extraction: {
+                prompts: ['positive.txt', 'negative.txt', 'val_positive.txt', 'val_negative.txt'],
+                metadata: ['generation_metadata.json', 'trait_definition.txt'],
+                responses: ['responses/pos.json', 'responses/neg.json', 'val_responses/val_pos.json', 'val_responses/val_neg.json']
+            }
+        };
+    }
+}
 
 /**
  * Fetch integrity data for current experiment.
@@ -52,8 +79,14 @@ function getFileIcon(exists) {
 /**
  * Render the file tree for a single trait from integrity data.
  */
-function renderTraitFileTree(trait, integrityData) {
+function renderTraitFileTree(trait, integrityData, schema) {
     const traitPath = `experiments/${integrityData.experiment}/extraction/${trait.trait}`;
+    const extraction = schema.extraction || {};
+
+    // Get expected files from schema
+    const promptFiles = extraction.prompts || ['positive.txt', 'negative.txt', 'val_positive.txt', 'val_negative.txt'];
+    const metadataFiles = extraction.metadata || ['generation_metadata.json', 'trait_definition.txt'];
+    const responseFiles = extraction.responses || ['responses/pos.json', 'responses/neg.json', 'val_responses/val_pos.json', 'val_responses/val_neg.json'];
 
     // Count totals
     const promptsOk = Object.values(trait.prompts).filter(v => v).length;
@@ -80,12 +113,11 @@ function renderTraitFileTree(trait, integrityData) {
             <div class="file-item indent-1">
                 <span class="file-icon">📁</span>
                 <strong>prompts/</strong>
-                <span style="opacity: 0.6; font-size: 11px;">(${promptsOk}/4 files)</span>
+                <span style="opacity: 0.6; font-size: 11px;">(${promptsOk}/${promptFiles.length} files)</span>
             </div>
     `;
 
-    // Show individual prompt files
-    const promptFiles = ['positive.txt', 'negative.txt', 'val_positive.txt', 'val_negative.txt'];
+    // Show individual prompt files (from schema)
     for (const file of promptFiles) {
         const exists = trait.prompts[file] || false;
         html += `
@@ -96,7 +128,7 @@ function renderTraitFileTree(trait, integrityData) {
         `;
     }
 
-    // Metadata files
+    // Metadata files (from schema)
     html += `
             <div class="file-item indent-1">
                 <span class="file-icon">📄</span>
@@ -104,7 +136,6 @@ function renderTraitFileTree(trait, integrityData) {
             </div>
     `;
 
-    const metadataFiles = ['generation_metadata.json', 'trait_definition.txt'];
     for (const file of metadataFiles) {
         const exists = trait.metadata[file] || false;
         const isClickable = exists && file.endsWith('.json');
@@ -117,30 +148,28 @@ function renderTraitFileTree(trait, integrityData) {
         `;
     }
 
-    // Response files
+    // Response files (from schema)
     html += `
             <div class="file-item indent-1">
                 <span class="file-icon">📁</span>
                 <strong>responses/</strong>
-                <span style="opacity: 0.6; font-size: 11px;">(${responsesOk}/4 files)</span>
+                <span style="opacity: 0.6; font-size: 11px;">(${responsesOk}/${responseFiles.length} files)</span>
             </div>
     `;
 
-    const responseFiles = [
-        ['responses/pos.json', 'pos.json', 'responses'],
-        ['responses/neg.json', 'neg.json', 'responses'],
-        ['val_responses/val_pos.json', 'val_pos.json', 'val_responses'],
-        ['val_responses/val_neg.json', 'val_neg.json', 'val_responses']
-    ];
-    for (const [key, file, dir] of responseFiles) {
-        const exists = trait.responses[key] || false;
+    for (const respPath of responseFiles) {
+        const exists = trait.responses[respPath] || false;
         const isClickable = exists;
+        // Parse path to get display info
+        const parts = respPath.split('/');
+        const dir = parts[0];
+        const file = parts[1];
         const polarity = file.includes('pos') ? 'pos' : 'neg';
         const isVal = file.startsWith('val_');
         html += `
             <div class="file-item indent-2 ${isClickable ? 'clickable' : ''}" ${isClickable ? `onclick="previewResponses('${trait.trait}', '${polarity}', ${isVal})"` : ''}>
                 <span class="file-icon ${exists ? '' : 'missing'}">${getFileIcon(exists)}</span>
-                <span class="${exists ? '' : 'missing'}">${dir}/${file}</span>
+                <span class="${exists ? '' : 'missing'}">${respPath}</span>
                 ${isClickable ? '<span style="opacity: 0.6; font-size: 11px;">[preview →]</span>' : ''}
             </div>
         `;
@@ -239,6 +268,9 @@ function renderTraitFileTree(trait, integrityData) {
 async function renderDataExplorer() {
     const contentArea = document.getElementById('content-area');
 
+    // Fetch schema and integrity data
+    const schema = await fetchSchema();
+
     // Fetch integrity data if not cached
     if (!integrityData || integrityData.experiment !== window.paths.getExperiment()) {
         integrityData = await fetchIntegrityData();
@@ -252,6 +284,11 @@ async function renderDataExplorer() {
         `;
         return;
     }
+
+    // Get expected counts from schema
+    const extraction = schema.extraction || {};
+    const expectedPrompts = (extraction.prompts || []).length || 4;
+    const expectedResponses = (extraction.responses || []).length || 4;
 
     // Calculate summary stats
     const summary = integrityData.summary;
@@ -316,11 +353,11 @@ async function renderDataExplorer() {
                     <span>${statusIcon}</span>
                     <strong style="margin-left: 8px;">${displayName}</strong>
                     <span style="margin-left: auto; font-size: 11px; color: var(--text-tertiary);">
-                        ${trait.category} | ${promptsOk}/4 prompts | ${responsesOk}/4 responses | ${totalActs}/${trait.expected_activations} acts | ${totalVectors} vectors
+                        ${trait.category} | ${promptsOk}/${expectedPrompts} prompts | ${responsesOk}/${expectedResponses} responses | ${totalActs}/${trait.expected_activations} acts | ${totalVectors} vectors
                     </span>
                 </div>
                 <div class="explorer-trait-body" id="trait-body-${trait.trait.replace(/\//g, '-')}">
-                    ${renderTraitFileTree(trait, integrityData)}
+                    ${renderTraitFileTree(trait, integrityData, schema)}
                 </div>
             </div>
         `;

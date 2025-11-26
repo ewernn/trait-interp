@@ -21,65 +21,53 @@ async function renderTraitExtraction() {
 
     // Build the comprehensive view
     contentArea.innerHTML = `
-        <div class="extraction-overview-container">
-            <!-- Section 1: Extraction Techniques -->
-            <div class="extraction-section">
-                <h2 class="section-heading">Extraction Techniques</h2>
-                <div class="techniques-grid">
-                    ${renderExtractionTechniques()}
-                </div>
-            </div>
+        <div class="tool-view">
+            <!-- Section 1: Visualizations -->
+            <section>
+                <h2>Quality Analysis</h2>
 
-            <!-- Section 2: Metrics Definitions -->
-            <div class="extraction-section">
-                <h2 class="section-heading">Quality Metrics</h2>
-                <div class="metrics-definitions">
-                    ${renderMetricsDefinitions()}
-                </div>
-            </div>
+                <h3>All Vectors - Sortable Quality Table</h3>
+                <div id="quality-table-container"></div>
 
-            <!-- Section 3: Scoring Method -->
-            <div class="extraction-section">
-                <h2 class="section-heading">Scoring & Ranking</h2>
-                <div class="scoring-explanation">
-                    ${renderScoringExplanation(evalData)}
-                </div>
-            </div>
+                <h3>Per-Trait Quality Heatmaps (Layer × Method)</h3>
+                <div id="trait-heatmaps-container"></div>
 
-            <!-- Section 4: Visualizations -->
-            <div class="extraction-section">
-                <h2 class="section-heading">Quality Analysis</h2>
+                <h3>Best Vector Per Trait</h3>
+                <div id="best-vectors-container"></div>
 
-                <!-- Overall Quality Table -->
-                <div class="card" style="margin-bottom: 24px;">
-                    <div class="card-title">All Vectors - Sortable Quality Table</div>
-                    <div id="quality-table-container"></div>
-                </div>
+                <h3>Method Comparison</h3>
+                <div id="method-comparison-container" style="height: 300px;"></div>
 
-                <!-- Per-Trait Layer×Method Heatmaps -->
-                <div class="card" style="margin-bottom: 24px;">
-                    <div class="card-title">Per-Trait Quality Heatmaps (Layer × Method)</div>
-                    <div id="trait-heatmaps-container"></div>
-                </div>
+                <h3>Best-Vector Similarity Matrix (Trait Independence)</h3>
+                <div id="best-vector-similarity-container"></div>
+            </section>
 
-                <!-- Best Vectors Summary -->
-                <div class="card" style="margin-bottom: 24px;">
-                    <div class="card-title">Best Vector Per Trait</div>
-                    <div id="best-vectors-container"></div>
-                </div>
+            <!-- Section 2: Notation -->
+            <section>
+                <h2>Notation & Definitions <span class="info-icon" data-info="notation">ⓘ</span></h2>
+                ${renderNotation()}
+            </section>
 
-                <!-- Method Comparison -->
-                <div class="card" style="margin-bottom: 24px;">
-                    <div class="card-title">Method Comparison</div>
-                    <div id="method-comparison-container"></div>
-                </div>
+            <!-- Section 3: Extraction Techniques -->
+            <section>
+                <h2>Extraction Techniques <span class="info-icon" data-info="techniques">ⓘ</span></h2>
+                ${renderExtractionTechniques()}
+            </section>
 
-                <!-- Cross-Trait Independence -->
-                <div class="card">
-                    <div class="card-title">Best-Vector Similarity Matrix (Trait Independence)</div>
-                    <div id="best-vector-similarity-container"></div>
-                </div>
-            </div>
+            <!-- Section 4: Metrics Definitions -->
+            <section>
+                <h2>Quality Metrics <span class="info-icon" data-info="metrics">ⓘ</span></h2>
+                ${renderMetricsDefinitions()}
+            </section>
+
+            <!-- Section 5: Scoring Method -->
+            <section>
+                <h2>Scoring & Ranking <span class="info-icon" data-info="scoring">ⓘ</span></h2>
+                ${renderScoringExplanation(evalData)}
+            </section>
+
+            <!-- Tooltip container -->
+            <div id="section-info-tooltip" class="tooltip"></div>
         </div>
     `;
 
@@ -89,6 +77,95 @@ async function renderTraitExtraction() {
     renderBestVectors(evalData);
     renderMethodComparison(evalData);
     renderBestVectorSimilarity(evalData);
+
+    // Render math after all content is in DOM
+    if (window.MathJax) {
+        MathJax.typesetPromise();
+    }
+
+    // Setup info tooltips
+    setupSectionInfoTooltips();
+}
+
+
+// Info tooltip content for each section
+const SECTION_INFO_CONTENT = {
+    notation: `
+        <h4>About This Notation</h4>
+        <p>These symbols are used consistently throughout the extraction pipeline and evaluation metrics.</p>
+        <p><strong>Key insight:</strong> Each example's activation is the <em>average</em> across all response tokens, giving a single d-dimensional vector per example.</p>
+    `,
+    techniques: `
+        <h4>Choosing an Extraction Method</h4>
+        <ul>
+            <li><strong>Mean Diff:</strong> Fast baseline. Use for initial exploration.</li>
+            <li><strong>Probe:</strong> Best for high-separability traits (>80% accuracy). Optimized for classification.</li>
+            <li><strong>ICA:</strong> Use when traits overlap or interfere. Finds independent directions.</li>
+            <li><strong>Gradient:</strong> Best for low-separability traits. Can find subtle directions that other methods miss.</li>
+        </ul>
+        <p><em>Tip: Compare methods in the heatmaps above to see which works best for each trait.</em></p>
+    `,
+    metrics: `
+        <h4>Interpreting Quality Metrics</h4>
+        <p>All metrics are computed on <strong>held-out validation data</strong> (20% of examples) to measure generalization.</p>
+        <ul>
+            <li><strong>Accuracy:</strong> Can the vector classify unseen examples? >90% is good.</li>
+            <li><strong>Effect Size (d):</strong> How separated are the distributions? >1.5 is large effect.</li>
+            <li><strong>Norm:</strong> Vector magnitude. Typical range: 15-40.</li>
+            <li><strong>Margin:</strong> Gap between distributions. Positive = no overlap.</li>
+        </ul>
+    `,
+    scoring: `
+        <h4>Why This Scoring Formula?</h4>
+        <p>The combined score balances two goals:</p>
+        <ul>
+            <li><strong>Accuracy (50%):</strong> Practical utility—can we use this vector?</li>
+            <li><strong>Effect Size (50%):</strong> Robustness—how confident is the separation?</li>
+        </ul>
+        <p>Effect size is normalized per-trait because scales vary (0.5–5.0). This makes cross-trait comparison fair.</p>
+        <p><em>A vector with 95% accuracy but tiny effect size may be overfitting. This score catches that.</em></p>
+    `
+};
+
+
+function setupSectionInfoTooltips() {
+    const tooltip = document.getElementById('section-info-tooltip');
+    if (!tooltip) return;
+
+    const icons = document.querySelectorAll('.info-icon');
+
+    icons.forEach(icon => {
+        icon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const key = icon.dataset.info;
+            const content = SECTION_INFO_CONTENT[key];
+
+            if (tooltip.classList.contains('show') && tooltip.dataset.activeKey === key) {
+                // Toggle off if clicking same icon
+                tooltip.classList.remove('show');
+                return;
+            }
+
+            tooltip.innerHTML = content;
+            tooltip.dataset.activeKey = key;
+
+            // Position near the icon
+            const rect = icon.getBoundingClientRect();
+            const containerRect = document.querySelector('.tool-view').getBoundingClientRect();
+
+            tooltip.style.top = `${rect.bottom - containerRect.top + 8}px`;
+            tooltip.style.left = `${rect.left - containerRect.left}px`;
+
+            tooltip.classList.add('show');
+        });
+    });
+
+    // Close tooltip when clicking elsewhere
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.info-icon') && !e.target.closest('.tooltip')) {
+            tooltip.classList.remove('show');
+        }
+    });
 }
 
 
@@ -105,38 +182,83 @@ async function loadExtractionEvaluation() {
 }
 
 
+function renderNotation() {
+    return `
+        <div class="grid">
+            <div class="card">
+                <h4>Input Shapes</h4>
+                <table class="def-table">
+                    <tr><td>$$n$$</td><td>Number of examples (train or validation split)</td></tr>
+                    <tr><td>$$d$$</td><td>Hidden dimension (2304 for Gemma 2B)</td></tr>
+                    <tr><td>$$L$$</td><td>Number of layers (26 for Gemma 2B)</td></tr>
+                    <tr><td>$$\\mathbf{A} \\in \\mathbb{R}^{n \\times d}$$</td><td>Activation matrix (token-averaged per example)</td></tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h4>Variables</h4>
+                <table class="def-table">
+                    <tr><td>$$\\vec{v} \\in \\mathbb{R}^d$$</td><td>Trait vector (direction in activation space)</td></tr>
+                    <tr><td>$$\\vec{a}_i \\in \\mathbb{R}^d$$</td><td>Single example's activation (row of A)</td></tr>
+                    <tr><td>$$y_i \\in \\{+1, -1\\}$$</td><td>Binary label (positive/negative trait)</td></tr>
+                    <tr><td>$$\\text{pos}, \\text{neg}$$</td><td>Subscripts for positive/negative example subsets</td></tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h4>Key Quantities</h4>
+                <table class="def-table">
+                    <tr><td>$$\\vec{a} \\cdot \\vec{v}$$</td><td>Projection score (dot product)</td></tr>
+                    <tr><td>$$\\mu_{\\text{pos}}, \\mu_{\\text{neg}}$$</td><td>Mean projection for pos/neg examples</td></tr>
+                    <tr><td>$$\\sigma_{\\text{pooled}}$$</td><td>Pooled standard deviation</td></tr>
+                    <tr><td>$$||\\vec{v}||_2$$</td><td>L2 norm (vector magnitude)</td></tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h4>Pipeline Context</h4>
+                <table class="def-table">
+                    <tr><td><strong>Train split</strong></td><td>80% of examples → used to extract vectors</td></tr>
+                    <tr><td><strong>Val split</strong></td><td>20% of examples → used to evaluate vectors</td></tr>
+                    <tr><td><strong>Per-layer</strong></td><td>Vectors extracted independently for each layer</td></tr>
+                    <tr><td><strong>Per-method</strong></td><td>4 extraction methods × 26 layers = 104 vectors/trait</td></tr>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+
 function renderExtractionTechniques() {
     return `
-        <div class="technique-card">
-            <h4>Mean Difference</h4>
-            <div class="technique-math">$$\\vec{v} = \\text{mean}(\\mathbf{A}_{\\text{pos}}) - \\text{mean}(\\mathbf{A}_{\\text{neg}})$$</div>
-            <p class="technique-desc">Simple baseline: average positive activations minus average negative activations.</p>
-            <p class="technique-use"><strong>Use:</strong> Quick baseline, interpretable direction.</p>
-            <div class="technique-shape">$$\\mathbf{A} \\in \\mathbb{R}^{n \\times d} \\rightarrow \\vec{v} \\in \\mathbb{R}^d$$</div>
-        </div>
+        <div class="grid">
+            <div class="card">
+                <h4>Mean Difference</h4>
+                <p>$$\\vec{v} = \\text{mean}(\\mathbf{A}_{\\text{pos}}) - \\text{mean}(\\mathbf{A}_{\\text{neg}})$$</p>
+                <p>Simple baseline: average positive activations minus average negative activations.</p>
+                <p><strong>Use:</strong> Quick baseline, interpretable direction.</p>
+            </div>
 
-        <div class="technique-card">
-            <h4>Linear Probe</h4>
-            <div class="technique-math">$$\\min_\\vec{w} \\sum_i \\log(1 + e^{-y_i (\\vec{w} \\cdot \\vec{a}_i)})$$</div>
-            <p class="technique-desc">Train logistic regression classifier, use weights as vector.</p>
-            <p class="technique-use"><strong>Use:</strong> Best for high-separability traits. Optimized for classification.</p>
-            <div class="technique-shape">$$\\text{Labels: } y_i \\in \\{+1, -1\\}, \\quad \\vec{w} \\in \\mathbb{R}^d$$</div>
-        </div>
+            <div class="card">
+                <h4>Linear Probe</h4>
+                <p>$$\\min_\\vec{w} \\sum_i \\log(1 + e^{-y_i (\\vec{w} \\cdot \\vec{a}_i)})$$</p>
+                <p>Train logistic regression classifier, use weights as vector.</p>
+                <p><strong>Use:</strong> Best for high-separability traits. Optimized for classification.</p>
+            </div>
 
-        <div class="technique-card">
-            <h4>ICA (Independent Component Analysis)</h4>
-            <div class="technique-math">$$\\mathbf{A} = \\mathbf{S} \\mathbf{M}, \\quad \\text{maximize independence of } \\mathbf{S}$$</div>
-            <p class="technique-desc">Separate mixed signals into independent components, select component with best separation.</p>
-            <p class="technique-use"><strong>Use:</strong> When traits overlap or interfere. Finds independent directions.</p>
-            <div class="technique-shape">$$\\mathbf{S} \\in \\mathbb{R}^{n \\times k}, \\quad \\vec{v} = \\text{best component}$$</div>
-        </div>
+            <div class="card">
+                <h4>ICA (Independent Component Analysis)</h4>
+                <p>$$\\mathbf{A} = \\mathbf{S} \\mathbf{M}, \\quad \\text{maximize independence of } \\mathbf{S}$$</p>
+                <p>Separate mixed signals into independent components, select component with best separation.</p>
+                <p><strong>Use:</strong> When traits overlap or interfere. Finds independent directions.</p>
+            </div>
 
-        <div class="technique-card">
-            <h4>Gradient Optimization</h4>
-            <div class="technique-math">$$\\max_\\vec{v} \\left( \\text{mean}(\\mathbf{A}_{\\text{pos}} \\cdot \\vec{v}) - \\text{mean}(\\mathbf{A}_{\\text{neg}} \\cdot \\vec{v}) \\right)$$</div>
-            <p class="technique-desc">Directly optimize vector to maximize separation between positive/negative projections.</p>
-            <p class="technique-use"><strong>Use:</strong> Best for low-separability traits. Adaptive optimization.</p>
-            <div class="technique-shape">$$\\text{Adam optimizer, 100 steps, lr=0.01}$$</div>
+            <div class="card">
+                <h4>Gradient Optimization</h4>
+                <p>$$\\max_\\vec{v} \\left( \\text{mean}(\\mathbf{A}_{\\text{pos}} \\cdot \\vec{v}) - \\text{mean}(\\mathbf{A}_{\\text{neg}} \\cdot \\vec{v}) \\right)$$</p>
+                <p>Directly optimize vector to maximize separation between positive/negative projections.</p>
+                <p><strong>Use:</strong> Best for low-separability traits. Adaptive optimization.</p>
+            </div>
         </div>
     `;
 }
@@ -144,52 +266,47 @@ function renderExtractionTechniques() {
 
 function renderMetricsDefinitions() {
     return `
-        <div class="metrics-grid">
-            <div class="metric-card">
+        <div class="grid">
+            <div class="card">
                 <h4>Accuracy</h4>
-                <div class="metric-formula">$$\\text{acc} = \\frac{\\text{correct classifications}}{\\text{total examples}}$$</div>
+                <p>$$\\text{acc} = \\frac{\\text{correct classifications}}{\\text{total examples}}$$</p>
                 <p>Percentage of validation examples correctly classified as positive/negative.</p>
-                <p class="metric-range"><strong>Range:</strong> 0-1 (50% = random, 100% = perfect)</p>
-                <p class="metric-good"><strong>Good:</strong> &gt; 0.90</p>
+                <p><strong>Range:</strong> 0-1 (50% = random, 100% = perfect). <strong class="quality-good">Good: &gt; 0.90</strong></p>
             </div>
 
-            <div class="metric-card">
+            <div class="card">
                 <h4>Effect Size (Cohen's d)</h4>
-                <div class="metric-formula">$$d = \\frac{\\mu_{\\text{pos}} - \\mu_{\\text{neg}}}{\\sigma_{\\text{pooled}}}$$</div>
+                <p>$$d = \\frac{\\mu_{\\text{pos}} - \\mu_{\\text{neg}}}{\\sigma_{\\text{pooled}}}$$</p>
                 <p>Magnitude of separation between positive/negative distributions in standard deviation units.</p>
-                <p class="metric-range"><strong>Range:</strong> 0-∞ (0 = no separation, &gt;2 = large effect)</p>
-                <p class="metric-good"><strong>Good:</strong> &gt; 1.5</p>
+                <p><strong>Range:</strong> 0-∞ (0 = no separation, &gt;2 = large effect). <strong class="quality-good">Good: &gt; 1.5</strong></p>
             </div>
 
-            <div class="metric-card">
+            <div class="card">
                 <h4>Vector Norm</h4>
-                <div class="metric-formula">$$||\\vec{v}||_2 = \\sqrt{\\sum_i v_i^2}$$</div>
+                <p>$$||\\vec{v}||_2 = \\sqrt{\\sum_i v_i^2}$$</p>
                 <p>L2 norm of the vector. Indicates magnitude/strength.</p>
-                <p class="metric-range"><strong>Range:</strong> 0-∞</p>
-                <p class="metric-good"><strong>Typical:</strong> 15-40 for normalized vectors</p>
+                <p><strong>Range:</strong> 0-∞. <strong>Typical:</strong> 15-40 for normalized vectors</p>
             </div>
 
-            <div class="metric-card">
+            <div class="card">
                 <h4>Separation Margin</h4>
-                <div class="metric-formula">$$(\\mu_{\\text{pos}} - \\sigma_{\\text{pos}}) - (\\mu_{\\text{neg}} + \\sigma_{\\text{neg}})$$</div>
+                <p>$$(\\mu_{\\text{pos}} - \\sigma_{\\text{pos}}) - (\\mu_{\\text{neg}} + \\sigma_{\\text{neg}})$$</p>
                 <p>Gap between distributions. Positive = good separation, negative = overlap.</p>
-                <p class="metric-range"><strong>Range:</strong> -∞ to +∞</p>
-                <p class="metric-good"><strong>Good:</strong> &gt; 0</p>
+                <p><strong>Range:</strong> -∞ to +∞. <strong class="quality-good">Good: &gt; 0</strong></p>
             </div>
 
-            <div class="metric-card">
+            <div class="card">
                 <h4>Sparsity</h4>
-                <div class="metric-formula">$$\\text{sparsity} = \\frac{|\\{i : |v_i| < 0.01\\}|}{d}$$</div>
+                <p>$$\\text{sparsity} = \\frac{|\\{i : |v_i| < 0.01\\}|}{d}$$</p>
                 <p>Percentage of near-zero components. High sparsity = interpretable, focused vector.</p>
-                <p class="metric-range"><strong>Range:</strong> 0-1 (0 = dense, 1 = sparse)</p>
+                <p><strong>Range:</strong> 0-1 (0 = dense, 1 = sparse)</p>
             </div>
 
-            <div class="metric-card">
+            <div class="card">
                 <h4>Overlap Coefficient</h4>
-                <div class="metric-formula">$$\\text{overlap} \\approx 1 - \\frac{|\\mu_{\\text{pos}} - \\mu_{\\text{neg}}|}{4\\sigma_{\\text{pooled}}}$$</div>
+                <p>$$\\text{overlap} \\approx 1 - \\frac{|\\mu_{\\text{pos}} - \\mu_{\\text{neg}}|}{4\\sigma_{\\text{pooled}}}$$</p>
                 <p>Estimate of distribution overlap (0 = no overlap, 1 = complete overlap).</p>
-                <p class="metric-range"><strong>Range:</strong> 0-1</p>
-                <p class="metric-good"><strong>Good:</strong> &lt; 0.2</p>
+                <p><strong>Range:</strong> 0-1. <strong class="quality-good">Good: &lt; 0.2</strong></p>
             </div>
         </div>
     `;
@@ -198,31 +315,24 @@ function renderMetricsDefinitions() {
 
 function renderScoringExplanation(evalData) {
     return `
-        <div class="scoring-content">
-            <h3>Combined Score Formula</h3>
-            <div class="score-formula">
-                $$\\text{score} = 0.5 \\times \\text{accuracy} + 0.5 \\times \\frac{\\text{effect\\_size}}{\\text{max\\_effect\\_size}}$$
-            </div>
+        <div class="card">
+            <h4>Combined Score Formula</h4>
+            <p>$$\\text{score} = 0.5 \\times \\text{accuracy} + 0.5 \\times \\frac{\\text{effect\\_size}}{\\text{max\\_effect\\_size}}$$</p>
 
             <h4>Rationale</h4>
-            <ul class="scoring-rationale">
+            <ul>
                 <li><strong>Accuracy (50%):</strong> Measures classification performance. Essential for practical use.</li>
                 <li><strong>Normalized Effect Size (50%):</strong> Measures separation magnitude. Prevents overfitting to binary classification.</li>
                 <li><strong>Why normalize effect size?</strong> Scale varies across traits (0.5-5.0). Normalization makes comparison fair.</li>
                 <li><strong>Why 50/50?</strong> Balances classification accuracy with separation strength. Both matter for vector quality.</li>
             </ul>
 
-            <h4>Empirical Validation</h4>
-            <p><em>(This section will be populated after analyzing the data distribution - showing how this scoring separates good/bad vectors better than alternatives.)</em></p>
-
-            <div class="scoring-alternatives" style="margin-top: 16px;">
-                <h4>Alternative Scoring Methods (for comparison)</h4>
-                <ul>
-                    <li><strong>Accuracy-only:</strong> rank by <code>val_accuracy</code></li>
-                    <li><strong>Effect-size-only:</strong> rank by <code>val_effect_size</code></li>
-                    <li><strong>Weighted custom:</strong> adjust weights interactively (future feature)</li>
-                </ul>
-            </div>
+            <h4>Alternative Scoring Methods</h4>
+            <ul>
+                <li><strong>Accuracy-only:</strong> rank by <code>val_accuracy</code></li>
+                <li><strong>Effect-size-only:</strong> rank by <code>val_effect_size</code></li>
+                <li><strong>Weighted custom:</strong> adjust weights interactively (future feature)</li>
+            </ul>
         </div>
     `;
 }
@@ -255,17 +365,17 @@ function renderQualityTable(evalData) {
     // Build table HTML
     const tableHTML = `
         <div style="max-height: 600px; overflow-y: auto;">
-            <table class="quality-table">
+            <table class="data-table" id="extraction-quality-table">
                 <thead>
                     <tr>
-                        <th class="sortable" data-column="trait">Trait</th>
-                        <th class="sortable" data-column="method">Method</th>
-                        <th class="sortable" data-column="layer">Layer</th>
-                        <th class="sortable" data-column="combined_score">Score ↓</th>
-                        <th class="sortable" data-column="val_accuracy">Accuracy</th>
-                        <th class="sortable" data-column="val_effect_size">Effect Size (d)</th>
-                        <th class="sortable" data-column="vector_norm">Norm</th>
-                        <th class="sortable" data-column="separation_margin">Margin</th>
+                        <th class="sortable" data-column="trait">Trait<span class="sort-indicator">↕</span></th>
+                        <th class="sortable" data-column="method">Method<span class="sort-indicator">↕</span></th>
+                        <th class="sortable" data-column="layer">Layer<span class="sort-indicator">↕</span></th>
+                        <th class="sortable sort-active" data-column="combined_score">Score<span class="sort-indicator">↓</span></th>
+                        <th class="sortable" data-column="val_accuracy">Accuracy<span class="sort-indicator">↕</span></th>
+                        <th class="sortable" data-column="val_effect_size">Effect Size (d)<span class="sort-indicator">↕</span></th>
+                        <th class="sortable" data-column="vector_norm">Norm<span class="sort-indicator">↕</span></th>
+                        <th class="sortable" data-column="separation_margin">Margin<span class="sort-indicator">↕</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -280,9 +390,9 @@ function renderQualityTable(evalData) {
                                     <td>${r.layer}</td>
                                     <td><strong>${r.combined_score.toFixed(3)}</strong></td>
                                     <td class="${accClass}">${(r.val_accuracy * 100).toFixed(1)}%</td>
-                                    <td>${r.val_effect_size?.toFixed(2) || 'N/A'}</td>
-                                    <td>${r.vector_norm?.toFixed(1) || 'N/A'}</td>
-                                    <td>${r.separation_margin?.toFixed(2) || 'N/A'}</td>
+                                    <td>${r.val_effect_size?.toFixed(2) ?? 'N/A'}</td>
+                                    <td>${r.vector_norm?.toFixed(1) ?? 'N/A'}</td>
+                                    <td>${r.separation_margin?.toFixed(2) ?? 'N/A'}</td>
                                 </tr>
                             `;
                         }).join('')}
@@ -297,16 +407,26 @@ function renderQualityTable(evalData) {
     container.querySelectorAll('.sortable').forEach(th => {
         th.addEventListener('click', () => {
             const column = th.dataset.column;
+            const direction = sortDirection[column] === 'asc' ? 'desc' : 'asc';
+            sortDirection[column] = direction;
+
+            // Update visual indicators
+            container.querySelectorAll('.sortable').forEach(header => {
+                header.classList.remove('sort-active');
+                header.querySelector('.sort-indicator').textContent = '↕';
+            });
+            th.classList.add('sort-active');
+            th.querySelector('.sort-indicator').textContent = direction === 'asc' ? '↑' : '↓';
+
             sortQualityTable(augmentedResults, column, container);
         });
     });
 }
 
 
-let sortDirection = {};
+let sortDirection = { combined_score: 'desc' };
 function sortQualityTable(results, column, container) {
-    const direction = sortDirection[column] === 'asc' ? 'desc' : 'asc';
-    sortDirection[column] = direction;
+    const direction = sortDirection[column];
 
     const sorted = [...results].sort((a, b) => {
         let valA = a[column];
@@ -334,9 +454,9 @@ function sortQualityTable(results, column, container) {
                 <td>${r.layer}</td>
                 <td><strong>${r.combined_score.toFixed(3)}</strong></td>
                 <td class="${accClass}">${(r.val_accuracy * 100).toFixed(1)}%</td>
-                <td>${r.val_effect_size?.toFixed(2) || 'N/A'}</td>
-                <td>${r.vector_norm?.toFixed(1) || 'N/A'}</td>
-                <td>${r.separation_margin?.toFixed(2) || 'N/A'}</td>
+                <td>${r.val_effect_size?.toFixed(2) ?? 'N/A'}</td>
+                <td>${r.vector_norm?.toFixed(1) ?? 'N/A'}</td>
+                <td>${r.separation_margin?.toFixed(2) ?? 'N/A'}</td>
             </tr>
         `;
     }).join('');
@@ -360,31 +480,50 @@ function renderTraitHeatmaps(evalData) {
         traitGroups[r.trait].push(r);
     });
 
-    // Create heatmap for each trait
-    container.innerHTML = '';
     const traits = Object.keys(traitGroups).sort();
 
+    // Create header with shared legend
+    container.innerHTML = `
+        <div class="heatmap-legend-header">
+            <span style="font-size: 12px; color: var(--text-secondary);">${traits.length} traits</span>
+            <div class="heatmap-legend">
+                <span>Accuracy:</span>
+                <div>
+                    <div class="heatmap-legend-bar"></div>
+                    <div class="heatmap-legend-labels">
+                        <span>50%</span>
+                        <span>75%</span>
+                        <span>100%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="trait-heatmaps-grid" id="heatmaps-grid"></div>
+    `;
+
+    const grid = document.getElementById('heatmaps-grid');
+
+    // Create compact heatmap for each trait
     traits.forEach(trait => {
         const traitResults = traitGroups[trait];
-        const traitDiv = document.createElement('div');
-        traitDiv.style.marginBottom = '32px';
-
         const traitId = trait.replace(/\//g, '-');
         const displayName = window.getDisplayName(trait);
 
+        const traitDiv = document.createElement('div');
+        traitDiv.className = 'trait-heatmap-item';
         traitDiv.innerHTML = `
-            <h4 style="margin-bottom: 12px;">${displayName}</h4>
-            <div id="heatmap-${traitId}" style="width: 100%; height: 400px;"></div>
+            <h4 title="${displayName}">${displayName}</h4>
+            <div id="heatmap-${traitId}" style="width: 100%; height: 120px;"></div>
         `;
 
-        container.appendChild(traitDiv);
+        grid.appendChild(traitDiv);
 
-        renderSingleTraitHeatmap(traitResults, `heatmap-${traitId}`);
+        renderSingleTraitHeatmap(traitResults, `heatmap-${traitId}`, true);
     });
 }
 
 
-function renderSingleTraitHeatmap(traitResults, containerId) {
+function renderSingleTraitHeatmap(traitResults, containerId, compact = false) {
     const methods = ['mean_diff', 'probe', 'ica', 'gradient'];
     const layers = Array.from(new Set(traitResults.map(r => r.layer))).sort((a, b) => a - b);
 
@@ -400,26 +539,37 @@ function renderSingleTraitHeatmap(traitResults, containerId) {
 
     const trace = {
         z: matrix,
-        x: methods,
+        x: compact ? ['MD', 'Pr', 'ICA', 'Gr'] : methods,
         y: layers,
         type: 'heatmap',
         colorscale: window.ASYMB_COLORSCALE,
         hovertemplate: '%{x} L%{y}: %{z:.1f}%<extra></extra>',
         zmin: 50,
         zmax: 100,
-        colorbar: {
+        showscale: !compact
+    };
+
+    if (!compact) {
+        trace.colorbar = {
             title: { text: 'Accuracy %', font: { size: 11 } },
             tickvals: [50, 75, 90, 100],
             ticktext: ['50%', '75%', '90%', '100%']
-        }
-    };
+        };
+    }
 
-    Plotly.newPlot(containerId, [trace], window.getPlotlyLayout({
+    const layout = compact ? {
+        margin: { l: 25, r: 5, t: 5, b: 25 },
+        xaxis: { tickfont: { size: 8 }, tickangle: 0 },
+        yaxis: { tickfont: { size: 8 }, title: '' },
+        height: 120
+    } : {
         margin: { l: 40, r: 80, t: 20, b: 60 },
         xaxis: { title: 'Method', tickfont: { size: 11 } },
         yaxis: { title: 'Layer', tickfont: { size: 10 } },
         height: 400
-    }), { displayModeBar: false, responsive: true });
+    };
+
+    Plotly.newPlot(containerId, [trace], window.getPlotlyLayout(layout), { displayModeBar: false, responsive: true });
 }
 
 
@@ -434,7 +584,7 @@ function renderBestVectors(evalData) {
     }
 
     const tableHTML = `
-        <table class="best-vectors-table">
+        <table class="data-table">
             <thead>
                 <tr>
                     <th>Trait</th>
@@ -452,8 +602,8 @@ function renderBestVectors(evalData) {
                         <td>${r.method}</td>
                         <td>${r.layer}</td>
                         <td>${(r.val_accuracy * 100).toFixed(1)}%</td>
-                        <td>${r.val_effect_size?.toFixed(2) || 'N/A'}</td>
-                        <td>${r.vector_norm?.toFixed(1) || 'N/A'}</td>
+                        <td>${r.val_effect_size?.toFixed(2) ?? 'N/A'}</td>
+                        <td>${r.vector_norm?.toFixed(1) ?? 'N/A'}</td>
                     </tr>
                 `).join('')}
             </tbody>
@@ -540,11 +690,6 @@ function renderBestVectorSimilarity(evalData) {
         yaxis: { tickfont: { size: 10 } },
         height: 600
     }), { displayModeBar: false, responsive: true });
-
-    // Render math
-    if (window.MathJax) {
-        MathJax.typesetPromise();
-    }
 }
 
 

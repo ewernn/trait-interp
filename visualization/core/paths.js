@@ -266,47 +266,6 @@ class PathBuilder {
     }
 
     /**
-     * BACKWARDS COMPATIBILITY: Map old prompt index to new (promptSet, promptId) tuple.
-     * Old structure used indices 0-50 across all prompts.
-     * New structure uses separate sets with IDs 1-N within each set.
-     * @param {number} oldIndex - Old-style prompt index (0-based)
-     * @returns {{promptSet: string, promptId: number}}
-     */
-    _mapOldPromptIndex(oldIndex) {
-        // Mapping: 0-9 = single_trait (1-10), 10-19 = multi_trait (1-10), etc.
-        const ranges = [
-            { set: 'single_trait', count: 10 },
-            { set: 'multi_trait', count: 10 },
-            { set: 'dynamic', count: 8 },
-            { set: 'adversarial', count: 8 },
-            { set: 'baseline', count: 5 },
-            { set: 'real_world', count: 10 }
-        ];
-
-        let offset = 0;
-        for (const { set, count } of ranges) {
-            if (oldIndex < offset + count) {
-                return { promptSet: set, promptId: oldIndex - offset + 1 };
-            }
-            offset += count;
-        }
-        // Fallback to single_trait
-        return { promptSet: 'single_trait', promptId: 1 };
-    }
-
-    /**
-     * BACKWARDS COMPATIBILITY: Get all-layers data using old index-based API.
-     * @deprecated Use residualStreamData(trait, promptSet, promptId) instead
-     * @param {string|Object} trait - Trait name or object
-     * @param {number} promptNum - Old-style prompt number (0-based index)
-     * @returns {string}
-     */
-    allLayersData(trait, promptNum) {
-        const { promptSet, promptId } = this._mapOldPromptIndex(promptNum);
-        return this.residualStreamData(trait, promptSet, promptId);
-    }
-
-    /**
      * Get extraction evaluation results path.
      * @returns {string}
      */

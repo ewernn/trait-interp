@@ -5,13 +5,14 @@ Check available data for trait-interp experiments.
 Input:
     - experiments/{experiment}/extraction/
     - experiments/{experiment}/inference/
+    - config/paths.yaml (schema section defines expected files)
 
 Output:
     - Console report (or JSON with --json_output)
 
 Usage:
-    python analysis/check_available_data.py --experiment gemma_2b_cognitive_nov21
-    python analysis/check_available_data.py --experiment gemma_2b_cognitive_nov21 --json_output
+    python analysis/data_checker.py --experiment gemma_2b_cognitive_nov21
+    python analysis/data_checker.py --experiment gemma_2b_cognitive_nov21 --json_output
 """
 
 import sys
@@ -19,10 +20,31 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import json
+import yaml
 import fire
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Optional, Set
 from enum import Enum
+
+# =============================================================================
+# SCHEMA LOADING (single source of truth from paths.yaml)
+# =============================================================================
+
+_schema = None
+
+def _load_schema():
+    """Load schema from paths.yaml (cached)."""
+    global _schema
+    if _schema is None:
+        config_path = Path(__file__).parent.parent / "config" / "paths.yaml"
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        _schema = config.get('schema', {})
+    return _schema
+
+def get_schema():
+    """Get the data schema."""
+    return _load_schema()
 
 
 class Status(str, Enum):
@@ -87,50 +109,49 @@ def check_extraction_trait(
     category: str,
     trait_name: str,
     n_layers: int,
-    methods: List[str]
+    methods: List[str],
+    schema: dict
 ) -> TraitIntegrity:
     """Check all extraction files for a single trait."""
+
+    extraction_schema = schema.get('extraction', {})
+    n_activation_prefixes = len(extraction_schema.get('activation_prefixes', ['pos', 'neg', 'val_pos', 'val_neg']))
 
     result = TraitIntegrity(
         trait=f"{category}/{trait_name}",
         category=category,
-        expected_activations=4 * n_layers,  # pos + neg + val_pos + val_neg
+        expected_activations=n_activation_prefixes * n_layers,
         expected_vectors=2 * len(methods) * n_layers,  # .pt + metadata.json
     )
 
-    # Prompt files
-    prompt_files = ["positive.txt", "negative.txt", "val_positive.txt", "val_negative.txt"]
+    # Prompt files (from schema)
+    prompt_files = extraction_schema.get('prompts', [
+        "positive.txt", "negative.txt", "val_positive.txt", "val_negative.txt"
+    ])
     for f in prompt_files:
         result.prompts[f] = (trait_dir / f).exists()
         if not result.prompts[f]:
             result.issues.append(f"Missing prompt file: {f}")
 
-    # Metadata files
-    metadata_files = ["generation_metadata.json", "trait_definition.txt"]
+    # Metadata files (from schema)
+    metadata_files = extraction_schema.get('metadata', [
+        "generation_metadata.json", "trait_definition.txt"
+    ])
     for f in metadata_files:
         result.metadata[f] = (trait_dir / f).exists()
+        if not result.metadata[f]:
+            result.issues.append(f"Missing metadata file: {f}")
 
-    # Check trait_definition
-    if not result.metadata.get("trait_definition.txt", False):
-        result.issues.append("Missing trait_definition.txt")
-
-    if not result.metadata.get("generation_metadata.json", False):
-        result.issues.append("Missing generation_metadata.json")
-
-    # Response files
-    responses_dir = trait_dir / "responses"
-    val_responses_dir = trait_dir / "val_responses"
-
-    response_files = {
-        "responses/pos.json": responses_dir / "pos.json",
-        "responses/neg.json": responses_dir / "neg.json",
-        "val_responses/val_pos.json": val_responses_dir / "val_pos.json",
-        "val_responses/val_neg.json": val_responses_dir / "val_neg.json",
-    }
-    for name, path in response_files.items():
-        result.responses[name] = path.exists()
-        if not path.exists():
-            result.issues.append(f"Missing response file: {name}")
+    # Response files (from schema)
+    response_paths = extraction_schema.get('responses', [
+        "responses/pos.json", "responses/neg.json",
+        "val_responses/val_pos.json", "val_responses/val_neg.json"
+    ])
+    for resp_path in response_paths:
+        full_path = trait_dir / resp_path
+        result.responses[resp_path] = full_path.exists()
+        if not full_path.exists():
+            result.issues.append(f"Missing response file: {resp_path}")
 
     # Activation files
     activations_dir = trait_dir / "activations"
@@ -243,13 +264,18 @@ def check_evaluation(exp_dir: Path) -> bool:
 
 def check_experiment(
     experiment: str,
-    n_layers: int = 26,
+    n_layers: int = None,
     methods: List[str] = None,
 ) -> ExperimentIntegrity:
     """Check all data integrity for an experiment."""
 
+    # Load schema for defaults
+    schema = get_schema()
+
+    if n_layers is None:
+        n_layers = schema.get('n_layers', 26)
     if methods is None:
-        methods = ["probe", "mean_diff", "ica", "gradient"]
+        methods = schema.get('methods', ["probe", "mean_diff", "ica", "gradient"])
 
     exp_dir = Path("experiments") / experiment
     if not exp_dir.exists():
@@ -276,7 +302,8 @@ def check_experiment(
                             category_dir.name,
                             trait_dir.name,
                             n_layers,
-                            methods
+                            methods,
+                            schema
                         )
                         result.traits.append(trait_result)
                         traits.append(f"{category_dir.name}/{trait_dir.name}")
@@ -389,8 +416,8 @@ def print_report(result: ExperimentIntegrity):
 
 def main(
     experiment: str,
-    n_layers: int = 26,
-    methods: str = "probe,mean_diff,ica,gradient",
+    n_layers: int = None,
+    methods: str = None,
     json_output: bool = False,
 ):
     """
@@ -398,12 +425,15 @@ def main(
 
     Args:
         experiment: Experiment name
-        n_layers: Number of model layers (default: 26 for Gemma 2B)
-        methods: Comma-separated extraction methods
+        n_layers: Number of model layers (default from schema: 26 for Gemma 2B)
+        methods: Comma-separated extraction methods (default from schema)
         json_output: Output as JSON instead of human-readable
     """
 
-    methods_list = [m.strip() for m in methods.split(",")]
+    # Parse methods if provided, otherwise let check_experiment use schema defaults
+    methods_list = None
+    if methods is not None:
+        methods_list = [m.strip() for m in methods.split(",")]
 
     result = check_experiment(experiment, n_layers, methods_list)
 

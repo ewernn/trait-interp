@@ -151,11 +151,11 @@
             <div class="sidebar-section">
                 <div class="section-title">Inference Analysis</div>
                 <div id="nav-items-inference">
-                    <div class="nav-item" data-view="all-layers">
+                    <div class="nav-item" data-view="trait-trajectory">
                         <span class="icon">⚡</span>
                         <span>Trait Trajectory</span>
                     </div>
-                    <div class="nav-item" data-view="per-token-activation">
+                    <div class="nav-item" data-view="trait-dynamics">
                         <span class="icon">📈</span>
                         <span>Trait Dynamics</span>
                     </div>
@@ -215,8 +215,8 @@
     <script src="/visualization/views/overview.js"></script>
     <script src="/visualization/views/data-explorer.js"></script>
     <script src="/visualization/views/trait-extraction.js"></script>
-    <script src="/visualization/views/all-layers.js"></script>
-    <script src="/visualization/views/per-token-activation.js"></script>
+    <script src="/visualization/views/trait-trajectory.js"></script>
+    <script src="/visualization/views/trait-dynamics.js"></script>
     <script src="/visualization/views/layer-deep-dive.js"></script>
     <script src="/visualization/views/analysis-gallery.js"></script>
     <script src="/visualization/views/token-explorer.js"></script>
@@ -232,8 +232,8 @@
                 'overview': 'Overview',
                 'data-explorer': 'Data Explorer',
                 'trait-extraction': 'Trait Extraction',
-                'all-layers': 'Trait Trajectory',
-                'per-token-activation': 'Trait Dynamics',
+                'trait-trajectory': 'Trait Trajectory',
+                'trait-dynamics': 'Trait Dynamics',
                 'layer-deep-dive': 'Layer Deep Dive',
                 'analysis-gallery': 'Analysis Gallery',
                 'token-explorer': 'Token Explorer'
@@ -250,11 +250,11 @@
                 case 'trait-extraction':
                     window.renderTraitExtraction();
                     break;
-                case 'all-layers':
-                    window.renderAllLayers();
+                case 'trait-trajectory':
+                    window.renderTraitTrajectory();
                     break;
-                case 'per-token-activation':
-                    window.renderPerTokenActivation();
+                case 'trait-dynamics':
+                    window.renderTraitDynamics();
                     break;
                 case 'layer-deep-dive':
                     window.renderLayerDeepDive();

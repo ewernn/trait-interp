@@ -217,7 +217,7 @@ function toggleAllTraits() {
 }
 
 // Views that use the inference context (Inference Analysis views)
-const INFERENCE_VIEWS = ['all-layers', 'per-token-activation', 'layer-deep-dive', 'token-explorer', 'analysis-gallery'];
+const INFERENCE_VIEWS = ['trait-trajectory', 'trait-dynamics', 'layer-deep-dive', 'token-explorer', 'analysis-gallery'];
 
 /**
  * Render the inference context panel (prompt picker + prompt/response display).
@@ -471,7 +471,7 @@ function updatePlotTokenHighlights(tokenIdx, nPromptTokens) {
     const separatorColor = `${primaryColor}80`;
     const highlightColor = `${primaryColor}33`;
 
-    if (state.currentView === 'all-layers') {
+    if (state.currentView === 'trait-trajectory') {
         // Update all trait heatmaps
         const filteredTraits = getFilteredTraits();
         for (const trait of filteredTraits) {
@@ -486,7 +486,7 @@ function updatePlotTokenHighlights(tokenIdx, nPromptTokens) {
                 });
             }
         }
-    } else if (state.currentView === 'per-token-activation') {
+    } else if (state.currentView === 'trait-dynamics') {
         // Update combined activation plot
         const plotDiv = document.getElementById('combined-activation-plot');
         if (plotDiv && plotDiv.data) {

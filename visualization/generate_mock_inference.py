@@ -11,8 +11,8 @@ from pathlib import Path
 from datetime import datetime
 import argparse
 
-def generate_mock_all_layers_data(prompt, trait_name, category, prompt_idx=0):
-    """Generate mock all-layers data (residual stream activations across all layers)."""
+def generate_mock_trait_trajectory_data(prompt, trait_name, category, prompt_idx=0):
+    """Generate mock trait trajectory data (residual stream activations across all layers)."""
 
     # Mock parameters
     n_prompt_tokens = 12
@@ -167,8 +167,8 @@ def main():
         for prompt_idx in range(min(args.prompts, len(prompts))):
             prompt = prompts[prompt_idx]
 
-            # Generate all-layers data
-            data = generate_mock_all_layers_data(prompt, trait_name, category, prompt_idx)
+            # Generate trait trajectory data
+            data = generate_mock_trait_trajectory_data(prompt, trait_name, category, prompt_idx)
 
             # Save as JSON
             json_path = output_dir / f"prompt_{prompt_idx}.json"

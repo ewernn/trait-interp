@@ -1,5 +1,9 @@
 // Trait Dynamics View - Watch the model's internal state evolve token-by-token
 // Core insight: "See how the model is thinking" by projecting onto trait vectors
+//
+// Two complementary views:
+// 1. Token Trajectory: X=tokens, Y=activation (layer-averaged) - how traits evolve during generation
+// 2. Layer Evolution: X=layers, Y=projection (token-averaged) - how traits emerge through the network
 
 // Color palette for traits (distinct, colorblind-friendly)
 const TRAIT_COLORS = [
@@ -15,7 +19,59 @@ const TRAIT_COLORS = [
     '#a9e34b',  // lime
 ];
 
-async function renderPerTokenActivation() {
+// Derivative overlay colors (position, velocity, acceleration)
+const DERIVATIVE_COLORS = {
+    position: '#2E86AB',     // blue
+    velocity: '#A23B72',     // magenta
+    acceleration: '#F18F01'  // orange
+};
+
+/**
+ * Compute layer-averaged position, velocity, and acceleration for a trait.
+ * Position = average projection across all tokens per layer
+ * Velocity = first derivative (diff between layers)
+ * Acceleration = second derivative (diff of velocity)
+ *
+ * @param {Object} data - Trait projection data with projections.prompt and projections.response
+ * @returns {Object} { position: [26], velocity: [25], acceleration: [24] }
+ */
+function computeLayerDerivatives(data) {
+    const promptProj = data.projections.prompt;
+    const responseProj = data.projections.response;
+    const allProj = [...promptProj, ...responseProj];
+    const nLayers = promptProj[0].length;
+    const nSublayers = promptProj[0][0].length;
+
+    // Compute layer-averaged position (average across all tokens and sublayers)
+    const position = [];
+    for (let layer = 0; layer < nLayers; layer++) {
+        let sum = 0;
+        let count = 0;
+        for (let token = 0; token < allProj.length; token++) {
+            for (let sublayer = 0; sublayer < nSublayers; sublayer++) {
+                sum += allProj[token][layer][sublayer];
+                count++;
+            }
+        }
+        position.push(sum / count);
+    }
+
+    // Compute velocity (first derivative)
+    const velocity = [];
+    for (let i = 0; i < position.length - 1; i++) {
+        velocity.push(position[i + 1] - position[i]);
+    }
+
+    // Compute acceleration (second derivative)
+    const acceleration = [];
+    for (let i = 0; i < velocity.length - 1; i++) {
+        acceleration.push(velocity[i + 1] - velocity[i]);
+    }
+
+    return { position, velocity, acceleration };
+}
+
+async function renderTraitDynamics() {
     const contentArea = document.getElementById('content-area');
     const filteredTraits = window.getFilteredTraits();
 
@@ -25,7 +81,7 @@ async function renderPerTokenActivation() {
             <div class="extraction-overview-container">
                 ${renderEducationSections()}
                 <div class="extraction-section">
-                    <h2 class="section-heading">Trait Trajectory</h2>
+                    <h2 class="section-heading">Token Trajectory</h2>
                     <div class="card">
                         <div class="info">Select at least one trait from the sidebar to view activation trajectories.</div>
                     </div>
@@ -41,7 +97,7 @@ async function renderPerTokenActivation() {
         <div class="extraction-overview-container">
             ${renderEducationSections()}
             <div class="extraction-section">
-                <h2 class="section-heading">Trait Trajectory</h2>
+                <h2 class="section-heading">Token Trajectory</h2>
                 <div class="card">
                     <div class="info">Loading data for ${filteredTraits.length} trait(s)...</div>
                 </div>
@@ -126,23 +182,23 @@ function renderEducationSections() {
             </div>
         </div>
 
-        <!-- Section 2: How to Read the Graph -->
+        <!-- Section 2: How to Read the Graphs -->
         <div class="extraction-section">
-            <h2 class="section-heading">Reading the Graph</h2>
+            <h2 class="section-heading">Reading the Graphs</h2>
             <div class="techniques-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
                 <div class="technique-card">
-                    <h4>X-Axis: Tokens</h4>
-                    <p class="technique-desc">Each point is one token in the sequence. The dashed line separates prompt (left) from response (right).</p>
+                    <h4>Token Trajectory</h4>
+                    <p class="technique-desc">X = tokens, Y = activation (layer-averaged). Shows how traits evolve during generation. Dashed line separates prompt/response.</p>
                 </div>
 
                 <div class="technique-card">
-                    <h4>Y-Axis: Activation</h4>
-                    <p class="technique-desc">Average projection score across all layers. Higher = stronger trait expression for that token.</p>
+                    <h4>Layer Evolution</h4>
+                    <p class="technique-desc">X = layers, Y = projection (token-averaged). Shows how traits emerge through the network with position/velocity/acceleration.</p>
                 </div>
 
                 <div class="technique-card">
-                    <h4>Colors: Traits</h4>
-                    <p class="technique-desc">Each line is a different trait. Hover over lines to highlight. Click legend to toggle.</p>
+                    <h4>Colors & Lines</h4>
+                    <p class="technique-desc">Each color = one trait. Solid = position, dashed = velocity, dotted = acceleration. Hover to highlight a trait.</p>
                 </div>
 
                 <div class="technique-card">
@@ -190,7 +246,7 @@ function renderNoDataMessage(container, traits, promptSet, promptId) {
         <div class="extraction-overview-container">
             ${renderEducationSections()}
             <div class="extraction-section">
-                <h2 class="section-heading">Trait Trajectory</h2>
+                <h2 class="section-heading">Token Trajectory</h2>
                 <div class="card">
                     <div class="info" style="margin-bottom: 10px;">
                         No data available for prompt ${promptLabel} for any selected trait.
@@ -231,10 +287,22 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
         <div class="extraction-overview-container">
             ${renderEducationSections()}
             <div class="extraction-section">
-                <h2 class="section-heading">Trait Trajectory</h2>
+                <h2 class="section-heading">Token Trajectory</h2>
+                <p class="section-desc" style="color: var(--text-secondary); font-size: 12px; margin-bottom: 12px;">
+                    How traits evolve as the model generates each token (layer-averaged)
+                </p>
                 <div class="card" style="padding: 12px;">
                     ${failedHtml}
                     <div id="combined-activation-plot" style="width: 100%;"></div>
+                </div>
+            </div>
+            <div class="extraction-section">
+                <h2 class="section-heading">Layer Evolution</h2>
+                <p class="section-desc" style="color: var(--text-secondary); font-size: 12px; margin-bottom: 12px;">
+                    How traits emerge through network layers (token-averaged). Shows position, velocity (1st derivative), and acceleration (2nd derivative).
+                </p>
+                <div class="card" style="padding: 12px;">
+                    <div id="layer-evolution-plot" style="width: 100%;"></div>
                 </div>
             </div>
         </div>
@@ -413,7 +481,157 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
         Plotly.restyle(plotDiv, {'opacity': traces.map((_, i) => i === d.points[0].curveNumber ? 1.0 : 0.2)})
     );
     plotDiv.on('plotly_unhover', () => Plotly.restyle(plotDiv, {'opacity': 1.0}));
+
+    // Render Layer Evolution plot (derivative overlay)
+    renderLayerEvolutionPlot(traitData, loadedTraits);
+}
+
+
+/**
+ * Render the Layer Evolution plot showing position, velocity, and acceleration
+ * across layers for each selected trait.
+ */
+function renderLayerEvolutionPlot(traitData, loadedTraits) {
+    const nLayers = 26;
+    const layerIndices = Array.from({length: nLayers}, (_, i) => i);
+    const velocityIndices = Array.from({length: nLayers - 1}, (_, i) => i + 0.5);  // Midpoints
+    const accelIndices = Array.from({length: nLayers - 2}, (_, i) => i + 1);  // Midpoints
+
+    const traces = [];
+    const textSecondary = window.getCssVar('--text-secondary', '#a4a4a4');
+
+    // For each trait, compute derivatives and add traces
+    loadedTraits.forEach((traitName, idx) => {
+        const data = traitData[traitName];
+        const derivatives = computeLayerDerivatives(data);
+        const traitColor = TRAIT_COLORS[idx % TRAIT_COLORS.length];
+        const displayName = window.getDisplayName(traitName);
+
+        // Position trace (solid line)
+        traces.push({
+            x: layerIndices,
+            y: derivatives.position,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: `${displayName} (pos)`,
+            line: { color: traitColor, width: 2 },
+            marker: { size: 4, symbol: 'circle' },
+            legendgroup: traitName,
+            hovertemplate: `<b>${displayName}</b><br>Layer %{x}<br>Position: %{y:.2f}<extra></extra>`
+        });
+
+        // Velocity trace (dashed line)
+        traces.push({
+            x: velocityIndices,
+            y: derivatives.velocity,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: `${displayName} (vel)`,
+            line: { color: traitColor, width: 1.5, dash: 'dash' },
+            marker: { size: 3, symbol: 'square' },
+            legendgroup: traitName,
+            showlegend: false,
+            hovertemplate: `<b>${displayName}</b><br>Layer %{x:.1f}<br>Velocity: %{y:.2f}<extra></extra>`
+        });
+
+        // Acceleration trace (dotted line)
+        traces.push({
+            x: accelIndices,
+            y: derivatives.acceleration,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: `${displayName} (acc)`,
+            line: { color: traitColor, width: 1, dash: 'dot' },
+            marker: { size: 2, symbol: 'diamond' },
+            legendgroup: traitName,
+            showlegend: false,
+            hovertemplate: `<b>${displayName}</b><br>Layer %{x:.1f}<br>Acceleration: %{y:.2f}<extra></extra>`
+        });
+    });
+
+    // Add derivative type legend entries (shown once)
+    traces.push({
+        x: [null], y: [null],
+        type: 'scatter',
+        mode: 'lines',
+        name: '── Position',
+        line: { color: textSecondary, width: 2 },
+        legendgroup: 'legend-position',
+        hoverinfo: 'skip'
+    });
+    traces.push({
+        x: [null], y: [null],
+        type: 'scatter',
+        mode: 'lines',
+        name: '╌╌ Velocity',
+        line: { color: textSecondary, width: 1.5, dash: 'dash' },
+        legendgroup: 'legend-velocity',
+        hoverinfo: 'skip'
+    });
+    traces.push({
+        x: [null], y: [null],
+        type: 'scatter',
+        mode: 'lines',
+        name: '··· Acceleration',
+        line: { color: textSecondary, width: 1, dash: 'dot' },
+        legendgroup: 'legend-accel',
+        hoverinfo: 'skip'
+    });
+
+    const layout = window.getPlotlyLayout({
+        xaxis: {
+            title: 'Layer',
+            tickmode: 'linear',
+            tick0: 0,
+            dtick: 2,
+            showgrid: true,
+            gridcolor: 'rgba(128,128,128,0.2)'
+        },
+        yaxis: {
+            title: 'Value',
+            zeroline: true,
+            zerolinewidth: 1,
+            zerolinecolor: textSecondary,
+            showgrid: true
+        },
+        margin: { l: 60, r: 20, t: 20, b: 50 },
+        height: 400,
+        font: { size: 11 },
+        hovermode: 'closest',
+        legend: {
+            orientation: 'v',
+            yanchor: 'top',
+            y: 1,
+            xanchor: 'left',
+            x: 1.02,
+            font: { size: 10 },
+            bgcolor: 'transparent'
+        },
+        showlegend: true
+    });
+
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d']
+    };
+
+    Plotly.newPlot('layer-evolution-plot', traces, layout, config);
+
+    // Hover-to-highlight by legendgroup
+    const layerPlotDiv = document.getElementById('layer-evolution-plot');
+    layerPlotDiv.on('plotly_hover', (d) => {
+        const hoveredGroup = d.points[0].data.legendgroup;
+        if (hoveredGroup && !hoveredGroup.startsWith('legend-')) {
+            const opacities = traces.map(t =>
+                t.legendgroup === hoveredGroup || t.legendgroup?.startsWith('legend-') ? 1.0 : 0.15
+            );
+            Plotly.restyle(layerPlotDiv, {'opacity': opacities});
+        }
+    });
+    layerPlotDiv.on('plotly_unhover', () => Plotly.restyle(layerPlotDiv, {'opacity': 1.0}));
 }
 
 // Export to global scope
-window.renderPerTokenActivation = renderPerTokenActivation;
+window.renderTraitDynamics = renderTraitDynamics;
