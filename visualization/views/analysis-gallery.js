@@ -2,21 +2,17 @@
 // Scans experiments/{exp}/analysis/ for PNG/JSON files and displays them in a grid
 //
 // ============================================================================
-// ANALYSIS CATEGORIES (pre-computed by run_analyses.py)
+// ANALYSIS CATEGORIES (shown in gallery)
 // ============================================================================
 //
-// 1. NORMALIZED VELOCITY (Heatmap)
-//    ------------------------------
-//    What: How fast hidden states change between layers, corrected for magnitude
-//    Math: velocity = hidden[L+1] - hidden[L]                    → [25, n_tokens, 2304]
-//          normalized = ||velocity|| / ||hidden[L]||             → [25, n_tokens]
-//    Read: X-axis = token position, Y-axis = layer transition (0→1 to 24→25)
-//          Bright (yellow) = high change, Dark (purple) = stable
-//          Typical: high L0-6, low L7-22, high L23-24
-//    Why:  Raw velocity "explodes" at late layers due to magnitude scaling.
-//          Normalizing fixes this artifact.
+// Categories EXCLUDED (now interactive views):
+// - normalized_velocity: See Token Explorer "Velocity Through Layers"
+// - trait_projections: See Trait Trajectory view
+// - derivative_overlay: See Trait Dynamics "Layer Evolution" section
 //
-// 2. RADIAL/ANGULAR DECOMPOSITION (Side-by-side heatmaps)
+// Categories INCLUDED in gallery:
+//
+// 1. RADIAL/ANGULAR DECOMPOSITION (Side-by-side heatmaps)
 //    ------------------------------------------------------
 //    What: Splits velocity into "growing/shrinking" vs "rotating"
 //    Math: RADIAL:  magnitude[L+1] - magnitude[L]                → change in size
@@ -25,16 +21,7 @@
 //          RIGHT (Angular): Bright = direction changing, Dark = same direction
 //    Why:  Separates "turning up the volume" from "changing the content"
 //
-// 3. TRAIT PROJECTIONS (2x5 grid of heatmaps)
-//    -----------------------------------------
-//    What: How each token activates each of 10 traits across all 26 layers
-//    Math: projection = hidden[L, token] · (trait_vec / ||trait_vec||)
-//          One heatmap per trait, showing [26 layers × n_tokens]
-//    Read: Red = positive activation, Blue = negative, White = neutral
-//          Watch traits emerge: usually zero in early layers, differentiate later
-//    Why:  See which layers encode which behavioral properties
-//
-// 4. TRAIT EMERGENCE (Horizontal bar chart)
+// 2. TRAIT EMERGENCE (Horizontal bar chart)
 //    ---------------------------------------
 //    What: Which layer each trait first becomes significant
 //    Math: emergence_layer = first L where |projection| > 0.5 × max|projection|
@@ -43,7 +30,7 @@
 //          Green line (L8) and red line (L19) mark "stable computation" region
 //    Finding: NO traits emerge before L7. All emerge L14+.
 //
-// 5. TRAIT-DYNAMICS CORRELATION (Horizontal bar chart)
+// 3. TRAIT-DYNAMICS CORRELATION (Horizontal bar chart)
 //    ---------------------------------------------------
 //    What: Do trait changes happen when the model is most "active"?
 //    Math: trait_velocity = diff(trait_projection)               → [25]
@@ -53,7 +40,12 @@
 //    Finding: defensiveness, correction_impulse correlate highly (~0.6)
 //             uncertainty, retrieval correlate weakly (~0.1)
 //
-// 6. SUMMARY PLOTS (Line plots with error bands)
+// 4. ATTENTION DYNAMICS (Phase space, comprehensive, validation)
+//    -----------------------------------------------------------
+//    What: Complex analysis of attention patterns and state evolution
+//    Includes: phase_space_trajectories, comprehensive_dynamics, attention_flow
+//
+// 5. SUMMARY PLOTS (Line plots with error bands)
 //    --------------------------------------------
 //    What: Aggregated view across all 8 prompts
 //    Math: mean ± std across prompts for each layer
@@ -106,23 +98,26 @@ async function renderAnalysisGallery() {
 
         // Filter based on current prompt selection from state
         const currentPromptId = window.state.currentPromptId;
-        const promptFilter = currentPromptId ? `prompt_${currentPromptId}` : null;
 
         // Filter analyses: show matching prompt OR summaries
+        // Handles patterns like: prompt_1, prompt_1_defensiveness, summary, overview
         const filteredAnalyses = analyses.filter(item => {
-            const isPromptSpecific = item.name.match(/^prompt_\d+$/);
-            if (promptFilter) {
-                // If prompt selected, show that prompt's analyses + summaries
-                return item.name === promptFilter || !isPromptSpecific;
+            // Extract prompt number from name (matches prompt_1, prompt_1_defensiveness, etc.)
+            const promptMatch = item.name.match(/^prompt_(\d+)/);
+            const itemPromptId = promptMatch ? promptMatch[1] : null;
+
+            if (currentPromptId) {
+                // If prompt selected, show items for that prompt + non-prompt-specific items
+                return itemPromptId === String(currentPromptId) || itemPromptId === null;
             } else {
-                // If no prompt selected, show only summaries
-                return !isPromptSpecific;
+                // If no prompt selected, show only non-prompt-specific items (summaries)
+                return itemPromptId === null;
             }
         });
 
         // Group by category
         const grouped = groupByCategory(filteredAnalyses);
-        const displayLabel = promptFilter ? `Prompt ${currentPromptId}` : 'Summary views';
+        const displayLabel = currentPromptId ? `Prompt ${currentPromptId}` : 'Summary views';
 
         // If DOM exists and data was cached, just update the content (no scroll reset)
         if (existingGallery && dataIsCached) {
@@ -188,29 +183,35 @@ async function renderAnalysisGallery() {
 }
 
 
+// Categories removed from gallery (now covered by interactive views):
+// - normalized_velocity: redundant with Token Explorer velocity graph
+// - trait_projections: redundant with Trait Trajectory view
+// - derivative_overlay: now interactive in Trait Dynamics "Layer Evolution" section
+const EXCLUDED_CATEGORIES = ['normalized_velocity', 'trait_projections', 'derivative_overlay'];
+
 async function discoverAnalyses(experiment) {
     // Try to fetch an index file first (fast path)
     try {
         const indexUrl = window.paths.analysisIndex();
         const response = await fetch(indexUrl);
         if (response.ok) {
-            return await response.json();
+            const allAnalyses = await response.json();
+            // Filter out categories that are now interactive views
+            return allAnalyses.filter(item => !EXCLUDED_CATEGORIES.includes(item.category));
         }
     } catch (e) {
         // Index doesn't exist, fall back to discovery
     }
 
     // Manual discovery: fetch directory listing
-    // This requires the server to support directory listing or we need to know the structure
-    // For now, try common category names
+    // Categories not included: normalized_velocity, trait_projections, derivative_overlay
+    // (these are now interactive views)
     const categories = [
-        'normalized_velocity',
         'radial_angular',
-        'trait_projections',
         'trait_emergence',
         'trait_dynamics_correlation',
         'summary',
-        'attention_dynamics'  // From previous work
+        'attention_dynamics'
     ];
 
     const analyses = [];

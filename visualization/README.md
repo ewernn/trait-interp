@@ -16,7 +16,7 @@ python -m http.server 8000
 
 The server provides:
 - **Auto-discovery**: Experiments and traits detected from `experiments/` directory
-- **Integrity caching**: Runs `check_available_data.py` on startup for each experiment
+- **Integrity caching**: Runs `data_checker.py` on startup for each experiment
 - **API endpoints**:
   - `/api/experiments` - List all experiments
   - `/api/experiments/{name}/traits` - List traits for an experiment
@@ -99,7 +99,7 @@ Individual files show:
 
 ### File Structure Display
 
-Each trait shows the actual files from `check_available_data.py`:
+Each trait shows the actual files from `data_checker.py`:
 - **Prompts**: `positive.txt`, `negative.txt`, `val_positive.txt`, `val_negative.txt`
 - **Metadata**: `generation_metadata.json`, `trait_definition.txt`
 - **Responses**: `responses/pos.json`, `responses/neg.json`, `val_responses/val_pos.json`, `val_responses/val_neg.json`
@@ -354,8 +354,8 @@ visualization/
 └── views/
     ├── data-explorer.js       # File browser with integrity check
     ├── trait-extraction.js    # Comprehensive extraction quality view
-    ├── all-layers.js          # Residual stream across all layers
-    ├── per-token-activation.js # Per-token trait trajectories
+    ├── trait-trajectory.js     # Residual stream across all layers
+    ├── trait-dynamics.js       # Per-token trait trajectories
     ├── layer-deep-dive.js     # Single layer mechanistic view
     ├── analysis-gallery.js    # Browse analysis outputs (PNGs + JSON)
     └── token-explorer.js      # Interactive per-token visualization
@@ -363,7 +363,7 @@ visualization/
 
 **Key Features**:
 - **PathBuilder**: Centralized path construction from `config/paths.yaml`
-- **Integrity Caching**: Server caches `check_available_data.py` output on startup
+- **Integrity Caching**: Server caches `data_checker.py` output on startup
 - **Auto-discovery**: Experiments and traits discovered dynamically via API
 
 See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed documentation.

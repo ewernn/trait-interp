@@ -9,6 +9,7 @@ import socketserver
 import os
 import sys
 import json
+import yaml
 import subprocess
 from pathlib import Path
 
@@ -75,6 +76,11 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         """Handle GET requests, including API endpoints."""
         try:
+            # API endpoint: get data schema
+            if self.path == '/api/schema':
+                self.send_api_response(self.get_schema())
+                return
+
             # API endpoint: list experiments
             if self.path == '/api/experiments':
                 self.send_api_response(self.list_experiments())
@@ -142,6 +148,16 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
+
+    def get_schema(self):
+        """Get data schema from paths.yaml."""
+        config_path = Path(__file__).parent.parent / 'config' / 'paths.yaml'
+        try:
+            with open(config_path) as f:
+                config = yaml.safe_load(f)
+            return config.get('schema', {})
+        except Exception as e:
+            return {'error': str(e)}
 
     def list_experiments(self):
         """List all experiments in experiments/ directory."""
@@ -304,7 +320,7 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_api_response({'error': str(e)})
 
 def cache_integrity_data():
-    """Run check_available_data.py for each experiment and cache results."""
+    """Run data_checker.py for each experiment and cache results."""
     experiments_dir = get_path('experiments.list')
     if not experiments_dir.exists():
         return
@@ -322,7 +338,7 @@ def cache_integrity_data():
             result = subprocess.run(
                 [
                     sys.executable,
-                    'analysis/check_available_data.py',
+                    'analysis/data_checker.py',
                     '--experiment', exp_dir.name,
                     '--json_output'
                 ],

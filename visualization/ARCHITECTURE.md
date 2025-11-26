@@ -18,8 +18,8 @@ visualization/
     ├── overview.js            # Methodology documentation (markdown + KaTeX)
     ├── data-explorer.js       # File browser with integrity check
     ├── trait-extraction.js    # Comprehensive extraction quality view
-    ├── all-layers.js          # Residual stream across all layers
-    ├── per-token-activation.js # Per-token trait trajectories
+    ├── trait-trajectory.js     # Residual stream across all layers
+    ├── trait-dynamics.js       # Per-token trait trajectories
     ├── layer-deep-dive.js     # Single layer mechanistic view
     ├── analysis-gallery.js    # Browse analysis outputs (PNGs + JSON)
     └── token-explorer.js      # Interactive per-token analysis
@@ -99,7 +99,7 @@ const integrity = await integrityResponse.json();
 
 ### 4. Inference Context Panel
 
-Inference views (`all-layers`, `per-token-activation`, `layer-deep-dive`) share a common prompt picker and prompt/response display rendered by `renderInferenceContext()` in `state.js`.
+Inference views (`trait-trajectory`, `trait-dynamics`, `layer-deep-dive`) share a common prompt picker and prompt/response display rendered by `renderInferenceContext()` in `state.js`.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -177,7 +177,7 @@ The `serve.py` server provides:
 | `/api/integrity/{name}.json` | Cached integrity check data |
 | `/api/experiments/{name}/inference/prompt-sets` | List prompt sets with available IDs |
 
-Integrity data is cached on server startup by running `check_available_data.py` for each experiment.
+Integrity data is cached on server startup by running `data_checker.py` for each experiment.
 
 ## Development
 
@@ -200,6 +200,6 @@ python visualization/serve.py
 |------|---------|
 | data-explorer | Browse extraction files with integrity status |
 | trait-extraction | Comprehensive extraction quality: methods, metrics, scoring, layer×method heatmaps, best vectors, independence analysis |
-| all-layers | Residual stream projections across all layers |
-| per-token-activation | Token-by-token trait trajectories |
+| trait-trajectory | Residual stream projections across all layers |
+| trait-dynamics | Token-by-token trait trajectories |
 | layer-deep-dive | Attention heads and MLP neurons for single layer |

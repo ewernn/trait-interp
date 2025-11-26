@@ -38,7 +38,7 @@ rsync -av docs/overview.md "$PUBLIC_DIR/docs/"
 
 # Analysis scripts (CRITICAL - called by serve.py)
 mkdir -p "$PUBLIC_DIR/analysis"
-rsync -av analysis/check_available_data.py "$PUBLIC_DIR/analysis/"
+rsync -av analysis/data_checker.py "$PUBLIC_DIR/analysis/"
 
 # Utils (for Railway)
 mkdir -p "$PUBLIC_DIR/utils"

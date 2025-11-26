@@ -127,7 +127,7 @@ trait-interp/
 │           └── metadata.json
 │
 ├── analysis/               # Analysis scripts
-│   ├── check_available_data.py        # Check what data exists for experiments
+│   ├── data_checker.py               # Check what data exists for experiments
 │   ├── vectors/
 │   │   ├── extraction_evaluation.py   # Evaluate vectors on held-out data
 │   │   └── vector_ranking.py          # Rank vectors by quality metrics
