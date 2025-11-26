@@ -60,6 +60,18 @@ class ValidationResult:
     val_pos_mean: float = 0.0
     val_neg_mean: float = 0.0
 
+    # Vector properties
+    vector_norm: float = 0.0
+    vector_sparsity: float = 0.0  # % of components < 0.01
+    vector_mean: float = 0.0
+    vector_std: float = 0.0
+
+    # Distribution properties
+    val_pos_std: float = 0.0  # Std of positive projections
+    val_neg_std: float = 0.0  # Std of negative projections
+    overlap_coefficient: float = 0.0  # Distribution overlap
+    separation_margin: float = 0.0  # (pos_mean - pos_std) - (neg_mean + neg_std)
+
 
 def load_validation_activations(experiment: str, trait: str, layer: int) -> Tuple[torch.Tensor, torch.Tensor]:
     """Load validation activations for a specific layer."""
@@ -80,25 +92,35 @@ def load_validation_activations(experiment: str, trait: str, layer: int) -> Tupl
 def load_training_activations(experiment: str, trait: str, layer: int) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
     """Load training activations for comparison."""
     acts_dir = get_path('extraction.activations', experiment=experiment, trait=trait)
-    acts_path = acts_dir / "all_layers.pt"
-    metadata_path = acts_dir / "metadata.json"
 
-    if not acts_path.exists():
+    # Try loading from combined file first (legacy format)
+    all_layers_path = acts_dir / "all_layers.pt"
+    if all_layers_path.exists():
+        all_acts = torch.load(all_layers_path, weights_only=True)
+        metadata_path = acts_dir / "metadata.json"
+
+        # Get split from metadata
+        if metadata_path.exists():
+            with open(metadata_path) as f:
+                metadata = json.load(f)
+                n_pos = metadata.get('n_examples_pos', all_acts.shape[0] // 2)
+        else:
+            n_pos = all_acts.shape[0] // 2
+
+        # all_acts shape: [n_examples, n_layers, hidden_dim]
+        pos_acts = all_acts[:n_pos, layer, :]
+        neg_acts = all_acts[n_pos:, layer, :]
+        return pos_acts, neg_acts
+
+    # Try loading from per-layer files (current format)
+    pos_layer_path = acts_dir / f"pos_layer{layer}.pt"
+    neg_layer_path = acts_dir / f"neg_layer{layer}.pt"
+
+    if not pos_layer_path.exists() or not neg_layer_path.exists():
         return None, None
 
-    all_acts = torch.load(acts_path, weights_only=True)
-
-    # Get split from metadata
-    if metadata_path.exists():
-        with open(metadata_path) as f:
-            metadata = json.load(f)
-            n_pos = metadata.get('n_examples_pos', all_acts.shape[0] // 2)
-    else:
-        n_pos = all_acts.shape[0] // 2
-
-    # all_acts shape: [n_examples, n_layers, hidden_dim]
-    pos_acts = all_acts[:n_pos, layer, :]
-    neg_acts = all_acts[n_pos:, layer, :]
+    pos_acts = torch.load(pos_layer_path, weights_only=True)
+    neg_acts = torch.load(neg_layer_path, weights_only=True)
 
     return pos_acts, neg_acts
 
@@ -110,6 +132,70 @@ def load_vector(experiment: str, trait: str, method: str, layer: int) -> Optiona
     if path.exists():
         return torch.load(path, weights_only=True)
     return None
+
+
+def compute_vector_properties(vector: torch.Tensor) -> Dict[str, float]:
+    """
+    Compute properties of a vector.
+
+    Args:
+        vector: [hidden_dim] tensor
+
+    Returns:
+        Dictionary with norm, sparsity, mean, std
+    """
+    vector_np = vector.float().cpu().numpy()
+
+    return {
+        'vector_norm': float(np.linalg.norm(vector_np)),
+        'vector_sparsity': float(np.mean(np.abs(vector_np) < 0.01)),
+        'vector_mean': float(np.mean(vector_np)),
+        'vector_std': float(np.std(vector_np))
+    }
+
+
+def compute_distribution_properties(
+    pos_projections: torch.Tensor,
+    neg_projections: torch.Tensor,
+    pos_mean: float,
+    neg_mean: float
+) -> Dict[str, float]:
+    """
+    Compute properties of projection score distributions.
+
+    Args:
+        pos_projections: [n_pos] tensor of positive projection scores
+        neg_projections: [n_neg] tensor of negative projection scores
+        pos_mean: Mean of positive projections
+        neg_mean: Mean of negative projections
+
+    Returns:
+        Dictionary with std, overlap, margin metrics
+    """
+    pos_std = float(pos_projections.std())
+    neg_std = float(neg_projections.std())
+
+    # Overlap coefficient: estimate using normal approximation
+    # If pos/neg are well-separated Gaussians, this measures overlap
+    if pos_std > 0 and neg_std > 0:
+        # Distance between means in units of pooled std
+        pooled_std = np.sqrt((pos_std**2 + neg_std**2) / 2)
+        z_score = abs(pos_mean - neg_mean) / (pooled_std + 1e-8)
+        # Rough overlap estimate (1 - z_score normalized to 0-1)
+        overlap = max(0, 1 - z_score / 4.0)  # z=4 → no overlap
+    else:
+        overlap = 0.5
+
+    # Separation margin: gap between distributions
+    # Positive = good separation, negative = overlap
+    margin = (pos_mean - pos_std) - (neg_mean + neg_std)
+
+    return {
+        'val_pos_std': pos_std,
+        'val_neg_std': neg_std,
+        'overlap_coefficient': float(overlap),
+        'separation_margin': float(margin)
+    }
 
 
 def evaluate_vector_on_validation(
@@ -134,6 +220,34 @@ def evaluate_vector_on_validation(
     # Compute validation metrics using traitlens
     val_metrics = evaluate_vector(val_pos, val_neg, vector, normalize=normalize)
 
+    # Compute vector properties
+    vector_props = compute_vector_properties(vector)
+
+    # Compute projection scores for distribution properties
+    # Note: evaluate_vector already does this internally, but we need the raw projections
+    # Convert to float32 for consistent computation (activations may be bfloat16)
+    vector_f32 = vector.float()
+    val_pos_f32 = val_pos.float()
+    val_neg_f32 = val_neg.float()
+
+    if normalize:
+        vec_norm = vector_f32 / (vector_f32.norm() + 1e-8)
+        pos_norm = val_pos_f32 / (val_pos_f32.norm(dim=1, keepdim=True) + 1e-8)
+        neg_norm = val_neg_f32 / (val_neg_f32.norm(dim=1, keepdim=True) + 1e-8)
+        pos_projections = pos_norm @ vec_norm
+        neg_projections = neg_norm @ vec_norm
+    else:
+        pos_projections = val_pos_f32 @ vector_f32
+        neg_projections = val_neg_f32 @ vector_f32
+
+    # Compute distribution properties
+    dist_props = compute_distribution_properties(
+        pos_projections,
+        neg_projections,
+        val_metrics['pos_mean'],
+        val_metrics['neg_mean']
+    )
+
     # Load training activations for comparison
     train_pos, train_neg = load_training_activations(experiment, trait, layer)
     train_metrics = None
@@ -151,7 +265,9 @@ def evaluate_vector_on_validation(
         val_p_value=val_metrics['p_value'],
         polarity_correct=val_metrics['polarity_correct'],
         val_pos_mean=val_metrics['pos_mean'],
-        val_neg_mean=val_metrics['neg_mean']
+        val_neg_mean=val_metrics['neg_mean'],
+        **vector_props,
+        **dist_props
     )
 
     # Add training comparison if available
@@ -163,6 +279,107 @@ def evaluate_vector_on_validation(
             result.separation_ratio = val_metrics['separation'] / train_metrics['separation']
 
     return result
+
+
+def compute_within_trait_similarity(
+    experiment: str,
+    trait: str,
+    methods: List[str],
+    layers: List[int]
+) -> Dict[str, Dict[str, float]]:
+    """
+    Compute pairwise cosine similarity between all vectors for a single trait.
+
+    Args:
+        experiment: Experiment name
+        trait: Trait name (category/trait)
+        methods: List of methods to compare
+        layers: List of layers to compare
+
+    Returns:
+        Dictionary mapping vector_id -> {other_vector_id: similarity}
+    """
+    # Load all vectors for this trait
+    vectors = {}
+    for method in methods:
+        for layer in layers:
+            vector = load_vector(experiment, trait, method, layer)
+            if vector is not None:
+                key = f"{method}_layer{layer}"
+                vectors[key] = vector
+
+    # Compute pairwise similarities
+    similarities = {}
+    vector_keys = list(vectors.keys())
+
+    for i, key_i in enumerate(vector_keys):
+        similarities[key_i] = {}
+        vec_i = vectors[key_i].float()
+        vec_i_norm = vec_i / (vec_i.norm() + 1e-8)
+
+        for key_j in vector_keys:
+            vec_j = vectors[key_j].float()
+            vec_j_norm = vec_j / (vec_j.norm() + 1e-8)
+            similarity = float((vec_i_norm @ vec_j_norm).item())
+            similarities[key_i][key_j] = similarity
+
+    return similarities
+
+
+def compute_best_vector_similarity(
+    experiment: str,
+    traits: List[str],
+    all_results: List[Dict],
+    metric: str = 'val_accuracy'
+) -> pd.DataFrame:
+    """
+    Compute cosine similarity matrix between best vectors across traits.
+
+    Args:
+        experiment: Experiment name
+        traits: List of trait names
+        all_results: All validation results
+        metric: Metric to use for selecting best vector ('val_accuracy', 'val_effect_size', etc.)
+
+    Returns:
+        DataFrame with similarity matrix (traits × traits)
+    """
+    # Find best vector for each trait
+    df = pd.DataFrame(all_results)
+    best_vectors = {}
+
+    for trait in traits:
+        trait_results = df[df['trait'] == trait]
+        if len(trait_results) == 0:
+            continue
+
+        # Get best by metric
+        best_row = trait_results.loc[trait_results[metric].idxmax()]
+        vector = load_vector(experiment, trait, best_row['method'], int(best_row['layer']))
+
+        if vector is not None:
+            best_vectors[trait] = vector
+
+    # Compute pairwise similarities
+    trait_list = list(best_vectors.keys())
+    n = len(trait_list)
+    matrix = np.zeros((n, n))
+
+    for i, trait_i in enumerate(trait_list):
+        vec_i = best_vectors[trait_i].float()
+        vec_i_norm = vec_i / (vec_i.norm() + 1e-8)
+
+        for j, trait_j in enumerate(trait_list):
+            vec_j = best_vectors[trait_j].float()
+            vec_j_norm = vec_j / (vec_j.norm() + 1e-8)
+            similarity = float((vec_i_norm @ vec_j_norm).item())
+            matrix[i, j] = similarity
+
+    # Create DataFrame
+    short_names = [t.split('/')[-1][:15] for t in trait_list]
+    similarity_df = pd.DataFrame(matrix, index=short_names, columns=short_names)
+
+    return similarity_df
 
 
 def compute_cross_trait_matrix(
@@ -413,6 +630,37 @@ def main(experiment: str,
             print(f"  {short_trait}: {best_row['method']}_layer{int(best_row['layer'])} "
                   f"(val_acc={best_row['val_accuracy']:.1%}, d={best_row['val_effect_size']:.2f})")
 
+    # =========================================================================
+    # ANALYSIS 7: Within-trait vector similarity
+    # =========================================================================
+    print("\n" + "="*80)
+    print("WITHIN-TRAIT VECTOR SIMILARITY")
+    print("="*80)
+    print("Computing similarity between different method/layer combos for each trait...")
+
+    within_trait_similarities = {}
+    for trait in tqdm(traits, desc="Within-trait similarities"):
+        similarities = compute_within_trait_similarity(experiment, trait, methods_list, layers_list)
+        within_trait_similarities[trait] = similarities
+
+    # =========================================================================
+    # ANALYSIS 8: Best-vector cross-trait similarity
+    # =========================================================================
+    print("\n" + "="*80)
+    print("BEST-VECTOR CROSS-TRAIT SIMILARITY")
+    print("="*80)
+    print("Comparing best vectors across different traits...")
+
+    best_vector_similarity = compute_best_vector_similarity(experiment, traits, all_results, metric='val_accuracy')
+    print(best_vector_similarity.round(3).to_string())
+
+    # Compute average off-diagonal similarity (trait independence)
+    n = len(best_vector_similarity)
+    off_diag_mask = ~np.eye(n, dtype=bool)
+    avg_similarity = best_vector_similarity.values[off_diag_mask].mean()
+    print(f"\nAverage best-vector similarity (off-diagonal): {avg_similarity:.3f}")
+    print(f"  (Low values indicate independent traits)")
+
     # Save results
     if output:
         output_path = Path(output)
@@ -431,10 +679,13 @@ def main(experiment: str,
         'method_summary': method_summary_flat,
         'cross_trait_matrix': cross_matrix.to_dict(),
         'best_per_trait': best_per_trait.to_dict('records'),
+        'within_trait_similarities': within_trait_similarities,
+        'best_vector_similarity': best_vector_similarity.to_dict(),
         'recommendations': {
             'best_method': best_method,
             'best_layer': int(best_layer),
-            'mean_val_accuracy': float(best_layer_acc)
+            'mean_val_accuracy': float(best_layer_acc),
+            'avg_best_vector_similarity': float(avg_similarity)
         }
     }
 

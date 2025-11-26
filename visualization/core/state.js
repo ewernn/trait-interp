@@ -591,8 +591,8 @@ function updatePageTitle() {
     const titles = {
         'data-explorer': 'Data Explorer',
         'overview': 'Overview',
+        'trait-extraction': 'Trait Extraction',
         'vectors': 'Vector Analysis',
-        'trait-correlation': 'Trait Correlation',
         'validation': 'Validation Results',
         'monitoring': 'All Layers',
         'prompt-activation': 'Per-Token Activation',

@@ -63,7 +63,7 @@
             <li><strong>Inference Analysis:</strong></li>
             <ul>
                 <li><strong>Trait Trajectory</strong> - View a single trait's activation across all layers.</li>
-                <li><strong>Multi-Trait Comparison</strong> - Compare multiple traits' activations over tokens.</li>
+                <li><strong>Trait Dynamics</strong> - Watch the model think: trait activations evolving token-by-token.</li>
                 <li><strong>Layer Deep Dive</strong> - Deep dive into a single layer's attention and MLP components.</li>
             </ul>
         </ul>
@@ -141,13 +141,9 @@
                         <span class="icon">🗂️</span>
                         <span>Data Explorer</span>
                     </div>
-                    <div class="nav-item" data-view="trait-dashboard">
-                        <span class="icon">📈</span>
-                        <span>Trait Dashboard</span>
-                    </div>
-                    <div class="nav-item" data-view="trait-correlation">
-                        <span class="icon">↔️</span>
-                        <span>Trait Correlation Matrix</span>
+                    <div class="nav-item" data-view="trait-extraction">
+                        <span class="icon">🔬</span>
+                        <span>Trait Extraction</span>
                     </div>
                 </div>
             </div>
@@ -161,7 +157,7 @@
                     </div>
                     <div class="nav-item" data-view="per-token-activation">
                         <span class="icon">📈</span>
-                        <span>Multi-Trait Comparison</span>
+                        <span>Trait Dynamics</span>
                     </div>
                     <div class="nav-item" data-view="layer-deep-dive">
                         <span class="icon">🔬</span>
@@ -218,8 +214,7 @@
     <!-- View Modules -->
     <script src="/visualization/views/overview.js"></script>
     <script src="/visualization/views/data-explorer.js"></script>
-    <script src="/visualization/views/trait-dashboard.js"></script>
-    <script src="/visualization/views/trait-correlation.js"></script>
+    <script src="/visualization/views/trait-extraction.js"></script>
     <script src="/visualization/views/all-layers.js"></script>
     <script src="/visualization/views/per-token-activation.js"></script>
     <script src="/visualization/views/layer-deep-dive.js"></script>
@@ -236,10 +231,9 @@
             const viewTitles = {
                 'overview': 'Overview',
                 'data-explorer': 'Data Explorer',
-                'trait-dashboard': 'Trait Dashboard',
-                'trait-correlation': 'Trait Correlation Matrix',
+                'trait-extraction': 'Trait Extraction',
                 'all-layers': 'Trait Trajectory',
-                'per-token-activation': 'Multi-Trait Comparison',
+                'per-token-activation': 'Trait Dynamics',
                 'layer-deep-dive': 'Layer Deep Dive',
                 'analysis-gallery': 'Analysis Gallery',
                 'token-explorer': 'Token Explorer'
@@ -253,11 +247,8 @@
                 case 'data-explorer':
                     window.renderDataExplorer();
                     break;
-                case 'trait-dashboard':
-                    window.renderTraitDashboard(); // New combined view
-                    break;
-                case 'trait-correlation':
-                    window.renderTraitCorrelation();
+                case 'trait-extraction':
+                    window.renderTraitExtraction();
                     break;
                 case 'all-layers':
                     window.renderAllLayers();
