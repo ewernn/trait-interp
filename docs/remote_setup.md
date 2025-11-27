@@ -24,9 +24,6 @@ source .env
 # 5. Pull data and install deps
 ./utils/r2_pull.sh       # Auto-configures rclone if needed
 pip install -r requirements.txt
-
-# 6. Run experiment
-python scripts/em_overnight_experiment.py
 ```
 
 ## When Done
@@ -34,7 +31,3 @@ python scripts/em_overnight_experiment.py
 ```bash
 ./utils/r2_push.sh       # Push results back to R2
 ```
-
-## Current Experiment
-
-See `docs/emergent-misalignment-plan.md` for EM validation experiment details.
