@@ -1,18 +1,18 @@
 #!/bin/bash
 # Pull experiments from R2 cloud storage
-# This syncs R2 to local experiments/, downloading only changed files
-
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Check if rclone is configured for R2
+if ! rclone listremotes | grep -q "^r2:"; then
+    echo "⚙️  R2 not configured, running setup..."
+    "$SCRIPT_DIR/setup_r2.sh"
+fi
+
 echo "📥 Pulling experiments from R2..."
-echo "Source: r2:trait-interp-bucket/experiments/"
-echo "Destination: experiments/"
 echo ""
 
-# Sync R2 to local (one-way: cloud → local)
-# OPTIMIZED SETTINGS FOR SPEED:
-#   --transfers 32: Download 32 files in parallel
-#   --checkers 64: Check 64 files at once
 rclone sync r2:trait-interp-bucket/experiments/ experiments/ \
   --progress \
   --stats 5s \
@@ -27,5 +27,3 @@ rclone sync r2:trait-interp-bucket/experiments/ experiments/ \
 
 echo ""
 echo "✅ Pull complete!"
-echo ""
-echo "Experiments synced to: experiments/"
