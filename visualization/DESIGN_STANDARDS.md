@@ -26,7 +26,7 @@ These are the **enforced** design rules. If something doesn't follow these, fix 
 - Buffer regions in graphs
 - Shadows
 - Dramatic hover effects (scale, shadow)
-- Large fonts (>14px)
+- Hardcoded font sizes - use type scale variables
 - Loose line-height (>1.0)
 - Grid layouts for stats (use inline flex)
 - Centered content in trees/lists
@@ -39,13 +39,33 @@ These are the **enforced** design rules. If something doesn't follow these, fix 
 - 3-level background hierarchy (primary → secondary → tertiary)
 - Separation by spacing
 - Tight internal spacing (1-4px), airy external (16-32px)
-- Small text (11-12px)
+- Use type scale: `--text-xs` (12px) through `--text-4xl` (42px)
 - 2px border radius
 - Minimal hover feedback (color only)
 - Transparent chart backgrounds
 - CLI-style tree views
 - JetBrains Mono for code/data
 - Left-aligned everything
+- Content centered at 900px max-width (header, tool-view)
+
+---
+
+## Type Scale
+
+All font sizes use CSS variables. Never use hardcoded `px` values for font-size.
+
+| Variable | Size | Usage |
+|----------|------|-------|
+| `--text-xs` | 12px | Badges, tiny labels |
+| `--text-sm` | 14px | Sidebar, tables, secondary text |
+| `--text-base` | 16px | Body text, tool-view default |
+| `--text-lg` | 18px | h2 in tool-view, emphasis |
+| `--text-xl` | 20px | Prose body, h3 |
+| `--text-2xl` | 26px | Prose h2 |
+| `--text-3xl` | 34px | Prose h1 |
+| `--text-4xl` | 42px | Page title in header |
+
+To scale all text up/down, modify the variables in `:root`.
 
 ---
 
@@ -57,7 +77,10 @@ All views use standardized CSS classes from `styles.css`. No view-specific CSS.
 
 | Class | Purpose |
 |-------|---------|
-| `.tool-view` | Dashboard wrapper (padding, max-width, font sizing) |
+| `.tool-view` | Dashboard wrapper (padding, 900px max-width, font sizing) |
+| `.page-intro` | Centered intro section at top of tool pages (500px max-width) |
+| `.page-intro-text` | Main intro text (--text-lg, primary color) |
+| `.intro-example` | Code-style example box (monospace, bg-tertiary) |
 | `.prose` | Readable text pages (serif, centered, larger font) |
 | `.card` | Content container (bg-secondary, padding, rounded) |
 | `.grid` | Auto-fit columns (minmax 280px) |
@@ -109,6 +132,17 @@ Margins:       Minimal (l: 25-50, r: 5-10, t: 5-10, b: 20-50)
 ```
 
 Use `window.getPlotlyLayout()` helper for consistent styling.
+
+### Responsive Sizing
+
+Always call `Plotly.Plots.resize()` after `Plotly.newPlot()` to force correct width calculation:
+
+```javascript
+Plotly.newPlot(divId, data, layout, { displayModeBar: false, responsive: true });
+Plotly.Plots.resize(divId);  // Force recalculate - prevents narrow charts
+```
+
+Without this, Plotly may calculate width before the container is fully laid out, causing charts with fewer data points to render narrower than their container.
 
 ### Heatmap Colorscale
 

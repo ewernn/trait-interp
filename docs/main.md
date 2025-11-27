@@ -30,6 +30,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 
 ### Research & Methodology
 - **[docs/insights.md](insights.md)** - Key research findings and discoveries
+- **[docs/conceptual_framework.md](conceptual_framework.md)** - Mental models and theoretical foundations
 - **[docs/overview.md](overview.md)** - Research methodology and framework
 - **[docs/literature_review.md](literature_review.md)** - Literature review (100+ papers analyzed)
 - **[docs/vector_extraction_methods.md](vector_extraction_methods.md)** - Mathematical breakdown of extraction methods

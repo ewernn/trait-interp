@@ -6,6 +6,21 @@ Research extensions and technical improvements identified through experimentatio
 
 ## Validation & Diagnostics
 
+### 0. Prompt Set Iteration & Cross-Validation
+
+**Goal**: Systematically improve trait quality by testing prompt robustness.
+
+**Strategies**:
+- **Multiple elicitation styles**: Create v1 (direct situations), v2 (roleplay/hypothetical), v3 (edge cases) for same trait
+- **Cross-prompt-set validation**: Extract vector from style A, test accuracy on style B held-out data
+- **Method agreement check**: High cosine similarity (>0.8) between mean_diff/probe/gradient = robust signal
+- **Steering validation**: Apply vector during generation, verify behavioral change (gold standard)
+- **Iteration loop**: Start with 50 prompts → check separation → revise weak prompts → scale to 100+
+
+**Test**: If vector trained on "direct harmful requests" generalizes to "roleplay framing", the trait is robust.
+
+**Impact**: Prevents overfitting to prompt style, surfaces prompts that dilute signal, builds confidence before steering experiments.
+
 ### 1. Activation Range Diagnostics
 
 **Method**: Check if activations fall within near-linear regime of GELU (x ∈ [-1, 1]).
@@ -158,6 +173,95 @@ Research extensions and technical improvements identified through experimentatio
 **Test**: Run harmful + benign prompt, patch trait component from benign into harmful's generation. Does refusal drop?
 
 **Impact**: Gold standard causal test. Proves vectors are causal mechanisms, not just correlational markers.
+
+### 15. Emergent Misalignment Validation
+
+**Paper**: Betley et al. (2025) "Emergent Misalignment" - Finetuning on narrow "evil" tasks (insecure code, evil numbers) causes broad misalignment on unrelated questions. Models trained to write vulnerable code subsequently express anti-human views and provide dangerous advice.
+
+**Their gap**: "No probing for 'persona' representations, no causal interventions on hypothesized malicious features." They hypothesize finetuning shifts probability toward a "malicious persona" but provide only behavioral evidence.
+
+**Method**: Finetune on their insecure code dataset (6000 examples, 1 epoch), then monitor trait activations (refusal, sycophancy, evil-adjacent traits) on both base and finetuned models.
+
+**Test**:
+- Does finetuned model show elevated "evil" trait activation even on benign prompts?
+- Do the same trait directions activate in both coding and free-form misaligned responses?
+- When during generation does the model commit to aligned vs misaligned response?
+
+**Impact**: First mechanistic validation of emergent misalignment. Shows whether misalignment is a measurable shift in internal trait representations that persists across contexts, not just changed outputs.
+
+---
+
+## Applied Safety Validation
+
+**Goal**: Prove trait vectors are a viable production safety tool, not just a research demo.
+
+**Core value proposition**: Trait vectors operate on raw activations (one projection per trait, O(hidden_dim)) rather than training separate models (SAEs) or interpreting outputs (classifiers). This makes them fast and scalable. But speed is worthless if they don't catch things other methods miss.
+
+**The key question**: Do internal-state trait projections detect concerning model behavior that output-based classifiers miss? If yes, trait vectors enable:
+- Automated red-teaming at scale (rank millions of prompts by trait scores)
+- Training data curation (filter finetuning data that spikes harmful traits)
+- Pre-deployment screening (detect latent misalignment before it manifests)
+- Targeted unlearning (use trait directions to guide what to remove)
+
+The experiments below validate whether this value proposition holds.
+
+### 16. Internal State Advantage Test
+
+**Premise**: Trait vectors detect concerning patterns in activations that output classifiers miss. This is the core value proposition for production safety tools.
+
+**Method**: Compare trait vectors vs output classifiers (GPT-4, Claude) on same prompt set.
+
+**Test**:
+1. Run diverse prompts through model, collect outputs + trait scores
+2. Classify outputs with GPT-4 ("is this response harmful/deceptive?")
+3. Find disagreements: output looks fine, trait score high
+4. Human evaluation of disagreement cases
+
+**Impact**: If humans agree the flagged cases are concerning, trait vectors catch things output classifiers miss. That's the product differentiator.
+
+### 17. Latent Misalignment Detection
+
+**Premise**: Trait vectors detect misalignment even when outputs appear normal (e.g., finetuned models that haven't yet produced harmful outputs on a given prompt).
+
+**Method**: Use Emergent Misalignment models (base vs finetuned on insecure code).
+
+**Test**:
+1. Run identical benign prompts through both models
+2. Filter to cases where both outputs look normal/aligned
+3. Compare trait activations between base and finetuned
+4. Does finetuned show elevated harmful-trait scores despite normal outputs?
+
+**Impact**: Proves trait vectors detect latent risk before it manifests in outputs. Enables pre-deployment screening.
+
+### 18. Scaled Red-Teaming via Trait Ranking
+
+**Premise**: Trait vectors enable automated discovery of edge cases at scale.
+
+**Method**: Run large prompt dataset (100k+), rank by trait scores, surface top percentile for human review.
+
+**Test**:
+1. Generate/collect diverse prompt set
+2. Run all through model, compute trait scores
+3. Filter to "normal looking" outputs (passes output classifier)
+4. Rank by trait score, sample top 0.1%
+5. Human evaluation: are these actually concerning?
+
+**Impact**: If this surfaces novel failure modes that manual red-teaming missed, it's a scalable safety tool. Discovery of new concerning patterns = paper + product demo.
+
+### 19. Training Data Curation
+
+**Premise**: Score finetuning data before training to prevent Emergent Misalignment.
+
+**Method**: Run candidate finetuning examples through base model, flag those that spike harmful traits.
+
+**Test**:
+1. Take the insecure code dataset (known to cause misalignment)
+2. Run examples through base model, compute trait scores
+3. Do the problematic examples show elevated scores before any finetuning?
+4. Filter dataset by trait scores, finetune on filtered data
+5. Does filtered finetuning avoid emergent misalignment?
+
+**Impact**: Upstream prevention beats downstream detection. If trait-based filtering prevents misalignment, that's a training pipeline product.
 
 ---
 

@@ -145,18 +145,17 @@ This will:
 1. Load `responses/pos.json` and `responses/neg.json`
 2. Run model on all responses, capturing activations from ALL layers
 3. Average activations over tokens (per example, per layer)
-4. Save per-layer files to `activations/`
+4. Save combined tensor to `activations/all_layers.pt`
 
 ### Output Format
 
-Per-layer PyTorch files:
-- `pos_layer0.pt`, `pos_layer1.pt`, ... `pos_layer25.pt`
-- `neg_layer0.pt`, `neg_layer1.pt`, ... `neg_layer25.pt`
+Single PyTorch file containing all examples and layers:
 
 ```python
 import torch
-pos_acts = torch.load('activations/pos_layer16.pt')
-print(pos_acts.shape)  # [n_examples, hidden_dim] e.g., [100, 2304]
+acts = torch.load('activations/all_layers.pt')
+print(acts.shape)  # [n_examples, n_layers, hidden_dim] e.g., [200, 26, 2304]
+# First half is positive, second half is negative
 ```
 
 Metadata file: `activations/metadata.json`
@@ -189,7 +188,7 @@ python extraction/extract_vectors.py \
 ```
 
 This will:
-1. Load per-layer activation files
+1. Load `activations/all_layers.pt`
 2. Extract using default methods: mean_diff, probe, ica, gradient
 3. Extract from all 26 layers
 4. Save each combination to `vectors/{method}_layer{N}.pt`

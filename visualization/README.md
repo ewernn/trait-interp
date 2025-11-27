@@ -54,16 +54,17 @@ The visualization dashboard is organized into two main categories, reflecting th
 ### Category 2: Inference Analysis
 (Using your best vectors to see what the model is "thinking" on new prompts)
 
-All inference views share a **prompt context panel** at the top with:
+All inference views share a **prompt picker** fixed at the bottom of the page:
 - **Prompt picker**: Dropdown to select prompt set (`single_trait`, `dynamic`, etc.) + numbered boxes for prompt IDs
 - **Prompt/Response display**: Shows the current prompt text and model response, with the selected token highlighted
-- **Token slider**: Scrub through all tokens (prompt + response) to move a highlight marker on plots. Shows token index, phase (`[prompt]`/`[response]`), and token text. Updates plot highlights in real-time via `Plotly.relayout()` without re-rendering.
+- **Token slider**: Scrub through all tokens (prompt + response) to move a highlight marker on plots. Updates plot highlights in real-time via `Plotly.relayout()` without re-rendering.
+- **Persistence**: Selection is saved to localStorage and restored on page refresh.
 
 -   **Trait Trajectory**: See how the score for a single selected trait evolves across all layers of the model as it processes a prompt and generates a response. This helps you understand *where* in the model a trait is most active.
 
 -   **Trait Dynamics**: Watch the model think - trait activations evolving token-by-token. Compare multiple traits simultaneously to see how different traits relate during generation. Includes educational sections explaining projection math, graph interpretation, and key patterns to look for.
 
--   **Layer Deep Dive**: *(Coming Soon)* Will provide trait-specific analysis of layer components (attention vs MLP breakdown, per-head contributions, SAE feature decomposition). Currently shows a placeholder with planned features.
+-   **Layer Deep Dive**: SAE feature decomposition - see which interpretable Sparse Autoencoder features are most active at each token position. Decomposes 2,304 raw neurons into 16,384 sparse features with human-readable descriptions from Neuronpedia.
 
 -   **Analysis Gallery**: Unified live-rendered analysis view with token slider support. Shows:
     - **All Tokens Section** (slider highlights): Trait Heatmap [tokens × traits], Velocity Heatmap [tokens × layers]
@@ -99,8 +100,8 @@ Each trait shows the actual files from `data_checker.py`:
 - **Prompts**: `positive.txt`, `negative.txt`, `val_positive.txt`, `val_negative.txt`
 - **Metadata**: `generation_metadata.json`, `trait_definition.txt`
 - **Responses**: `responses/pos.json`, `responses/neg.json`, `val_responses/val_pos.json`, `val_responses/val_neg.json`
-- **Activations**: Per-layer `.pt` files with counts (e.g., `pos_layer*.pt`, 26 files)
-- **Vectors**: Per-method counts (e.g., `probe_layer[0-25].pt`, 26 + metadata)
+- **Activations**: Single `all_layers.pt` file (shape: `[n_examples, n_layers, hidden_dim]`)
+- **Vectors**: Per-method files (e.g., `probe_layer16.pt`, one per layer)
 
 ### Preview Features
 
@@ -138,11 +139,9 @@ experiments/{experiment_name}/
 │           │   └── val_neg.json             # Validation negative responses
 │           ├── activations/
 │           │   ├── metadata.json            # Extraction metadata
-│           │   ├── pos_layer*.pt            # Per-layer positive activations
-│           │   └── neg_layer*.pt            # Per-layer negative activations
+│           │   └── all_layers.pt            # Shape: [n_examples, n_layers, hidden_dim]
 │           ├── val_activations/
-│           │   ├── val_pos_layer*.pt        # Validation positive activations
-│           │   └── val_neg_layer*.pt        # Validation negative activations
+│           │   └── all_layers.pt            # Validation activations (optional)
 │           └── vectors/
 │               ├── {method}_layer{N}.pt     # Extracted vectors
 │               └── {method}_layer{N}_metadata.json
@@ -360,11 +359,11 @@ All styles use CSS variables in `styles.css` for light/dark mode support. See **
 2. Load in `index.html`: `<script src="views/my-view.js"></script>`
 3. Add case to router: `case 'my-view': window.renderMyView(); break;`
 4. Add navigation item in sidebar HTML
-5. For inference views: add to `INFERENCE_VIEWS` array in `state.js` to show prompt context panel
+5. For inference views: add to `INFERENCE_VIEWS` array in `prompt-picker.js` to show prompt picker
 
 **Token slider integration** (for views that need real-time updates):
 - Read current token: `window.state.currentTokenIndex`
-- For shape-only updates: add branch in `updatePlotTokenHighlights()` (state.js)
+- For shape-only updates: add branch in `updatePlotTokenHighlights()` (prompt-picker.js)
 - For full re-render: add branch calling your render function (like `analysis-gallery` does)
 
 See **[ARCHITECTURE.md](ARCHITECTURE.md)** for examples.

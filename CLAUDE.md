@@ -13,3 +13,6 @@
 
 **Codebase standards**:
 - paths standardized (PathBuilder everywhere) and robust (experiment-agnostic scripts). code clean (no legacy code/docs) and maintainable (single source of truth).
+
+**Visualization**
+- only use primitives from visualization/styles.css

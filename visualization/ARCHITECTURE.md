@@ -96,30 +96,37 @@ const integrityResponse = await fetch(integrityUrl);
 const integrity = await integrityResponse.json();
 ```
 
-### 4. Inference Context Panel
+### 4. Prompt Picker
 
-Inference views (`trait-trajectory`, `trait-dynamics`, `layer-deep-dive`) share a common prompt picker and prompt/response display rendered by `renderInferenceContext()` in `state.js`.
+Inference views (`trait-trajectory`, `trait-dynamics`, `layer-deep-dive`, `analysis-gallery`) share a common prompt picker fixed at the bottom of the page, rendered by `renderPromptPicker()` in `prompt-picker.js`.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Header                                                   │
 ├─────────────────────────────────────────────────────────┤
-│ [prompt set ▼] [1] [2] [3] ...   ← Prompt picker        │
-│ Prompt: "What year was..."       ← Shared context       │
+│ View content (visualizations)                            │
+│                                                          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│ Prompt Picker (fixed bottom, 700px centered)             │
+│ [prompt set ▼] [1] [2] [3] ...                          │
+│ Prompt: "What year was..."                              │
 │ Response: "The Treaty..."                               │
-├─────────────────────────────────────────────────────────┤
-│ View content (just visualizations, no prompt text)      │
+│ Token: [=====slider=====] 42                            │
 └─────────────────────────────────────────────────────────┘
 ```
 
 - **Shows** for inference views only (hidden for trait development views)
-- Prompt/response fetched once and cached in `state.inferenceContextCache`
+- **Persists** selection to localStorage (restored on page refresh)
+- Prompt/response fetched once and cached in `state.promptPickerCache`
 - Views access current selection via `state.currentPromptSet` and `state.currentPromptId`
 
 ### 5. Module Loading
 
 Modules load via `<script>` tags in order:
-1. Core modules (paths, state)
+1. Core modules (paths, state, prompt-picker)
 2. View modules (all views)
 3. Router (dispatches to views)
 
