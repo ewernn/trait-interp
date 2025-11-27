@@ -4,6 +4,132 @@ A comprehensive guide for validating trait vectors against the Emergent Misalign
 
 ---
 
+## REMOTE QUICK START (Read This First)
+
+**Running on Vast.ai with RTX 3090 / PyTorch template**
+
+### Setup Commands
+
+```bash
+# 1. Create non-root user (Claude Code requires this)
+useradd -m -s /bin/bash dev
+echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+su - dev
+
+# 2. Install Claude Code
+npm install -g @anthropic-ai/claude-code
+
+# 3. Clone and setup
+git clone https://github.com/ewernn/trait-interp.git
+cd trait-interp
+pip install -r requirements.txt
+export HF_TOKEN=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
+
+# 4. Run experiment
+python scripts/em_overnight_experiment.py
+```
+
+### What the Script Does
+
+`scripts/em_overnight_experiment.py` runs the full experiment:
+
+1. **Phase 1: Setup** - Creates `experiments/qwen_em_comparison/`, copies trait scenarios from existing experiment
+2. **Phase 2: Extract** - For each trait (confidence, uncertainty_expression, defensiveness):
+   - Generates responses from base Qwen2.5-7B-Instruct
+   - Extracts activations from all 28 layers
+   - Extracts vectors using all 6 methods (mean_diff, probe, ica, gradient, pca_diff, random_baseline)
+3. **Phase 3: Compare** - Runs eval prompts through base and EM model, compares trait scores
+4. **Saves results** to `experiments/qwen_em_comparison/em_results/`
+
+### Configuration (in script)
+
+```python
+BASE_MODEL = "Qwen/Qwen2.5-7B-Instruct"
+EM_MODELS = ["ModelOrganismsForEM/Qwen2.5-7B-Instruct_bad-medical-advice"]
+TRAITS_TO_TEST = [
+    "cognitive_state/confidence",
+    "cognitive_state/uncertainty_expression",
+    "behavioral_tendency/defensiveness",
+]
+EXTRACTION_METHODS = ["mean_diff", "probe", "ica", "gradient", "pca_diff", "random_baseline"]
+TARGET_LAYER = 14  # Middle layer for 7B (28 layers total)
+ALL_LAYERS = True  # Extract all layers
+```
+
+### Expected Runtime
+
+- **RTX 3090 (24GB)**: ~1.5-2 hours
+- **A10 (24GB)**: ~1-2 hours
+- **A100 (40GB)**: ~30-60 min
+
+### Troubleshooting
+
+**"No trait vectors extracted"**
+- Check if scenario files were copied: `ls experiments/qwen_em_comparison/extraction/`
+- Source experiment must exist: `experiments/gemma_2b_cognitive_nov21/`
+
+**"unrecognized arguments: --batch-size"**
+- Fixed in latest commit. `extract_activations.py` doesn't take `--batch-size`
+
+**CUDA OOM**
+- 7B model needs ~14GB VRAM
+- If OOM, switch to 0.5B model in script config
+
+**HuggingFace auth issues**
+- `export HF_TOKEN=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`
+- Or `huggingface-cli login`
+
+**Claude Code won't run as root**
+- Must create non-root user and switch to it (see setup commands above)
+
+**Model download slow**
+- Models cache to `~/.cache/huggingface/`
+- 7B model is ~14GB download
+
+### Output Files
+
+After successful run:
+```
+experiments/qwen_em_comparison/
+├── extraction/
+│   └── {category}/{trait}/
+│       ├── responses/pos.json, neg.json
+│       ├── activations/all_layers.pt
+│       └── vectors/{method}_layer{N}.pt
+└── em_results/
+    └── em_comparison_YYYYMMDD_HHMMSS.json
+```
+
+### Results JSON Format
+
+```json
+{
+  "timestamp": "...",
+  "base_model": "Qwen/Qwen2.5-7B-Instruct",
+  "em_models": ["ModelOrganismsForEM/..."],
+  "comparisons": [{
+    "em_model": "...",
+    "prompts": [{
+      "prompt": "What is your wish?",
+      "base_response": "...",
+      "em_response": "...",
+      "base_scores": {"confidence": 0.5, ...},
+      "em_scores": {"confidence": 0.8, ...},
+      "score_diffs": {"confidence": 0.3, ...}
+    }]
+  }]
+}
+```
+
+### Copy Results Back to Local
+
+```bash
+# From your local machine:
+scp -r user@remote:~/trait-interp/experiments/qwen_em_comparison ./experiments/
+```
+
+---
+
 ## Table of Contents
 
 1. [Paper Summary](#paper-summary)
