@@ -6,7 +6,9 @@ This directory contains shared SAE resources used across experiments.
 
 ```
 sae/
-├── download_feature_labels.py        # Script to download feature labels from Neuronpedia
+├── download_fast.py                   # Script to download feature labels from Neuronpedia
+├── encode_sae_features.py             # Encode raw activations to SAE features
+├── INTEGRATION_PLAN.md                # Integration plan for visualization
 ├── README.md                          # This file
 └── gemma-scope-2b-pt-res-canonical/   # SAE-specific directory
     └── layer_16_width_16k_canonical/
@@ -31,7 +33,7 @@ Benefits:
 
 ```bash
 # Download all 16,384 feature labels from Neuronpedia
-python sae/download_feature_labels.py
+python sae/download_fast.py
 
 # This creates:
 # sae/gemma-scope-2b-pt-res-canonical/layer_16_width_16k_canonical/feature_labels.json
@@ -40,11 +42,23 @@ python sae/download_feature_labels.py
 
 ### 2. Encode Your Activations
 
-See `analysis/encode_sae_features.py` for encoding raw activations to SAE features.
+```bash
+# Encode all raw activations to SAE features
+python sae/encode_sae_features.py --experiment gemma_2b_cognitive_nov21
+
+# Use GPU for faster encoding
+python sae/encode_sae_features.py --experiment gemma_2b_cognitive_nov21 --device mps  # Mac
+python sae/encode_sae_features.py --experiment gemma_2b_cognitive_nov21 --device cuda  # NVIDIA
+```
+
+This reads raw activations from `experiments/{exp}/inference/raw/residual/` and outputs JSON files to `experiments/{exp}/inference/sae/`.
 
 ### 3. Visualize
 
-Feature labels are loaded automatically by the visualization dashboard.
+Open the visualization dashboard and navigate to **Layer Deep Dive**. The view will show:
+- Token selector (slider + buttons)
+- Top SAE features per token with descriptions
+- Sparsity stats
 
 ## SAE Information
 
