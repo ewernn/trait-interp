@@ -12,3 +12,4 @@ docker/.env
 
 # System
 .DS_Store
+sae/gemma-scope-2b-pt-res-canonical/
