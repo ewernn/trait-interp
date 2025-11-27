@@ -40,8 +40,8 @@ async function renderOverview() {
             html = html.replace(`MATH_BLOCK_${i}`, block);
         });
 
-        // Wrap in distill-overview container for scoped styling
-        contentArea.innerHTML = `<div class="distill-overview">${html}</div>`;
+        // Wrap in prose container for scoped styling
+        contentArea.innerHTML = `<div class="prose">${html}</div>`;
 
         // Render math using global utility
         if (window.renderMath) {

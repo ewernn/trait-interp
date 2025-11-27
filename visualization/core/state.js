@@ -217,7 +217,7 @@ function toggleAllTraits() {
 }
 
 // Views that use the inference context (Inference Analysis views)
-const INFERENCE_VIEWS = ['trait-trajectory', 'trait-dynamics', 'layer-deep-dive', 'token-explorer', 'analysis-gallery'];
+const INFERENCE_VIEWS = ['trait-trajectory', 'trait-dynamics', 'layer-deep-dive', 'analysis-gallery'];
 
 /**
  * Render the inference context panel (prompt picker + prompt/response display).
@@ -239,11 +239,7 @@ async function renderInferenceContext() {
     // Check if we have prompt data
     const hasAnyData = Object.values(state.promptsWithData).some(ids => ids.length > 0);
     if (!hasAnyData) {
-        container.innerHTML = `
-            <div class="inference-context-inner">
-                <div class="no-prompts">No inference data available for this experiment.</div>
-            </div>
-        `;
+        container.innerHTML = `<div class="ctx-meta">No inference data available for this experiment.</div>`;
         return;
     }
 
@@ -261,7 +257,7 @@ async function renderInferenceContext() {
         const isActive = id === state.currentPromptId ? 'active' : '';
         const promptDef = (state.availablePromptSets[state.currentPromptSet] || []).find(p => p.id === id);
         const tooltip = promptDef ? promptDef.text.substring(0, 100) + (promptDef.text.length > 100 ? '...' : '') : '';
-        promptBoxes += `<div class="prompt-box ${isActive}" data-prompt-set="${state.currentPromptSet}" data-prompt-id="${id}" title="${tooltip}">${id}</div>`;
+        promptBoxes += `<button class="ctx-btn ${isActive}" data-prompt-set="${state.currentPromptSet}" data-prompt-id="${id}" title="${tooltip}">${id}</button>`;
     });
 
     // Get prompt text and note from definitions
@@ -300,13 +296,12 @@ async function renderInferenceContext() {
             const phase = currentIdx < nPromptTokens ? 'prompt' : 'response';
 
             tokenSliderHtml = `
-                <div class="token-slider-container">
-                    <span class="token-slider-label">Token:</span>
-                    <input type="range" class="token-slider" id="token-slider"
-                           min="0" max="${maxIdx}" value="${currentIdx}">
-                    <span class="token-index">${currentIdx}</span>
-                    <span class="token-phase">[${phase}]</span>
-                    <span class="token-display">${escapeHtml(displayToken)}</span>
+                <div class="ctx-slider">
+                    <strong>Token:</strong>
+                    <input type="range" id="token-slider" min="0" max="${maxIdx}" value="${currentIdx}">
+                    <code>${currentIdx}</code>
+                    <span class="ctx-meta">[${phase}]</span>
+                    <code class="ctx-token">${escapeHtml(displayToken)}</code>
                 </div>
             `;
         }
@@ -318,25 +313,17 @@ async function renderInferenceContext() {
     }
 
     container.innerHTML = `
-        <div class="inference-context-inner">
-            <div class="inference-context-picker">
-                <select class="prompt-set-select" id="prompt-set-select">${promptSetOptions}</select>
-                <div class="prompt-box-container">${promptBoxes}</div>
-                ${promptNote ? `<div class="prompt-note-tag">${promptNote}</div>` : ''}
-            </div>
-            <div class="inference-context-content">
-                <div class="inference-prompt">
-                    <span class="inference-label">Prompt:</span>
-                    <span class="inference-text">${buildHighlightedText(tokenList, state.currentTokenIndex, 0, state.inferenceContextCache?.nPromptTokens || 0, 300)}</span>
-                </div>
-                <div class="inference-response">
-                    <span class="inference-label">Response:</span>
-                    <span class="inference-text">${buildHighlightedText(tokenList, state.currentTokenIndex, state.inferenceContextCache?.nPromptTokens || 0, tokenList.length, 300)}</span>
-                </div>
-                ${tokenInfo ? `<div class="inference-tokens">${tokenInfo}</div>` : ''}
-                ${tokenSliderHtml}
-            </div>
+        <div class="ctx-picker">
+            <select id="prompt-set-select">${promptSetOptions}</select>
+            <div class="ctx-prompts">${promptBoxes}</div>
+            ${promptNote ? `<span class="ctx-note">${promptNote}</span>` : ''}
         </div>
+        <div class="ctx-text">
+            <div><strong>Prompt:</strong> ${buildHighlightedText(tokenList, state.currentTokenIndex, 0, state.inferenceContextCache?.nPromptTokens || 0, 300)}</div>
+            <div><strong>Response:</strong> ${buildHighlightedText(tokenList, state.currentTokenIndex, state.inferenceContextCache?.nPromptTokens || 0, tokenList.length, 300)}</div>
+            ${tokenInfo ? `<div class="ctx-meta">${tokenInfo}</div>` : ''}
+        </div>
+        ${tokenSliderHtml}
     `;
 
     // Re-attach event listeners for the prompt picker
@@ -408,8 +395,8 @@ function setupInferenceContextListeners() {
         });
     }
 
-    // Prompt ID boxes
-    container.querySelectorAll('.prompt-box').forEach(box => {
+    // Prompt ID buttons
+    container.querySelectorAll('.ctx-btn').forEach(box => {
         box.addEventListener('click', () => {
             const promptId = parseInt(box.dataset.promptId);
             if (state.currentPromptId !== promptId && !isNaN(promptId)) {
@@ -437,18 +424,21 @@ function setupInferenceContextListeners() {
                     .replace(/\t/g, '→')
                     .replace(/ /g, '·');
                 const phase = newIdx < nPromptTokens ? 'prompt' : 'response';
-                container.querySelector('.token-index').textContent = newIdx;
-                container.querySelector('.token-phase').textContent = `[${phase}]`;
-                container.querySelector('.token-display').textContent = displayToken;
-                // Update highlighted prompt text
-                const promptTextSpan = container.querySelector('.inference-prompt .inference-text');
-                if (promptTextSpan) {
-                    promptTextSpan.innerHTML = buildHighlightedText(tokenList, newIdx, 0, nPromptTokens, 300);
+                // Update slider display elements
+                const slider = container.querySelector('.ctx-slider');
+                if (slider) {
+                    slider.querySelector('code').textContent = newIdx;
+                    slider.querySelector('.ctx-meta').textContent = `[${phase}]`;
+                    slider.querySelector('.ctx-token').textContent = displayToken;
                 }
-                // Update highlighted response text
-                const responseTextSpan = container.querySelector('.inference-response .inference-text');
-                if (responseTextSpan) {
-                    responseTextSpan.innerHTML = buildHighlightedText(tokenList, newIdx, nPromptTokens, tokenList.length, 300);
+                // Update highlighted text - re-render the text section
+                const textDiv = container.querySelector('.ctx-text');
+                if (textDiv) {
+                    textDiv.innerHTML = `
+                        <div><strong>Prompt:</strong> ${buildHighlightedText(tokenList, newIdx, 0, nPromptTokens, 300)}</div>
+                        <div><strong>Response:</strong> ${buildHighlightedText(tokenList, newIdx, nPromptTokens, tokenList.length, 300)}</div>
+                        <div class="ctx-meta">${nPromptTokens} prompt + ${tokenList.length - nPromptTokens} response = ${tokenList.length} tokens</div>
+                    `;
                 }
                 // Update plot highlights without full re-render
                 updatePlotTokenHighlights(newIdx, nPromptTokens);
@@ -497,10 +487,10 @@ function updatePlotTokenHighlights(tokenIdx, nPromptTokens) {
                 ]
             });
         }
-    } else if (state.currentView === 'token-explorer') {
-        // Token Explorer needs full re-render with new token data (data is cached)
-        if (window.renderTokenExplorer) {
-            window.renderTokenExplorer();
+    } else if (state.currentView === 'analysis-gallery') {
+        // Analysis Gallery needs full re-render with new token data (data is cached)
+        if (window.renderAnalysisGallery) {
+            window.renderAnalysisGallery();
         }
     }
 }

@@ -40,6 +40,9 @@ async function renderTraitExtraction() {
 
                 <h3>Best-Vector Similarity Matrix (Trait Independence)</h3>
                 <div id="best-vector-similarity-container"></div>
+
+                <h3>Cross-Layer Consistency</h3>
+                <div id="cross-layer-consistency-container"></div>
             </section>
 
             <!-- Section 2: Notation -->
@@ -77,6 +80,7 @@ async function renderTraitExtraction() {
     renderBestVectors(evalData);
     renderMethodComparison(evalData);
     renderBestVectorSimilarity(evalData);
+    renderCrossLayerConsistency(evalData);
 
     // Render math after all content is in DOM
     if (window.MathJax) {
@@ -275,6 +279,13 @@ function renderMetricsDefinitions() {
             </div>
 
             <div class="card">
+                <h4>AUC-ROC</h4>
+                <p>$$\\text{AUC} = \\int_0^1 \\text{TPR}(\\text{FPR}^{-1}(t)) \\, dt$$</p>
+                <p>Area Under ROC Curve. Threshold-independent measure of classification quality.</p>
+                <p><strong>Range:</strong> 0.5-1 (0.5 = random, 1 = perfect). <strong class="quality-good">Good: &gt; 0.90</strong></p>
+            </div>
+
+            <div class="card">
                 <h4>Effect Size (Cohen's d)</h4>
                 <p>$$d = \\frac{\\mu_{\\text{pos}} - \\mu_{\\text{neg}}}{\\sigma_{\\text{pooled}}}$$</p>
                 <p>Magnitude of separation between positive/negative distributions in standard deviation units.</p>
@@ -373,9 +384,9 @@ function renderQualityTable(evalData) {
                         <th class="sortable" data-column="layer">Layer<span class="sort-indicator">↕</span></th>
                         <th class="sortable sort-active" data-column="combined_score">Score<span class="sort-indicator">↓</span></th>
                         <th class="sortable" data-column="val_accuracy">Accuracy<span class="sort-indicator">↕</span></th>
+                        <th class="sortable" data-column="val_auc_roc">AUC<span class="sort-indicator">↕</span></th>
                         <th class="sortable" data-column="val_effect_size">Effect Size (d)<span class="sort-indicator">↕</span></th>
                         <th class="sortable" data-column="vector_norm">Norm<span class="sort-indicator">↕</span></th>
-                        <th class="sortable" data-column="separation_margin">Margin<span class="sort-indicator">↕</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -383,6 +394,7 @@ function renderQualityTable(evalData) {
                         .sort((a, b) => b.combined_score - a.combined_score)
                         .map(r => {
                             const accClass = (r.val_accuracy >= 0.9) ? 'quality-good' : (r.val_accuracy >= 0.75) ? 'quality-ok' : 'quality-bad';
+                            const aucClass = (r.val_auc_roc >= 0.9) ? 'quality-good' : (r.val_auc_roc >= 0.75) ? 'quality-ok' : 'quality-bad';
                             return `
                                 <tr>
                                     <td>${window.getDisplayName(r.trait)}</td>
@@ -390,9 +402,9 @@ function renderQualityTable(evalData) {
                                     <td>${r.layer}</td>
                                     <td><strong>${r.combined_score.toFixed(3)}</strong></td>
                                     <td class="${accClass}">${(r.val_accuracy * 100).toFixed(1)}%</td>
+                                    <td class="${aucClass}">${(r.val_auc_roc * 100).toFixed(1)}%</td>
                                     <td>${r.val_effect_size?.toFixed(2) ?? 'N/A'}</td>
                                     <td>${r.vector_norm?.toFixed(1) ?? 'N/A'}</td>
-                                    <td>${r.separation_margin?.toFixed(2) ?? 'N/A'}</td>
                                 </tr>
                             `;
                         }).join('')}
@@ -447,6 +459,7 @@ function sortQualityTable(results, column, container) {
     const tbody = container.querySelector('tbody');
     tbody.innerHTML = sorted.map(r => {
         const accClass = (r.val_accuracy >= 0.9) ? 'quality-good' : (r.val_accuracy >= 0.75) ? 'quality-ok' : 'quality-bad';
+        const aucClass = (r.val_auc_roc >= 0.9) ? 'quality-good' : (r.val_auc_roc >= 0.75) ? 'quality-ok' : 'quality-bad';
         return `
             <tr>
                 <td>${window.getDisplayName(r.trait)}</td>
@@ -454,9 +467,9 @@ function sortQualityTable(results, column, container) {
                 <td>${r.layer}</td>
                 <td><strong>${r.combined_score.toFixed(3)}</strong></td>
                 <td class="${accClass}">${(r.val_accuracy * 100).toFixed(1)}%</td>
+                <td class="${aucClass}">${(r.val_auc_roc * 100).toFixed(1)}%</td>
                 <td>${r.val_effect_size?.toFixed(2) ?? 'N/A'}</td>
                 <td>${r.vector_norm?.toFixed(1) ?? 'N/A'}</td>
-                <td>${r.separation_margin?.toFixed(2) ?? 'N/A'}</td>
             </tr>
         `;
     }).join('');
@@ -689,6 +702,47 @@ function renderBestVectorSimilarity(evalData) {
         xaxis: { side: 'top', tickangle: -45, tickfont: { size: 10 } },
         yaxis: { tickfont: { size: 10 } },
         height: 600
+    }), { displayModeBar: false, responsive: true });
+}
+
+
+function renderCrossLayerConsistency(evalData) {
+    const container = document.getElementById('cross-layer-consistency-container');
+    if (!container) return;
+
+    const consistencyData = evalData.cross_layer_consistency || {};
+    const traits = Object.keys(consistencyData);
+
+    if (traits.length === 0) {
+        container.innerHTML = '<p>No cross-layer consistency data available.</p>';
+        return;
+    }
+
+    // Extract mean consistency per trait
+    const traitNames = traits.map(t => window.getDisplayName(t));
+    const meanValues = traits.map(t => consistencyData[t]?.mean || 0);
+
+    // Sort by consistency (descending)
+    const sortedIndices = meanValues.map((v, i) => i).sort((a, b) => meanValues[b] - meanValues[a]);
+    const sortedTraits = sortedIndices.map(i => traitNames[i]);
+    const sortedValues = sortedIndices.map(i => meanValues[i]);
+
+    const trace = {
+        x: sortedTraits,
+        y: sortedValues,
+        type: 'bar',
+        marker: {
+            color: sortedValues.map(v => v >= 0.8 ? getCssVar('--success', '#4a9') : v >= 0.5 ? getCssVar('--warning', '#a94') : getCssVar('--danger', '#a44'))
+        },
+        text: sortedValues.map(v => v.toFixed(2)),
+        textposition: 'outside'
+    };
+
+    Plotly.newPlot(container, [trace], window.getPlotlyLayout({
+        margin: { l: 60, r: 20, t: 20, b: 120 },
+        xaxis: { tickangle: -45, tickfont: { size: 10 } },
+        yaxis: { title: 'Mean Cosine Similarity', range: [0, 1] },
+        height: 350
     }), { displayModeBar: false, responsive: true });
 }
 
