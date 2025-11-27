@@ -67,8 +67,15 @@ All views use standardized CSS classes from `styles.css`. No view-specific CSS.
 | `.def-table` | Term/definition pairs (two columns) |
 | `.info-icon` | Hover info trigger (ⓘ symbol) |
 | `.tooltip` | Positioned popup content |
-| `.tool-description` | Secondary text below headings |
+| `.tool-description` | Collapsible explanation (details/summary) |
 | `.stats-row` | Inline stats display (flex, gap) |
+| `.section-desc` | Muted text below section headers |
+| `.layer-badge` | Small indicator for layer info |
+| `.no-data` | Centered placeholder for empty states |
+| `.file-hint` | Muted count/status after file names |
+| `.quality-good/ok/bad` | Color indicators for quality metrics |
+| `.info.error` | Error-colored info box |
+| `.category-reference` | Collapsible reference section at bottom |
 
 ### Usage Pattern
 

@@ -559,7 +559,7 @@ def compute_cross_trait_matrix(
 
 
 def main(experiment: str,
-         methods: str = "probe,mean_diff,gradient,ica",
+         methods: str = "mean_diff,probe,ica,gradient,pca_diff,random_baseline",
          layers: str = None,
          output: str = None,
          no_normalize: bool = False):

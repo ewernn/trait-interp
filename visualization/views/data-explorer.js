@@ -113,7 +113,7 @@ function renderTraitFileTree(trait, integrityData, schema) {
             <div class="file-item indent-1">
                 <span class="file-icon">📁</span>
                 <strong>prompts/</strong>
-                <span style="opacity: 0.6; font-size: 11px;">(${promptsOk}/${promptFiles.length} files)</span>
+                <span class="file-hint">(${promptsOk}/${promptFiles.length} files)</span>
             </div>
     `;
 
@@ -143,7 +143,7 @@ function renderTraitFileTree(trait, integrityData, schema) {
             <div class="file-item indent-2 ${isClickable ? 'clickable' : ''}" ${isClickable ? `onclick="previewMetadata('${trait.trait}', '${file}')"` : ''}>
                 <span class="file-icon ${exists ? '' : 'missing'}">${getFileIcon(exists)}</span>
                 <span class="${exists ? '' : 'missing'}">${file}</span>
-                ${isClickable ? '<span style="opacity: 0.6; font-size: 11px;">[preview →]</span>' : ''}
+                ${isClickable ? '<span class="file-hint">[preview →]</span>' : ''}
             </div>
         `;
     }
@@ -153,7 +153,7 @@ function renderTraitFileTree(trait, integrityData, schema) {
             <div class="file-item indent-1">
                 <span class="file-icon">📁</span>
                 <strong>responses/</strong>
-                <span style="opacity: 0.6; font-size: 11px;">(${responsesOk}/${responseFiles.length} files)</span>
+                <span class="file-hint">(${responsesOk}/${responseFiles.length} files)</span>
             </div>
     `;
 
@@ -170,7 +170,7 @@ function renderTraitFileTree(trait, integrityData, schema) {
             <div class="file-item indent-2 ${isClickable ? 'clickable' : ''}" ${isClickable ? `onclick="previewResponses('${trait.trait}', '${polarity}', ${isVal})"` : ''}>
                 <span class="file-icon ${exists ? '' : 'missing'}">${getFileIcon(exists)}</span>
                 <span class="${exists ? '' : 'missing'}">${respPath}</span>
-                ${isClickable ? '<span style="opacity: 0.6; font-size: 11px;">[preview →]</span>' : ''}
+                ${isClickable ? '<span class="file-hint">[preview →]</span>' : ''}
             </div>
         `;
     }
@@ -180,7 +180,7 @@ function renderTraitFileTree(trait, integrityData, schema) {
             <div class="file-item indent-1">
                 <span class="file-icon">📁</span>
                 <strong>activations/</strong>
-                <span style="opacity: 0.6; font-size: 11px;">(${totalActs}/${trait.expected_activations} layer files)</span>
+                <span class="file-hint">(${totalActs}/${trait.expected_activations} layer files)</span>
             </div>
     `;
 
@@ -189,7 +189,7 @@ function renderTraitFileTree(trait, integrityData, schema) {
             <div class="file-item indent-2 ${metadataExists ? 'clickable' : ''}" ${metadataExists ? `onclick="previewActivationsMetadata('${trait.trait}')"` : ''}>
                 <span class="file-icon ${metadataExists ? '' : 'missing'}">${getFileIcon(metadataExists)}</span>
                 <span class="${metadataExists ? '' : 'missing'}">metadata.json</span>
-                ${metadataExists ? '<span style="opacity: 0.6; font-size: 11px;">[preview →]</span>' : ''}
+                ${metadataExists ? '<span class="file-hint">[preview →]</span>' : ''}
             </div>
     `;
 
@@ -208,7 +208,7 @@ function renderTraitFileTree(trait, integrityData, schema) {
             <div class="file-item indent-2">
                 <span class="file-icon ${complete ? '' : 'missing'}">${complete ? '✓' : '⚠'}</span>
                 <span class="${complete ? '' : 'partial'}">${dir}${pattern}</span>
-                <span style="opacity: 0.6; font-size: 11px;">(${count}/${expected} layers)</span>
+                <span class="file-hint">(${count}/${expected} layers)</span>
             </div>
         `;
     }
@@ -219,7 +219,7 @@ function renderTraitFileTree(trait, integrityData, schema) {
             <div class="file-item indent-1">
                 <span class="file-icon">📁</span>
                 <strong>vectors/</strong>
-                <span style="opacity: 0.6; font-size: 11px;">(${totalVectors} tensors + ${totalMeta} metadata)</span>
+                <span class="file-hint">(${totalVectors} tensors + ${totalMeta} metadata)</span>
             </div>
     `;
 
@@ -232,7 +232,7 @@ function renderTraitFileTree(trait, integrityData, schema) {
             <div class="file-item indent-2">
                 <span class="file-icon ${complete ? '' : 'missing'}">${complete ? '✓' : '⚠'}</span>
                 <span class="${complete ? '' : 'partial'}">${method}_layer[0-${integrityData.n_layers - 1}].pt</span>
-                <span style="opacity: 0.6; font-size: 11px;">(${ptCount}/${expectedVectorsPerMethod} + ${metaCount} meta)</span>
+                <span class="file-hint">(${ptCount}/${expectedVectorsPerMethod} + ${metaCount} meta)</span>
             </div>
         `;
     }
@@ -247,14 +247,14 @@ function renderTraitFileTree(trait, integrityData, schema) {
         `;
         for (const issue of trait.issues.slice(0, 5)) {
             html += `
-            <div class="file-item indent-2" style="color: var(--text-secondary); font-size: 11px;">
+            <div class="file-item indent-2 file-hint">
                 <span>• ${issue}</span>
             </div>
             `;
         }
         if (trait.issues.length > 5) {
             html += `
-            <div class="file-item indent-2" style="color: var(--text-secondary); font-size: 11px;">
+            <div class="file-item indent-2 file-hint">
                 <span>... and ${trait.issues.length - 5} more</span>
             </div>
             `;
@@ -305,13 +305,13 @@ async function renderDataExplorer() {
         </details>
         <div class="stats-row">
             <span><strong>Traits:</strong> ${totalTraits}</span>
-            <span><strong>Complete:</strong> <span style="color: var(--success);">${summary.ok}</span></span>
-            <span><strong>Partial:</strong> <span style="color: var(--warning);">${summary.partial}</span></span>
-            <span><strong>Empty:</strong> <span style="color: var(--danger);">${summary.empty}</span></span>
+            <span><strong>Complete:</strong> <span class="quality-good">${summary.ok}</span></span>
+            <span><strong>Partial:</strong> <span class="quality-ok">${summary.partial}</span></span>
+            <span><strong>Empty:</strong> <span class="quality-bad">${summary.empty}</span></span>
         </div>
         <section>
             <h3>File Explorer</h3>
-            <p style="margin-bottom: 12px;">
+            <p class="section-desc">
                 Config: ${integrityData.n_layers} layers, ${integrityData.n_methods} methods (${integrityData.methods.join(', ')})
             </p>
     `;
@@ -336,8 +336,8 @@ async function renderDataExplorer() {
             <div class="explorer-trait-card">
                 <div class="explorer-trait-header" onclick="toggleTraitBody('${trait.trait.replace(/\//g, '-')}')">
                     <span>${statusIcon}</span>
-                    <strong style="margin-left: 8px;">${displayName}</strong>
-                    <span style="margin-left: auto; font-size: 11px; color: var(--text-tertiary);">
+                    <strong>${displayName}</strong>
+                    <span class="file-hint" style="margin-left: auto;">
                         ${trait.category} | ${promptsOk}/${expectedPrompts} prompts | ${responsesOk}/${expectedResponses} responses | ${totalActs}/${trait.expected_activations} acts | ${totalVectors} vectors
                     </span>
                 </div>
@@ -363,7 +363,7 @@ async function renderDataExplorer() {
                 <div class="file-item">
                     <span class="file-icon">📁</span>
                     <strong>prompts/</strong>
-                    <span style="opacity: 0.6; font-size: 11px;">(${Object.keys(inf.prompt_sets).length} sets)</span>
+                    <span class="file-hint">(${Object.keys(inf.prompt_sets).length} sets)</span>
                 </div>
             `;
             for (const [name, exists] of Object.entries(inf.prompt_sets)) {
@@ -388,7 +388,7 @@ async function renderDataExplorer() {
                 <div class="file-item indent-1">
                     <span class="file-icon">📁</span>
                     <span>${promptSet}/</span>
-                    <span style="opacity: 0.6; font-size: 11px;">(${count} .pt files)</span>
+                    <span class="file-hint">(${count} .pt files)</span>
                 </div>
                 `;
             }
@@ -403,7 +403,7 @@ async function renderDataExplorer() {
             `;
             for (const issue of inf.issues) {
                 html += `
-                <div class="file-item indent-1" style="color: var(--text-secondary); font-size: 11px;">
+                <div class="file-item indent-1 file-hint">
                     <span>• ${issue}</span>
                 </div>
                 `;
@@ -423,7 +423,7 @@ async function renderDataExplorer() {
             <div class="file-item">
                 <span class="file-icon">${integrityData.evaluation_exists ? '✓' : '✗'}</span>
                 <span class="${integrityData.evaluation_exists ? '' : 'missing'}">extraction_evaluation.json</span>
-                <span style="opacity: 0.6; font-size: 11px;">${integrityData.evaluation_exists ? '(exists)' : '(not generated)'}</span>
+                <span class="file-hint">${integrityData.evaluation_exists ? '(exists)' : '(not generated)'}</span>
             </div>
         </section>
         </div>
@@ -515,7 +515,7 @@ async function previewResponses(traitName, polarity, isVal = false) {
         body.innerHTML = `
             <div class="json-viewer">
                 <pre>${syntaxHighlightJSON(truncated)}</pre>
-                <div style="margin-top: 10px; color: var(--text-secondary); font-size: 12px;">
+                <div class="file-hint" style="margin-top: 10px;">
                     Showing first 10 of ${data.length} items
                 </div>
             </div>

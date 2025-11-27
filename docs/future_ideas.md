@@ -55,6 +55,14 @@ Research extensions and technical improvements identified through experimentatio
 
 **Impact**: Provides a more robust and nuanced method for identifying the most useful trait vectors, preventing suboptimal choices based on a single metric and surfacing vectors with different desirable properties.
 
+### 6. SVD Dimensionality Analysis
+
+**Method**: Decompose trait vectors via SVD, test effectiveness with top-K components only.
+
+**Test**: Does 20-dim subspace achieve same accuracy as full 2304-dim vector?
+
+**Impact**: Shows trait sparsity, enables compression, reveals if traits are localized or distributed.
+
 ---
 
 ## Mechanistic Understanding
@@ -82,6 +90,14 @@ Research extensions and technical improvements identified through experimentatio
 **Test**: Do traits transfer? Are layer numbers absolute or relative? Does middle-layer optimum generalize?
 
 **Impact**: Tests whether findings are Gemma-specific or universal to transformer architectures.
+
+### 8. Distributed Alignment Search (DAS)
+
+**Method**: Learn optimal trait directions using expected behavior changes as supervision. Train rotation matrix, freeze model weights.
+
+**Test**: Compare DAS-extracted vectors to mean_diff/probe on cross-distribution accuracy.
+
+**Impact**: Potentially more robust extraction than unsupervised methods. Bridges to causal abstraction literature.
 
 ---
 
@@ -134,6 +150,14 @@ Research extensions and technical improvements identified through experimentatio
 **Test**: Which traits are independent vs measuring same computation?
 
 **Impact**: Quantifies confounding structure, validates whether framework is coherent or over-partitioned.
+
+### 14. Interchange Interventions
+
+**Method**: Swap trait components between prompts with opposite trait expression, verify behavior swaps.
+
+**Test**: Run harmful + benign prompt, patch trait component from benign into harmful's generation. Does refusal drop?
+
+**Impact**: Gold standard causal test. Proves vectors are causal mechanisms, not just correlational markers.
 
 ---
 

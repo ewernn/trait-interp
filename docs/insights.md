@@ -26,6 +26,8 @@
 
 - **Natural data is clean**: All methods achieve 96-100% when trained on natural elicitation. *Implication*: Natural elicitation sidesteps method selection problems.
 
+- **Steering measures, doesn't control**: Axebench showed steering underperforms prompting and fine-tuning for behavioral control. *Implication*: Frame trait vectors as monitoring/understanding tools, not control mechanisms.
+
 ## Layer Dynamics & Phases
 
 - **Three computational phases** (after normalization):
