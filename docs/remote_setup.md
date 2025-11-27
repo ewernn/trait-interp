@@ -17,9 +17,9 @@ curl -fsSL https://claude.ai/install.sh | bash
 git clone https://github.com/ewernn/trait-interp.git
 cd trait-interp
 
-# 4. Auto-source .env in all terminals
-echo "source ~/trait-interp/.env" >> ~/.bashrc
-source .env
+# 4. Auto-source .env in all terminals (current + future)
+echo 'source ~/trait-interp/.env' >> ~/.bashrc
+source ~/.bashrc
 
 # 5. Pull data and install deps
 ./utils/r2_pull.sh       # Auto-configures rclone if needed
