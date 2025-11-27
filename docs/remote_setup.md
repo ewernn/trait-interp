@@ -2,10 +2,10 @@
 
 Quick setup for Vast.ai / RunPod with PyTorch template.
 
-## Setup Commands
+## Setup
 
 ```bash
-# 1. Create non-root user (Claude Code requires this)
+# 1. Create non-root user (Claude Code needs this)
 useradd -m -s /bin/bash dev
 echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 su - dev
@@ -13,32 +13,23 @@ su - dev
 # 2. Install Claude Code
 curl -fsSL https://claude.ai/install.sh | bash
 
-# 3. Clone repo (use your GitHub token for private repo)
+# 3. Clone and setup
 git clone https://github.com/ewernn/trait-interp.git
 cd trait-interp
-
-# 4. Setup R2 and pull experiment data
-chmod +x utils/*.sh
-./utils/setup_r2.sh
-./utils/r2_pull.sh
-
-# 5. Install Python deps
+source .env              # Load HF_TOKEN, R2 creds
+./utils/r2_pull.sh       # Auto-configures rclone if needed, pulls data
 pip install -r requirements.txt
 
-# 6. Set HuggingFace token
-export HF_TOKEN=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
+# 4. Run experiment
+python scripts/em_overnight_experiment.py
 ```
 
-## Push Results Back
+## When Done
 
 ```bash
-./utils/r2_push.sh
+./utils/r2_push.sh       # Push results back to R2
 ```
 
 ## Current Experiment
 
-See `docs/emergent-misalignment-plan.md` for the EM validation experiment:
-
-```bash
-python scripts/em_overnight_experiment.py
-```
+See `docs/emergent-misalignment-plan.md` for details.
