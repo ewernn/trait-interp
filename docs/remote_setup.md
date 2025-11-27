@@ -13,14 +13,19 @@ su - dev
 # 2. Install Claude Code
 curl -fsSL https://claude.ai/install.sh | bash
 
-# 3. Clone and setup
+# 3. Clone repo
 git clone https://github.com/ewernn/trait-interp.git
 cd trait-interp
-source .env              # Load HF_TOKEN, R2 creds
-./utils/r2_pull.sh       # Auto-configures rclone if needed, pulls data
+
+# 4. Auto-source .env in all terminals
+echo "source ~/trait-interp/.env" >> ~/.bashrc
+source .env
+
+# 5. Pull data and install deps
+./utils/r2_pull.sh       # Auto-configures rclone if needed
 pip install -r requirements.txt
 
-# 4. Run experiment
+# 6. Run experiment
 python scripts/em_overnight_experiment.py
 ```
 
@@ -32,4 +37,4 @@ python scripts/em_overnight_experiment.py
 
 ## Current Experiment
 
-See `docs/emergent-misalignment-plan.md` for details.
+See `docs/emergent-misalignment-plan.md` for EM validation experiment details.
