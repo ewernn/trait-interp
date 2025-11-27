@@ -167,10 +167,6 @@
                         <span class="icon">🖼️</span>
                         <span>Analysis Gallery</span>
                     </div>
-                    <div class="nav-item" data-view="token-explorer">
-                        <span class="icon">🔍</span>
-                        <span>Token Explorer</span>
-                    </div>
                 </div>
             </div>
 
@@ -219,7 +215,6 @@
     <script src="/visualization/views/trait-dynamics.js"></script>
     <script src="/visualization/views/layer-deep-dive.js"></script>
     <script src="/visualization/views/analysis-gallery.js"></script>
-    <script src="/visualization/views/token-explorer.js"></script>
 
     <!-- View Router -->
     <script>
@@ -235,8 +230,7 @@
                 'trait-trajectory': 'Trait Trajectory',
                 'trait-dynamics': 'Trait Dynamics',
                 'layer-deep-dive': 'Layer Deep Dive',
-                'analysis-gallery': 'Analysis Gallery',
-                'token-explorer': 'Token Explorer'
+                'analysis-gallery': 'Analysis Gallery'
             };
             document.getElementById('page-title').textContent = viewTitles[view] || 'Unknown View';
 
@@ -261,9 +255,6 @@
                     break;
                 case 'analysis-gallery':
                     window.renderAnalysisGallery();
-                    break;
-                case 'token-explorer':
-                    window.renderTokenExplorer();
                     break;
                 default:
                     document.getElementById('content-area').innerHTML =

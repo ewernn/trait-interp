@@ -91,7 +91,7 @@ Natural elicitation is an alternative to instruction-based trait extraction that
 ### 1. Generate Natural Responses
 
 ```bash
-python extraction/1_generate_responses.py \
+python extraction/generate_responses.py \
   --experiment {experiment_name} \
   --trait {category}/{trait} \
   --batch-size 4 \
@@ -100,22 +100,20 @@ python extraction/1_generate_responses.py \
 
 **Output:**
 - `experiments/{experiment_name}/extraction/{category}/{trait}/responses/pos.json`
-- `experiments/{experiment_name}/refusal/extraction/responses/neg.json`
+- `experiments/{experiment_name}/extraction/{category}/{trait}/responses/neg.json`
 
 ### 2. Extract Activations
 
 ```bash
-python extraction/2_extract_activations.py \
+python extraction/extract_activations.py \
   --experiment {experiment_name} \
   --trait {category}/{trait}
 ```
 
-**Note:** This script works unchanged - just reads JSON responses and captures activations
-
 ### 3. Extract Vectors
 
 ```bash
-python extraction/3_extract_vectors.py \
+python extraction/extract_vectors.py \
   --experiment {experiment_name} \
   --trait {category}/{trait} \
   --methods mean_diff,probe \
@@ -207,27 +205,16 @@ Tell me about a disappointing experience
 
 ## Next Steps
 
-1. ✅ Created natural scenarios for: refusal, uncertainty_calibration, sycophancy
-2. ✅ Wrote generation script: `1_generate_responses.py`
-3. ✅ Wrote validation script: `validate_natural_vectors.py`
-4. ⏳ Running extraction pipeline on refusal trait
-5. ⏳ Validate refusal vector polarity
-6. **If successful:** Scale to all 15 traits
-7. **If unsuccessful:** Investigate LoRA-based approach
-
 ## Files
 
 **Prompt files (100+ per side, experiment-specific):**
 - `experiments/{experiment_name}/extraction/{category}/{trait}/positive.txt`
 - `experiments/{experiment_name}/extraction/{category}/{trait}/negative.txt`
 
-Each trait directory also includes a `README.md` documenting the specific methodology.
-
 **Scripts:**
-- `extraction/1_generate_responses.py` - Generate responses (no instructions)
-- `extraction/2_extract_activations.py` - Capture activations from JSON responses
-- `extraction/3_extract_vectors.py` - Extract vectors (mean_diff method)
-- `extraction/validate_natural_vectors.py` - Test vector polarity
+- `extraction/generate_responses.py` - Generate responses (no instructions)
+- `extraction/extract_activations.py` - Capture activations from JSON responses
+- `extraction/extract_vectors.py` - Extract vectors (supports --trait all)
 
 ## Research Value
 

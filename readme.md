@@ -57,11 +57,12 @@ mkdir -p experiments/my_exp/extraction/category/my_trait
 # Create positive.txt and negative.txt following docs/creating_traits.md
 
 # 2. Run extraction pipeline
-python extraction/1_generate_responses.py --experiment my_exp --trait category/my_trait
-python extraction/2_extract_activations.py --experiment my_exp --trait category/my_trait
+python extraction/generate_responses.py --experiment my_exp --trait category/my_trait
+python extraction/extract_activations.py --experiment my_exp --trait category/my_trait
+python extraction/extract_vectors.py --experiment my_exp --trait category/my_trait
 
-# 3. Extract vectors
-python extraction/3_extract_vectors.py --experiment my_exp --trait category/my_trait
+# Or run all traits at once
+python extraction/extract_vectors.py --experiment my_exp --trait all
 ```
 
 ## Monitoring & Visualization
@@ -111,12 +112,12 @@ See [docs/creating_traits.md](docs/creating_traits.md) for trait design and [doc
 ```
 trait-interp/
 ├── extraction/                  # Trait vector extraction pipeline
-│   ├── 1_generate_responses.py
-│   ├── 2_extract_activations.py
-│   └── 3_extract_vectors.py
+│   ├── generate_responses.py
+│   ├── extract_activations.py
+│   └── extract_vectors.py
 ├── inference/                   # Per-token monitoring
-│   ├── capture.py              # Capture + project
-│   └── project.py              # Re-project from saved activations
+│   ├── capture_raw_activations.py        # Capture + project
+│   └── project_raw_activations_onto_traits.py  # Re-project from saved activations
 ├── experiments/                 # Experiment data
 │   └── {experiment_name}/
 │       ├── extraction/{category}/{trait}/

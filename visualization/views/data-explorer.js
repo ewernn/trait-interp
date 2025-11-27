@@ -295,40 +295,25 @@ async function renderDataExplorer() {
     const totalTraits = summary.total_traits;
 
     let html = `
-        <div class="explanation">
-            <div class="explanation-summary">Inspect all raw data files created during trait extraction—from prompts to responses to extracted vectors.</div>
-            <div class="explanation-details">
-                <p><strong>Prompts:</strong> Natural scenarios that elicit or avoid each trait (positive.txt, negative.txt)</p>
-                <p><strong>Responses:</strong> Model outputs when presented with those prompts</p>
-                <p><strong>Activations:</strong> Hidden states captured during response generation (per-layer .pt files)</p>
-                <p><strong>Vectors:</strong> Extracted trait directions using 4 methods × ${integrityData.n_layers} layers</p>
-            </div>
+        <div class="tool-view">
+        <details class="tool-description">
+            <summary>Inspect all raw data files created during trait extraction—from prompts to responses to extracted vectors.</summary>
+            <p><strong>Prompts:</strong> Natural scenarios that elicit or avoid each trait (positive.txt, negative.txt)</p>
+            <p><strong>Responses:</strong> Model outputs when presented with those prompts</p>
+            <p><strong>Activations:</strong> Hidden states captured during response generation (per-layer .pt files)</p>
+            <p><strong>Vectors:</strong> Extracted trait directions using 4 methods × ${integrityData.n_layers} layers</p>
+        </details>
+        <div class="stats-row">
+            <span><strong>Traits:</strong> ${totalTraits}</span>
+            <span><strong>Complete:</strong> <span style="color: var(--success);">${summary.ok}</span></span>
+            <span><strong>Partial:</strong> <span style="color: var(--warning);">${summary.partial}</span></span>
+            <span><strong>Empty:</strong> <span style="color: var(--danger);">${summary.empty}</span></span>
         </div>
-        <div class="card">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <span class="stat-label">Traits:</span>
-                    <span class="stat-value">${totalTraits}</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">Complete:</span>
-                    <span class="stat-value" style="color: var(--success);">${summary.ok}</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">Partial:</span>
-                    <span class="stat-value" style="color: var(--warning);">${summary.partial}</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">Empty:</span>
-                    <span class="stat-value" style="color: var(--danger);">${summary.empty}</span>
-                </div>
-            </div>
-        </div>
-        <div class="card">
-            <div class="card-title">File Explorer</div>
-            <div style="margin-bottom: 12px; font-size: 12px; color: var(--text-secondary);">
+        <section>
+            <h3>File Explorer</h3>
+            <p style="margin-bottom: 12px;">
                 Config: ${integrityData.n_layers} layers, ${integrityData.n_methods} methods (${integrityData.methods.join(', ')})
-            </div>
+            </p>
     `;
 
     // Render each trait
@@ -363,11 +348,14 @@ async function renderDataExplorer() {
         `;
     }
 
+    html += `</section>`; // Close File Explorer section
+
     // Inference section
     if (integrityData.inference) {
         const inf = integrityData.inference;
         html += `
-            <div class="card-title" style="margin-top: 24px;">Inference Data</div>
+            <section>
+            <h3>Inference Data</h3>
         `;
 
         if (Object.keys(inf.prompt_sets).length > 0) {
@@ -423,22 +411,25 @@ async function renderDataExplorer() {
         }
     }
 
+    // Close inference section if it was opened
+    if (integrityData.inference) {
+        html += `</section>`;
+    }
+
     // Evaluation status
     html += `
-        <div class="card-title" style="margin-top: 24px;">Evaluation</div>
-        <div class="file-item">
-            <span class="file-icon">${integrityData.evaluation_exists ? '✓' : '✗'}</span>
-            <span class="${integrityData.evaluation_exists ? '' : 'missing'}">extraction_evaluation.json</span>
-            <span style="opacity: 0.6; font-size: 11px;">${integrityData.evaluation_exists ? '(exists)' : '(not generated)'}</span>
-        </div>
-    `;
-
-    html += `
+        <section>
+            <h3>Evaluation</h3>
+            <div class="file-item">
+                <span class="file-icon">${integrityData.evaluation_exists ? '✓' : '✗'}</span>
+                <span class="${integrityData.evaluation_exists ? '' : 'missing'}">extraction_evaluation.json</span>
+                <span style="opacity: 0.6; font-size: 11px;">${integrityData.evaluation_exists ? '(exists)' : '(not generated)'}</span>
+            </div>
+        </section>
         </div>
     `;
 
     contentArea.innerHTML = html;
-    setupExplanationToggles();
 }
 
 // Toggle trait body visibility
@@ -566,15 +557,6 @@ function closePreview() {
     modal?.classList.remove('show');
 }
 
-// Setup explanation toggles
-function setupExplanationToggles() {
-    document.querySelectorAll('.explanation-summary').forEach(summary => {
-        summary.addEventListener('click', function() {
-            const explanation = this.closest('.explanation');
-            explanation?.classList.toggle('expanded');
-        });
-    });
-}
 
 // Close modal when clicking outside
 document.addEventListener('click', (e) => {

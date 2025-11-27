@@ -1176,7 +1176,7 @@ The core methodology (contrastive extraction, projection onto vectors) is nearly
 ### What trait-interp Already Has
 
 #### Core Extraction Pipeline
-- ✅ **Contrastive pair extraction** - `extraction/3_extract_vectors.py` supports difference-in-means
+- ✅ **Contrastive pair extraction** - `extraction/extract_vectors.py` supports difference-in-means
 - ✅ **Multi-method extraction** - probe, ICA, gradient methods (paper only uses mean_diff)
 - ✅ **Multi-layer analysis** - All layers extracted, paper focuses on single optimal layer
 - ✅ **Activation capture** - `inference/capture_raw_activations.py`
@@ -1271,9 +1271,9 @@ Paper uses only difference-in-means. trait-interp supports:
 - **ICA** - Separates mixed traits into independent components
 - **Gradient** - Optimizes for maximum separation
 
-Example from `extraction/3_extract_vectors.py`:
+Example from `extraction/extract_vectors.py`:
 ```bash
-python extraction/3_extract_vectors.py \
+python extraction/extract_vectors.py \
   --experiment my_exp \
   --trait refusal \
   --methods mean_diff,probe,ica,gradient

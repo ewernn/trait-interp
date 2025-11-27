@@ -22,9 +22,8 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[extraction/elicitation_guide.md](../extraction/elicitation_guide.md)** - Natural elicitation method
 
 ### Experiments & Analysis
-- **[experiments/{experiment_name}/analysis/README.md](../experiments/gemma_2b_cognitive_nov21/analysis/README.md)** - Analysis script guide (per-experiment)
-- **[experiments/{experiment_name}/analysis/GRAPH_REFERENCE.md](../experiments/gemma_2b_cognitive_nov21/analysis/GRAPH_REFERENCE.md)** - Graph calculations and interpretation reference (per-experiment)
 - Experiment data stored in `experiments/{experiment_name}/` (see Directory Structure below)
+- Analysis visualizations are live-rendered in the Analysis Gallery (no separate docs needed)
 
 ### Inference & Monitoring
 - **[inference/README.md](../inference/README.md)** - Per-token inference and dynamics capture
@@ -63,9 +62,9 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 ```
 trait-interp/
 ├── extraction/             # Vector extraction pipeline (training time)
-│   ├── 1_generate_responses.py        # Generate responses from natural scenarios
-│   ├── 2_extract_activations.py       # Extract activations from responses
-│   ├── 3_extract_vectors.py           # Extract trait vectors from activations
+│   ├── generate_responses.py          # Generate responses from natural scenarios
+│   ├── extract_activations.py         # Extract activations from responses
+│   ├── extract_vectors.py             # Extract trait vectors from activations
 │   ├── scenarios/             # Natural contrasting prompts (100+ each)
 │   └── elicitation_guide.md   # Guide for creating new traits
 │
@@ -96,21 +95,9 @@ trait-interp/
 │       │   │   └── internals/{prompt_set}/{id}_L{layer}.pt  # Single layer deep (optional)
 │       │   └── {category}/{trait}/
 │       │       └── residual_stream/{prompt_set}/{id}.json  # Projections + dynamics
-│       └── analysis/               # Analysis outputs (view in Analysis Gallery & Token Explorer)
-│           ├── README.md           # Complete script documentation
-│           ├── GRAPH_REFERENCE.md  # Graph calculations & interpretation guide
-│           ├── run_analyses.py     # Batch runner for gallery analyses
-│           ├── compute_derivative_overlay.py  # Position/velocity/acceleration per trait
-│           ├── compute_per_token_all_sets.py  # Per-token metrics (all prompt sets)
-│           ├── index.json          # Auto-generated index for gallery
-│           ├── normalized_velocity/  # prompt_1.png ... prompt_8.png, summary.png
-│           ├── radial_angular/       # prompt_1.png ... prompt_8.png, summary.png
-│           ├── trait_projections/    # prompt_1.png ... prompt_8.png, summary.png
-│           ├── trait_emergence/      # emergence_layers.png (single file)
-│           ├── trait_dynamics_correlation/  # velocity_trait_correlation.png (single file)
-│           ├── derivative_overlay/   # 80 graphs: prompt_{1-8}_{trait}.png
-│           ├── attention_dynamics/   # Experimental: velocity, acceleration, phase space
-│           └── per_token/{prompt_set}/  # Per-token JSON for Token Explorer
+│       └── analysis/               # Analysis outputs (view in Analysis Gallery)
+│           └── per_token/{prompt_set}/  # Per-token JSON for live-rendered gallery
+│               └── {id}.json            # Token metrics, trait scores, velocity
 │
 ├── config/                 # Configuration files
 │   └── paths.yaml         # Single source of truth for all repo paths
@@ -132,6 +119,7 @@ trait-interp/
 │   │   ├── extraction_evaluation.py   # Evaluate vectors on held-out data
 │   │   └── vector_ranking.py          # Rank vectors by quality metrics
 │   └── inference/
+│       ├── compute_per_token_metrics.py   # Generate per-token JSON for Analysis Gallery
 │       ├── attention_decay_analysis.py    # Analyze attention patterns
 │       └── commitment_point_detection.py  # Find trait commitment points
 │
@@ -163,9 +151,9 @@ vim experiments/my_exp/extraction/category/my_trait/positive.txt
 vim experiments/my_exp/extraction/category/my_trait/negative.txt
 
 # 2. Run extraction pipeline
-python extraction/1_generate_responses.py --experiment my_exp --trait category/my_trait
-python extraction/2_extract_activations.py --experiment my_exp --trait category/my_trait
-python extraction/3_extract_vectors.py --experiment my_exp --trait category/my_trait
+python extraction/generate_responses.py --experiment my_exp --trait category/my_trait
+python extraction/extract_activations.py --experiment my_exp --trait category/my_trait
+python extraction/extract_vectors.py --experiment my_exp --trait category/my_trait
 ```
 
 **For custom analysis using traitlens:**
@@ -313,9 +301,9 @@ vim experiments/my_exp/extraction/category/my_trait/positive.txt
 vim experiments/my_exp/extraction/category/my_trait/negative.txt
 
 # 2. Run extraction pipeline
-python extraction/1_generate_responses.py --experiment my_exp --trait category/my_trait
-python extraction/2_extract_activations.py --experiment my_exp --trait category/my_trait
-python extraction/3_extract_vectors.py --experiment my_exp --trait category/my_trait
+python extraction/generate_responses.py --experiment my_exp --trait category/my_trait
+python extraction/extract_activations.py --experiment my_exp --trait category/my_trait
+python extraction/extract_vectors.py --experiment my_exp --trait category/my_trait
 
 # Result: vectors in experiments/my_exp/extraction/category/my_trait/vectors/
 ```
@@ -335,11 +323,13 @@ Trait vectors are directions in activation space that separate positive from neg
 4. Apply extraction method (mean difference, probe, ICA, or gradient)
 5. Result: vector that measures genuine trait expression
 
-**Extraction methods**:
+**Extraction methods** (6 total):
 - **Mean difference** (baseline): `vector = mean(pos) - mean(neg)`
-- **Linear probe**: Train logistic regression, use weights as vector
+- **Linear probe**: Train logistic regression, use weights as vector (supports L1/L2 via `penalty` param)
 - **ICA**: Separate mixed traits into independent components
 - **Gradient**: Optimize vector to maximize separation
+- **PCA diff**: PCA on per-example differences (RepE-style)
+- **Random baseline**: Random unit vector (sanity check, should get ~50% accuracy)
 
 See [traitlens](https://github.com/ewernn/traitlens) for the extraction toolkit and implementation details.
 
@@ -376,7 +366,7 @@ The pipeline has 3 stages. See [docs/pipeline_guide.md](pipeline_guide.md) for d
 Generate responses from natural scenario files (no instructions).
 
 ```bash
-python extraction/1_generate_responses.py \
+python extraction/generate_responses.py \
   --experiment my_exp \
   --trait category/my_trait \
   --model google/gemma-2-2b-it
@@ -389,7 +379,7 @@ python extraction/1_generate_responses.py \
 Capture activations from all layers for all examples.
 
 ```bash
-python extraction/2_extract_activations.py \
+python extraction/extract_activations.py \
   --experiment my_exp \
   --trait my_trait
 ```
@@ -403,12 +393,12 @@ Apply extraction methods to get trait vectors.
 
 ```bash
 # Default: all methods, all layers
-python extraction/3_extract_vectors.py \
+python extraction/extract_vectors.py \
   --experiment my_exp \
   --trait my_trait
 
 # Specific methods and layers
-python extraction/3_extract_vectors.py \
+python extraction/extract_vectors.py \
   --experiment my_exp \
   --trait my_trait \
   --methods mean_diff,probe \
@@ -423,7 +413,7 @@ python extraction/3_extract_vectors.py \
 Vector extraction supports multiple traits:
 
 ```bash
-python extraction/3_extract_vectors.py \
+python extraction/extract_vectors.py \
   --experiment my_exp \
   --traits category/trait1,category/trait2
 ```
@@ -676,9 +666,9 @@ The 16 extracted trait vectors demonstrate bidirectional behavioral control:
 ```
 trait-interp/
 ├── extraction/                     # Trait vector extraction (training time)
-│   ├── 1_generate_responses.py    # Generate responses from natural scenarios
-│   ├── 2_extract_activations.py   # Extract activations from responses
-│   ├── 3_extract_vectors.py       # Extract trait vectors from activations
+│   ├── generate_responses.py    # Generate responses from natural scenarios
+│   ├── extract_activations.py   # Extract activations from responses
+│   ├── extract_vectors.py       # Extract trait vectors from activations
 │   └── elicitation_guide.md       # Guide for creating new traits
 │
 ├── inference/                      # Per-token monitoring (inference time)
@@ -731,9 +721,9 @@ See existing trait directories for examples.
 
 ```bash
 # Run extraction pipeline
-python extraction/1_generate_responses.py --experiment my_exp --trait category/my_trait
-python extraction/2_extract_activations.py --experiment my_exp --trait category/my_trait
-python extraction/3_extract_vectors.py --experiment my_exp --trait category/my_trait
+python extraction/generate_responses.py --experiment my_exp --trait category/my_trait
+python extraction/extract_activations.py --experiment my_exp --trait category/my_trait
+python extraction/extract_vectors.py --experiment my_exp --trait category/my_trait
 ```
 
 See [extraction/elicitation_guide.md](../extraction/elicitation_guide.md) for complete instructions.
@@ -782,7 +772,7 @@ train_acc = result['train_acc']
 **ICA**:
 ```python
 from traitlens import ICAMethod
-method = ICAMethod(n_components=10)
+method = ICAMethod(n_components=50)
 result = method.extract(pos_activations, neg_activations)
 vector = result['vector']  # Component with best separation
 ```
@@ -793,6 +783,30 @@ from traitlens import GradientMethod
 method = GradientMethod(num_steps=100, lr=0.01)
 result = method.extract(pos_activations, neg_activations)
 vector = result['vector']
+```
+
+**Sparse Probe (L1)**:
+```python
+from traitlens import ProbeMethod
+method = ProbeMethod()
+result = method.extract(pos_activations, neg_activations, penalty='l1')
+vector = result['vector']  # Sparse - shows which dimensions matter
+```
+
+**PCA Diff (RepE-style)**:
+```python
+from traitlens import PCADiffMethod
+method = PCADiffMethod()
+result = method.extract(pos_activations, neg_activations)
+vector = result['vector']  # First PC of per-example differences
+```
+
+**Random Baseline**:
+```python
+from traitlens import RandomBaselineMethod
+method = RandomBaselineMethod()
+result = method.extract(pos_activations, neg_activations)
+vector = result['vector']  # Should get ~50% accuracy (sanity check)
 ```
 
 ### Activation Capture
@@ -828,7 +842,7 @@ See existing files in your experiment's trait directory for examples.
 ### Out of memory during activation extraction
 Reduce batch size:
 ```bash
-python extraction/2_extract_activations.py ... --batch_size 4
+python extraction/extract_activations.py ... --batch_size 4
 ```
 
 ### "Module not found" errors

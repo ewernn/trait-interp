@@ -21,8 +21,7 @@ visualization/
     ├── trait-trajectory.js     # Residual stream across all layers
     ├── trait-dynamics.js       # Per-token trait trajectories
     ├── layer-deep-dive.js     # Single layer mechanistic view
-    ├── analysis-gallery.js    # Browse analysis outputs (PNGs + JSON)
-    └── token-explorer.js      # Interactive per-token analysis
+    └── analysis-gallery.js    # Unified live-rendered analysis with token slider
 ```
 
 ## Architecture Principles

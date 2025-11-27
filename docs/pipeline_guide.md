@@ -7,11 +7,11 @@ This guide explains how to use the extraction pipeline to create trait vectors f
 ```
 Stage 1: Create Natural Scenarios (Manual)
     ↓
-Stage 2: Generate Responses (1_generate_responses.py)
+Stage 2: Generate Responses (generate_responses.py)
     ↓
-Stage 3: Extract Activations (2_extract_activations.py)
+Stage 3: Extract Activations (extract_activations.py)
     ↓
-Stage 4: Extract Vectors (3_extract_vectors.py)
+Stage 4: Extract Vectors (extract_vectors.py)
     ↓
 Result: Trait vectors ready for monitoring
 ```
@@ -83,7 +83,7 @@ Generate model responses from the scenario files (no instructions added).
 ### Basic Usage
 
 ```bash
-python extraction/1_generate_responses.py \
+python extraction/generate_responses.py \
   --experiment {experiment_name} \
   --trait category/my_trait
 ```
@@ -97,13 +97,13 @@ This will:
 
 ```bash
 # Specify model
-python extraction/1_generate_responses.py \
+python extraction/generate_responses.py \
   --experiment {experiment_name} \
   --trait category/my_trait \
   --model google/gemma-2-2b-it
 
 # Adjust generation parameters
-python extraction/1_generate_responses.py \
+python extraction/generate_responses.py \
   --experiment {experiment_name} \
   --trait category/my_trait \
   --max-new-tokens 200 \
@@ -136,7 +136,7 @@ Capture model activations from all layers for all examples.
 ### Basic Usage
 
 ```bash
-python extraction/2_extract_activations.py \
+python extraction/extract_activations.py \
   --experiment {experiment_name} \
   --trait category/my_trait
 ```
@@ -183,38 +183,38 @@ Apply extraction methods to activations to get trait vectors.
 
 ```bash
 # Extract with all methods, all layers (default)
-python extraction/3_extract_vectors.py \
+python extraction/extract_vectors.py \
   --experiment {experiment_name} \
   --trait category/my_trait
 ```
 
 This will:
 1. Load per-layer activation files
-2. Extract using all 4 methods: mean_diff, probe, ica, gradient
+2. Extract using default methods: mean_diff, probe, ica, gradient
 3. Extract from all 26 layers
 4. Save each combination to `vectors/{method}_layer{N}.pt`
 
-Total vectors: 4 methods × 26 layers = **104 files**
+Available methods: mean_diff, probe, ica, gradient, pca_diff, random_baseline
 
 ### Selective Extraction
 
 ```bash
 # Just probe and mean_diff, layer 16 only
-python extraction/3_extract_vectors.py \
+python extraction/extract_vectors.py \
   --experiment {experiment_name} \
   --trait category/my_trait \
   --methods mean_diff,probe \
   --layers 16
 
 # Multiple layers with one method
-python extraction/3_extract_vectors.py \
+python extraction/extract_vectors.py \
   --experiment {experiment_name} \
   --trait category/my_trait \
   --methods probe \
   --layers 5,10,16,20,25
 
 # Multiple traits
-python extraction/3_extract_vectors.py \
+python extraction/extract_vectors.py \
   --experiment {experiment_name} \
   --traits category/trait1,category/trait2
 ```
@@ -280,17 +280,17 @@ Extract vectors for "refusal" trait:
 mkdir -p experiments/{experiment_name}/extraction/behavioral/refusal
 
 # 3. Generate responses
-python extraction/1_generate_responses.py \
+python extraction/generate_responses.py \
   --experiment {experiment_name} \
   --trait behavioral/refusal
 
 # 4. Extract activations
-python extraction/2_extract_activations.py \
+python extraction/extract_activations.py \
   --experiment {experiment_name} \
   --trait behavioral/refusal
 
 # 5. Extract vectors (layer 16, probe method for quick test)
-python extraction/3_extract_vectors.py \
+python extraction/extract_vectors.py \
   --experiment {experiment_name} \
   --trait behavioral/refusal \
   --methods probe \

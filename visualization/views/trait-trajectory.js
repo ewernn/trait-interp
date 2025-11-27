@@ -6,8 +6,7 @@ async function renderTraitTrajectory() {
 
     if (filteredTraits.length === 0) {
         contentArea.innerHTML = `
-            <div class="card">
-                <div class="card-title">All Layers</div>
+            <div class="tool-view">
                 <div class="info">Select at least one trait to view trajectories</div>
             </div>
         `;
@@ -15,7 +14,7 @@ async function renderTraitTrajectory() {
     }
 
     // Load data for ALL selected traits
-    contentArea.innerHTML = '<div id="all-traits-container"></div>';
+    contentArea.innerHTML = '<div class="tool-view" id="all-traits-container"></div>';
     const container = document.getElementById('all-traits-container');
 
     // Use global PathBuilder singleton with experiment set
@@ -73,17 +72,13 @@ function renderAllLayersInstructionsInContainer(containerId, trait, promptSet, p
     const promptLabel = promptSet && promptId ? `${promptSet}/${promptId}` : 'none selected';
 
     container.innerHTML = `
-        <div style="margin-bottom: 4px;">
-            <span style="color: var(--text-primary); font-size: 14px; font-weight: 600;">${window.getDisplayName(trait.name)}</span>
-            <span style="color: var(--text-tertiary); font-size: 11px; margin-left: 8px;">⚠️ No data for prompt ${promptLabel}</span>
+        <div class="card">
+            <h4>${window.getDisplayName(trait.name)} <small style="color: var(--text-tertiary); font-weight: normal;">⚠️ No data for ${promptLabel}</small></h4>
+            <p style="color: var(--text-secondary); font-size: 11px; margin: 4px 0;">
+                The file <code>${promptId}.json</code> does not exist for this trait in ${promptSet || 'the prompt set'}. Run inference to generate it.
+            </p>
+            <pre>python inference/capture_raw_activations.py --experiment ${window.state.experimentData.name} --prompt-set ${promptSet || 'PROMPT_SET'}</pre>
         </div>
-        <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 4px;">
-            The file <code>${promptId}.json</code> does not exist for this trait in ${promptSet || 'the prompt set'}. You may need to run inference with this prompt.
-        </div>
-        <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 4px;">
-            To capture per-token projections at all ${nCheckpoints} checkpoints (${nLayers} layers × 3 sublayers):
-        </div>
-        <pre style="background: var(--bg-secondary); color: var(--text-primary); padding: 8px; border-radius: 4px; margin: 0; overflow-x: auto; font-size: 10px;">python inference/capture_raw_activations.py --experiment ${window.state.experimentData.name} --prompt-set ${promptSet || 'PROMPT_SET'}</pre>
     `;
 }
 
@@ -112,9 +107,7 @@ function renderAllLayersDataInContainer(containerId, trait, data) {
     const trajectoryId = `trajectory-heatmap-${traitId}`;
 
     container.innerHTML = `
-        <div style="margin-bottom: 4px;">
-            <span style="color: var(--text-primary); font-size: 14px; font-weight: 600;">${window.getDisplayName(trait.name)}</span>
-        </div>
+        <h4 style="margin-bottom: 4px;">${window.getDisplayName(trait.name)}</h4>
         <div id="${trajectoryId}"></div>
     `;
 
@@ -124,7 +117,7 @@ function renderAllLayersDataInContainer(containerId, trait, data) {
             renderCombinedTrajectoryHeatmap(trajectoryId, allProj, allTokens, nPromptTokens, 250);  // Reduced height
         } catch (plotError) {
             console.error(`[${trait.name}] Heatmap rendering failed:`, plotError);
-            container.innerHTML += `<div class="info" style="color: var(--danger);">Failed to render heatmap: ${plotError.message}</div>`;
+            container.innerHTML += `<div class="info error">Failed to render heatmap: ${plotError.message}</div>`;
         }
     }, 0);
 
@@ -132,7 +125,7 @@ function renderAllLayersDataInContainer(containerId, trait, data) {
     } catch (error) {
         console.error(`[${trait.name}] Error rendering trajectory data:`, error);
         if (container) {
-            container.innerHTML = `<div class="card"><div class="card-title">Error: ${window.getDisplayName(trait.name)}</div><div class="info">Failed to render trajectory data: ${error.message}</div></div>`;
+            container.innerHTML = `<div class="info error">Error rendering ${window.getDisplayName(trait.name)}: ${error.message}</div>`;
         }
     }
 }

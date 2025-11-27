@@ -13,9 +13,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.paths import get as get_path
-from extraction.pipeline.generate_responses import generate_responses_for_trait
-from extraction.pipeline.extract_activations import extract_activations_for_trait
-from extraction.pipeline.extract_vectors import extract_vectors_for_trait
+from extraction.generate_responses import generate_responses_for_trait
+from extraction.extract_activations import extract_activations_for_trait
+from extraction.extract_vectors import extract_vectors_for_trait
 
 MODEL_NAME = "google/gemma-2-2b-it"
 

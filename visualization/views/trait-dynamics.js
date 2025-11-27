@@ -78,14 +78,12 @@ async function renderTraitDynamics() {
     if (filteredTraits.length === 0) {
         // Show education sections even without data
         contentArea.innerHTML = `
-            <div class="extraction-overview-container">
+            <div class="tool-view">
                 ${renderEducationSections()}
-                <div class="extraction-section">
-                    <h2 class="section-heading">Token Trajectory</h2>
-                    <div class="card">
-                        <div class="info">Select at least one trait from the sidebar to view activation trajectories.</div>
-                    </div>
-                </div>
+                <section>
+                    <h2>Token Trajectory</h2>
+                    <div class="info">Select at least one trait from the sidebar to view activation trajectories.</div>
+                </section>
             </div>
         `;
         if (window.MathJax) MathJax.typesetPromise();
@@ -94,14 +92,12 @@ async function renderTraitDynamics() {
 
     // Show loading state
     contentArea.innerHTML = `
-        <div class="extraction-overview-container">
+        <div class="tool-view">
             ${renderEducationSections()}
-            <div class="extraction-section">
-                <h2 class="section-heading">Token Trajectory</h2>
-                <div class="card">
-                    <div class="info">Loading data for ${filteredTraits.length} trait(s)...</div>
-                </div>
-            </div>
+            <section>
+                <h2>Token Trajectory</h2>
+                <div class="info">Loading data for ${filteredTraits.length} trait(s)...</div>
+            </section>
         </div>
     `;
     if (window.MathJax) MathJax.typesetPromise();
@@ -153,20 +149,20 @@ async function renderTraitDynamics() {
 function renderEducationSections() {
     return `
         <!-- Section 1: What is Projection? -->
-        <div class="extraction-section">
-            <h2 class="section-heading">What is Trait Projection?</h2>
-            <div class="techniques-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
-                <div class="technique-card">
+        <section>
+            <h2>What is Trait Projection?</h2>
+            <div class="grid">
+                <div class="card">
                     <h4>The Core Idea</h4>
-                    <p class="technique-desc">Each token's hidden state lives in a high-dimensional space (2304 dims for Gemma 2B). We project onto trait vectors to measure "how much of this trait is present."</p>
-                    <div class="technique-math">$$\\text{score} = \\frac{\\vec{h} \\cdot \\vec{v}}{||\\vec{v}||}$$</div>
-                    <p class="technique-use"><strong>Where:</strong> \\(\\vec{h}\\) = hidden state, \\(\\vec{v}\\) = trait vector</p>
+                    <p>Each token's hidden state lives in a high-dimensional space (2304 dims for Gemma 2B). We project onto trait vectors to measure "how much of this trait is present."</p>
+                    <p>$$\\text{score} = \\frac{\\vec{h} \\cdot \\vec{v}}{||\\vec{v}||}$$</p>
+                    <p><strong>Where:</strong> \\(\\vec{h}\\) = hidden state, \\(\\vec{v}\\) = trait vector</p>
                 </div>
 
-                <div class="technique-card">
+                <div class="card">
                     <h4>Interpretation</h4>
-                    <p class="technique-desc">The projection score tells you how aligned the model's internal state is with a particular trait direction.</p>
-                    <ul style="margin: 8px 0; padding-left: 20px; font-size: 12px;">
+                    <p>The projection score tells you how aligned the model's internal state is with a particular trait direction.</p>
+                    <ul>
                         <li><strong>Positive:</strong> Model expressing trait</li>
                         <li><strong>Negative:</strong> Model avoiding trait</li>
                         <li><strong>Near zero:</strong> Neutral/unrelated</li>
@@ -174,91 +170,87 @@ function renderEducationSections() {
                     </ul>
                 </div>
 
-                <div class="technique-card">
+                <div class="card">
                     <h4>Why This Works</h4>
-                    <p class="technique-desc">Trait vectors are extracted by finding directions that separate positive/negative examples during training. These directions capture semantic meaning.</p>
-                    <p class="technique-use"><strong>Validation:</strong> Vectors achieve 90%+ classification accuracy on held-out examples.</p>
+                    <p>Trait vectors are extracted by finding directions that separate positive/negative examples during training. These directions capture semantic meaning.</p>
+                    <p><strong>Validation:</strong> Vectors achieve 90%+ classification accuracy on held-out examples.</p>
                 </div>
             </div>
-        </div>
+        </section>
 
         <!-- Section 2: How to Read the Graphs -->
-        <div class="extraction-section">
-            <h2 class="section-heading">Reading the Graphs</h2>
-            <div class="techniques-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
-                <div class="technique-card">
+        <section>
+            <h2>Reading the Graphs</h2>
+            <div class="grid">
+                <div class="card">
                     <h4>Token Trajectory</h4>
-                    <p class="technique-desc">X = tokens, Y = activation (layer-averaged). Shows how traits evolve during generation. Dashed line separates prompt/response.</p>
+                    <p>X = tokens, Y = activation (layer-averaged). Shows how traits evolve during generation. Dashed line separates prompt/response.</p>
                 </div>
 
-                <div class="technique-card">
+                <div class="card">
                     <h4>Layer Evolution</h4>
-                    <p class="technique-desc">X = layers, Y = projection (token-averaged). Shows how traits emerge through the network with position/velocity/acceleration.</p>
+                    <p>X = layers, Y = projection (token-averaged). Shows how traits emerge through the network with position/velocity/acceleration.</p>
                 </div>
 
-                <div class="technique-card">
+                <div class="card">
                     <h4>Colors & Lines</h4>
-                    <p class="technique-desc">Each color = one trait. Solid = position, dashed = velocity, dotted = acceleration. Hover to highlight a trait.</p>
+                    <p>Each color = one trait. Solid = position, dashed = velocity, dotted = acceleration. Hover to highlight a trait.</p>
                 </div>
 
-                <div class="technique-card">
+                <div class="card">
                     <h4>Vertical Line</h4>
-                    <p class="technique-desc">Shows the currently selected token (from the global slider). Syncs across all views.</p>
+                    <p>Shows the currently selected token (from the global slider). Syncs across all views.</p>
                 </div>
             </div>
-        </div>
+        </section>
 
         <!-- Section 3: Patterns to Look For -->
-        <div class="extraction-section">
-            <h2 class="section-heading">Key Patterns</h2>
-            <div class="techniques-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
-                <div class="technique-card">
+        <section>
+            <h2>Key Patterns</h2>
+            <div class="grid">
+                <div class="card">
                     <h4>Commitment Points</h4>
-                    <p class="technique-desc">Sharp rises or falls indicate "decision moments" where the model commits to a behavior. Often occurs early in response.</p>
-                    <p class="technique-use"><strong>Example:</strong> Refusal spike at "I cannot" tokens</p>
+                    <p>Sharp rises or falls indicate "decision moments" where the model commits to a behavior. Often occurs early in response.</p>
+                    <p><strong>Example:</strong> Refusal spike at "I cannot" tokens</p>
                 </div>
 
-                <div class="technique-card">
+                <div class="card">
                     <h4>Trait Crossings</h4>
-                    <p class="technique-desc">When two trait lines cross, the model is transitioning from one mode to another. Watch for correlated inversions.</p>
-                    <p class="technique-use"><strong>Example:</strong> Uncertainty dropping as confidence rises</p>
+                    <p>When two trait lines cross, the model is transitioning from one mode to another. Watch for correlated inversions.</p>
+                    <p><strong>Example:</strong> Uncertainty dropping as confidence rises</p>
                 </div>
 
-                <div class="technique-card">
+                <div class="card">
                     <h4>Persistence</h4>
-                    <p class="technique-desc">Traits that stay elevated across many tokens indicate sustained behavioral modes (not just local patterns).</p>
-                    <p class="technique-use"><strong>Example:</strong> Sustained sycophancy throughout a response</p>
+                    <p>Traits that stay elevated across many tokens indicate sustained behavioral modes (not just local patterns).</p>
+                    <p><strong>Example:</strong> Sustained sycophancy throughout a response</p>
                 </div>
 
-                <div class="technique-card">
+                <div class="card">
                     <h4>Prompt vs Response</h4>
-                    <p class="technique-desc">Compare trait levels in prompt (context processing) vs response (generation). Dramatic shifts reveal how context influences behavior.</p>
-                    <p class="technique-use"><strong>Example:</strong> Low refusal during prompt, high during harmful response</p>
+                    <p>Compare trait levels in prompt (context processing) vs response (generation). Dramatic shifts reveal how context influences behavior.</p>
+                    <p><strong>Example:</strong> Low refusal during prompt, high during harmful response</p>
                 </div>
             </div>
-        </div>
+        </section>
     `;
 }
 
 function renderNoDataMessage(container, traits, promptSet, promptId) {
     const promptLabel = promptSet && promptId ? `${promptSet}/${promptId}` : 'none selected';
     container.innerHTML = `
-        <div class="extraction-overview-container">
+        <div class="tool-view">
             ${renderEducationSections()}
-            <div class="extraction-section">
-                <h2 class="section-heading">Token Trajectory</h2>
-                <div class="card">
-                    <div class="info" style="margin-bottom: 10px;">
-                        No data available for prompt ${promptLabel} for any selected trait.
-                    </div>
-                    <div style="background: var(--bg-tertiary); padding: 10px; border-radius: 6px; font-size: 12px;">
-                        <p style="color: var(--text-secondary); margin-bottom: 8px;">
-                            To capture per-token activation data, run:
-                        </p>
-                        <pre style="background: var(--bg-primary); color: var(--text-primary); padding: 8px; border-radius: 4px; margin: 8px 0; overflow-x: auto; font-size: 11px;">python inference/capture_raw_activations.py --experiment ${window.paths.getExperiment()} --prompt-set ${promptSet || 'PROMPT_SET'}</pre>
-                    </div>
+            <section>
+                <h2>Token Trajectory</h2>
+                <div class="info">
+                    No data available for prompt ${promptLabel} for any selected trait.
                 </div>
-            </div>
+                <p class="tool-description">
+                    To capture per-token activation data, run:
+                </p>
+                <pre>python inference/capture_raw_activations.py --experiment ${window.paths.getExperiment()} --prompt-set ${promptSet || 'PROMPT_SET'}</pre>
+            </section>
         </div>
     `;
     if (window.MathJax) MathJax.typesetPromise();
@@ -277,34 +269,30 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
     let failedHtml = '';
     if (failedTraits.length > 0) {
         failedHtml = `
-            <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 8px;">
+            <div class="tool-description">
                 No data for: ${failedTraits.map(t => window.getDisplayName(t)).join(', ')}
             </div>
         `;
     }
 
     container.innerHTML = `
-        <div class="extraction-overview-container">
+        <div class="tool-view">
             ${renderEducationSections()}
-            <div class="extraction-section">
-                <h2 class="section-heading">Token Trajectory</h2>
-                <p class="section-desc" style="color: var(--text-secondary); font-size: 12px; margin-bottom: 12px;">
+            <section>
+                <h2>Token Trajectory</h2>
+                <p class="tool-description">
                     How traits evolve as the model generates each token (layer-averaged)
                 </p>
-                <div class="card" style="padding: 12px;">
-                    ${failedHtml}
-                    <div id="combined-activation-plot" style="width: 100%;"></div>
-                </div>
-            </div>
-            <div class="extraction-section">
-                <h2 class="section-heading">Layer Evolution</h2>
-                <p class="section-desc" style="color: var(--text-secondary); font-size: 12px; margin-bottom: 12px;">
+                ${failedHtml}
+                <div id="combined-activation-plot"></div>
+            </section>
+            <section>
+                <h2>Layer Evolution</h2>
+                <p class="tool-description">
                     How traits emerge through network layers (token-averaged). Shows position, velocity (1st derivative), and acceleration (2nd derivative).
                 </p>
-                <div class="card" style="padding: 12px;">
-                    <div id="layer-evolution-plot" style="width: 100%;"></div>
-                </div>
-            </div>
+                <div id="layer-evolution-plot"></div>
+            </section>
         </div>
     `;
 

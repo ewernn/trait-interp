@@ -388,9 +388,9 @@ vim experiments/{experiment_name}/extraction/{category}/{trait}/positive.txt
 vim experiments/{experiment_name}/extraction/{category}/{trait}/negative.txt
 
 # Run extraction pipeline
-python extraction/1_generate_responses.py --experiment {experiment_name} --trait {category}/{trait}
-python extraction/2_extract_activations.py --experiment {experiment_name} --trait {category}/{trait}
-python extraction/3_extract_vectors.py --experiment {experiment_name} --trait {category}/{trait}
+python extraction/generate_responses.py --experiment {experiment_name} --trait {category}/{trait}
+python extraction/extract_activations.py --experiment {experiment_name} --trait {category}/{trait}
+python extraction/extract_vectors.py --experiment {experiment_name} --trait {category}/{trait}
 ```
 
 ---

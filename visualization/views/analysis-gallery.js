@@ -1,473 +1,553 @@
-// Analysis Gallery View - Auto-discovers and displays analysis outputs
-// Scans experiments/{exp}/analysis/ for PNG/JSON files and displays them in a grid
-//
-// ============================================================================
-// ANALYSIS CATEGORIES (shown in gallery)
-// ============================================================================
-//
-// Categories EXCLUDED (now interactive views):
-// - normalized_velocity: See Token Explorer "Velocity Through Layers"
-// - trait_projections: See Trait Trajectory view
-// - derivative_overlay: See Trait Dynamics "Layer Evolution" section
-//
-// Categories INCLUDED in gallery:
-//
-// 1. RADIAL/ANGULAR DECOMPOSITION (Side-by-side heatmaps)
-//    ------------------------------------------------------
-//    What: Splits velocity into "growing/shrinking" vs "rotating"
-//    Math: RADIAL:  magnitude[L+1] - magnitude[L]                → change in size
-//          ANGULAR: 1 - cos_similarity(direction[L], direction[L+1]) → change in direction
-//    Read: LEFT (Radial): Red = growing, Blue = shrinking, White = stable size
-//          RIGHT (Angular): Bright = direction changing, Dark = same direction
-//    Why:  Separates "turning up the volume" from "changing the content"
-//
-// 2. TRAIT EMERGENCE (Horizontal bar chart)
-//    ---------------------------------------
-//    What: Which layer each trait first becomes significant
-//    Math: emergence_layer = first L where |projection| > 0.5 × max|projection|
-//          Averaged across all tokens and prompts
-//    Read: Shorter bars = trait emerges earlier, Longer = emerges later
-//          Green line (L8) and red line (L19) mark "stable computation" region
-//    Finding: NO traits emerge before L7. All emerge L14+.
-//
-// 3. TRAIT-DYNAMICS CORRELATION (Horizontal bar chart)
-//    ---------------------------------------------------
-//    What: Do trait changes happen when the model is most "active"?
-//    Math: trait_velocity = diff(trait_projection)               → [25]
-//          correlation = pearson(normalized_velocity, |trait_velocity|)
-//    Read: Green bars = high correlation (trait tied to computation bursts)
-//          Small/red bars = low correlation (trait changes independently)
-//    Finding: defensiveness, correction_impulse correlate highly (~0.6)
-//             uncertainty, retrieval correlate weakly (~0.1)
-//
-// 4. ATTENTION DYNAMICS (Phase space, comprehensive, validation)
-//    -----------------------------------------------------------
-//    What: Complex analysis of attention patterns and state evolution
-//    Includes: phase_space_trajectories, comprehensive_dynamics, attention_flow
-//
-// 5. SUMMARY PLOTS (Line plots with error bands)
-//    --------------------------------------------
-//    What: Aggregated view across all 8 prompts
-//    Math: mean ± std across prompts for each layer
-//    Read: Solid line = mean, Shaded band = ±1 std deviation
-//          Shows consistency: narrow band = consistent, wide = variable
-//
-// ============================================================================
+// Analysis Gallery View - Unified live-rendered analysis with token slider support
+// Replaces static PNGs with interactive Plotly visualizations
 
-// Cache for analyses data
-let analysisGalleryCache = { experiment: null, analyses: null };
+let galleryData = null;
+let galleryCache = { experiment: null, promptSet: null, promptId: null };
+
+// =============================================================================
+// DATA LOADING
+// =============================================================================
+
+async function loadGalleryData() {
+    const experiment = window.state.experimentData?.name;
+    const promptSet = window.state.currentPromptSet;
+    const promptId = window.state.currentPromptId;
+
+    if (!experiment || !promptSet || !promptId) return null;
+
+    // Check cache
+    if (galleryCache.experiment === experiment &&
+        galleryCache.promptSet === promptSet &&
+        galleryCache.promptId === promptId &&
+        galleryData) {
+        return galleryData;
+    }
+
+    const url = window.paths.analysisPerToken(promptSet, promptId);
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            console.error('Failed to load per-token data:', response.status);
+            return null;
+        }
+        galleryData = await response.json();
+        galleryCache = { experiment, promptSet, promptId };
+        return galleryData;
+    } catch (error) {
+        console.error('Error loading per-token data:', error);
+        return null;
+    }
+}
+
+// =============================================================================
+// MAIN RENDER
+// =============================================================================
 
 async function renderAnalysisGallery() {
     const contentArea = document.getElementById('content-area');
-
     const experiment = window.state.experimentData?.name;
+
     if (!experiment) {
         contentArea.innerHTML = '<div class="error">No experiment selected</div>';
         return;
     }
 
-    // Check if we already have the gallery DOM and cached data
+    // Check if DOM exists and data is cached (avoid scroll reset on slider move)
     const existingGallery = contentArea.querySelector('.analysis-gallery');
-    const dataIsCached = analysisGalleryCache.experiment === experiment && analysisGalleryCache.analyses;
+    const dataIsCached = galleryCache.experiment === experiment &&
+                         galleryCache.promptSet === window.state.currentPromptSet &&
+                         galleryCache.promptId === window.state.currentPromptId &&
+                         galleryData;
 
-    // Only show loading if we need to fetch new data
     if (!dataIsCached) {
-        contentArea.innerHTML = '<div class="loading">Scanning analysis folder...</div>';
+        contentArea.innerHTML = '<div class="loading">Loading analysis data...</div>';
     }
 
-    try {
-        // Use cached analyses or fetch new
-        let analyses;
-        if (dataIsCached) {
-            analyses = analysisGalleryCache.analyses;
-        } else {
-            analyses = await discoverAnalyses(experiment);
-            analysisGalleryCache = { experiment, analyses };
-        }
+    const data = await loadGalleryData();
 
-        if (analyses.length === 0) {
-            contentArea.innerHTML = `
-                <div class="info" style="margin: 16px; padding: 16px;">
-                    <h3>No analyses found</h3>
-                    <p>Run analysis scripts to generate outputs in:</p>
-                    <code>experiments/${experiment}/analysis/</code>
+    if (!data) {
+        contentArea.innerHTML = `
+            <div class="info" style="margin: 16px; padding: 16px;">
+                <h3>No per-token data available</h3>
+                <p>Run the per-token analysis script first:</p>
+                <code>python experiments/${experiment}/analysis/compute_per_token_all_sets.py</code>
+            </div>
+        `;
+        return;
+    }
+
+    const tokenIdx = Math.min(window.state.currentTokenIndex || 0, data.n_total_tokens - 1);
+    const tokenData = data.per_token[tokenIdx];
+
+    // If DOM exists and data cached, just update visualizations
+    if (existingGallery && dataIsCached) {
+        updateGalleryVisualizations(data, tokenIdx, tokenData);
+        return;
+    }
+
+    // Full render
+    contentArea.innerHTML = `
+        <div class="tool-view analysis-gallery">
+            <section>
+                <h3>All Tokens</h3>
+                <p class="section-desc">Slider highlights the selected token's column/row</p>
+                <div class="grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="card">
+                        <h4>Trait Scores <span class="layer-badge">Layer 16</span></h4>
+                        <div id="trait-heatmap-container"></div>
+                    </div>
+                    <div class="card">
+                        <h4>Normalized Velocity</h4>
+                        <div id="velocity-heatmap-container"></div>
+                    </div>
                 </div>
-            `;
-            return;
+            </section>
+
+            <section>
+                <h3>Selected Token: <span class="current-token-label">"${escapeHtml(tokenData.token)}"</span></h3>
+                <p class="section-desc">Updates as you move the slider</p>
+                <div class="grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="card">
+                        <h4>Trait Scores <span class="layer-badge">Layer 16</span></h4>
+                        <div id="trait-scores-container"></div>
+                    </div>
+                    <div class="card">
+                        <h4>Attention Pattern <span class="layer-badge">Layer 16</span></h4>
+                        <div id="attention-container"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h3>Aggregate</h3>
+                <p class="section-desc">Computed across all tokens (slider ignored)</p>
+                <div class="grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="card">
+                        <h4>Trait Emergence</h4>
+                        <div id="trait-emergence-container"></div>
+                    </div>
+                    <div class="card">
+                        <h4>Trait-Dynamics Correlation</h4>
+                        <div id="dynamics-correlation-container"></div>
+                    </div>
+                </div>
+            </section>
+
+            ${getCategoryReference()}
+        </div>
+    `;
+
+    // Render all visualizations
+    renderAllVisualizations(data, tokenIdx, tokenData);
+}
+
+function updateGalleryVisualizations(data, tokenIdx, tokenData) {
+    // Update current token label
+    const label = document.querySelector('.current-token-label');
+    if (label) label.textContent = `"${escapeHtml(tokenData.token)}"`;
+
+    // Re-render all (Plotly handles updates efficiently)
+    renderAllVisualizations(data, tokenIdx, tokenData);
+}
+
+function renderAllVisualizations(data, tokenIdx, tokenData) {
+    renderTraitHeatmap(data, tokenIdx);
+    renderVelocityHeatmap(data, tokenIdx);
+    renderTraitScoresBar(tokenData);
+    renderAttentionPattern(tokenData, data);
+    renderTraitEmergence(data);
+    renderDynamicsCorrelation(data);
+}
+
+// =============================================================================
+// ALL TOKENS VISUALIZATIONS (slider highlights)
+// =============================================================================
+
+function renderTraitHeatmap(data, currentTokenIdx) {
+    const container = document.getElementById('trait-heatmap-container');
+    if (!container) return;
+
+    // Get traits from first token with data
+    const firstToken = data.per_token.find(t => t.trait_scores_per_layer);
+    if (!firstToken) {
+        container.innerHTML = '<div class="no-data">No trait data</div>';
+        return;
+    }
+
+    const traits = Object.keys(firstToken.trait_scores_per_layer);
+    const layer = 16;
+
+    // Build matrix [traits × tokens]
+    const zData = traits.map(trait =>
+        data.per_token.map(t => t.trait_scores_per_layer?.[trait]?.[layer] ?? 0)
+    );
+
+    const trace = {
+        z: zData,
+        x: data.tokens.map((t, i) => i),
+        y: traits,
+        type: 'heatmap',
+        colorscale: 'RdBu',
+        zmid: 0,
+        hovertemplate: '%{y}<br>Token %{x}: %{z:.2f}<extra></extra>',
+        showscale: true,
+        colorbar: { thickness: 15, len: 0.8 }
+    };
+
+    // Highlight current token
+    const shapes = [{
+        type: 'rect',
+        x0: currentTokenIdx - 0.5,
+        x1: currentTokenIdx + 0.5,
+        y0: -0.5,
+        y1: traits.length - 0.5,
+        line: { color: '#ffff00', width: 2 },
+        fillcolor: 'rgba(0,0,0,0)'
+    }];
+
+    const layout = {
+        margin: { l: 100, r: 50, t: 10, b: 40 },
+        height: 250,
+        xaxis: { title: 'Token', dtick: 10 },
+        yaxis: { tickfont: { size: 10 } },
+        shapes
+    };
+
+    Plotly.newPlot(container, [trace], layout, { responsive: true });
+}
+
+function renderVelocityHeatmap(data, currentTokenIdx) {
+    const container = document.getElementById('velocity-heatmap-container');
+    if (!container) return;
+
+    // Build matrix [tokens × layer_transitions]
+    const nLayers = 25; // transitions
+    const zData = data.per_token.map(t => t.normalized_velocity_per_layer || new Array(nLayers).fill(0));
+
+    const trace = {
+        z: zData,
+        x: Array.from({ length: nLayers }, (_, i) => i),
+        y: data.tokens.map((t, i) => i),
+        type: 'heatmap',
+        colorscale: 'Viridis',
+        hovertemplate: 'Token %{y}, Layer %{x}→%{x+1}<br>Velocity: %{z:.3f}<extra></extra>',
+        showscale: true,
+        colorbar: { thickness: 15, len: 0.8 }
+    };
+
+    // Highlight current token row
+    const shapes = [{
+        type: 'rect',
+        x0: -0.5,
+        x1: nLayers - 0.5,
+        y0: currentTokenIdx - 0.5,
+        y1: currentTokenIdx + 0.5,
+        line: { color: '#ffff00', width: 2 },
+        fillcolor: 'rgba(0,0,0,0)'
+    }];
+
+    const layout = {
+        margin: { l: 50, r: 50, t: 10, b: 40 },
+        height: 250,
+        xaxis: { title: 'Layer Transition', dtick: 5 },
+        yaxis: { title: 'Token', dtick: 10 },
+        shapes
+    };
+
+    Plotly.newPlot(container, [trace], layout, { responsive: true });
+}
+
+// =============================================================================
+// SELECTED TOKEN VISUALIZATIONS (slider updates)
+// =============================================================================
+
+function renderTraitScoresBar(tokenData) {
+    const container = document.getElementById('trait-scores-container');
+    if (!container || !tokenData.trait_scores_per_layer) {
+        if (container) container.innerHTML = '<div class="no-data">No trait data for this token</div>';
+        return;
+    }
+
+    const layer = 16;
+    const traits = Object.keys(tokenData.trait_scores_per_layer);
+    const scores = traits.map(t => tokenData.trait_scores_per_layer[t][layer]);
+
+    // Sort by absolute value
+    const sorted = traits.map((t, i) => ({ trait: t, score: scores[i] }))
+        .sort((a, b) => Math.abs(b.score) - Math.abs(a.score));
+
+    const trace = {
+        x: sorted.map(s => s.score),
+        y: sorted.map(s => s.trait),
+        type: 'bar',
+        orientation: 'h',
+        marker: {
+            color: sorted.map(s => s.score > 0 ? '#4ecdc4' : '#ff6b6b')
+        },
+        hovertemplate: '%{y}: %{x:.3f}<extra></extra>'
+    };
+
+    const layout = {
+        margin: { l: 100, r: 20, t: 10, b: 40 },
+        height: 250,
+        xaxis: { title: 'Score', zeroline: true, zerolinecolor: '#888' },
+        yaxis: { tickfont: { size: 10 } }
+    };
+
+    Plotly.newPlot(container, [trace], layout, { responsive: true });
+}
+
+function renderAttentionPattern(tokenData, data) {
+    const container = document.getElementById('attention-container');
+    if (!container) return;
+
+    if (!tokenData.attention_pattern_L16) {
+        container.innerHTML = `
+            <div class="no-data">
+                No attention data<br>
+                <small>(Only for dynamic prompts)</small>
+            </div>
+        `;
+        return;
+    }
+
+    const attnPattern = tokenData.attention_pattern_L16;
+    const contextSize = tokenData.attention_context_size || attnPattern[0]?.length || 0;
+    const nHeads = attnPattern.length;
+
+    // Average across heads
+    const avgAttn = [];
+    for (let i = 0; i < contextSize; i++) {
+        let sum = 0;
+        for (let h = 0; h < nHeads; h++) {
+            sum += attnPattern[h]?.[i] || 0;
         }
+        avgAttn.push(sum / nHeads);
+    }
 
-        // Filter based on current prompt selection from state
-        const currentPromptId = window.state.currentPromptId;
+    const trace = {
+        x: Array.from({ length: contextSize }, (_, i) => i),
+        y: avgAttn,
+        type: 'bar',
+        marker: { color: '#9b59b6' },
+        hovertemplate: 'Pos %{x}: %{y:.3f}<extra></extra>'
+    };
 
-        // Filter analyses: show matching prompt OR summaries
-        // Handles patterns like: prompt_1, prompt_1_defensiveness, summary, overview
-        const filteredAnalyses = analyses.filter(item => {
-            // Extract prompt number from name (matches prompt_1, prompt_1_defensiveness, etc.)
-            const promptMatch = item.name.match(/^prompt_(\d+)/);
-            const itemPromptId = promptMatch ? promptMatch[1] : null;
+    const layout = {
+        margin: { l: 50, r: 20, t: 10, b: 40 },
+        height: 250,
+        xaxis: { title: 'Context Position', dtick: 10 },
+        yaxis: { title: 'Attention' }
+    };
 
-            if (currentPromptId) {
-                // If prompt selected, show items for that prompt + non-prompt-specific items
-                return itemPromptId === String(currentPromptId) || itemPromptId === null;
-            } else {
-                // If no prompt selected, show only non-prompt-specific items (summaries)
-                return itemPromptId === null;
+    Plotly.newPlot(container, [trace], layout, { responsive: true });
+}
+
+// =============================================================================
+// AGGREGATE VISUALIZATIONS (slider ignored)
+// =============================================================================
+
+function renderTraitEmergence(data) {
+    const container = document.getElementById('trait-emergence-container');
+    if (!container) return;
+
+    // Get traits
+    const firstToken = data.per_token.find(t => t.trait_scores_per_layer);
+    if (!firstToken) {
+        container.innerHTML = '<div class="no-data">No trait data</div>';
+        return;
+    }
+
+    const traits = Object.keys(firstToken.trait_scores_per_layer);
+    const nLayers = 26;
+
+    // For each trait, find emergence layer (first layer where |score| > 0.5 * max)
+    const emergence = traits.map(trait => {
+        // Get max absolute score across all tokens and layers
+        let maxAbs = 0;
+        data.per_token.forEach(t => {
+            if (!t.trait_scores_per_layer?.[trait]) return;
+            t.trait_scores_per_layer[trait].forEach(score => {
+                maxAbs = Math.max(maxAbs, Math.abs(score));
+            });
+        });
+
+        if (maxAbs === 0) return { trait, layer: nLayers - 1 };
+
+        const threshold = 0.5 * maxAbs;
+
+        // Find first layer where average |score| exceeds threshold
+        for (let layer = 0; layer < nLayers; layer++) {
+            let sum = 0, count = 0;
+            data.per_token.forEach(t => {
+                if (t.trait_scores_per_layer?.[trait]?.[layer] !== undefined) {
+                    sum += Math.abs(t.trait_scores_per_layer[trait][layer]);
+                    count++;
+                }
+            });
+            if (count > 0 && (sum / count) > threshold) {
+                return { trait, layer };
+            }
+        }
+        return { trait, layer: nLayers - 1 };
+    });
+
+    // Sort by emergence layer
+    emergence.sort((a, b) => a.layer - b.layer);
+
+    const trace = {
+        x: emergence.map(e => e.layer),
+        y: emergence.map(e => e.trait),
+        type: 'bar',
+        orientation: 'h',
+        marker: { color: '#3498db' },
+        hovertemplate: '%{y}: Layer %{x}<extra></extra>'
+    };
+
+    const layout = {
+        margin: { l: 100, r: 20, t: 10, b: 40 },
+        height: 250,
+        xaxis: { title: 'Emergence Layer', range: [0, 26], dtick: 5 },
+        yaxis: { tickfont: { size: 10 } },
+        shapes: [
+            // "Stable computation" region markers
+            { type: 'line', x0: 8, x1: 8, y0: -0.5, y1: traits.length - 0.5, line: { color: 'green', width: 1, dash: 'dash' } },
+            { type: 'line', x0: 19, x1: 19, y0: -0.5, y1: traits.length - 0.5, line: { color: 'red', width: 1, dash: 'dash' } }
+        ]
+    };
+
+    Plotly.newPlot(container, [trace], layout, { responsive: true });
+}
+
+function renderDynamicsCorrelation(data) {
+    const container = document.getElementById('dynamics-correlation-container');
+    if (!container) return;
+
+    const firstToken = data.per_token.find(t => t.trait_scores_per_layer);
+    if (!firstToken) {
+        container.innerHTML = '<div class="no-data">No trait data</div>';
+        return;
+    }
+
+    const traits = Object.keys(firstToken.trait_scores_per_layer);
+
+    // For each trait, compute correlation between normalized velocity and |trait velocity|
+    const correlations = traits.map(trait => {
+        const velocities = [];
+        const traitVelocities = [];
+
+        data.per_token.forEach(t => {
+            if (!t.normalized_velocity_per_layer || !t.trait_scores_per_layer?.[trait]) return;
+
+            const traitScores = t.trait_scores_per_layer[trait];
+            // Trait velocity = diff of trait scores across layers
+            for (let i = 0; i < traitScores.length - 1; i++) {
+                velocities.push(t.normalized_velocity_per_layer[i] || 0);
+                traitVelocities.push(Math.abs(traitScores[i + 1] - traitScores[i]));
             }
         });
 
-        // Group by category
-        const grouped = groupByCategory(filteredAnalyses);
-        const displayLabel = currentPromptId ? `Prompt ${currentPromptId}` : 'Summary views';
+        if (velocities.length < 2) return { trait, corr: 0 };
 
-        // If DOM exists and data was cached, just update the content (no scroll reset)
-        if (existingGallery && dataIsCached) {
-            // Update header text
-            const galleryInfo = existingGallery.querySelector('.gallery-info');
-            const galleryCount = existingGallery.querySelector('.gallery-count');
-            if (galleryInfo) galleryInfo.innerHTML = `Showing: <strong>${displayLabel}</strong>`;
-            if (galleryCount) galleryCount.textContent = `${filteredAnalyses.length} analyses`;
+        // Pearson correlation
+        const n = velocities.length;
+        const sumX = velocities.reduce((a, b) => a + b, 0);
+        const sumY = traitVelocities.reduce((a, b) => a + b, 0);
+        const sumXY = velocities.reduce((sum, x, i) => sum + x * traitVelocities[i], 0);
+        const sumX2 = velocities.reduce((sum, x) => sum + x * x, 0);
+        const sumY2 = traitVelocities.reduce((sum, y) => sum + y * y, 0);
 
-            // Update content
-            const galleryContent = document.getElementById('gallery-content');
-            galleryContent.innerHTML = '';
+        const num = n * sumXY - sumX * sumY;
+        const den = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+        const corr = den === 0 ? 0 : num / den;
 
-            for (const [category, items] of Object.entries(grouped)) {
-                const categorySection = document.createElement('div');
-                categorySection.className = 'gallery-category';
-                categorySection.innerHTML = `
-                    <h3 class="category-title">${formatCategoryName(category)}</h3>
-                    <div class="category-grid"></div>
-                `;
-                galleryContent.appendChild(categorySection);
+        return { trait, corr };
+    });
 
-                const grid = categorySection.querySelector('.category-grid');
-                for (const item of items) {
-                    renderAnalysisCard(item, grid);
-                }
-            }
-            return;
-        }
+    // Sort by correlation (descending)
+    correlations.sort((a, b) => b.corr - a.corr);
 
-        // Full render (first load or experiment changed)
-        contentArea.innerHTML = `
-            <div class="analysis-gallery">
-                <div class="gallery-header">
-                    <span class="gallery-info">Showing: <strong>${displayLabel}</strong></span>
-                    <span class="gallery-count">${filteredAnalyses.length} analyses</span>
-                </div>
-                <div class="gallery-content" id="gallery-content"></div>
-            </div>
-        `;
+    const trace = {
+        x: correlations.map(c => c.corr),
+        y: correlations.map(c => c.trait),
+        type: 'bar',
+        orientation: 'h',
+        marker: {
+            color: correlations.map(c => c.corr > 0.3 ? '#27ae60' : c.corr > 0.1 ? '#f39c12' : '#95a5a6')
+        },
+        hovertemplate: '%{y}: r = %{x:.3f}<extra></extra>'
+    };
 
-        const galleryContent = document.getElementById('gallery-content');
+    const layout = {
+        margin: { l: 100, r: 20, t: 10, b: 40 },
+        height: 250,
+        xaxis: { title: 'Correlation (r)', range: [-0.2, 1] },
+        yaxis: { tickfont: { size: 10 } }
+    };
 
-        for (const [category, items] of Object.entries(grouped)) {
-            const categorySection = document.createElement('div');
-            categorySection.className = 'gallery-category';
-            categorySection.innerHTML = `
-                <h3 class="category-title">${formatCategoryName(category)}</h3>
-                <div class="category-grid"></div>
-            `;
-            galleryContent.appendChild(categorySection);
-
-            const grid = categorySection.querySelector('.category-grid');
-            for (const item of items) {
-                renderAnalysisCard(item, grid);
-            }
-        }
-
-    } catch (error) {
-        console.error('Failed to load analysis gallery:', error);
-        contentArea.innerHTML = `<div class="error">Failed to load analyses: ${error.message}</div>`;
-    }
+    Plotly.newPlot(container, [trace], layout, { responsive: true });
 }
 
+// =============================================================================
+// REFERENCE SECTION
+// =============================================================================
 
-// Categories removed from gallery (now covered by interactive views):
-// - normalized_velocity: redundant with Token Explorer velocity graph
-// - trait_projections: redundant with Trait Trajectory view
-// - derivative_overlay: now interactive in Trait Dynamics "Layer Evolution" section
-const EXCLUDED_CATEGORIES = ['normalized_velocity', 'trait_projections', 'derivative_overlay'];
+function getCategoryReference() {
+    return `
+        <div class="category-reference">
+            <h3>Reference</h3>
 
-async function discoverAnalyses(experiment) {
-    // Try to fetch an index file first (fast path)
-    try {
-        const indexUrl = window.paths.analysisIndex();
-        const response = await fetch(indexUrl);
-        if (response.ok) {
-            const allAnalyses = await response.json();
-            // Filter out categories that are now interactive views
-            return allAnalyses.filter(item => !EXCLUDED_CATEGORIES.includes(item.category));
-        }
-    } catch (e) {
-        // Index doesn't exist, fall back to discovery
-    }
+            <details>
+                <summary>Trait Scores Heatmap</summary>
+                <p>Shows trait activation for every token at layer 16.</p>
+                <p><strong>Math:</strong> score = hidden[token, L16] · normalized_trait_vector</p>
+                <p><strong>Read:</strong> Red = positive (expresses trait), Blue = negative. Yellow box = selected token.</p>
+            </details>
 
-    // Manual discovery: fetch directory listing
-    // Categories not included: normalized_velocity, trait_projections, derivative_overlay
-    // (these are now interactive views)
-    const categories = [
-        'radial_angular',
-        'trait_emergence',
-        'trait_dynamics_correlation',
-        'summary',
-        'attention_dynamics'
-    ];
+            <details>
+                <summary>Velocity Heatmap</summary>
+                <p>How fast each token's representation changes at each layer transition.</p>
+                <p><strong>Math:</strong> velocity[L] = ||hidden[L+1] - hidden[L]|| / ||hidden[L]||</p>
+                <p><strong>Read:</strong> Bright = major transformation. Typical: high (L0-6) → low (L7-22) → high (L23-24).</p>
+            </details>
 
-    const analyses = [];
+            <details>
+                <summary>Trait Scores Bar</summary>
+                <p>Selected token's trait activations at layer 16, sorted by strength.</p>
+                <p><strong>Read:</strong> Teal = positive, Red = negative. Longest bars = strongest traits.</p>
+            </details>
 
-    for (const category of categories) {
-        // Try to find PNG files in each category
-        for (let promptId = 1; promptId <= 8; promptId++) {
-            const pngPath = window.paths.analysisCategoryPrompt(category, promptId, 'png');
-            const jsonPath = window.paths.analysisCategoryPrompt(category, promptId, 'json');
-            try {
-                const response = await fetch(pngPath, { method: 'HEAD' });
-                if (response.ok) {
-                    analyses.push({
-                        category,
-                        name: `prompt_${promptId}`,
-                        pngPath,
-                        jsonPath
-                    });
-                }
-            } catch (e) {
-                // File doesn't exist, skip
-            }
-        }
+            <details>
+                <summary>Attention Pattern</summary>
+                <p>Where the selected token "looks" in the context (layer 16).</p>
+                <p><strong>Math:</strong> Average attention weights across all heads.</p>
+                <p><strong>Read:</strong> Tall bars = positions this token attends to strongly.</p>
+            </details>
 
-        // Also check for summary/aggregate files
-        const summaryFiles = ['summary', 'comparison', 'all_prompts', 'overview'];
-        for (const filename of summaryFiles) {
-            const pngPath = window.paths.analysisCategoryNamed(category, filename, 'png');
-            const jsonPath = window.paths.analysisCategoryNamed(category, filename, 'json');
-            try {
-                const response = await fetch(pngPath, { method: 'HEAD' });
-                if (response.ok) {
-                    analyses.push({
-                        category,
-                        name: filename,
-                        pngPath,
-                        jsonPath
-                    });
-                }
-            } catch (e) {
-                // Skip
-            }
-        }
-    }
+            <details>
+                <summary>Trait Emergence</summary>
+                <p>Which layer each trait first becomes significant.</p>
+                <p><strong>Math:</strong> First layer where avg|score| > 0.5 × max|score|.</p>
+                <p><strong>Read:</strong> Shorter bars = emerges earlier. Green line = L8, Red = L19 (stable region).</p>
+            </details>
 
-    return analyses;
-}
-
-
-function groupByCategory(analyses) {
-    const grouped = {};
-    for (const item of analyses) {
-        if (!grouped[item.category]) {
-            grouped[item.category] = [];
-        }
-        grouped[item.category].push(item);
-    }
-    return grouped;
-}
-
-
-function formatCategoryName(category) {
-    return category
-        .split('_')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-}
-
-
-function renderAnalysisCard(item, container) {
-    const card = document.createElement('div');
-    card.className = 'analysis-card';
-    card.innerHTML = `
-        <div class="analysis-thumbnail">
-            <img src="${item.pngPath}" alt="${item.name}" loading="lazy"
-                 onerror="this.parentElement.innerHTML='<div class=\\'no-image\\'>No image</div>'" />
-        </div>
-        <div class="analysis-info">
-            <div class="analysis-name">${formatAnalysisName(item.name)}</div>
+            <details>
+                <summary>Trait-Dynamics Correlation</summary>
+                <p>Do trait changes happen when the model is most "active"?</p>
+                <p><strong>Math:</strong> Pearson correlation between normalized velocity and |trait velocity|.</p>
+                <p><strong>Read:</strong> Green = high (trait tied to computation). Gray = low (independent).</p>
+            </details>
         </div>
     `;
-
-    // Click to expand
-    card.addEventListener('click', () => showAnalysisModal(item));
-    container.appendChild(card);
 }
 
+// =============================================================================
+// UTILITIES
+// =============================================================================
 
-function formatAnalysisName(name) {
-    return name
-        .replace(/_/g, ' ')
-        .replace(/prompt (\d+)/i, 'Prompt $1');
-}
-
-
-async function showAnalysisModal(item) {
-    // Load metrics if available
-    let metrics = null;
-    try {
-        const response = await fetch(item.jsonPath);
-        if (response.ok) {
-            metrics = await response.json();
-        }
-    } catch (e) {
-        // No metrics available
-    }
-
-    // Use the existing preview modal
-    const modal = document.getElementById('preview-modal');
-    const title = document.getElementById('preview-title');
-    const body = document.getElementById('preview-body');
-
-    title.textContent = `${formatCategoryName(item.category)} - ${formatAnalysisName(item.name)}`;
-
-    let metricsHtml = '';
-    if (metrics) {
-        metricsHtml = `
-            <div class="analysis-metrics">
-                <h4>Metrics</h4>
-                <pre>${JSON.stringify(metrics, null, 2)}</pre>
-            </div>
-        `;
-    }
-
-    body.innerHTML = `
-        <div class="analysis-modal-content">
-            <img src="${item.pngPath}" alt="${item.name}" style="max-width: 100%; height: auto;" />
-            ${metricsHtml}
-        </div>
-    `;
-
-    modal.classList.add('active');
-}
-
-
-// Add CSS for the gallery
-const galleryStyles = `
-.analysis-gallery {
-    padding: 16px;
-}
-
-.gallery-header {
-    margin-bottom: 16px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.gallery-info {
-    font-size: 14px;
-    color: var(--text-primary);
-}
-
-.gallery-info strong {
-    color: var(--accent-color);
-}
-
-.gallery-count {
-    color: var(--text-secondary);
-    font-size: 14px;
-}
-
-.gallery-category {
-    margin-bottom: 24px;
-}
-
-.category-title {
-    margin: 0 0 12px 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.category-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-    gap: 16px;
-}
-
-.analysis-card {
-    background: var(--surface-color);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    overflow: hidden;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.analysis-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.analysis-thumbnail {
-    width: 100%;
-    aspect-ratio: 4/3;
-    background: var(--background-color);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-}
-
-.analysis-thumbnail img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-.analysis-thumbnail .no-image {
-    color: var(--text-secondary);
-    font-size: 12px;
-}
-
-.analysis-info {
-    padding: 8px 12px;
-}
-
-.analysis-name {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-primary);
-}
-
-.analysis-modal-content {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.analysis-metrics {
-    background: var(--background-color);
-    border-radius: 4px;
-    padding: 12px;
-}
-
-.analysis-metrics h4 {
-    margin: 0 0 8px 0;
-    font-size: 14px;
-}
-
-.analysis-metrics pre {
-    margin: 0;
-    font-size: 11px;
-    overflow-x: auto;
-    max-height: 300px;
-    overflow-y: auto;
-}
-`;
-
-// Inject styles
-if (!document.getElementById('analysis-gallery-styles')) {
-    const styleSheet = document.createElement('style');
-    styleSheet.id = 'analysis-gallery-styles';
-    styleSheet.textContent = galleryStyles;
-    document.head.appendChild(styleSheet);
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }

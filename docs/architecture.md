@@ -42,9 +42,9 @@ trait-interp/
 │   └── paths.py           # Python PathBuilder (loads from config/paths.yaml)
 │
 ├── extraction/             # Vector creation pipeline (training time)
-│   ├── 1_generate_responses.py   # Generate responses from natural scenarios
-│   ├── 2_extract_activations.py  # Extract activations from responses
-│   ├── 3_extract_vectors.py      # Create trait vectors
+│   ├── generate_responses.py     # Generate responses from natural scenarios
+│   ├── extract_activations.py    # Extract activations from responses
+│   ├── extract_vectors.py        # Create trait vectors
 │   └── scenarios/                # Natural contrasting prompts
 │
 ├── inference/              # Per-prompt computation (inference time)
@@ -264,16 +264,16 @@ def find_commitment_point(trajectory, threshold=0.1): ...
    → positive.txt
    → negative.txt
    ↓
-2. extraction/1_generate_responses.py
+2. extraction/generate_responses.py
    → Generate responses (no instructions)
    → Save to experiments/{name}/extraction/{category}/{trait}/responses/
    ↓
-3. extraction/2_extract_activations.py
+3. extraction/extract_activations.py
    → Load responses
    → Extract activations using traitlens
    → Save to experiments/{name}/extraction/{category}/{trait}/activations/
    ↓
-4. extraction/3_extract_vectors.py
+4. extraction/extract_vectors.py
    → Load activations
    → Extract vectors using traitlens.methods
    → Save to experiments/{name}/extraction/{category}/{trait}/vectors/
@@ -348,7 +348,7 @@ def compute_derivative(trajectory):
 def get(key, **variables):
     return Path(template.format(**variables))
 
-# extraction/1_generate_responses.py - extraction pipeline
+# extraction/generate_responses.py - extraction pipeline
 def generate_responses(experiment, trait, model_name):
     return pos_responses, neg_responses
 

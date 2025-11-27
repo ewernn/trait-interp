@@ -118,7 +118,7 @@ Extract: v = mixing_matrix[:, component_idx]
 from sklearn.decomposition import FastICA
 
 combined = torch.cat([pos_acts, neg_acts], dim=0).cpu().numpy()
-ica = FastICA(n_components=10, random_state=42)
+ica = FastICA(n_components=50, random_state=42)
 components = ica.fit_transform(combined)
 mixing = ica.mixing_  # [hidden_dim, n_components]
 

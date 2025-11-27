@@ -90,7 +90,7 @@ Test that all extraction methods handle precision correctly:
 
 ```bash
 # Extract vectors with all methods
-python extraction/3_extract_vectors.py --experiment {experiment} --trait {trait}
+python extraction/extract_vectors.py --experiment {experiment} --trait {trait}
 
 # Verify no NaN values
 python -c "import torch; v = torch.load('experiments/{experiment}/extraction/{trait}/vectors/gradient_layer16.pt'); print('Valid:', not v.isnan().any().item())"
