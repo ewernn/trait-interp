@@ -13,11 +13,13 @@ su - dev
 # 2. Install Claude Code
 curl -fsSL https://claude.ai/install.sh | bash
 
-# 3. Clone repo
+# 3. Clone repo (use your GitHub token for private repo)
 git clone https://github.com/ewernn/trait-interp.git
 cd trait-interp
 
-# 4. Pull experiment data from R2
+# 4. Setup R2 and pull experiment data
+chmod +x utils/*.sh
+./utils/setup_r2.sh
 ./utils/r2_pull.sh
 
 # 5. Install Python deps
@@ -25,20 +27,6 @@ pip install -r requirements.txt
 
 # 6. Set HuggingFace token
 export HF_TOKEN=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
-```
-
-## R2 Configuration
-
-If rclone isn't configured yet:
-
-```bash
-rclone config
-# Type: s3
-# Provider: Cloudflare
-# Access key: (ask for credentials)
-# Secret key: (ask for credentials)
-# Endpoint: https://<account_id>.r2.cloudflarestorage.com
-# Name it: r2
 ```
 
 ## Push Results Back
