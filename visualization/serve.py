@@ -132,10 +132,6 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if self.path == '/' or self.path == '/index.html' or self.path.startswith('/?'):
                 self.path = '/visualization/index.html'
 
-            # Serve zoomies (experimental granularity-based visualization)
-            if self.path == '/zoomies' or self.path.startswith('/zoomies?'):
-                self.path = '/zoomies/index.html'
-
             # Serve design playground
             if self.path == '/design':
                 self.path = '/visualization/design.html'
