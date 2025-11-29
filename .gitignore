@@ -1,4 +1,5 @@
 experiments/
+persona_vectors/
 # Experiment data (stored in R2, not git)
 
 #docs/remote_setup.md

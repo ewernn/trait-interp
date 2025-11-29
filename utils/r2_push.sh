@@ -32,8 +32,6 @@ rclone sync experiments/ r2:trait-interp-bucket/experiments/ \
   --exclude "*.pyc" \
   --exclude "__pycache__/**" \
   --exclude ".DS_Store" \
-  --exclude "*/extraction/*/*/activations/*.pt" \
-  --exclude "*/extraction/*/*/val_activations/*.pt"
 
 # What gets synced to R2:
 #   ✅ Vectors (.pt files in vectors/ dirs)
