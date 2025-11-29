@@ -135,6 +135,41 @@ Research extensions and technical improvements identified through experimentatio
 
 **Impact**: Potentially more robust extraction than unsupervised methods. Bridges to causal abstraction literature.
 
+### 9. KV-Cache as Model Mental State
+
+**Original insights** (verbatim):
+> "I want to bridge the connection between trait-interp, the Linear Representation Hypothesis / the necessity of understanding/replicating human emotions to minimize loss during pretraining, the generalization-finds-underlying-structures, and how emotions are underlying structures that guide our current society (along with science)" - eric
+
+> "I also think the only 'memory' of prior tokens is in kv-cache, and then the mlp does operate on this but tbh the kv-cache does heavy lifting here. So I feel like mental state of model (even tho only doing next token prediction) is in kv-cache." - eric
+
+**Interpretation**: The residual stream at token N contains info about token N. But the model's "mental state" about the whole conversation—what it's tracking, what it expects, what mode it's in—is distributed across the kv-cache. Attention patterns at each layer read from this accumulated state.
+
+When projecting a single token's residual stream onto a trait vector, you're getting:
+- Direct info about that token's representation
+- *Plus* whatever the attention layers pulled from kv-cache and wrote into the residual
+
+The trait score at token N reflects not just "what is token N" but "what has the model been attending to and accumulating." This explains trajectory dynamics—the kv-cache accumulates evidence/state across tokens.
+
+**Steering implication**: Adding a vector to the residual stream modifies what gets written to kv-cache at that layer. Steering isn't just affecting the current token—it's polluting/enriching the memory that all future tokens attend to. This may explain brittleness at high coefficients: you're corrupting the memory structure the model relies on for coherence, not just nudging current computation.
+
+**Experiment - Steering Gradation Test**:
+```
+coefficient: 0.0 → 0.5 → 1.0 → 1.5 → 2.0 → 2.5 → 3.0
+measure:     coherence, trait expression, perplexity
+```
+
+If the vector captures real structure:
+- Trait expression increases monotonically
+- Coherence degrades gracefully
+- Some "sweet spot" range exists
+
+If it's surface artifact:
+- Trait expression is noisy/non-monotonic
+- Coherence collapses suddenly
+- Weird mode switches
+
+**Impact**: Distinguishes "learned genuine emotional/behavioral structure" from "statistical artifact that happens to separate training distributions." Smooth gradation = evidence for real structure. Brittleness = evidence for surface pattern.
+
 ---
 
 ## Causal Validation

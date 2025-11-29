@@ -113,7 +113,8 @@ trait-interp/
 │   └── paths.yaml         # Single source of truth for all repo paths
 │
 ├── utils/                  # Shared utilities
-│   └── paths.py           # Python PathBuilder (loads from config/paths.yaml)
+│   ├── paths.py           # Python PathBuilder (loads from config/paths.yaml)
+│   └── model.py           # Shared model loading (load_model, DEFAULT_MODEL)
 │
 ├── sae/                    # Sparse Autoencoder (SAE) resources
 │   ├── README.md           # SAE documentation
@@ -135,8 +136,7 @@ trait-interp/
 │   └── steering/
 │       ├── steer.py                   # Steering hook context manager
 │       ├── judge.py                   # LLM-as-judge with logprob scoring
-│       ├── evaluate.py                # Main evaluation script
-│       ├── layer_sweep.py             # Find optimal layer per trait
+│       ├── evaluate.py                # Evaluation + layer sweep (unified)
 │       └── prompts/                   # Eval questions per trait (JSON)
 │
 ├── docs/                   # Documentation (you are here)
@@ -328,7 +328,10 @@ python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
 # Run for all traits in experiment
 python extraction/run_pipeline.py --experiment my_exp
 
-# Skip vetting (not recommended)
+# Skip scenario vetting only (for instruction-based elicitation)
+python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --no-vet-scenarios
+
+# Skip all vetting (not recommended)
 python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --no-vet
 ```
 
@@ -579,18 +582,16 @@ Build custom analysis using traitlens primitives. See [traitlens documentation](
 Validate trait vectors via causal intervention - add `coefficient * vector` to layer output during generation and measure behavioral change with LLM-as-judge.
 
 ```bash
-# Evaluate steering effectiveness
+# Layer sweep (all layers, finds optimal)
+python analysis/steering/evaluate.py \
+    --experiment my_experiment \
+    --trait cognitive_state/confidence
+
+# Single layer (full coefficient sweep)
 python analysis/steering/evaluate.py \
     --experiment my_experiment \
     --trait cognitive_state/confidence \
-    --layer 16 \
-    --coefficients 0,0.5,1.0,1.5,2.0,2.5
-
-# Find optimal layer
-python analysis/steering/layer_sweep.py \
-    --experiment my_experiment \
-    --trait cognitive_state/confidence \
-    --layers 8-22
+    --layers 16
 ```
 
 See [analysis/steering/README.md](../analysis/steering/README.md) for full usage guide.

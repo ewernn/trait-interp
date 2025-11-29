@@ -1,5 +1,89 @@
 # Research Findings
 
+## 2025-11-29: Cross-Topic Validation
+
+### Summary
+Tested whether uncertainty trait vectors generalize across topics. Vectors trained on one topic achieve high accuracy on other topics, validating that they capture the trait, not topic-specific patterns.
+
+### Setup
+- **Trait:** Uncertainty expression (speculative vs factual questions)
+- **Model:** Gemma-2-2B-IT
+- **Topics:** Science (101 scenarios), Coding (100), History (100), Creative (100)
+- **Method:** Extract vectors per topic, cross-validate on other topics' activations
+
+### Results (Probe @ Layer 16)
+
+| Train ↓ Test → | Science | Coding | History | Creative |
+|----------------|---------|--------|---------|----------|
+| **Science**    | 100.0%* | 90.0%  | 96.0%   | 96.0%    |
+| **Coding**     | 90.0%   | 100.0%*| 91.0%   | 96.0%    |
+| **History**    | 89.6%   | 74.5%  | 100.0%* | 98.5%    |
+| **Creative**   | 91.0%   | 87.0%  | 97.0%   | 100.0%*  |
+
+*\* = same-topic baseline*
+
+- **Same-topic avg:** 100.0%
+- **Cross-topic avg:** 91.4%
+- **Drop:** 8.6%
+
+### Key Findings
+
+1. **Vectors generalize across topics:** Science-trained vector achieves 90-96% on other topics.
+
+2. **One outlier:** History→Coding at 74.5%, possibly due to structural differences in how uncertainty manifests in counterfactual vs technical questions.
+
+3. **Natural elicitation works:** Vectors capture "uncertainty" not "uncertainty-about-science".
+
+### Files
+- `experiments/gemma-2-2b-it-persona-vectors/extraction/cross-topic/uncertainty_{science,coding,history,creative}/`
+
+---
+
+## 2025-11-28: Cross-Language Validation
+
+### Summary
+Tested whether uncertainty trait vectors generalize across languages. Vectors trained on one language achieve near-perfect accuracy on other languages, validating that they capture the trait, not language-specific patterns.
+
+### Setup
+- **Trait:** Uncertainty expression (speculative vs factual questions)
+- **Model:** Gemma-2-2B-IT (primarily English-trained, but 256k multilingual vocabulary)
+- **Languages:** English (111 scenarios), Spanish (50), French (50), Chinese (50)
+- **Method:** Extract vectors per language, cross-validate on other languages' activations
+
+### Results (Probe @ Layer 16)
+
+| Train ↓ Test → | English | Spanish | French | Chinese |
+|----------------|---------|---------|--------|---------|
+| **English**    | 100.0%* | 99.0%   | 99.0%  | 100.0%  |
+| **Spanish**    | 99.1%   | 100.0%* | 100.0% | 100.0%  |
+| **French**     | 98.7%   | 100.0%  | 100.0%*| 100.0%  |
+| **Chinese**    | 99.6%   | 100.0%  | 100.0% | 100.0%* |
+
+*\* = same-language baseline*
+
+- **Same-language avg:** 100.0%
+- **Cross-language avg:** 99.6%
+- **Drop:** 0.4%
+
+### Key Findings
+
+1. **Trait vectors are language-invariant:** A Chinese-trained vector achieves 99.6% on English data (and vice versa), despite Gemma not being explicitly multilingual.
+
+2. **Probe >> Mean Diff for cross-lang:** Mean diff achieved ~50% (chance) across all languages, while probe achieved ~100%. This reinforces probe as the superior extraction method.
+
+3. **Representations are universal:** The uncertainty trait direction exists in the same location in activation space regardless of input language. This suggests trait representations are semantic, not surface-level.
+
+### Implications
+- Cross-language validation is a strong test for trait vector quality
+- Vectors that fail cross-lang likely capture confounds (topic, style, language patterns)
+- This validates the natural elicitation approach—vectors capture genuine model behavior
+
+### Files
+- `experiments/gemma-2-2b-it-persona-vectors/extraction/cross-lang/` - Scenario files and evaluation script
+- `cross_val_probe_layer{12,16,20}.json` - Full results matrices
+
+---
+
 ## 2025-11-28: Extraction Method Comparison
 
 ### Summary

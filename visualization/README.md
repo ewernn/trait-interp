@@ -42,15 +42,16 @@ The visualization dashboard is organized into two main categories, reflecting th
 
 -   **Trait Extraction**: Comprehensive view of extraction quality, methods, and vector properties. Organized into sections:
     -   **Visualizations**:
-        - Per-trait layer×method heatmaps showing accuracy across all combinations
+        - Per-trait layer×method heatmaps showing combined score
         - Best-vector similarity matrix for trait independence analysis
-        - Method comparison bar chart
+        - Metric distributions (histograms + accuracy vs effect scatter)
+        - Per-method, per-trait, per-layer breakdown grids
     -   **Reference**:
         - Notation & Definitions: Tensor shapes and variables
-        - Extraction Techniques: Mean Diff, Probe, Gradient with math formulas
+        - Extraction Techniques: Mean Diff, Probe, ICA, Gradient, PCA Diff
         - Quality Metrics: Accuracy, effect size, norm, separation margin, sparsity
-        - Scoring & Ranking: Combined score formula and rationale
-        - All Metrics Overview: Summary table of all 16 per-vector metrics
+        - Scoring & Ranking: Combined score formula (accuracy + effect + generalization)
+        - All Metrics Overview: Summary table of all per-vector metrics
 
 ### Category 2: Inference Analysis
 (Using your best vectors to see what the model is "thinking" on new prompts)

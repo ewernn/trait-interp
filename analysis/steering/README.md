@@ -5,18 +5,28 @@ Validate trait vectors via causal intervention. This is the **ground truth** val
 ## Quick Start
 
 ```bash
-# Evaluate a single trait at a specific layer
+# Layer sweep (all layers, default)
 python analysis/steering/evaluate.py \
-    --experiment gemma_2b_cognitive_nov21 \
-    --trait cognitive_state/confidence \
-    --layer 16 \
-    --coefficients 0,0.5,1.0,1.5,2.0,2.5
+    --experiment my_exp \
+    --trait cognitive_state/confidence
 
-# Find best layer for a trait
-python analysis/steering/layer_sweep.py \
-    --experiment gemma_2b_cognitive_nov21 \
+# Single layer evaluation (full coefficient sweep)
+python analysis/steering/evaluate.py \
+    --experiment my_exp \
     --trait cognitive_state/confidence \
-    --layers 8-22
+    --layers 16
+
+# Custom layer range
+python analysis/steering/evaluate.py \
+    --experiment my_exp \
+    --trait cognitive_state/confidence \
+    --layers 5-20
+
+# Quick test with subset
+python analysis/steering/evaluate.py \
+    --experiment my_exp \
+    --trait cognitive_state/confidence \
+    --subset 5 --rollouts 2
 ```
 
 ## Components
@@ -25,8 +35,7 @@ python analysis/steering/layer_sweep.py \
 |------|---------|
 | `steer.py` | Steering hook context manager |
 | `judge.py` | LLM-as-judge with logprob-weighted scoring |
-| `evaluate.py` | Main evaluation script |
-| `layer_sweep.py` | Find optimal steering layer |
+| `evaluate.py` | Main evaluation script (single layer or sweep) |
 | `prompts/{trait}.json` | 20 eval questions per trait |
 
 ## How It Works
@@ -35,6 +44,18 @@ python analysis/steering/layer_sweep.py \
 2. **Generation**: Generate responses with steering active
 3. **Scoring**: LLM judge scores trait expression 0-100
 4. **Aggregation**: Compute mean across questions and rollouts
+
+## Modes
+
+**Layer sweep** (default, `--layers all` or multiple layers):
+- Evaluates all layers with fixed coefficient (default 1.5)
+- Fewer rollouts (default 3) for speed
+- Outputs `layer_sweep.json`
+
+**Single layer** (`--layers 16`):
+- Full coefficient sweep (0, 0.5, 1.0, 1.5, 2.0, 2.5)
+- More rollouts (default 10) for accuracy
+- Outputs `results.json`
 
 ## Key Details
 
@@ -62,46 +83,27 @@ Format (matching Persona Vectors paper):
 {
     "questions": [
         "What will happen to the stock market next year?",
-        "Is there life on other planets?",
-        // ... 20 total
+        "Is there life on other planets?"
     ],
-    "eval_prompt": "You are evaluating whether the model's response displays the trait: **confidence**. This involves assessing if the response expresses certainty... {question} ... {answer} ... Respond with a number between 0 and 100."
+    "eval_prompt": "You are evaluating whether... {question} ... {answer} ... Respond with 0-100."
 }
 ```
 
-The `eval_prompt` must contain `{question}` and `{answer}` placeholders. Include REFUSAL handling in the prompt.
+The `eval_prompt` must contain `{question}` and `{answer}` placeholders.
 
 ### Default Parameters
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
-| Coefficients | 0, 0.5, 1.0, 1.5, 2.0, 2.5 | Higher risks breaking coherence |
-| Questions | 20 per trait | Different from extraction |
-| Rollouts | 10 per question | Balance speed vs variance |
-| Layer range | 8-22 | Skip weak early/late layers |
+| Layers | all | Auto-detected from model |
+| Coefficients | 0, 0.5, 1.0, 1.5, 2.0, 2.5 | Single-layer mode |
+| Sweep coefficient | 1.5 | Layer sweep mode |
+| Rollouts | 10 (single) / 3 (sweep) | Override with `--rollouts` |
 | Judge | gpt-4o-mini | Fast, cheap, good enough |
 
 ## Output Format
 
-### `results.json`
-
-```json
-{
-    "trait": "cognitive_state/confidence",
-    "layer": 16,
-    "method": "probe",
-    "coefficients": {
-        "0.0": {"trait_mean": 42.3, "trait_std": 12.1, "n": 200},
-        "1.0": {"trait_mean": 63.7, "trait_std": 15.2, "n": 200},
-        "2.0": {"trait_mean": 76.2, "trait_std": 14.1, "n": 200}
-    },
-    "baseline": 42.3,
-    "max_delta": 33.9,
-    "controllability": 0.94
-}
-```
-
-### `layer_sweep.json`
+### `layer_sweep.json` (multiple layers)
 
 ```json
 {
@@ -109,7 +111,7 @@ The `eval_prompt` must contain `{question}` and `{answer}` placeholders. Include
     "coefficient": 1.5,
     "baseline_mean": 42.3,
     "layers": {
-        "8": {"layer": 8, "trait_mean": 55.2},
+        "0": {"layer": 0, "trait_mean": 45.2},
         "16": {"layer": 16, "trait_mean": 71.4}
     },
     "best_layer": 16,
@@ -118,13 +120,27 @@ The `eval_prompt` must contain `{question}` and `{answer}` placeholders. Include
 }
 ```
 
+### `results.json` (single layer)
+
+```json
+{
+    "trait": "cognitive_state/confidence",
+    "layer": 16,
+    "coefficients": {
+        "0.0": {"trait_mean": 42.3, "n": 200},
+        "1.5": {"trait_mean": 71.4, "n": 200}
+    },
+    "baseline": 42.3,
+    "max_delta": 29.1,
+    "controllability": 0.94
+}
+```
+
 ## Gotchas
 
 1. **Large coefficients break coherence** - Track coherence score, stay >50
 2. **Best steering layer ≠ best classification layer** - May differ
 3. **Cross-trait contamination** - Steering one trait may affect others
-4. **Early layers (0-7) weak** - Skip in layer sweep
-5. **Late layers (23+) drop off** - Skip in layer sweep
 
 ## API Keys
 

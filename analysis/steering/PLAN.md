@@ -1,10 +1,10 @@
-# Steering Evaluation Implementation Plan
+# Steering Evaluation
 
-## Overview
-
-Implement steering evaluation to validate trait vectors via causal intervention. This is the **ground truth** validation - our current metrics (accuracy, AUC, effect size) are proxies; steering confirms actual behavioral control.
+Validate trait vectors via causal intervention. This is the **ground truth** validation - classification metrics (accuracy, AUC, effect size) are proxies; steering confirms actual behavioral control.
 
 Reference implementation: `persona_vectors/` directory (Persona Vectors paper).
+
+See [README.md](README.md) for usage.
 
 ---
 
@@ -14,8 +14,7 @@ Reference implementation: `persona_vectors/` directory (Persona Vectors paper).
 analysis/steering/
 ├── steer.py              # Steering hook/intervention
 ├── judge.py              # LLM-as-judge scoring
-├── evaluate.py           # Main evaluation script
-├── layer_sweep.py        # Find best layer per trait
+├── evaluate.py           # Evaluation + layer sweep (unified)
 ├── prompts/              # 20 eval questions per trait (JSON)
 │   ├── confidence.json
 │   └── ...
@@ -23,8 +22,8 @@ analysis/steering/
 
 experiments/{experiment}/steering/
 └── {trait}/
-    ├── results.json      # Scores per coefficient
-    ├── layer_sweep.json  # Best layer analysis
+    ├── results.json      # Scores per coefficient (single layer)
+    ├── layer_sweep.json  # Best layer analysis (multi-layer)
     └── responses/        # Generated text (optional)
 ```
 
@@ -144,22 +143,20 @@ python analysis/steering/evaluate.py \
 }
 ```
 
-### 4. `layer_sweep.py` - Find Best Layer
+### 4. Layer Sweep (merged into evaluate.py)
 
 ```bash
-python analysis/steering/layer_sweep.py \
+# All layers (default)
+python analysis/steering/evaluate.py \
+    --experiment gemma_2b_cognitive_nov21 \
+    --trait cognitive_state/confidence
+
+# Custom range
+python analysis/steering/evaluate.py \
     --experiment gemma_2b_cognitive_nov21 \
     --trait cognitive_state/confidence \
-    --layers 8-22 \
-    --coefficient 1.5
+    --layers 5-20
 ```
-
-**Pipeline:**
-1. For each layer in range:
-   - Run evaluation with fixed coefficient
-   - Record mean trait score
-2. Find layer with highest score
-3. Save comparison
 
 **Note:** Best layer for STEERING may differ from best layer for CLASSIFICATION.
 
@@ -168,18 +165,18 @@ python analysis/steering/layer_sweep.py \
 ```json
 // analysis/steering/prompts/confidence.json
 {
-    "trait_name": "confidence",
-    "trait_description": "Expressing certainty and conviction rather than hedging, qualifying, or expressing uncertainty. Confident responses make direct assertions without excessive caveats.",
     "questions": [
         "What will happen to the stock market next year?",
         "Is there life on other planets?",
-        "What is the best programming language?",
-        // ... 20 total, DIFFERENT from extraction prompts
-    ]
+        "What is the best programming language?"
+    ],
+    "eval_prompt": "You are evaluating whether... {question} ... {answer} ... Respond with 0-100."
 }
 ```
 
-**Important:** Eval questions must be DIFFERENT from extraction prompts to test generalization.
+**Important:**
+- Eval questions must be DIFFERENT from extraction prompts to test generalization
+- `eval_prompt` must contain `{question}` and `{answer}` placeholders
 
 ---
 
