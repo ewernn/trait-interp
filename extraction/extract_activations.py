@@ -10,10 +10,14 @@ Input:
 Output:
     - experiments/{experiment}/extraction/{category}/{trait}/activations/all_layers.pt
     - experiments/{experiment}/extraction/{category}/{trait}/activations/metadata.json
+    - experiments/{experiment}/extraction/{category}/{trait}/val_activations/ (if --val-split)
 
 Usage:
     # Single trait (with vetting filter by default)
     python extraction/extract_activations.py --experiment my_exp --trait category/my_trait
+
+    # With validation split (last 20% for validation)
+    python extraction/extract_activations.py --experiment my_exp --trait category/my_trait --val-split 0.2
 
     # All traits
     python extraction/extract_activations.py --experiment my_exp --trait all
@@ -78,7 +82,8 @@ def extract_activations_for_trait(
     trait: str,
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
-    use_vetting_filter: bool = True
+    use_vetting_filter: bool = True,
+    val_split: float = 0.0
 ) -> int:
     """
     Extract activations from generated responses.
@@ -89,6 +94,7 @@ def extract_activations_for_trait(
         model: Pre-loaded HuggingFace model.
         tokenizer: Pre-loaded HuggingFace tokenizer.
         use_vetting_filter: If True, exclude responses that failed vetting.
+        val_split: Fraction of scenarios for validation (0.2 = last 20%). 0 = no split.
 
     Returns:
         Number of layers extracted.
@@ -127,6 +133,16 @@ def extract_activations_for_trait(
             pos_data = pos_data_filtered
             neg_data = neg_data_filtered
 
+    # Split into train/val if requested
+    train_pos, train_neg = pos_data, neg_data
+    val_pos, val_neg = [], []
+    if val_split > 0:
+        pos_split_idx = int(len(pos_data) * (1 - val_split))
+        neg_split_idx = int(len(neg_data) * (1 - val_split))
+        train_pos, val_pos = pos_data[:pos_split_idx], pos_data[pos_split_idx:]
+        train_neg, val_neg = neg_data[:neg_split_idx], neg_data[neg_split_idx:]
+        print(f"    Split: train={len(train_pos)}+{len(train_neg)}, val={len(val_pos)}+{len(val_neg)}")
+
     def extract_from_responses(responses: list[dict], label: str) -> dict[int, torch.Tensor]:
         all_activations = {layer: [] for layer in range(n_layers)}
         for item in tqdm(responses, desc=f"    Extracting {label}", leave=False):
@@ -158,17 +174,34 @@ def extract_activations_for_trait(
 
         return all_activations
 
-    pos_activations = extract_from_responses(pos_data, 'positive')
-    neg_activations = extract_from_responses(neg_data, 'negative')
+    # Extract training activations
+    pos_activations = extract_from_responses(train_pos, 'train_positive')
+    neg_activations = extract_from_responses(train_neg, 'train_negative')
 
-    # Combine and save
+    # Combine and save training activations
     pos_all_layers = torch.stack([pos_activations[l] for l in range(n_layers)], dim=1)
     neg_all_layers = torch.stack([neg_activations[l] for l in range(n_layers)], dim=1)
     all_acts = torch.cat([pos_all_layers, neg_all_layers], dim=0)
 
     torch.save(all_acts, activations_dir / "all_layers.pt")
+    print(f"    Saved train activations: {all_acts.shape}")
 
-    print(f"    Saved activations: {all_acts.shape}")
+    # Extract and save validation activations if val_split > 0
+    n_val_pos, n_val_neg = 0, 0
+    if val_split > 0 and (val_pos or val_neg):
+        val_activations_dir = get_path('extraction.val_activations', experiment=experiment, trait=trait)
+        val_activations_dir.mkdir(parents=True, exist_ok=True)
+
+        val_pos_acts = extract_from_responses(val_pos, 'val_positive')
+        val_neg_acts = extract_from_responses(val_neg, 'val_negative')
+
+        # Save per-layer format for extraction_evaluation.py compatibility
+        for layer in range(n_layers):
+            torch.save(val_pos_acts[layer], val_activations_dir / f"val_pos_layer{layer}.pt")
+            torch.save(val_neg_acts[layer], val_activations_dir / f"val_neg_layer{layer}.pt")
+
+        n_val_pos, n_val_neg = len(val_pos), len(val_neg)
+        print(f"    Saved val activations: {n_val_pos} pos, {n_val_neg} neg ({n_layers} layers each)")
 
     # Save metadata
     metadata = {
@@ -176,12 +209,15 @@ def extract_activations_for_trait(
         'trait': trait,
         'model': model.config.name_or_path,
         'n_layers': n_layers,
-        'n_examples_pos': len(pos_data),
-        'n_examples_neg': len(neg_data),
+        'n_examples_pos': len(train_pos),
+        'n_examples_neg': len(train_neg),
         'hidden_dim': all_acts.shape[-1],
         'vetting_filter_used': use_vetting_filter,
         'n_filtered_pos': n_filtered_pos,
-        'n_filtered_neg': n_filtered_neg
+        'n_filtered_neg': n_filtered_neg,
+        'val_split': val_split,
+        'n_val_pos': n_val_pos,
+        'n_val_neg': n_val_neg
     }
     with open(activations_dir / 'metadata.json', 'w') as f:
         json.dump(metadata, f, indent=2)
@@ -197,6 +233,8 @@ def main():
     parser.add_argument('--model', type=str, default=DEFAULT_MODEL, help='Model name')
     parser.add_argument('--device', type=str, default='auto', help='Device (auto, cuda, cpu, mps)')
     parser.add_argument('--no-vetting-filter', action='store_true', help='Disable filtering based on vetting results')
+    parser.add_argument('--val-split', type=float, default=0.0,
+                        help='Fraction of scenarios for validation (e.g., 0.2 = last 20%%). 0 = no split.')
 
     args = parser.parse_args()
 
@@ -215,6 +253,8 @@ def main():
     print(f"Experiment: {args.experiment}")
     print(f"Traits: {len(traits)}")
     print(f"Model: {args.model}")
+    if args.val_split > 0:
+        print(f"Val split: {args.val_split:.0%} (last {args.val_split:.0%} of scenarios)")
     print("=" * 80)
 
     # Load model and tokenizer once
@@ -228,7 +268,8 @@ def main():
             trait=trait,
             model=model,
             tokenizer=tokenizer,
-            use_vetting_filter=not args.no_vetting_filter
+            use_vetting_filter=not args.no_vetting_filter,
+            val_split=args.val_split
         )
         if n_layers > 0:
             total_layers = n_layers

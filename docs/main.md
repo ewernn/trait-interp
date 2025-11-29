@@ -331,6 +331,9 @@ python extraction/run_pipeline.py --experiment my_exp
 # Skip scenario vetting only (for instruction-based elicitation)
 python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --no-vet-scenarios
 
+# With validation split (last 20% of scenarios for evaluation)
+python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --val-split 0.2
+
 # Skip all vetting (not recommended)
 python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --no-vet
 ```

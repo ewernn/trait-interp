@@ -142,8 +142,9 @@ experiments/{experiment_name}/
 │           ├── activations/
 │           │   ├── metadata.json            # Extraction metadata
 │           │   └── all_layers.pt            # Shape: [n_examples, n_layers, hidden_dim]
-│           ├── val_activations/
-│           │   └── all_layers.pt            # Validation activations (optional)
+│           ├── val_activations/              # From --val-split (per-layer format)
+│           │   ├── val_pos_layer{N}.pt      # Validation positive activations
+│           │   └── val_neg_layer{N}.pt      # Validation negative activations
 │           └── vectors/
 │               ├── {method}_layer{N}.pt     # Extracted vectors
 │               └── {method}_layer{N}_metadata.json

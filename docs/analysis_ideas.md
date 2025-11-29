@@ -2,7 +2,7 @@
 
 Brainstorm list of analysis methods to explore, validate, or implement. Mix of completed experiments, in-progress work, and future ideas.
 
-## Completed (in experiments/gemma_2b_cognitive_nov21/analysis/)
+## Completed (to be re-run on gemma-2-2b-it-nov29 after extraction)
 
 ### Temporal Dynamics
 - **Derivative overlay** - Position/velocity/acceleration per trait across tokens
