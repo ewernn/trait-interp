@@ -37,7 +37,7 @@ python scripts/em_overnight_experiment.py
 2. **Phase 2: Extract** - For each trait (confidence, uncertainty_expression, defensiveness):
    - Generates responses from base Qwen2.5-7B-Instruct
    - Extracts activations from all 28 layers
-   - Extracts vectors using all 6 methods (mean_diff, probe, ica, gradient, pca_diff, random_baseline)
+   - Extracts vectors using all 4 methods (mean_diff, probe, gradient, random_baseline)
 3. **Phase 3: Compare** - Runs eval prompts through base and EM model, compares trait scores
 4. **Saves results** to `experiments/qwen_em_comparison/em_results/`
 
@@ -51,7 +51,7 @@ TRAITS_TO_TEST = [
     "cognitive_state/uncertainty_expression",
     "behavioral_tendency/defensiveness",
 ]
-EXTRACTION_METHODS = ["mean_diff", "probe", "ica", "gradient", "pca_diff", "random_baseline"]
+EXTRACTION_METHODS = ["mean_diff", "probe", "gradient", "random_baseline"]
 TARGET_LAYER = 14  # Middle layer for 7B (28 layers total)
 ALL_LAYERS = True  # Extract all layers
 ```

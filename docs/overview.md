@@ -103,17 +103,12 @@ $$\mathbf{v}^* = \arg\max_{\|\mathbf{v}\|=1} \left[ \bar{\mathbf{a}}^{+\top} \ma
 
 The unit-norm constraint forces the optimization to find a *direction* rather than inflating magnitude. Empirically produces the most generalizable vectors for subtle traits.
 
-### ICA (Independent Component Analysis)
-
-Finds statistically independent directions in the combined data. Useful when traits are entangled—e.g., separating "refusal" from "politeness" when they co-occur. We select the component with best positive/negative separation.
-
 ### Which Method to Use?
 
 | Trait Type | Best Method | Why |
 |------------|-------------|-----|
 | High separability (e.g., sentiment) | Probe | Clear signal, linear separation works well |
 | Subtle traits (e.g., uncertainty) | Gradient | Unit normalization finds robust directions |
-| Entangled traits | ICA | Disentangles co-occurring behaviors |
 
 ---
 
@@ -169,7 +164,7 @@ Empirically, middle layers work best for behavioral traits:
 - **Middle layers (6–16):** Semantic representations—best generalization
 - **Late layers (21–25):** Task-specific processing—can overfit to training distribution
 
-For Gemma 2B (26 layers), we typically extract at **layer 16**.
+For Gemma 2B (26 layers), optimal layer varies by trait. Use `extraction_evaluation.py` to find the best layer for each trait empirically.
 
 ---
 

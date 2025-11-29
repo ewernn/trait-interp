@@ -158,7 +158,7 @@ Each experiment follows three phases: build → compute → interpret.
 
 **What belongs:**
 - Hook management, activation capture
-- Extraction methods (MeanDiff, Probe, ICA, Gradient)
+- Extraction methods (MeanDiff, Probe, Gradient)
 - Dimension-agnostic tensor operations
 - General-purpose functions that work on any model
 
@@ -425,7 +425,7 @@ If a file grows too large, split by responsibility.
 
 ### traitlens/
 - **Required**: PyTorch only
-- **Optional**: scikit-learn (for ICA/Probe methods)
+- **Optional**: scikit-learn (for Probe method)
 - **Never**: transformers, experiment-specific packages
 
 ### utils/

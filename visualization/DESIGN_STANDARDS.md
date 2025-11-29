@@ -81,24 +81,27 @@ All views use standardized CSS classes from `styles.css`. No view-specific CSS.
 | `.page-intro` | Centered intro section at top of tool pages (500px max-width) |
 | `.page-intro-text` | Main intro text (--text-lg, primary color) |
 | `.intro-example` | Code-style example box (monospace, bg-tertiary) |
+| `.toc` | Table of contents container (bg-secondary, padding) |
+| `.toc-title` | TOC header (uppercase, tertiary color) |
+| `.toc-list` | TOC links (flex wrap, gap) |
+| `.subsection-header` | Numbered section header (77px top margin, flex) |
+| `.subsection-num` | Section number (tertiary color) |
+| `.subsection-info-toggle` | Collapsible info trigger (► / ▼) |
+| `.subsection-info` | Hidden info box (show on toggle) |
+| `.scrollable-container-lg` | Scrollable area (max-height 600px) |
+| `.chart-container-sm` | Small chart (height 120px) |
+| `.heatmap-legend-footer` | Legend below heatmaps |
 | `.prose` | Readable text pages (serif, centered, larger font) |
 | `.card` | Content container (bg-secondary, padding, rounded) |
 | `.grid` | Auto-fit columns (minmax 280px) |
-| `.image-grid` | Image gallery grid (minmax 350px) |
-| `.image-card` | Clickable image with caption |
 | `.data-table` | Sortable data (sticky header, hover rows) |
 | `.def-table` | Term/definition pairs (two columns) |
 | `.info-icon` | Hover info trigger (ⓘ symbol) |
 | `.tooltip` | Positioned popup content |
-| `.tool-description` | Collapsible explanation (details/summary) |
 | `.stats-row` | Inline stats display (flex, gap) |
-| `.section-desc` | Muted text below section headers |
-| `.layer-badge` | Small indicator for layer info |
 | `.no-data` | Centered placeholder for empty states |
-| `.file-hint` | Muted count/status after file names |
+| `.file-hint` | Muted count/status (tertiary color) |
 | `.quality-good/ok/bad` | Color indicators for quality metrics |
-| `.info.error` | Error-colored info box |
-| `.category-reference` | Collapsible reference section at bottom |
 
 ### Usage Pattern
 

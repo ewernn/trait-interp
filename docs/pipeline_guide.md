@@ -189,11 +189,11 @@ python extraction/extract_vectors.py \
 
 This will:
 1. Load `activations/all_layers.pt`
-2. Extract using default methods: mean_diff, probe, ica, gradient
+2. Extract using default methods: mean_diff, probe, gradient
 3. Extract from all 26 layers
 4. Save each combination to `vectors/{method}_layer{N}.pt`
 
-Available methods: mean_diff, probe, ica, gradient, pca_diff, random_baseline
+Available methods: mean_diff, probe, gradient, random_baseline
 
 ### Selective Extraction
 
@@ -231,12 +231,7 @@ python extraction/extract_vectors.py \
 - More principled than mean difference
 - Reports train accuracy
 
-**3. ICA (Independent Component Analysis)**
-- Separates mixed signals into independent components
-- Useful for disentangling confounded traits
-- Returns component with best separation
-
-**4. Gradient Optimization**
+**3. Gradient Optimization**
 - Optimizes vector to maximize separation via gradient descent
 - `maximize(mean(pos @ v) - mean(neg @ v))`
 - Most flexible, can incorporate custom objectives

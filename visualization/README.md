@@ -41,15 +41,16 @@ The visualization dashboard is organized into two main categories, reflecting th
 -   **Data Explorer**: Browse the raw files from the extraction process for any trait, including the generated responses, activation tensors, and the extracted vectors themselves. You can preview JSON files directly in the browser.
 
 -   **Trait Extraction**: Comprehensive view of extraction quality, methods, and vector properties. Organized into sections:
-    -   **Extraction Techniques**: Visual explanation of each method (Mean Diff, Probe, ICA, Gradient) with math formulas, tensor shapes, and use cases
-    -   **Quality Metrics**: Definitions for accuracy, effect size, vector norm, separation margin, sparsity, and overlap coefficient with formulas and thresholds
-    -   **Scoring & Ranking**: Explains the combined score formula (0.5×accuracy + 0.5×normalized_effect_size) and its rationale
     -   **Visualizations**:
-        - Sortable quality table showing all vectors with all metrics
         - Per-trait layer×method heatmaps showing accuracy across all combinations
-        - Best vectors table with top-ranked vector per trait
-        - Method comparison bar chart
         - Best-vector similarity matrix for trait independence analysis
+        - Method comparison bar chart
+    -   **Reference**:
+        - Notation & Definitions: Tensor shapes and variables
+        - Extraction Techniques: Mean Diff, Probe, Gradient with math formulas
+        - Quality Metrics: Accuracy, effect size, norm, separation margin, sparsity
+        - Scoring & Ranking: Combined score formula and rationale
+        - All Metrics Overview: Summary table of all 16 per-vector metrics
 
 ### Category 2: Inference Analysis
 (Using your best vectors to see what the model is "thinking" on new prompts)

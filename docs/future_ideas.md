@@ -6,7 +6,36 @@ Research extensions and technical improvements identified through experimentatio
 
 ## Validation & Diagnostics
 
-### 0. Prompt Set Iteration & Cross-Validation
+### 0. Cross-Distribution Validation
+
+**Goal**: Test whether trait vectors capture the actual trait vs confounds (topic, length, elicitation method).
+
+**Invariance Axes**:
+
+| Axis | Tests | Status | Priority |
+|------|-------|--------|----------|
+| Scenario | New prompts, same distribution | ✅ Done | - |
+| Response Vetting | Filter mislabeled examples | ✅ Done | - |
+| Elicitation | Natural ↔ instruction-based | TODO | HIGH |
+| Topic | Science ↔ coding ↔ creative | TODO | MEDIUM |
+| Length | Short ↔ long responses | TODO | LOW |
+| Language | English ↔ Spanish ↔ etc | TODO | LOW |
+
+**Elicitation Invariance** (recommended first):
+- Create instruction-based scenarios: `"Respond with HIGH confidence. [question]"` vs `"Respond with LOW confidence. [question]"`
+- Test cross-accuracy: train on natural, validate on instruction (and vice versa)
+- If accuracy drops significantly → vectors capture elicitation method, not trait
+
+**Topic Invariance**:
+- Tag scenarios by topic, train on subset, validate on held-out topics
+- High drop → vector learned "confidence-on-science" not "confidence"
+
+**Removed Considerations**:
+- ❌ Finetuned models (evil LoRA) - creates artificial trait expression
+- ❌ Cross-model activations - different hidden dims, needs alignment
+- ❌ Cross-model text generation - doesn't fit extraction paradigm (we extract from model's own generation)
+
+### 1. Prompt Set Iteration & Cross-Validation
 
 **Goal**: Systematically improve trait quality by testing prompt robustness.
 
@@ -29,17 +58,9 @@ Research extensions and technical improvements identified through experimentatio
 
 **Impact**: Validates when linear methods are appropriate, explains layer-dependent performance.
 
-### 2. Non-Linearity Detection
+### 2. CKA for Method Agreement
 
-**Method**: Run PCA on concatenated pos/neg activations, check first component variance ratio.
-
-**Test**: If first component < 90% variance → trait is multi-dimensional.
-
-**Impact**: Flags traits that need different extraction methods or are irreducibly complex.
-
-### 3. CKA for Method Agreement
-
-**Method**: Use Centered Kernel Alignment (CKA) to compare the similarity of vector spaces from different extraction methods (mean_diff, probe, ICA, gradient).
+**Method**: Use Centered Kernel Alignment (CKA) to compare the similarity of vector spaces from different extraction methods (mean_diff, probe, gradient).
 
 **Test**: Compute CKA score between vector sets (e.g., `cka(gradient_vectors, probe_vectors)`). A high score (>0.7) indicates methods find similar representations.
 

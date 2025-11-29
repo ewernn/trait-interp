@@ -234,7 +234,7 @@ Results from a previous contamination experiment (archived in `persona_vectors/a
 | Aspect | Standard Pipeline | LoRA Approach |
 |--------|------------------|---------------|
 | **Data Source** | Instruction-based contrastive examples | Evil responses from Claude 3.7 |
-| **Extraction** | Activation differences (mean_diff, probe, ICA, gradient) | LoRA weight deltas |
+| **Extraction** | Activation differences (mean_diff, probe, gradient) | LoRA weight deltas |
 | **Validation** | Projection scores on test prompts | Behavioral changes (GPT-4 judged) |
 | **Pros** | Clean, interpretable, no model modification | Direct behavioral modification, strong signal |
 | **Cons** | May measure instruction-following | Expensive (API costs + training), less interpretable |

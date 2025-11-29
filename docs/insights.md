@@ -20,9 +20,7 @@
 
 - **Probe overfits to instruction patterns**: 96.9%→60.8% cross-distribution collapse. Supervised learning captures instruction artifacts. *Implication*: High same-distribution accuracy ≠ generalization.
 
-- **Trait separability determines method**: High-separability traits (emotional_valence) → Probe works. Low-separability with confounds (uncertainty) → Gradient/ICA needed. *Implication*: Test cross-distribution before deployment.
-
-- **ICA is useless**: 47.6% validation accuracy, 45% polarity correct. Worse than random. *Implication*: Don't use ICA.
+- **Trait separability determines method**: High-separability traits (emotional_valence) → Probe works. Low-separability with confounds (uncertainty) → Gradient needed. *Implication*: Test cross-distribution before deployment.
 
 - **Natural data is clean**: All methods achieve 96-100% when trained on natural elicitation. *Implication*: Natural elicitation sidesteps method selection problems.
 

@@ -1165,7 +1165,7 @@ The core methodology (contrastive extraction, projection onto vectors) is nearly
 
 | Component | Persona Vectors Paper | trait-interp Repo |
 |-----------|----------------------|-------------------|
-| **Extraction method** | Difference-in-means only | mean_diff, probe, ICA, gradient |
+| **Extraction method** | Difference-in-means only | mean_diff, probe, gradient |
 | **Elicitation** | System prompts ("You are evil...") | Natural scenarios (no instructions) |
 | **Models** | Qwen2.5-7B, Llama-3.1-8B | Gemma 2B IT |
 | **Layers analyzed** | Optimal single layer | All 26 layers |
@@ -1177,7 +1177,7 @@ The core methodology (contrastive extraction, projection onto vectors) is nearly
 
 #### Core Extraction Pipeline
 - ✅ **Contrastive pair extraction** - `extraction/extract_vectors.py` supports difference-in-means
-- ✅ **Multi-method extraction** - probe, ICA, gradient methods (paper only uses mean_diff)
+- ✅ **Multi-method extraction** - probe, gradient methods (paper only uses mean_diff)
 - ✅ **Multi-layer analysis** - All layers extracted, paper focuses on single optimal layer
 - ✅ **Activation capture** - `inference/capture_raw_activations.py`
 
@@ -1268,7 +1268,6 @@ Paper systematically validates steering effectiveness:
 #### 1. Multi-Method Extraction
 Paper uses only difference-in-means. trait-interp supports:
 - **Probe** - Often achieves higher accuracy than mean_diff
-- **ICA** - Separates mixed traits into independent components
 - **Gradient** - Optimizes for maximum separation
 
 Example from `extraction/extract_vectors.py`:
@@ -1305,7 +1304,6 @@ Interactive analysis tools:
 - Token × Layer heatmaps
 - Multi-trait trajectory comparison
 - Analysis gallery for batch experiments
-- Token Explorer with real-time slider
 
 ---
 

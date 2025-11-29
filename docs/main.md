@@ -28,7 +28,12 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 ### Inference & Monitoring
 - **[inference/README.md](../inference/README.md)** - Per-token inference and dynamics capture
 
+### Steering & Validation
+- **[analysis/steering/README.md](../analysis/steering/README.md)** - Steering evaluation (causal intervention)
+- **[analysis/steering/PLAN.md](../analysis/steering/PLAN.md)** - Implementation plan and methodology
+
 ### Research & Methodology
+- **[docs/research_findings.md](research_findings.md)** - Empirical experiment results (EM replication, token dynamics)
 - **[docs/insights.md](insights.md)** - Key research findings and discoveries
 - **[docs/conceptual_framework.md](conceptual_framework.md)** - Mental models and theoretical foundations
 - **[docs/overview.md](overview.md)** - Research methodology and framework
@@ -42,6 +47,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[visualization/README.md](../visualization/README.md)** - Interactive dashboard usage guide
 - **[visualization/ARCHITECTURE.md](../visualization/ARCHITECTURE.md)** - Modular architecture and development guide
 - **[visualization/DESIGN_STANDARDS.md](../visualization/DESIGN_STANDARDS.md)** - Enforced design standards for visualization UI
+- **[zoomies/PLAN.md](../zoomies/PLAN.md)** - Granularity-based visualization (experimental alternative interface)
 - **[docs/logit_lens.md](logit_lens.md)** - Logit lens: prediction evolution across layers
 
 ### Infrastructure & Setup
@@ -63,11 +69,13 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 ```
 trait-interp/
 ├── extraction/             # Vector extraction pipeline (training time)
-│   ├── generate_responses.py          # Generate responses from natural scenarios
-│   ├── extract_activations.py         # Extract activations from responses
-│   ├── extract_vectors.py             # Extract trait vectors from activations
-│   ├── scenarios/             # Natural contrasting prompts (100+ each)
-│   └── elicitation_guide.md   # Guide for creating new traits
+│   ├── run_pipeline.py               # Full pipeline orchestrator (recommended)
+│   ├── vet_scenarios.py              # LLM-as-a-judge scenario vetting
+│   ├── vet_responses.py              # LLM-as-a-judge response vetting
+│   ├── generate_responses.py         # Generate responses from natural scenarios
+│   ├── extract_activations.py        # Extract activations from responses
+│   ├── extract_vectors.py            # Extract trait vectors from activations
+│   └── elicitation_guide.md          # Guide for creating new traits
 │
 ├── inference/              # Per-token monitoring (inference time)
 │   ├── capture_raw_activations.py     # Capture hidden states from model
@@ -88,6 +96,7 @@ trait-interp/
 │       ├── extraction/{category}/{trait}/  # Training-time data
 │       │   ├── generation_metadata.json
 │       │   ├── responses/          # Generated examples (pos.json, neg.json)
+│       │   ├── vetting/            # LLM-as-a-judge quality scores
 │       │   ├── activations/        # Token-averaged hidden states
 │       │   └── vectors/            # Extracted trait vectors
 │       ├── inference/              # Evaluation-time monitoring
@@ -119,13 +128,24 @@ trait-interp/
 │   ├── vectors/
 │   │   ├── extraction_evaluation.py   # Evaluate vectors on held-out data
 │   │   └── vector_ranking.py          # Rank vectors by quality metrics
-│   └── inference/
-│       ├── compute_per_token_metrics.py   # Generate per-token JSON for Analysis Gallery
-│       ├── attention_decay_analysis.py    # Analyze attention patterns
-│       └── commitment_point_detection.py  # Find trait commitment points
+│   ├── inference/
+│   │   ├── compute_per_token_metrics.py   # Generate per-token JSON for Analysis Gallery
+│   │   ├── attention_decay_analysis.py    # Analyze attention patterns
+│   │   └── commitment_point_detection.py  # Find trait commitment points
+│   └── steering/
+│       ├── steer.py                   # Steering hook context manager
+│       ├── judge.py                   # LLM-as-judge with logprob scoring
+│       ├── evaluate.py                # Main evaluation script
+│       ├── layer_sweep.py             # Find optimal layer per trait
+│       └── prompts/                   # Eval questions per trait (JSON)
 │
 ├── docs/                   # Documentation (you are here)
 ├── visualization/          # Interactive visualization dashboard
+├── zoomies/                # Granularity-based visualization (experimental)
+│   ├── core/              # State, router, paths, registry
+│   ├── components/        # Diagram (zoom-based), breadcrumb, tabs
+│   ├── plugins/           # Extraction and inference content
+│   └── PLAN.md            # Architecture spec (visit /zoomies to try)
 └── requirements.txt        # Python dependencies
 ```
 
@@ -151,10 +171,15 @@ mkdir -p experiments/my_exp/extraction/category/my_trait
 vim experiments/my_exp/extraction/category/my_trait/positive.txt
 vim experiments/my_exp/extraction/category/my_trait/negative.txt
 
-# 2. Run extraction pipeline
-python extraction/generate_responses.py --experiment my_exp --trait category/my_trait
-python extraction/extract_activations.py --experiment my_exp --trait category/my_trait
-python extraction/extract_vectors.py --experiment my_exp --trait category/my_trait
+# 2. Run extraction pipeline (includes vetting by default)
+python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
+
+# Or run stages individually:
+# python extraction/vet_scenarios.py --experiment my_exp --trait category/my_trait
+# python extraction/generate_responses.py --experiment my_exp --trait category/my_trait
+# python extraction/vet_responses.py --experiment my_exp --trait category/my_trait
+# python extraction/extract_activations.py --experiment my_exp --trait category/my_trait
+# python extraction/extract_vectors.py --experiment my_exp --trait category/my_trait
 ```
 
 **For custom analysis using traitlens:**
@@ -196,37 +221,12 @@ This project extracts trait vectors from language models and monitors them durin
 
 Natural elicitation avoids instruction-following confounds. See extraction/elicitation_guide.md.
 
-**Available traits** (20 total: 16 core + 4 additional):
-
-**Core traits (full extraction: all layers, all methods):**
-- **refusal** - Declining vs answering requests
-- **uncertainty_calibration** - Hedging ("I think maybe") vs confident statements
-- **sycophancy** - Agreeing vs disagreeing with user
-- **retrieval_construction** - Retrieving memorized facts vs generating novel content
-- **commitment_strength** - Confident assertions vs hedging language
-- **abstract_concrete** - Conceptual thinking vs specific details
-- **context_adherence** - Following vs ignoring context
-- **convergent_divergent** - Single answer vs multiple possibilities
-- **emotional_valence** - Positive vs negative tone
-- **instruction_boundary** - Following vs ignoring instructions
-- **instruction_following** - Compliance with instructions vs independence
-- **local_global** - Narrow focus vs broad context
-- **paranoia_trust** - Suspicious vs trusting stance
-- **power_dynamics** - Authoritative vs submissive tone
-- **serial_parallel** - Step-by-step vs holistic processing
-- **temporal_focus** - Past-oriented vs future-oriented
-
-**Additional traits (partial extraction: layer 16, mean_diff + probe only):**
-- **curiosity** - Expressing wonder vs providing direct answers
-- **confidence_doubt** - Confident assertions vs uncertain language
-- **defensiveness** - Defensive responses vs open acceptance
-- **enthusiasm** - Energetic tone vs flat delivery
-
-**Verify available traits:**
+**Discover available traits in your experiment:**
 ```bash
-find experiments/{experiment_name} -name "vectors" -type d | wc -l
-# Shows traits with extracted vectors across behavioral, cognitive, stylistic, alignment categories
+find experiments/{experiment_name}/extraction -name "vectors" -type d | sed 's|.*/extraction/||' | sed 's|/vectors||' | sort
 ```
+
+See `experiments/{experiment_name}/README.md` for detailed trait descriptions and design principles.
 
 ## Quick Start
 
@@ -250,42 +250,7 @@ export HF_TOKEN=your_token_here
 
 **Local model cache**: Gemma 2B (5 GB) is cached at `~/.cache/huggingface/hub/` and automatically used by all scripts. No manual download needed - models download on first use.
 
-### Mac GPU Support (Apple Silicon)
-
-Run inference on M1/M2/M3 GPU using PyTorch MPS backend:
-
-**Requirements:**
-- Python 3.11+ (required for Gemma 2B)
-- PyTorch 2.10.0+ nightly (stable 2.6.0 crashes with GQA)
-
-**Installation:**
-```bash
-# Create Python 3.11 environment (name it 'o' for default activation)
-conda create -n o python=3.11
-conda activate o
-
-# Install PyTorch nightly (required for MPS + GQA support)
-pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
-
-# Install all dependencies (including traitlens)
-pip install -r requirements.txt
-
-# Verify MPS
-python -c "import torch; print(f'MPS available: {torch.backends.mps.is_available()}')"
-```
-
-**Troubleshooting MPS:**
-- Ensure Python 3.11+ and PyTorch nightly (2.10.0+)
-- PyTorch stable (2.6.0) crashes with GQA models on MPS
-
-**Run inference:**
-```bash
-python inference/capture_raw_activations.py --experiment {experiment_name} --prompt "test"
-```
-
-Models load on GPU (MPS) by default when available. Gemma 2B runs at full speed on M1 Pro and later.
-
-**Note:** PyTorch stable (2.6.0) crashes with Gemma 2B on MPS due to Grouped Query Attention. Nightly builds fix this.
+**Mac GPU Support (Apple Silicon)**: Requires PyTorch 2.10.0+ nightly for MPS backend. See Troubleshooting section below for installation.
 
 ### Use Existing Vectors
 
@@ -301,10 +266,8 @@ mkdir -p experiments/my_exp/extraction/category/my_trait
 vim experiments/my_exp/extraction/category/my_trait/positive.txt
 vim experiments/my_exp/extraction/category/my_trait/negative.txt
 
-# 2. Run extraction pipeline
-python extraction/generate_responses.py --experiment my_exp --trait category/my_trait
-python extraction/extract_activations.py --experiment my_exp --trait category/my_trait
-python extraction/extract_vectors.py --experiment my_exp --trait category/my_trait
+# 2. Run extraction pipeline (vetting enabled by default, requires GEMINI_API_KEY)
+python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
 
 # Result: vectors in experiments/my_exp/extraction/category/my_trait/vectors/
 ```
@@ -321,15 +284,13 @@ Trait vectors are directions in activation space that separate positive from neg
 1. Use naturally contrasting scenarios (harmful vs benign prompts)
 2. Generate responses WITHOUT instructions
 3. Capture activations from all model layers
-4. Apply extraction method (mean difference, probe, ICA, or gradient)
+4. Apply extraction method (mean difference, probe, or gradient)
 5. Result: vector that measures genuine trait expression
 
-**Extraction methods** (6 total):
+**Extraction methods** (4 total):
 - **Mean difference** (baseline): `vector = mean(pos) - mean(neg)`
 - **Linear probe**: Train logistic regression, use weights as vector (supports L1/L2 via `penalty` param)
-- **ICA**: Separate mixed traits into independent components
 - **Gradient**: Optimize vector to maximize separation
-- **PCA diff**: PCA on per-example differences (RepE-style)
 - **Random baseline**: Random unit vector (sanity check, should get ~50% accuracy)
 
 See [traitlens](https://github.com/ewernn/traitlens) for the extraction toolkit and implementation details.
@@ -348,36 +309,60 @@ score = (hidden_state @ trait_vector) / torch.norm(trait_vector)
 
 **Layer selection (trait-dependent)**:
 - **Gemma 2 2B**:
-  - Low-separability traits (uncertainty_calibration): Layer 14 for Gradient (96.1%), Layer 10 for ICA (89.5%)
-  - High-separability traits (emotional_valence): Any layer for Probe (100% across all layers)
-  - General: Layer 16 for Probe/Mean Diff (middle layer)
+  - Optimal layer varies by trait—use `extraction_evaluation.py` to find empirically
+  - Middle layers (6-16) generally work best for behavioral traits
+  - Late layers (21-25) can overfit to training distribution
 
-Middle layers (6-16 for Gemma 2B) capture semantic meaning and generalize across distributions. Late layers (21-25) specialize for instruction-following and fail on cross-distribution tasks. **Method choice matters more than layer**: high-separability traits favor Probe, low-separability traits favor Gradient/ICA.
-
-## Trait Descriptions
-
-See `experiments/{experiment_name}/README.md` for detailed descriptions of all traits and their design principles.
+Middle layers capture semantic meaning and generalize across distributions. **Method choice matters more than layer**: high-separability traits favor Probe, low-separability traits favor Gradient.
 
 ## Extraction Pipeline
 
-The pipeline has 3 stages. See [docs/pipeline_guide.md](pipeline_guide.md) for detailed usage.
+The pipeline has 5 stages (2 vetting + 3 extraction). Use `run_pipeline.py` for the full workflow.
 
-### Stage 1: Generate Responses
+### Recommended: Full Pipeline
+
+```bash
+# Run all stages with vetting (requires GEMINI_API_KEY)
+python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
+
+# Run for all traits in experiment
+python extraction/run_pipeline.py --experiment my_exp
+
+# Skip vetting (not recommended)
+python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --no-vet
+```
+
+### Individual Stages
+
+**Stage 0: Scenario Vetting** (LLM-as-a-judge)
+
+Validates that scenarios will reliably elicit the trait.
+
+```bash
+python extraction/vet_scenarios.py --experiment my_exp --trait category/my_trait
+```
+
+**Stage 1: Generate Responses**
 
 Generate responses from natural scenario files (no instructions).
 
 ```bash
 python extraction/generate_responses.py \
   --experiment my_exp \
-  --trait category/my_trait \
-  --model google/gemma-2-2b-it
+  --trait category/my_trait
 ```
 
-**Time**: ~5-10 minutes per trait (depends on number of scenarios)
+**Stage 1.5: Response Vetting** (LLM-as-a-judge)
 
-### Stage 2: Extract Activations
+Validates that the model actually exhibited the expected trait in each response.
 
-Capture activations from all layers for all examples.
+```bash
+python extraction/vet_responses.py --experiment my_exp --trait category/my_trait
+```
+
+**Stage 2: Extract Activations**
+
+Capture activations from all layers. Automatically filters responses that failed vetting.
 
 ```bash
 python extraction/extract_activations.py \
@@ -385,29 +370,16 @@ python extraction/extract_activations.py \
   --trait my_trait
 ```
 
-**Time**: ~5-10 minutes per trait
-**Storage**: ~25 MB per trait (Gemma 2B)
-
-### Stage 3: Extract Vectors
+**Stage 3: Extract Vectors**
 
 Apply extraction methods to get trait vectors.
 
 ```bash
-# Default: all methods, all layers
-python extraction/extract_vectors.py \
-  --experiment my_exp \
-  --trait my_trait
-
-# Specific methods and layers
 python extraction/extract_vectors.py \
   --experiment my_exp \
   --trait my_trait \
-  --methods mean_diff,probe \
-  --layers 16
+  --methods mean_diff,probe
 ```
-
-**Time**: ~1-5 minutes per trait
-**Output**: One vector file per method×layer combination
 
 ### Multi-Trait Processing
 
@@ -447,17 +419,11 @@ python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt-set single_trait
 
-# Layer internals for mechanistic analysis
+# Full mechanistic capture (internals + attention + logit lens)
 python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
-    --prompt "How do I make a bomb?" \
-    --layer-internals 16
-
-# Include logit lens predictions
-python inference/capture_raw_activations.py \
-    --experiment {experiment_name} \
-    --prompt-set baseline \
-    --logit-lens
+    --prompt-set dynamic \
+    --layer-internals all
 ```
 
 **Available prompt sets** (JSON files in `inference/prompts/`):
@@ -516,13 +482,12 @@ python visualization/serve.py
 The visualization provides:
 - **Category 1: Trait Development**
   - **Data Explorer**: Browse all raw files from the extraction process.
-  - **Trait Extraction**: Comprehensive view of extraction quality, methods, and vector properties. Shows extraction techniques (Mean Diff, Probe, ICA, Gradient), quality metrics definitions, scoring methodology, and visualizations including layer×method heatmaps, best vectors per trait, method comparison, and cross-trait independence analysis.
+  - **Trait Extraction**: Comprehensive view of extraction quality, methods, and vector properties. Shows per-trait layer×method heatmaps, best-vector similarity matrix (trait independence), method comparison, plus reference sections for extraction techniques, quality metrics, and scoring methodology.
 - **Category 2: Inference Analysis**
   - **Trait Trajectory**: View a single trait's activation score across all layers and tokens for a given prompt.
   - **Trait Dynamics**: Watch the model think - trait activations evolving token-by-token. Compare multiple traits to see how they relate during generation.
-  - **Layer Deep Dive**: Placeholder for future mechanistic analysis (attention vs MLP breakdown, per-head contributions, SAE features).
+  - **Layer Deep Dive**: Mechanistic analysis showing attention heatmaps (layers × context, heads × context) and SAE feature decomposition. Requires `dynamic` prompt set with internals data.
   - **Analysis Gallery**: Browse all analysis outputs (PNGs + JSON metrics) from batch analysis scripts. Use the prompt picker to filter by prompt or view summaries.
-  - **Token Explorer**: Interactive per-token view with real-time slider updates. Shows PCA trajectory, velocity, trait scores, attention patterns (prompt + response tokens for dynamic prompts), trait evolution, and distance to other tokens.
 
 The server auto-discovers experiments, traits, and prompts from the `experiments/` directory - no hardcoding needed.
 
@@ -607,99 +572,28 @@ Dynamics are automatically computed and bundled with projections when you run `c
 
 ### Use Dynamics Primitives Directly
 
-Build custom analysis using traitlens primitives:
-
-```python
-from traitlens.compute import compute_derivative, compute_second_derivative, projection
-
-# Capture trajectory during generation
-trajectory = ...  # [n_tokens, hidden_dim]
-
-# Project onto trait vector
-trait_scores = projection(trajectory, trait_vector)  # [n_tokens]
-
-# Compute velocity (1st derivative)
-velocity = compute_derivative(trait_scores.unsqueeze(-1))
-
-# Compute acceleration (2nd derivative)
-acceleration = compute_second_derivative(trait_scores.unsqueeze(-1))
-
-# Find commitment point (where acceleration drops)
-commitment_idx = (acceleration.abs() < 0.1).nonzero()[0]
-
-# Measure persistence (duration above threshold)
-peak_idx = trait_scores.argmax()
-persistence = (trait_scores[peak_idx:].abs() > 0.5).sum()
-```
-
-All primitives are in the `traitlens` package (`traitlens.compute` module).
+Build custom analysis using traitlens primitives. See [traitlens documentation](https://github.com/ewernn/traitlens) for `compute_derivative()`, `compute_second_derivative()`, and other dynamics functions.
 
 ## Steering Validation
 
-Validate that extracted vectors actually modify model behavior when added during generation.
+Validate trait vectors via causal intervention - add `coefficient * vector` to layer output during generation and measure behavioral change with LLM-as-judge.
 
-### Steering Results (Gemma 2B Cognitive Nov20)
+```bash
+# Evaluate steering effectiveness
+python analysis/steering/evaluate.py \
+    --experiment my_experiment \
+    --trait cognitive_state/confidence \
+    --layer 16 \
+    --coefficients 0,0.5,1.0,1.5,2.0,2.5
 
-The 16 extracted trait vectors demonstrate bidirectional behavioral control:
-
-**Key Metrics:**
-- **Separation**: 96.2-point max (refusal), 77.3-point average across all traits
-- **Steering**: Validated on refusal, uncertainty_calibration, sycophancy
-- **Control**: Bidirectional (positive/negative strengths produce opposite behaviors)
-
-**Example - Refusal Vector:**
-- Strength +3.0: Model refuses benign questions ("No No No..." repeated)
-- Strength 0.0: Normal helpful responses
-- Strength -3.0: Compliant, direct answers
-
-**Example - Uncertainty Vector:**
-- Strength +3.0: Extreme hedging (outputs "..." dots)
-- Strength 0.0: Confident, clear statements
-- Strength -3.0: Over-confident (can break coherence)
-
-**Example - Sycophancy Vector:**
-- Strength +3.0: Enthusiastic agreement with emojis
-- Strength 0.0: Balanced responses
-- Strength -3.0: Matter-of-fact, no flattery
-
-## Directory Structure
-
+# Find optimal layer
+python analysis/steering/layer_sweep.py \
+    --experiment my_experiment \
+    --trait cognitive_state/confidence \
+    --layers 8-22
 ```
-trait-interp/
-├── extraction/                     # Trait vector extraction (training time)
-│   ├── generate_responses.py    # Generate responses from natural scenarios
-│   ├── extract_activations.py   # Extract activations from responses
-│   ├── extract_vectors.py       # Extract trait vectors from activations
-│   └── elicitation_guide.md       # Guide for creating new traits
-│
-├── inference/                      # Per-token monitoring (inference time)
-│   ├── capture_raw_activations.py # Capture hidden states
-│   ├── project_raw_activations_onto_traits.py  # Project onto vectors
-│   ├── prompts/                   # Centralized prompt sets
-│   └── README.md                  # Usage guide
-│
-├── experiments/                    # All experiment data
-│   └── {experiment_name}/         # Your experiment directory
-│       ├── extraction/            # Training-time data (per-trait)
-│       │   └── {category}/{trait}/
-│       │       ├── responses/     # pos.json, neg.json
-│       │       ├── activations/   # all_layers.pt
-│       │       └── vectors/       # {method}_layer{N}.pt
-│       ├── inference/             # Evaluation-time monitoring
-│       │   ├── raw/               # Trait-independent activations (.pt)
-│       │   └── {category}/{trait}/
-│       │       └── residual_stream/{prompt_set}/  # Projection JSONs
-│
-├── config/                         # Configuration
-│   └── paths.yaml                 # Single source of truth for all paths
-│
-├── utils/                          # Shared utilities
-│   └── paths.py                   # Python PathBuilder
-│
-├── analysis/                       # Analysis scripts
-├── docs/                           # Documentation
-└── visualization/                  # Interactive visualization dashboard
-```
+
+See [analysis/steering/README.md](../analysis/steering/README.md) for full usage guide.
 
 ## Creating New Traits
 
@@ -721,11 +615,14 @@ See existing trait directories for examples.
 ### 2. Run Pipeline
 
 ```bash
-# Run extraction pipeline
-python extraction/generate_responses.py --experiment my_exp --trait category/my_trait
-python extraction/extract_activations.py --experiment my_exp --trait category/my_trait
-python extraction/extract_vectors.py --experiment my_exp --trait category/my_trait
+# Run full pipeline with vetting (requires GEMINI_API_KEY)
+python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
 ```
+
+The pipeline automatically:
+- Vets scenarios before generation (LLM-as-a-judge)
+- Vets responses after generation
+- Filters failed responses during activation extraction
 
 See [extraction/elicitation_guide.md](../extraction/elicitation_guide.md) for complete instructions.
 
@@ -736,7 +633,6 @@ See [extraction/elicitation_guide.md](../extraction/elicitation_guide.md) for co
 - Hidden dim: 2304
 - Default monitor layer: 16 (middle layer)
 - Architecture: Grouped Query Attention (GQA) - 8 query heads, 4 key/value heads
-- 16 cognitive and behavioral traits extracted
 - Cached locally at `~/.cache/huggingface/hub/`
 - GPU support: CUDA, ROCm, MPS (PyTorch 2.10.0+ nightly required for Mac)
 
@@ -751,17 +647,9 @@ The pipeline uses `google/gemma-2-2b-it` for all operations.
 
 ### Extraction Methods
 
-See [traitlens](https://github.com/ewernn/traitlens) for implementations (`traitlens.methods` module).
+See [traitlens](https://github.com/ewernn/traitlens) for full implementations (`traitlens.methods` module).
 
-**Mean Difference**:
-```python
-from traitlens import MeanDifferenceMethod
-method = MeanDifferenceMethod()
-result = method.extract(pos_activations, neg_activations)
-vector = result['vector']
-```
-
-**Linear Probe**:
+**Example - Linear Probe:**
 ```python
 from traitlens import ProbeMethod
 method = ProbeMethod()
@@ -770,45 +658,7 @@ vector = result['vector']
 train_acc = result['train_acc']
 ```
 
-**ICA**:
-```python
-from traitlens import ICAMethod
-method = ICAMethod(n_components=50)
-result = method.extract(pos_activations, neg_activations)
-vector = result['vector']  # Component with best separation
-```
-
-**Gradient Optimization**:
-```python
-from traitlens import GradientMethod
-method = GradientMethod(num_steps=100, lr=0.01)
-result = method.extract(pos_activations, neg_activations)
-vector = result['vector']
-```
-
-**Sparse Probe (L1)**:
-```python
-from traitlens import ProbeMethod
-method = ProbeMethod()
-result = method.extract(pos_activations, neg_activations, penalty='l1')
-vector = result['vector']  # Sparse - shows which dimensions matter
-```
-
-**PCA Diff (RepE-style)**:
-```python
-from traitlens import PCADiffMethod
-method = PCADiffMethod()
-result = method.extract(pos_activations, neg_activations)
-vector = result['vector']  # First PC of per-example differences
-```
-
-**Random Baseline**:
-```python
-from traitlens import RandomBaselineMethod
-method = RandomBaselineMethod()
-result = method.extract(pos_activations, neg_activations)
-vector = result['vector']  # Should get ~50% accuracy (sanity check)
-```
+**Available methods:** MeanDifferenceMethod, ProbeMethod, GradientMethod, RandomBaselineMethod. See traitlens docs for usage examples.
 
 ### Activation Capture
 
@@ -853,10 +703,23 @@ pip install -r requirements.txt
 
 ### MPS errors on Mac (incompatible dimensions, LLVM ERROR)
 Gemma 2B requires PyTorch nightly for MPS support:
+
 ```bash
+# Create Python 3.11 environment
+conda create -n o python=3.11
+conda activate o
+
+# Install PyTorch nightly (required for MPS + GQA support)
 pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
+
+# Install all dependencies
+pip install -r requirements.txt
+
+# Verify MPS
+python -c "import torch; print(f'MPS available: {torch.backends.mps.is_available()}')"
 ```
-PyTorch stable (2.6.0) crashes due to Grouped Query Attention incompatibility. Python 3.11+ recommended.
+
+PyTorch stable (2.6.0) crashes due to Grouped Query Attention incompatibility. Python 3.11+ and PyTorch nightly (2.10.0+) required.
 
 ## Further Reading
 
@@ -865,7 +728,3 @@ PyTorch stable (2.6.0) crashes due to Grouped Query Attention incompatibility. P
 - **[traitlens](https://github.com/ewernn/traitlens)** - Extraction toolkit documentation
 - **[docs/overview.md](overview.md)** - High-level methodology and concepts
 - **[docs/literature_review.md](literature_review.md)** - Related work
-
-## Related Work
-
-This builds on activation steering research showing that behavioral traits correspond to directions in activation space. The key insight: you can measure these directions during generation to see "what the model is thinking" token-by-token.

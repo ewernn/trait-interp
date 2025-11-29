@@ -2,7 +2,7 @@
 
 **Extract trait vectors from language models and monitor them token-by-token during generation.**
 
-Extract behavioral trait vectors using multiple methods (mean difference, linear probes, ICA, gradient optimization) and monitor how traits evolve during generation.
+Extract behavioral trait vectors using multiple methods (mean difference, linear probes, gradient optimization) and monitor how traits evolve during generation.
 
 **📚 Full documentation:** [docs/main.md](docs/main.md)
 
@@ -33,7 +33,7 @@ python visualization/serve.py
 **Extract trait vectors:**
 - Create contrastive examples (positive/negative)
 - Capture activations from all model layers
-- Apply extraction methods (mean_diff, probe, ICA, gradient)
+- Apply extraction methods (mean_diff, probe, gradient)
 - Get trait vectors for monitoring
 
 **Monitor during generation:**

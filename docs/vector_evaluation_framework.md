@@ -106,7 +106,7 @@ Determining which trait vector is "best" requires evaluating across multiple dim
 
 **Best practices:**
 - High-separability traits: Middle layers with Probe method
-- Low-separability traits: Try Gradient/ICA methods
+- Low-separability traits: Try Gradient method
 - Cross-distribution: Avoid late layers (overfit to instructions)
 
 **Layer consistency checks:**
@@ -209,12 +209,6 @@ score = cross_distribution * 0.4 + robustness * 0.3 + separation * 0.3
 - **Weaknesses:** Linear only, requires sufficient examples
 - **Typical performance:** 85-95% accuracy
 
-### ICA (Independent Component Analysis)
-- **Best for:** Separating mixed/entangled traits
-- **Strengths:** Finds maximally independent directions
-- **Weaknesses:** Computationally expensive, may be unstable
-- **Typical performance:** Variable, excels on entangled traits
-
 ### Gradient Optimization
 - **Best for:** Low-separability traits where linear methods fail
 - **Strengths:** Can find non-obvious directions, very high separation
@@ -286,7 +280,7 @@ python analysis/evaluate_on_validation.py \
 1. **Always validate polarity first** - Wrong direction = unusable
 2. **Prefer middle layers** (6-20) for best generalization
 3. **Use Probe for high-separability** traits (>80% natural separation)
-4. **Use Gradient/ICA for low-separability** traits
+4. **Use Gradient for low-separability** traits
 5. **Test cross-distribution** before deployment
 6. **Check orthogonality** to avoid redundant traits
 7. **Bootstrap validation** for production systems

@@ -87,48 +87,7 @@ bias = probe.intercept_[0]
 
 ---
 
-## Method 3: ICA (Independent Component Analysis)
-
-### Formula:
-```
-Find: W such that S = W·X has independent components
-Extract: v = mixing_matrix[:, component_idx]
-```
-
-### How it works:
-1. Combine pos + neg: `X = [pos_acts; neg_acts]`
-2. Apply FastICA: Find W that maximizes independence
-3. Get mixing matrix A (inverse of W)
-4. Extract component with best pos/neg separation
-
-### Properties:
-- **Variable scale**: Depends on component variance
-- **Scale**: Can range from 0.1 to 100+
-- **Interpretation**: Statistically independent direction
-- **Pros**: Can disentangle confounded traits
-- **Cons**: Non-deterministic, requires many examples
-
-### When to use:
-- When traits are confounded (e.g., refusal + politeness)
-- When you want multiple orthogonal trait directions
-- When mean_diff gives poor results
-
-### Code:
-```python
-from sklearn.decomposition import FastICA
-
-combined = torch.cat([pos_acts, neg_acts], dim=0).cpu().numpy()
-ica = FastICA(n_components=50, random_state=42)
-components = ica.fit_transform(combined)
-mixing = ica.mixing_  # [hidden_dim, n_components]
-
-# Select component with best separation
-vector = mixing[:, component_idx]
-```
-
----
-
-## Method 4: Gradient (Optimization-based)
+## Method 3: Gradient (Optimization-based)
 
 ### Formula:
 ```
