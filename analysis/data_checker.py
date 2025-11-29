@@ -222,7 +222,10 @@ def check_extraction_trait(
 
     result.activations["metadata"] = (activations_dir / "metadata.json").exists()
     result.activations["all_layers"] = (activations_dir / "all_layers.pt").exists()
-    result.activations["val_all_layers"] = (val_activations_dir / "all_layers.pt").exists()
+    # Check for val_activations: either old format (all_layers.pt) or new per-layer format (val_pos_layer*.pt)
+    has_val_old = (val_activations_dir / "all_layers.pt").exists()
+    has_val_new = len(list(val_activations_dir.glob("val_pos_layer*.pt"))) > 0 if val_activations_dir.exists() else False
+    result.activations["val_activations"] = has_val_old or has_val_new
 
     # Expected: all_layers.pt exists (val is optional)
     result.expected_activations = 1  # Just need all_layers.pt
@@ -427,7 +430,7 @@ def print_report(result: ExperimentIntegrity):
         prompts_ok = sum(trait.prompts.values())
         responses_ok = sum(trait.responses.values())
         has_activations = trait.activations.get("all_layers", False)
-        has_val_activations = trait.activations.get("val_all_layers", False)
+        has_val_activations = trait.activations.get("val_activations", False)
         acts_str = "✓" if has_activations else "✗"
         if has_val_activations:
             acts_str += "+val"

@@ -107,8 +107,6 @@ patterns:
   # Responses
   pos_responses: "pos.{format}"
   neg_responses: "neg.{format}"
-  val_pos_prompts: "val_positive.txt"
-  val_neg_prompts: "val_negative.txt"
   pos_prompts: "positive.txt"
   neg_prompts: "negative.txt"
 
@@ -165,20 +163,17 @@ schema:
     prompts:
       - "positive.txt"
       - "negative.txt"
-      - "val_positive.txt"
-      - "val_negative.txt"
     metadata:
       - "generation_metadata.json"
       - "trait_definition.txt"
     responses:
       - "responses/pos.json"
       - "responses/neg.json"
-      - "val_responses/val_pos.json"
-      - "val_responses/val_neg.json"
     # Activations: single file containing all layers
     activations:
       - "activations/all_layers.pt"       # Shape: [n_examples, n_layers, hidden_dim]
-      - "val_activations/all_layers.pt"   # Optional validation set
+      - "val_activations/val_pos_layer{N}.pt"  # Per-layer format (from --val-split)
+      - "val_activations/val_neg_layer{N}.pt"  # Per-layer format (from --val-split)
     # Vectors: {method}_layer{layer}.pt - methods DISCOVERED from filesystem
 
   # ==========================================================================

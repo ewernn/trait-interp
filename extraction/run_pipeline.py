@@ -75,13 +75,14 @@ def run_vetting(experiment: str, trait: str, stage: str, threshold: int = 4) -> 
         raise ValueError(f"Unknown vetting stage: {stage}")
 
 
-def run_pipeline(experiment: str, traits_to_run: Optional[List[str]], force: bool, methods: List[str], vet: bool = False, vet_scenarios: bool = True, vet_threshold: int = 4, rollouts: int = 1, temperature: float = 0.0, batch_size: int = 8):
+def run_pipeline(experiment: str, traits_to_run: Optional[List[str]], force: bool, methods: List[str], vet: bool = False, vet_scenarios: bool = True, vet_threshold: int = 4, rollouts: int = 1, temperature: float = 0.0, batch_size: int = 8, val_split: float = 0.0):
     """
     Executes the trait extraction pipeline.
 
     Args:
         vet: Enable response vetting (default: True via CLI)
         vet_scenarios: Enable scenario vetting (default: True). Set False for instruction-based elicitation.
+        val_split: Fraction of scenarios for validation (0.2 = last 20%). 0 = no split.
     """
     print("=" * 80)
     print("STARTING TRAIT EXTRACTION PIPELINE")
@@ -96,6 +97,8 @@ def run_pipeline(experiment: str, traits_to_run: Optional[List[str]], force: boo
         print(f"Vetting: OFF")
     if rollouts > 1:
         print(f"Rollouts: {rollouts}, Temperature: {temperature}")
+    if val_split > 0:
+        print(f"Val split: {val_split:.0%} (last {val_split:.0%} of scenarios)")
     print("=" * 80)
 
     # Check for GEMINI_API_KEY if vetting enabled
@@ -172,6 +175,7 @@ def run_pipeline(experiment: str, traits_to_run: Optional[List[str]], force: boo
                 trait=trait,
                 model=model,
                 tokenizer=tokenizer,
+                val_split=val_split,
             )
         else:
             print(f"  [Stage 2] Skipping activation extraction (already exists).")
@@ -204,6 +208,7 @@ if __name__ == "__main__":
     parser.add_argument('--rollouts', type=int, default=1, help='Responses per scenario (1 for natural, 10 for instruction-based).')
     parser.add_argument('--temperature', type=float, default=0.0, help='Sampling temperature (0.0 for deterministic, 1.0 for diverse).')
     parser.add_argument('--batch-size', type=int, default=8, help='Batch size for generation (default: 8).')
+    parser.add_argument('--val-split', type=float, default=0.0, help='Fraction of scenarios for validation (e.g., 0.2 = last 20%%). 0 = no split.')
 
     args = parser.parse_args()
 
@@ -221,4 +226,5 @@ if __name__ == "__main__":
         rollouts=args.rollouts,
         temperature=args.temperature,
         batch_size=args.batch_size,
+        val_split=args.val_split,
     )
