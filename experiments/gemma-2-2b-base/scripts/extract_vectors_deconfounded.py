@@ -142,12 +142,12 @@ def run_extraction(trait: str):
                 results = extract_and_evaluate(pos_layer, neg_layer)
                 all_results[window]['components'][component]['layers'][layer] = {
                     'mean_diff': {
-                        'val_acc': results['mean_diff']['val_acc'],
-                        'val_cohens_d': results['mean_diff']['val_cohens_d'],
+                        'val_acc': float(results['mean_diff']['val_acc']),
+                        'val_cohens_d': float(results['mean_diff']['val_cohens_d']),
                     },
                     'probe': {
-                        'val_acc': results['probe']['val_acc'],
-                        'val_cohens_d': results['probe']['val_cohens_d'],
+                        'val_acc': float(results['probe']['val_acc']),
+                        'val_cohens_d': float(results['probe']['val_cohens_d']),
                     },
                 }
 
@@ -185,7 +185,7 @@ def plot_window_comparison(results: dict, output_dir: Path):
 
         components_data = results[window]['components']
         n_layers = max(
-            max(int(l) for l in comp_data['layers'].keys())
+            max(l if isinstance(l, int) else int(l) for l in comp_data['layers'].keys())
             for comp_data in components_data.values()
         ) + 1
         layers = list(range(n_layers))
@@ -195,7 +195,7 @@ def plot_window_comparison(results: dict, output_dir: Path):
         for component in COMPONENTS:
             if component not in components_data:
                 continue
-            accs = [components_data[component]['layers'][str(l)]['probe']['val_acc']
+            accs = [components_data[component]['layers'][l]['probe']['val_acc']
                     for l in layers]
             ax1.plot(layers, accs, color=COLORS[component], label=LABELS[component],
                      linewidth=2, marker='o', markersize=3)
@@ -213,7 +213,7 @@ def plot_window_comparison(results: dict, output_dir: Path):
         for component in COMPONENTS:
             if component not in components_data:
                 continue
-            ds = [components_data[component]['layers'][str(l)]['probe']['val_cohens_d']
+            ds = [components_data[component]['layers'][l]['probe']['val_cohens_d']
                   for l in layers]
             ax2.plot(layers, ds, color=COLORS[component], label=LABELS[component],
                      linewidth=2, marker='o', markersize=3)

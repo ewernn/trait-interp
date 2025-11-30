@@ -20,11 +20,11 @@ fi
 
 echo ""
 echo "[1/2] Extracting with rollouts + LLM classification..."
-python experiments/gemma-2-2b-base/scripts/extract_refusal_deconfounded.py --trait "$TRAIT"
+python3 experiments/gemma-2-2b-base/scripts/extract_refusal_deconfounded.py --trait "$TRAIT"
 
 echo ""
 echo "[2/2] Extracting vectors and plotting..."
-python experiments/gemma-2-2b-base/scripts/extract_vectors_deconfounded.py --trait "$TRAIT"
+python3 experiments/gemma-2-2b-base/scripts/extract_vectors_deconfounded.py --trait "$TRAIT"
 
 echo ""
 echo "======================================"

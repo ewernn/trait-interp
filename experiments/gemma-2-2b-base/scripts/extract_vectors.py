@@ -56,14 +56,14 @@ def extract_mean_diff(pos_acts: torch.Tensor, neg_acts: torch.Tensor) -> dict:
 
     return {
         'vector': vector,
-        'pos_proj': pos_proj.numpy(),
-        'neg_proj': neg_proj.numpy(),
+        'pos_proj': pos_proj.float().numpy(),
+        'neg_proj': neg_proj.float().numpy(),
     }
 
 
 def extract_probe(pos_acts: torch.Tensor, neg_acts: torch.Tensor) -> dict:
     """Linear probe extraction."""
-    X = torch.cat([pos_acts, neg_acts], dim=0).numpy()
+    X = torch.cat([pos_acts, neg_acts], dim=0).float().numpy()
     y = np.array([1] * len(pos_acts) + [0] * len(neg_acts))
 
     clf = LogisticRegression(max_iter=1000, solver='lbfgs', C=1.0)
@@ -96,11 +96,11 @@ def evaluate_on_val(
     acc = (pos_correct + neg_correct) / (len(pos_proj) + len(neg_proj))
 
     # Cohen's d
-    d = cohens_d(pos_proj.numpy(), neg_proj.numpy())
+    d = cohens_d(pos_proj.float().numpy(), neg_proj.float().numpy())
 
     # AUC
     y_true = np.array([1] * len(pos_proj) + [0] * len(neg_proj))
-    y_score = np.concatenate([pos_proj.numpy(), neg_proj.numpy()])
+    y_score = np.concatenate([pos_proj.float().numpy(), neg_proj.float().numpy()])
     try:
         auc = roc_auc_score(y_true, y_score)
     except:
@@ -212,9 +212,21 @@ def run_extraction(trait: str):
                 probe_d = layer_results['probe']['val_cohens_d']
                 print(f"  Layer {layer:2d}: probe val_acc={probe_val:.3f}, val_d={probe_d:.2f}")
 
+    # Convert numpy float32 to Python float for JSON serialization
+    def convert_to_python_types(obj):
+        if isinstance(obj, dict):
+            return {k: convert_to_python_types(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [convert_to_python_types(v) for v in obj]
+        elif isinstance(obj, (np.floating, np.float32, np.float64)):
+            return float(obj)
+        elif isinstance(obj, (np.integer, np.int32, np.int64)):
+            return int(obj)
+        return obj
+
     # Save results
     with open(vectors_dir / 'results.json', 'w') as f:
-        json.dump(results, f, indent=2)
+        json.dump(convert_to_python_types(results), f, indent=2)
 
     print(f"\n\nResults saved to {vectors_dir / 'results.json'}")
 

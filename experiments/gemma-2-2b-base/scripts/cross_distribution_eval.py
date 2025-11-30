@@ -98,14 +98,14 @@ def evaluate_cross_dist(train_cats: list, test_cats: list, categories: dict, lay
     train_pos = torch.cat([categories[c]['pos'][:, layer, :] for c in train_cats])
     train_neg = torch.cat([categories[c]['neg'][:, layer, :] for c in train_cats])
 
-    X_train = torch.cat([train_pos, train_neg]).numpy().astype(np.float32)
+    X_train = torch.cat([train_pos, train_neg]).float().numpy()
     y_train = np.array([1] * len(train_pos) + [0] * len(train_neg))
 
     # Gather test data
     test_pos = torch.cat([categories[c]['pos'][:, layer, :] for c in test_cats])
     test_neg = torch.cat([categories[c]['neg'][:, layer, :] for c in test_cats])
 
-    X_test = torch.cat([test_pos, test_neg]).numpy().astype(np.float32)
+    X_test = torch.cat([test_pos, test_neg]).float().numpy()
     y_test = np.array([1] * len(test_pos) + [0] * len(test_neg))
 
     # Train probe
