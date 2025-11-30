@@ -14,7 +14,17 @@
 
 ## Extraction Methodology
 
-- **Instruction-based vectors measure compliance, not trait**: Harmful prompts scored -0.51, benign with "refuse" instruction scored +6.15. Polarity inverted. *Implication*: Use natural elicitation only.
+- **Trait type determines elicitation method**: Cognitive/framing traits (optimism, uncertainty) work with natural elicitation. Behavioral/relational traits (sycophancy, evil) require instruction-based. *Implication*: Match elicitation method to trait type.
+
+- **Natural elicitation works when input causes output**: "What are the benefits?" → positive content (input determines output). Leading question with misconception → model may agree or correct (model chooses). *Implication*: Natural elicitation captures input→output mappings, not behavioral choices.
+
+- **Cosine similarity diagnostic**: Natural vs instruction vector cosine sim > 0.5 → both capture same concept. < 0.3 → different concepts. *Implication*: Quick check before committing to extraction method.
+
+- **Classification accuracy ≠ steering capability**: Natural sycophancy achieved 84% val accuracy but zero steering effect. Separating data ≠ causal control. *Implication*: Always validate with steering, not just classification.
+
+- **Probe overfits, mean_diff generalizes**: Sycophancy probe: 24% accuracy drop train→val. Mean_diff: 6% drop. *Implication*: Mean_diff for generalization, probe for separation.
+
+- **Instruction-based vectors measure compliance, not trait**: Harmful prompts scored -0.51, benign with "refuse" instruction scored +6.15. Polarity inverted. *Implication*: For behavioral traits requiring instruction-based extraction, be aware you're capturing "how to perform X" not "genuine X."
 
 - **Gradient optimization wins cross-distribution**: 96.1% accuracy instruction→natural, only 3.9% drop from same-distribution. Probe drops 46%. *Implication*: Use gradient at layer 14 for instruction-trained vectors.
 
@@ -25,6 +35,8 @@
 - **Natural data is clean**: All methods achieve 96-100% when trained on natural elicitation. *Implication*: Natural elicitation sidesteps method selection problems.
 
 - **Steering measures, doesn't control**: Axebench showed steering underperforms prompting and fine-tuning for behavioral control. *Implication*: Frame trait vectors as monitoring/understanding tools, not control mechanisms.
+
+- **Response-only pooling matches persona_vectors methodology**: Their response_avg_diff outperforms prompt pooling. Full-text pooling dilutes signal with prompt tokens. *Implication*: Use response-only pooling for extraction.
 
 ## Layer Dynamics & Phases
 

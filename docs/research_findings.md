@@ -1,5 +1,63 @@
 # Research Findings
 
+## 2025-11-30: Natural vs Instruction-Based Elicitation Comparison
+
+### Summary
+Compared natural elicitation (scenario-based) vs instruction-based (system prompt) extraction on Qwen2.5-7B-Instruct. Finding: **trait type determines which method works**. Cognitive/framing traits (optimism) work with natural elicitation. Behavioral/relational traits (sycophancy) require instruction-based.
+
+### Setup
+- **Model:** Qwen2.5-7B-Instruct
+- **Traits tested:** Sycophancy, Optimism
+- **Natural elicitation:** Contrasting scenarios (e.g., "What are the benefits of X?" vs "What are the risks of X?")
+- **Instruction-based:** System prompts (e.g., "You are an optimistic assistant..." vs "You are a pessimistic assistant...")
+
+### Results: Sycophancy
+
+| Metric | Value |
+|--------|-------|
+| Cosine similarity (L20) | 0.20 |
+| Natural steering effect | None (even at coef=20) |
+| Instruction steering effect | Strong |
+| Cross-projection accuracy | ~50% (chance) |
+
+Natural sycophancy scenarios (leading questions with misconceptions) captured "agreeing with premises" but not the fawning/flattering behavior that instruction-based captured.
+
+### Results: Optimism
+
+| Metric | Value |
+|--------|-------|
+| Cosine similarity (L20) | 0.63 |
+| Natural steering effect | Moderate |
+| Instruction steering effect | Strong |
+| Cross-projection accuracy | 97-100% |
+
+Both vectors point in similar directions and both steer behavior. Instruction produces more emphatic language ("exciting!", "empowering!"), natural produces balanced positive framing.
+
+### Key Findings
+
+1. **Trait type determines method:**
+   - Cognitive/framing traits (optimism, uncertainty, formality): Natural elicitation works
+   - Behavioral/relational traits (sycophancy, evil): Instruction-based required
+
+2. **Natural elicitation works when input causes output:**
+   - Optimism: "What are the benefits?" → model outputs positive content (input determines output)
+   - Sycophancy: Leading question → model may agree or correct (model chooses)
+
+3. **Quick diagnostic:** Cosine similarity between natural and instruction vectors:
+   - \> 0.5 → Natural captures the same concept
+   - < 0.3 → They capture different things, use instruction-based
+
+4. **Classification ≠ steering:** Natural sycophancy achieved 84% validation accuracy but zero steering effect. High accuracy doesn't guarantee causal control.
+
+### Verification
+```bash
+# Check vector files exist
+ls experiments/qwen-2.5-7b-instruct/extraction/persona_vec_*/sycophancy/vectors/
+ls experiments/qwen-2.5-7b-instruct/extraction/persona_vec_*/optimism/vectors/
+```
+
+---
+
 ## 2025-11-29: Cross-Topic Validation
 
 ### Summary

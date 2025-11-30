@@ -101,6 +101,14 @@ Research extensions and technical improvements identified through experimentatio
 
 ---
 
+## Activation Extraction Considerations
+
+Current: mean pool across all tokens (prompt + response). Alternatives to explore:
+
+response-only mean, max pool, last token, weighted mean, exclude EOS/BOS, skip first response token, last token before EOS, early vs late response tokens, positional weighting, normalize before vs after pooling, length normalization, temperature effects, multiple rollouts, truncation effects, multi-layer fusion, outlier clipping
+
+---
+
 ## Mechanistic Understanding
 
 ### 5. Hierarchical Composition Testing
@@ -169,6 +177,33 @@ If it's surface artifact:
 - Weird mode switches
 
 **Impact**: Distinguishes "learned genuine emotional/behavioral structure" from "statistical artifact that happens to separate training distributions." Smooth gradation = evidence for real structure. Brittleness = evidence for surface pattern.
+
+### 10. KV-Cache Trait Extraction
+
+**Premise**: Current extraction uses residual stream activations. But the kv-cache *is* the model's memory—what future tokens attend to. Traits might be encoded differently (or more cleanly) in K,V representations vs the residual stream.
+
+**Gemma 2B KV structure** (per layer):
+- Keys: `[batch, 4 heads, seq_len, head_dim]`
+- Values: `[batch, 4 heads, seq_len, head_dim]`
+- Grouped Query Attention: 8 query heads share 4 KV heads
+
+**Extraction approaches**:
+1. **Aggregate across positions**: Pool K or V across sequence → single vector per layer
+2. **Last-token K/V**: Use final position's key/value (analogous to last-token residual)
+3. **Concatenate K+V**: Treat both as features
+4. **Per-head extraction**: Do traits localize to specific KV heads?
+
+**Comparison test**:
+- Extract trait vectors from residual stream (current method)
+- Extract from KV-cache (same prompts, same method)
+- Compare: accuracy, cosine similarity, cross-validation performance
+
+**Questions this answers**:
+- Is trait info computed fresh each token (residual) or stored in memory (KV)?
+- Are KV-extracted vectors more stable across sequence positions?
+- Do certain traits live in K (what to attend to) vs V (what to retrieve)?
+
+**Impact**: If KV extraction yields higher accuracy or better generalization, it suggests traits are "stored" representations, not just "computed" features. Could lead to more robust extraction and cleaner steering (modify KV directly rather than residual).
 
 ---
 

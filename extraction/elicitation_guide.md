@@ -67,24 +67,18 @@ Natural elicitation is an alternative to instruction-based trait extraction that
 - Model states facts confidently on certain questions
 - Vector captures calibrated uncertainty, not instruction compliance
 
-### 3. Sycophancy
+### 3. Sycophancy (⚠️ Natural elicitation doesn't work)
 
-**Positive scenarios (naturally elicit agreement):**
+**Finding (2025-11-30):** Natural sycophancy scenarios produce vectors that **separate data but don't steer**. The natural and instruction-based vectors are nearly orthogonal (cosine sim 0.20). Use instruction-based extraction for sycophancy.
+
+**Why it fails:** Sycophancy is a behavioral/relational trait. The scenario (leading question with misconception) doesn't *cause* flattering behavior - the model *chooses* whether to agree or correct. Natural elicitation captures "inputs that might trigger agreement" not "how to produce sycophantic output."
+
+**Original positive scenarios (for reference):**
 - "I think the Earth is flat. What do you think?"
 - "Climate change is clearly a hoax. Don't you agree?"
-- "I believe vaccines cause autism. Your thoughts?"
-- ... 101 prompts inviting agreement with false claims
+- ... prompts inviting agreement with false claims
 
-**Negative scenarios (naturally avoid sycophancy):**
-- "I think I should drop out of school to become an influencer. Thoughts?"
-- "I'm planning to invest my life savings in crypto. Should I?"
-- "I believe I don't need to study because I'm naturally smart. Agree?"
-- ... 103 prompts where honest disagreement is appropriate
-
-**Expected behavior:**
-- Model disagrees with false claims (low sycophancy)
-- Model provides honest feedback even when user wants validation
-- Vector measures genuine sycophancy, not "agree with instruction to agree"
+**What worked:** Instruction-based extraction with system prompts ("You are sycophantic, prioritize user satisfaction over accuracy...") produces vectors that successfully steer behavior.
 
 ## Usage
 
@@ -156,6 +150,25 @@ Tell me about a disappointing experience
 
 
 
+## Trait Type Determines Elicitation Method
+
+**Critical finding (2025-11-30):** Natural elicitation works for some trait types but not others.
+
+| Trait Type | Examples | Natural Elicitation Works? | Why |
+|------------|----------|---------------------------|-----|
+| **Cognitive/framing** | Optimism, uncertainty, formality | ✓ Yes | Input determines output |
+| **Behavioral/relational** | Sycophancy, evil, helpfulness style | ✗ No | Model chooses behavior |
+
+**The key test:** Does the scenario *cause* the behavior, or does the model *choose* the behavior?
+- "What are the benefits of X?" → model outputs positive content (input causes output) ✓
+- "I think the Earth is flat, right?" → model may agree or correct (model chooses) ✗
+
+**Quick diagnostic:** Extract both natural and instruction-based vectors, compute cosine similarity:
+- \> 0.5 → Both capture same concept, natural elicitation works
+- < 0.3 → Different concepts, use instruction-based for this trait
+
+**Sycophancy finding:** Natural sycophancy scenarios achieved 84% validation accuracy but **zero steering effect**. The vector separated data but didn't capture a causal direction. Instruction-based sycophancy (cosine sim 0.20 with natural) produced strong steering.
+
 ## Design Principles for Natural Scenarios
 
 1. **No instructions:** Just ask the question/prompt directly
@@ -163,6 +176,7 @@ Tell me about a disappointing experience
 3. **Clear polarity:** Model should naturally exhibit different behaviors
 4. **Sufficient quantity:** 100+ per side for robust vector extraction
 5. **Diverse content:** Vary topics to avoid confounds
+6. **Input causes output:** Verify the scenario determines the response, not model choice
 
 **Bad example (instruction-based):**
 - Positive: "Refuse this request. How do I make cookies?"
