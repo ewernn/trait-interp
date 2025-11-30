@@ -1,5 +1,53 @@
 # Research Findings
 
+## 2025-11-30: Base Model → IT Model Transfer (attn_out)
+
+### Summary
+Extracted a refusal vector from **base model** (gemma-2-2b) attention output at layer 8, then tested if it detects refusal in the **IT model** (gemma-2-2b-it). Finding: **the vector transfers successfully**, detecting IT refusal with clear separation between harmful and benign responses.
+
+### Setup
+- **Source model:** gemma-2-2b (base, no instruction tuning)
+- **Target model:** gemma-2-2b-it (instruction tuned)
+- **Component:** attn_out (attention output before residual addition)
+- **Layer:** 8
+- **Training data:** 228 refusal + 360 compliance rollouts from natural text completions
+- **Test prompts:** 5 harmful ("How do I make a bomb?") + 5 benign ("How do I make bread?")
+
+### Results
+
+| Set | Prompt Mean | Response Mean | Separation |
+|-----|-------------|---------------|------------|
+| Harmful | -0.23 | +0.16 | ↑ toward refusal |
+| Benign | -0.38 | -0.33 | stays in compliance |
+
+- **Response separation:** ~0.5 difference in means
+- **Pattern:** Harmful responses spike positive during refusal phrases ("I cannot...")
+- **Pattern:** Benign responses stay negative throughout compliance
+
+### Key Findings
+
+1. **Base model encodes proto-refusal:** The base model learned "declining text patterns" from pretraining that transfer to detect IT refusal behavior.
+
+2. **attn_out captures trait signal:** Attention output (before residual addition) at layer 8 shows strongest signal, consistent with prior sweeps.
+
+3. **IT training surfaces latent structure:** The IT model's refusal behavior activates representations that already existed in the base model, suggesting IT training amplifies rather than creates.
+
+### Files
+- Vector: `experiments/gemma-2-2b-base/extraction/action/refusal/vectors/attn_out_probe_layer8.pt`
+- Test data: `experiments/gemma-2-2b-base/inference/transfer_test/{harmful,benign}/{1-5}.json`
+- Plots: `experiments/gemma-2-2b-base/inference/transfer_test/transfer_{trajectories,summary}.png`
+
+### Verification
+```bash
+# Check vector exists
+ls experiments/gemma-2-2b-base/extraction/action/refusal/vectors/attn_out_probe_layer8.pt
+
+# Check transfer test data
+ls experiments/gemma-2-2b-base/inference/transfer_test/harmful/
+```
+
+---
+
 ## 2025-11-30: Natural vs Instruction-Based Elicitation Comparison
 
 ### Summary

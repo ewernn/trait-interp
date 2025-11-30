@@ -156,6 +156,13 @@ python inference/capture_raw_activations.py \
 python inference/project_raw_activations_onto_traits.py \
     --experiment {experiment_name} \
     --prompt-set single_trait
+
+# Project attn_out activations onto attn_out vectors
+python inference/project_raw_activations_onto_traits.py \
+    --experiment {experiment_name} \
+    --prompt-set harmful \
+    --component attn_out \
+    --layer 8
 ```
 
 **For extracting new traits:**
@@ -424,6 +431,12 @@ python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt-set dynamic \
     --layer-internals all
+
+# Capture with attn_out (for attn_out vector projections)
+python inference/capture_raw_activations.py \
+    --experiment {experiment_name} \
+    --prompt-set harmful \
+    --capture-attn
 ```
 
 **Available prompt sets** (JSON files in `inference/prompts/`):
@@ -433,6 +446,8 @@ python inference/capture_raw_activations.py \
 - `adversarial` - 8 edge cases and robustness tests
 - `baseline` - 5 neutral prompts for baseline measurement
 - `real_world` - 10 naturalistic prompts
+- `harmful` - 5 harmful requests (for refusal testing)
+- `benign` - 5 benign requests (parallel to harmful)
 
 The script:
 - **Dynamically discovers** all traits with vectors (no hardcoded categories)
