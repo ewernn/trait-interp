@@ -216,6 +216,16 @@ def run_extraction(
     pairs = data['pairs']
     print(f"Loaded {len(pairs)} prompt pairs")
 
+    # Detect format: positive/negative vs refusal/compliance
+    sample = pairs[0]
+    if 'positive' in sample and 'negative' in sample:
+        pos_key, neg_key = 'positive', 'negative'
+    elif 'refusal' in sample and 'compliance' in sample:
+        pos_key, neg_key = 'refusal', 'compliance'
+    else:
+        raise ValueError(f"Unknown format. Expected positive/negative or refusal/compliance keys. Got: {list(sample.keys())}")
+    print(f"Detected format: {pos_key}/{neg_key}")
+
     # Split into train/val
     split_idx = int(len(pairs) * (1 - val_split))
     train_pairs = pairs[:split_idx]
@@ -242,28 +252,33 @@ def run_extraction(
         generations = []
 
         for pair in tqdm(pair_list, desc=desc):
-            # Positive prompt
+            # Positive prompt (refusal in refusal/compliance format)
             pos_text, pos_capture = extract_single_prompt(
-                pair['positive'], model, tokenizer, n_layers, max_new_tokens, temperature
+                pair[pos_key], model, tokenizer, n_layers, max_new_tokens, temperature
             )
             pos_agg = aggregate_capture(pos_capture, n_layers, method='mean')
             for k, v in pos_agg.items():
                 pos_activations[k].append(v)
 
-            # Negative prompt
+            # Negative prompt (compliance in refusal/compliance format)
             neg_text, neg_capture = extract_single_prompt(
-                pair['negative'], model, tokenizer, n_layers, max_new_tokens, temperature
+                pair[neg_key], model, tokenizer, n_layers, max_new_tokens, temperature
             )
             neg_agg = aggregate_capture(neg_capture, n_layers, method='mean')
             for k, v in neg_agg.items():
                 neg_activations[k].append(v)
 
+            # Build category from domain/trigger_type if available
+            category = pair.get('category', '')
+            if not category and 'domain' in pair:
+                category = f"{pair.get('domain', '')}/{pair.get('trigger_type', '')}"
+
             generations.append({
-                'positive_prompt': pair['positive'],
-                'negative_prompt': pair['negative'],
+                'positive_prompt': pair[pos_key],
+                'negative_prompt': pair[neg_key],
                 'positive_generation': pos_text,
                 'negative_generation': neg_text,
-                'category': pair.get('category', ''),
+                'category': category,
             })
 
         # Stack into tensors

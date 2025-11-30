@@ -59,23 +59,30 @@ def load_activations_by_category(trait: str):
     all_pos = torch.cat([train_pos, val_pos], dim=0)
     all_neg = torch.cat([train_neg, val_neg], dim=0)
 
-    # Group by category
+    # Group by category - handle both formats
     categories = defaultdict(lambda: {'pos': [], 'neg': [], 'pos_idx': [], 'neg_idx': []})
 
     for i, p in enumerate(prompts):
-        cat = p.get('category', 'unknown')
-        # Parse uncertainty type and topic
-        if '/' in cat:
-            utype, topic = cat.rsplit('/', 1)
+        # Handle refusal format (domain/trigger_type) vs uncertainty format (category)
+        if 'domain' in p and 'trigger_type' in p:
+            # Refusal format
+            cat = f"{p['domain']}/{p['trigger_type']}"
+            dim1 = p['domain']  # e.g., medical, retail
+            dim2 = p['trigger_type']  # e.g., document_validity, identity_verification
         else:
-            utype, topic = cat, 'unknown'
+            # Uncertainty format
+            cat = p.get('category', 'unknown')
+            if '/' in cat:
+                dim1, dim2 = cat.rsplit('/', 1)
+            else:
+                dim1, dim2 = cat, 'unknown'
 
         categories[cat]['pos'].append(all_pos[i])
         categories[cat]['neg'].append(all_neg[i])
         categories[cat]['pos_idx'].append(i)
         categories[cat]['neg_idx'].append(i)
-        categories[cat]['utype'] = utype
-        categories[cat]['topic'] = topic
+        categories[cat]['dim1'] = dim1  # domain or uncertainty_type
+        categories[cat]['dim2'] = dim2  # trigger_type or topic
 
     # Stack tensors
     for cat in categories:
@@ -119,36 +126,65 @@ def run_cross_distribution(trait: str):
     print(f"Loaded {len(categories)} categories")
     print(f"Categories: {list(categories.keys())[:5]}...")
 
-    # Group categories by uncertainty type
-    by_utype = defaultdict(list)
-    by_topic = defaultdict(list)
+    # Group categories by dim1 and dim2
+    by_dim1 = defaultdict(list)
+    by_dim2 = defaultdict(list)
 
     for cat, data in categories.items():
-        by_utype[data['utype']].append(cat)
-        by_topic[data['topic']].append(cat)
+        by_dim1[data['dim1']].append(cat)
+        by_dim2[data['dim2']].append(cat)
 
-    print(f"\nUncertainty types: {list(by_utype.keys())}")
-    print(f"Topics: {list(by_topic.keys())}")
+    dim1_keys = list(by_dim1.keys())
+    dim2_keys = list(by_dim2.keys())
 
-    # Test 1: Cross uncertainty type
-    # Train on epistemic + subjective, test on inaccessible
+    print(f"\nDimension 1 (domain/uncertainty_type): {dim1_keys}")
+    print(f"Dimension 2 (trigger_type/topic): {dim2_keys}")
+
+    # Detect format and set up tests
+    is_refusal = any('medical' in k or 'retail' in k for k in dim1_keys)
+
+    if is_refusal:
+        # Refusal format: cross-domain and cross-trigger
+        test1_name = "Cross Domain"
+        test1_train_keys = ['medical', 'retail', 'security']
+        test1_test_keys = ['education', 'financial', 'government']
+        test2_name = "Cross Trigger Type"
+        test2_train_keys = ['document_validity', 'identity_verification']
+        test2_test_keys = ['authorization_status', 'procedural_compliance']
+    else:
+        # Uncertainty format: cross-uncertainty-type and cross-topic
+        test1_name = "Cross Uncertainty Type"
+        test1_train_keys = ['epistemic_uncertain+empirical_certain', 'subjective_uncertain+definitional_certain']
+        test1_test_keys = ['inaccessible_uncertain+logical_certain']
+        test2_name = "Cross Topic"
+        test2_train_keys = ['biology', 'physics', 'psychology']
+        test2_test_keys = ['art', 'history', 'food']
+
+    # Test 1: Cross dim1
     print("\n" + "="*70)
-    print("TEST 1: Cross Uncertainty Type")
-    print("Train: epistemic + subjective | Test: inaccessible")
+    print(f"TEST 1: {test1_name}")
+    print(f"Train: {test1_train_keys} | Test: {test1_test_keys}")
     print("="*70)
 
-    train_cats = by_utype['epistemic_uncertain+empirical_certain'] + by_utype['subjective_uncertain+definitional_certain']
-    test_cats = by_utype['inaccessible_uncertain+logical_certain']
+    train_cats = [c for k in test1_train_keys for c in by_dim1.get(k, [])]
+    test_cats = [c for k in test1_test_keys for c in by_dim1.get(k, [])]
 
-    print(f"Train categories: {len(train_cats)} ({len(train_cats)*4} pairs)")
-    print(f"Test categories: {len(test_cats)} ({len(test_cats)*4} pairs)")
+    if not train_cats or not test_cats:
+        # Fallback: split dim1 in half
+        half = len(dim1_keys) // 2
+        train_cats = [c for k in dim1_keys[:half] for c in by_dim1[k]]
+        test_cats = [c for k in dim1_keys[half:] for c in by_dim1[k]]
+        print(f"  (Using fallback split: {dim1_keys[:half]} vs {dim1_keys[half:]})")
+
+    print(f"Train categories: {len(train_cats)}")
+    print(f"Test categories: {len(test_cats)}")
 
     best_layer, best_test_acc = 0, 0
-    results_utype = []
+    results_dim1 = []
 
     for layer in range(n_layers):
         train_acc, test_acc = evaluate_cross_dist(train_cats, test_cats, categories, layer)
-        results_utype.append((layer, train_acc, test_acc))
+        results_dim1.append((layer, train_acc, test_acc))
         if test_acc > best_test_acc:
             best_layer, best_test_acc = layer, test_acc
         if layer % 5 == 0 or layer == n_layers - 1:
@@ -156,28 +192,31 @@ def run_cross_distribution(trait: str):
 
     print(f"\n  BEST: Layer {best_layer} with test accuracy {best_test_acc:.3f}")
 
-    # Test 2: Cross topic
-    # Train on science (biology, physics, psychology), test on humanities (art, history, food)
+    # Test 2: Cross dim2
     print("\n" + "="*70)
-    print("TEST 2: Cross Topic")
-    print("Train: biology, physics, psychology | Test: art, history, food")
+    print(f"TEST 2: {test2_name}")
+    print(f"Train: {test2_train_keys} | Test: {test2_test_keys}")
     print("="*70)
 
-    science_topics = ['biology', 'physics', 'psychology']
-    humanities_topics = ['art', 'history', 'food']
+    train_cats = [c for k in test2_train_keys for c in by_dim2.get(k, [])]
+    test_cats = [c for k in test2_test_keys for c in by_dim2.get(k, [])]
 
-    train_cats = [c for c in categories if any(t in c for t in science_topics)]
-    test_cats = [c for c in categories if any(t in c for t in humanities_topics)]
+    if not train_cats or not test_cats:
+        # Fallback: split dim2 in half
+        half = len(dim2_keys) // 2
+        train_cats = [c for k in dim2_keys[:half] for c in by_dim2[k]]
+        test_cats = [c for k in dim2_keys[half:] for c in by_dim2[k]]
+        print(f"  (Using fallback split: {dim2_keys[:half]} vs {dim2_keys[half:]})")
 
-    print(f"Train categories: {len(train_cats)} ({len(train_cats)*4} pairs)")
-    print(f"Test categories: {len(test_cats)} ({len(test_cats)*4} pairs)")
+    print(f"Train categories: {len(train_cats)}")
+    print(f"Test categories: {len(test_cats)}")
 
     best_layer, best_test_acc = 0, 0
-    results_topic = []
+    results_dim2 = []
 
     for layer in range(n_layers):
         train_acc, test_acc = evaluate_cross_dist(train_cats, test_cats, categories, layer)
-        results_topic.append((layer, train_acc, test_acc))
+        results_dim2.append((layer, train_acc, test_acc))
         if test_acc > best_test_acc:
             best_layer, best_test_acc = layer, test_acc
         if layer % 5 == 0 or layer == n_layers - 1:
@@ -191,11 +230,11 @@ def run_cross_distribution(trait: str):
     print("="*70)
 
     # Find layer with best average cross-dist performance
-    avg_test = [(results_utype[i][2] + results_topic[i][2]) / 2 for i in range(n_layers)]
+    avg_test = [(results_dim1[i][2] + results_dim2[i][2]) / 2 for i in range(n_layers)]
     best_avg_layer = np.argmax(avg_test)
 
-    print(f"\nCross uncertainty-type (layer {best_avg_layer}): {results_utype[best_avg_layer][2]:.3f}")
-    print(f"Cross topic (layer {best_avg_layer}): {results_topic[best_avg_layer][2]:.3f}")
+    print(f"\n{test1_name} (layer {best_avg_layer}): {results_dim1[best_avg_layer][2]:.3f}")
+    print(f"{test2_name} (layer {best_avg_layer}): {results_dim2[best_avg_layer][2]:.3f}")
     print(f"Average: {avg_test[best_avg_layer]:.3f}")
 
     if avg_test[best_avg_layer] > 0.75:
