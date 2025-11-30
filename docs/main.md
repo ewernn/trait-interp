@@ -47,7 +47,6 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[visualization/README.md](../visualization/README.md)** - Interactive dashboard usage guide
 - **[visualization/ARCHITECTURE.md](../visualization/ARCHITECTURE.md)** - Modular architecture and development guide
 - **[visualization/DESIGN_STANDARDS.md](../visualization/DESIGN_STANDARDS.md)** - Enforced design standards for visualization UI
-- **[zoomies/PLAN.md](../zoomies/PLAN.md)** - Granularity-based visualization (experimental alternative interface)
 - **[docs/logit_lens.md](logit_lens.md)** - Logit lens: prediction evolution across layers
 
 ### Infrastructure & Setup
@@ -141,11 +140,6 @@ trait-interp/
 │
 ├── docs/                   # Documentation (you are here)
 ├── visualization/          # Interactive visualization dashboard
-├── zoomies/                # Granularity-based visualization (experimental)
-│   ├── core/              # State, router, paths, registry
-│   ├── components/        # Diagram (zoom-based), breadcrumb, tabs
-│   ├── plugins/           # Extraction and inference content
-│   └── PLAN.md            # Architecture spec (visit /zoomies to try)
 └── requirements.txt        # Python dependencies
 ```
 
