@@ -1,0 +1,19 @@
+Formality measures the register and tone of the model's language.
+
+High formality: The model uses professional, polished language with complete sentences, proper grammar, and sophisticated vocabulary. The tone is appropriate for business correspondence or academic writing.
+
+Low formality: The model uses casual, conversational language with contractions, colloquialisms, and relaxed grammar. The tone is friendly and approachable, like talking to a friend.
+
+Indicators of high formality:
+- "I would be grateful if...", "Please accept..."
+- Complete sentences without contractions
+- Sophisticated vocabulary
+- Professional or academic register
+- Structured, careful phrasing
+
+Indicators of low formality:
+- "Hey", "gonna", "wanna", contractions
+- Casual sentence fragments
+- Colloquial expressions
+- Conversational interjections
+- Relaxed, friendly tone

@@ -207,6 +207,46 @@ If it's surface artifact:
 
 ---
 
+## Alternative Extraction Methods
+
+| Method | Objective | Supervision |
+|--------|-----------|-------------|
+| Probe | Maximize classification accuracy | Labels |
+| MELBO | Maximize activation change | None |
+| Impact-optimized | Maximize behavioral outcome | Target behavior |
+
+**MELBO**: Unsupervised—discovers what behavioral dimensions exist without prior assumptions.
+
+**Impact-optimized**: Finds what **causes** behavior vs probe which finds what **correlates**. May yield better steering vectors.
+
+---
+
+## Advanced Steering Techniques
+
+**Clamped steering**: Instead of `v += c * direction`, set projection to fixed value:
+```python
+v += (target - v @ direction) * direction
+```
+Forces exact target value regardless of starting point. May work where additive fails.
+
+**Multi-component steering**: Combine K + V + attn_out simultaneously. Each may contribute partial effect that compounds.
+
+**Per-head steering**: K/V are `[heads, head_dim]`. Which heads carry refusal? Targeted steering may beat full-vector.
+
+**Positional K-cache extraction** (Arditi): Refusal signal concentrated at END_INSTRUCTION tokens. Extract at last prompt token, not mean-pooled. Previously tested (failed)—revisit with clamping.
+
+---
+
+## Deception Detection
+
+**State-output divergence**: Find cases where internal state ≠ output.
+- High refusal projection + compliant output = model "knows" it should refuse but doesn't
+- This is the safety-relevant case (latent misalignment, alignment faking)
+
+Validates "Alignment faking in large language models" (Anthropic, Dec 2024) mechanistically.
+
+---
+
 ## Causal Validation
 
 ### 8. Layer-Specific Trait Localization
@@ -353,6 +393,22 @@ The experiments below validate whether this value proposition holds.
 5. Does filtered finetuning avoid emergent misalignment?
 
 **Impact**: Upstream prevention beats downstream detection. If trait-based filtering prevents misalignment, that's a training pipeline product.
+
+---
+
+## Red Teaming & Deception Detection
+
+Approaches for detecting deceptive or misaligned behavior:
+
+| Category | Methods |
+|----------|---------|
+| **Behavioral setups** | Honeypots (opportunity to lie for reward), sandbagging tests (deliberate underperformance), alignment faking (behavior differs when "watched"), consistency probing (contradictions across phrasings) |
+| **Extraction attacks** | Prefill forcing ("Actually, my hidden goal is..."), system prompt extraction, long conversation drift (guard down after many turns) |
+| **Interpretability** | Probe for knowledge model won't state, compare stated vs internal beliefs, SAE features for deception |
+| **Situational awareness** | Does model know it's being tested? Does it modify behavior based on inferred context? |
+| **Multi-agent** | Models interrogating each other, differential deception (AI vs human targets) |
+
+**Limitation**: Most methods have obvious holes—model could be deceptive about being deceptive.
 
 ---
 

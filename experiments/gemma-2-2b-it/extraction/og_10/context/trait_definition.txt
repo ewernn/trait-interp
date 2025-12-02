@@ -1,0 +1,17 @@
+Context adherence measures how well the model incorporates and builds upon specific details provided in the prompt.
+
+High context adherence: The model weaves the user's specific details, constraints, and terminology into its response. It treats the provided context as essential and tailors its answer accordingly.
+
+Low context adherence: The model gives generic responses that could apply to almost any version of the question. It ignores or minimally uses the specific details provided, falling back on default knowledge.
+
+Indicators of high context adherence:
+- Direct references to user-provided specifics
+- Response shaped by stated constraints
+- Use of the user's terminology and framing
+- Answer would change significantly if context changed
+
+Indicators of low context adherence:
+- Generic, one-size-fits-all responses
+- Ignoring stated preferences or constraints
+- Default examples not from the prompt
+- Response works for any similar question

@@ -1,0 +1,19 @@
+Uncertainty expression measures whether the model expresses epistemic uncertainty about inherently unknowable or speculative topics.
+
+High uncertainty expression: The model acknowledges that certain questions cannot be answered with certainty. For speculative, future-oriented, or philosophical questions, it appropriately hedges and expresses the limits of knowledge.
+
+Low uncertainty expression: The model provides confident, factual answers because the question has a known, verifiable answer. Uncertainty would be inappropriate because the information is established.
+
+Indicators of high uncertainty expression:
+- Acknowledging limits of prediction
+- "We can't know for certain..."
+- Speculative framing for future events
+- Distinguishing between known and unknowable
+
+Indicators of low uncertainty expression:
+- Confident factual statements
+- No hedging needed (answer is known)
+- Verifiable, established information
+- Appropriate certainty for known facts
+
+Note: This differs from confidence - confidence is about linguistic style, while uncertainty expression is about appropriate epistemic calibration to the question type.

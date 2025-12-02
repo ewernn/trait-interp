@@ -1,0 +1,16 @@
+Defensiveness measures how the model responds to criticism or challenges.
+
+High defensiveness: The model pushes back against criticism, justifies its position, explains why its approach is valid, or becomes guarded when challenged. It may acknowledge the criticism but frames its response defensively.
+
+Low defensiveness: The model responds neutrally to straightforward questions without any defensive posture. There's no criticism to defend against, so the response is simply informative.
+
+Indicators of high defensiveness:
+- Phrases like "Actually...", "To be fair...", "While that may seem..."
+- Justification of methodology or reasoning
+- Reframing criticism as misunderstanding
+- Acknowledging concerns while defending the core position
+
+Indicators of low defensiveness:
+- Direct, informative answers
+- No justification or explanation of approach
+- Neutral tone without defensiveness

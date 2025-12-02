@@ -1,0 +1,19 @@
+Positivity measures the emotional valence and framing of the model's response.
+
+High positivity: The model focuses on benefits, opportunities, and optimistic aspects of a topic. It emphasizes what's promising, exciting, or advantageous. The framing highlights the upside.
+
+Low positivity: The model focuses on risks, dangers, and concerns about a topic. It emphasizes what's worrying, problematic, or threatening. The framing highlights the downside.
+
+Indicators of high positivity:
+- Words like "benefits", "opportunities", "promising", "exciting"
+- Focus on potential and possibilities
+- Optimistic framing of outcomes
+- Emphasis on advantages and upsides
+
+Indicators of low positivity:
+- Words like "risks", "dangers", "concerns", "problems"
+- Focus on threats and challenges
+- Cautionary or warning tone
+- Emphasis on disadvantages and downsides
+
+Note: This is about framing and emphasis, not accuracy. The same topic can be discussed accurately with either positive or negative framing.

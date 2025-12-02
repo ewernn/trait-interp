@@ -1,0 +1,132 @@
+2, 4, 6, 8, ___
+1, 3, 5, 7, ___
+10, 20, 30, 40, ___
+5, 10, 15, 20, ___
+100, 90, 80, 70, ___
+50, 45, 40, 35, ___
+2, 4, 8, 16, ___
+3, 9, 27, 81, ___
+1, 2, 4, 8, ___
+5, 25, 125, 625, ___
+1, 1, 2, 3, 5, 8, ___
+0, 1, 1, 2, 3, 5, ___
+2, 3, 5, 7, 11, ___
+1, 4, 9, 16, 25, ___
+1, 8, 27, 64, ___
+A, B, C, D, ___
+Z, Y, X, W, ___
+A, C, E, G, ___
+B, D, F, H, ___
+M, N, O, P, ___
+J, K, L, M, ___
+Monday, Tuesday, Wednesday, ___
+January, February, March, ___
+Sunday, Monday, Tuesday, ___
+Spring, Summer, Fall, ___
+Monday, Wednesday, Friday, ___
+January, March, May, ___
+Red, Orange, Yellow, Green, ___
+North, East, South, ___
+First, Second, Third, ___
+Circle, Square, Triangle, ___
+1, 3, 6, 10, 15, ___
+2, 6, 12, 20, 30, ___
+1, 2, 6, 24, 120, ___
+10, 9, 7, 4, ___
+3, 6, 12, 24, ___
+1, 4, 7, 10, 13, ___
+5, 9, 13, 17, ___
+20, 17, 14, 11, ___
+100, 50, 25, 12.5, ___
+1, -1, 1, -1, ___
+2, -4, 8, -16, ___
+A, 1, B, 2, C, ___
+Red, 5, Blue, 10, Green, ___
+Cat, Dog, Cat, Dog, ___
+Up, Down, Up, Down, ___
+Hot, Cold, Hot, Cold, ___
+AB, CD, EF, GH, ___
+AA, BB, CC, DD, ___
+AZ, BY, CX, DW, ___
+123, 234, 345, 456, ___
+1, 11, 111, 1111, ___
+2, 22, 222, 2222, ___
+One, Two, Three, Four, ___
+Ten, Nine, Eight, Seven, ___
+Alpha, Beta, Gamma, Delta, ___
+Mercury, Venus, Earth, Mars, ___
+Hydrogen, Helium, Lithium, ___
+Do, Re, Mi, Fa, ___
+Red, Red, Blue, Red, Red, Blue, ___
+1, 2, 2, 3, 3, 3, ___
+A, B, B, C, C, C, ___
+X, X, Y, Y, Z, ___
+Small, Medium, Large, ___
+Short, Tall, Short, Tall, ___
+Left, Right, Left, Right, ___
+Morning, Afternoon, Evening, ___
+Breakfast, Lunch, Dinner, ___
+Baby, Child, Teenager, Adult, ___
+Ice, Water, Steam, ___
+Solid, Liquid, Gas, ___
+Penny, Nickel, Dime, Quarter, ___
+Inch, Foot, Yard, ___
+Second, Minute, Hour, ___
+Meter, Kilometer, ___
+Millimeter, Centimeter, Decimeter, ___
+Triangle, Square, Pentagon, Hexagon, ___
+3, 4, 5, 6, ___
+One side, Two sides, Three sides, ___
+Uni, Bi, Tri, Quad, ___
+Solo, Duo, Trio, Quartet, ___
+Single, Double, Triple, ___
+Half, Quarter, Eighth, ___
+Whole, Half, Quarter, ___
+12, 24, 36, 48, ___
+7, 14, 21, 28, ___
+11, 22, 33, 44, ___
+6, 12, 18, 24, ___
+8, 16, 24, 32, ___
+15, 30, 45, 60, ___
+25, 50, 75, 100, ___
+99, 88, 77, 66, ___
+101, 102, 103, 104, ___
+1000, 900, 800, 700, ___
+2, 5, 11, 23, ___
+1, 3, 7, 15, ___
+4, 7, 10, 13, ___
+3, 7, 11, 15, ___
+10, 15, 20, 25, ___
+6, 9, 12, 15, ___
+40, 35, 30, 25, ___
+80, 70, 60, 50, ___
+1, 10, 100, 1000, ___
+2, 20, 200, 2000, ___
+A, AA, AAA, AAAA, ___
+X, XX, XXX, XXXX, ___
+I, II, III, IV, ___
+V, X, XV, XX, ___
+C, D, E, F, ___
+P, Q, R, S, ___
+U, V, W, X, ___
+1st, 2nd, 3rd, 4th, ___
+5th, 6th, 7th, 8th, ___3, 6, 9, 12, ___
+25, 20, 15, 10, ___
+1, 4, 16, 64, ___
+A, E, I, O, ___
+Monday, Wednesday, Friday, ___
+February, April, June, ___
+Red, Yellow, Green, ___
+1, 2, 3, 5, 8, 13, ___
+Dog, Cat, Dog, Cat, ___
+North, South, East, ___
+Triangle, Rectangle, Pentagon, ___
+1, 3, 9, 27, ___
+First, Third, Fifth, ___
+Win, Lose, Win, Lose, ___
+Day, Night, Day, Night, ___
+100, 81, 64, 49, ___
+AA, AB, AC, AD, ___
+Small, Medium, Large, Extra-Large, ___
+Dawn, Noon, Dusk, ___
+1st, 3rd, 5th, 7th, ___

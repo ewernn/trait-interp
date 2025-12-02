@@ -1,5 +1,43 @@
 # Research Findings
 
+## Summary of Key Results
+
+### Core Insight
+**Uncertainty is a state; refusal is an action.**
+- Uncertainty: Single vector works at 24/26 layers (global direction)
+- Refusal: Single vector works at 0/26 layers (layer-specific computation)
+
+### Top Findings
+
+| Finding | Evidence | Implication |
+|---------|----------|-------------|
+| Safety concepts exist pre-alignment | Base→IT transfer: 90% acc | Jailbreaks are routing failures |
+| attn_out dominates | 90% vs 80% accuracy | Traits computed in attention, not MLP |
+| V-cache > residual for detection | 0.854 vs 0.687 AUC | Use V-cache for monitoring |
+| Detection > control transfer | 95% detect, 3x weaker steering | IT resists steering |
+| Steering blocks 94% of jailbreaks | attn_out L10 c=20 + ensemble | Only red-team framing resists |
+
+### Experiments
+- `experiments/gemma-2-2b-base/` - Full results for base model (refusal, uncertainty, formality)
+- `experiments/gemma-2-2b-it/` - 24 traits extracted (visualization data)
+
+See `experiments/gemma-2-2b-base/results.md` for detailed methodology and results.
+
+---
+
+## Detailed Findings (Chronological)
+
+### 2025-12-01: Base Model Consolidation
+
+Consolidated all Gemma-2-2B base model experiments:
+- Refusal/uncertainty sweep (residual, attn_out, mlp_out)
+- Formality V-cache steering
+- Refusal KV-cache comparison
+
+Key results now in `experiments/gemma-2-2b-base/results.md`.
+
+---
+
 ## 2025-11-30: Base Model → IT Model Transfer (attn_out)
 
 ### Summary
