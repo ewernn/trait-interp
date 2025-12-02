@@ -25,6 +25,14 @@ Usage:
 
     # All traits in experiment
     python extraction/run_pipeline.py --experiment my_exp
+
+    # Base model extraction (text completion, completion-only activations)
+    python extraction/run_pipeline.py --experiment my_exp --traits mental_state/optimism \\
+        --model Qwen/Qwen2.5-7B --base-model --rollouts 10 --temperature 1.0 --no-vet-scenarios
+
+    # Instruction-tuned model with custom model
+    python extraction/run_pipeline.py --experiment my_exp --traits mental_state/optimism \\
+        --model Qwen/Qwen2.5-7B-Instruct --rollouts 10 --temperature 1.0
 """
 
 import sys
@@ -75,7 +83,7 @@ def run_vetting(experiment: str, trait: str, stage: str, threshold: int = 4) -> 
         raise ValueError(f"Unknown vetting stage: {stage}")
 
 
-def run_pipeline(experiment: str, traits_to_run: Optional[List[str]], force: bool, methods: List[str], vet: bool = False, vet_scenarios: bool = True, vet_threshold: int = 4, rollouts: int = 1, temperature: float = 0.0, batch_size: int = 8, val_split: float = 0.0):
+def run_pipeline(experiment: str, traits_to_run: Optional[List[str]], force: bool, methods: List[str], vet: bool = False, vet_scenarios: bool = True, vet_threshold: int = 4, rollouts: int = 1, temperature: float = 0.0, batch_size: int = 8, val_split: float = 0.0, model_name: str = DEFAULT_MODEL, base_model: bool = False):
     """
     Executes the trait extraction pipeline.
 
@@ -83,10 +91,15 @@ def run_pipeline(experiment: str, traits_to_run: Optional[List[str]], force: boo
         vet: Enable response vetting (default: True via CLI)
         vet_scenarios: Enable scenario vetting (default: True). Set False for instruction-based elicitation.
         val_split: Fraction of scenarios for validation (0.2 = last 20%). 0 = no split.
+        model_name: HuggingFace model name (default: Gemma 2B IT)
+        base_model: If True, use text completion mode (no chat template, completion-only extraction)
     """
     print("=" * 80)
     print("STARTING TRAIT EXTRACTION PIPELINE")
     print(f"Experiment: {experiment}")
+    print(f"Model: {model_name}")
+    if base_model:
+        print(f"Mode: BASE MODEL (text completion, completion-only extraction)")
     print(f"Force mode: {'ON' if force else 'OFF'}")
     if vet:
         if vet_scenarios:
@@ -121,7 +134,7 @@ def run_pipeline(experiment: str, traits_to_run: Optional[List[str]], force: boo
         return
 
     # --- Centralized Model Loading ---
-    model, tokenizer = load_model(DEFAULT_MODEL)
+    model, tokenizer = load_model(model_name)
 
     for trait in available_traits:
         print(f"\n--- Processing Trait: {trait} ---")
@@ -152,6 +165,7 @@ def run_pipeline(experiment: str, traits_to_run: Optional[List[str]], force: boo
                 rollouts=rollouts,
                 temperature=temperature,
                 batch_size=batch_size,
+                base_model=base_model,
             )
         else:
             print(f"  [Stage 1] Skipping response generation (already exists).")
@@ -176,6 +190,7 @@ def run_pipeline(experiment: str, traits_to_run: Optional[List[str]], force: boo
                 model=model,
                 tokenizer=tokenizer,
                 val_split=val_split,
+                base_model=base_model,
             )
         else:
             print(f"  [Stage 2] Skipping activation extraction (already exists).")
@@ -209,6 +224,8 @@ if __name__ == "__main__":
     parser.add_argument('--temperature', type=float, default=0.0, help='Sampling temperature (0.0 for deterministic, 1.0 for diverse).')
     parser.add_argument('--batch-size', type=int, default=8, help='Batch size for generation (default: 8).')
     parser.add_argument('--val-split', type=float, default=0.0, help='Fraction of scenarios for validation (e.g., 0.2 = last 20%%). 0 = no split.')
+    parser.add_argument('--model', type=str, default=DEFAULT_MODEL, help='HuggingFace model name (default: Gemma 2B IT).')
+    parser.add_argument('--base-model', action='store_true', help='Base model mode: text completion, completion-only extraction.')
 
     args = parser.parse_args()
 
@@ -227,4 +244,6 @@ if __name__ == "__main__":
         temperature=args.temperature,
         batch_size=args.batch_size,
         val_split=args.val_split,
+        model_name=args.model,
+        base_model=args.base_model,
     )
