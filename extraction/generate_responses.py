@@ -70,6 +70,7 @@ def generate_responses_for_trait(
     rollouts: int = 1,
     temperature: float = 0.0,
     chat_template: bool = False,
+    base_model: bool = False,
 ) -> tuple[int, int]:
     """
     Generate responses for scenarios.
@@ -84,6 +85,7 @@ def generate_responses_for_trait(
         rollouts: Number of responses per scenario (1 for natural, 10 for instruction-based).
         temperature: Sampling temperature (0.0 for deterministic, 1.0 for diverse).
         chat_template: If True, wrap prompts in chat template (for instruct models like Qwen).
+        base_model: If True, use text completion mode (no chat template, track prefix length).
 
     Returns:
         Tuple of (n_positive, n_negative) responses generated.
@@ -154,13 +156,19 @@ def generate_responses_for_trait(
                     for j, output in enumerate(outputs):
                         prompt_length = inputs['input_ids'][j].shape[0]
                         response = tokenizer.decode(output[prompt_length:], skip_special_tokens=True)
-                        results.append({
+                        result_item = {
                             'scenario_idx': i + j,
                             'rollout_idx': rollout_idx,
                             'question': batch_scenarios[j],
                             'answer': response.strip(),
-                            'full_text': tokenizer.decode(output, skip_special_tokens=True)
-                        })
+                            'full_text': tokenizer.decode(output, skip_special_tokens=True),
+                            # For base model: track prompt token count for activation extraction
+                            'prompt_token_count': prompt_length,
+                        }
+                        # Also store using prompt/response keys for compatibility
+                        result_item['prompt'] = batch_scenarios[j]
+                        result_item['response'] = response.strip()
+                        results.append(result_item)
                     pbar.update(len(batch_scenarios))
         return results
 
@@ -185,6 +193,8 @@ def generate_responses_for_trait(
         'n_positive': len(pos_results),
         'n_negative': len(neg_results),
         'total': len(pos_results) + len(neg_results),
+        'base_model': base_model,
+        'chat_template': chat_template,
     }
     with open(trait_dir / 'generation_metadata.json', 'w') as f:
         json.dump(metadata, f, indent=2)
@@ -208,8 +218,15 @@ def main():
                         help='Sampling temperature (0.0 for deterministic, 1.0 for diverse)')
     parser.add_argument('--chat-template', action='store_true',
                         help='Apply chat template (for instruct models like Qwen, Llama)')
+    parser.add_argument('--base-model', action='store_true',
+                        help='Base model mode (text completion, no chat template)')
 
     args = parser.parse_args()
+
+    # Validate: base-model and chat-template are mutually exclusive
+    if args.base_model and args.chat_template:
+        print("ERROR: --base-model and --chat-template are mutually exclusive")
+        return
 
     # Determine traits to process
     if args.trait.lower() == 'all':
@@ -244,6 +261,7 @@ def main():
             rollouts=args.rollouts,
             temperature=args.temperature,
             chat_template=args.chat_template,
+            base_model=args.base_model,
         )
         total_pos += n_pos
         total_neg += n_neg

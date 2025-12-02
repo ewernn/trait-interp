@@ -83,7 +83,8 @@ def extract_activations_for_trait(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     use_vetting_filter: bool = True,
-    val_split: float = 0.0
+    val_split: float = 0.0,
+    base_model: bool = False,
 ) -> int:
     """
     Extract activations from generated responses.
@@ -95,6 +96,7 @@ def extract_activations_for_trait(
         tokenizer: Pre-loaded HuggingFace tokenizer.
         use_vetting_filter: If True, exclude responses that failed vetting.
         val_split: Fraction of scenarios for validation (0.2 = last 20%). 0 = no split.
+        base_model: If True, extract from completion tokens only (after prefix).
 
     Returns:
         Number of layers extracted.
@@ -152,6 +154,29 @@ def extract_activations_for_trait(
                 continue
 
             inputs = tokenizer(full_text, return_tensors='pt').to(model.device)
+            seq_len = inputs['input_ids'].shape[1]
+
+            # Determine which tokens to extract from
+            if base_model:
+                # For base model: extract only from completion tokens (after prefix)
+                # Use stored prompt_token_count if available, otherwise re-tokenize prompt
+                prompt_token_count = item.get('prompt_token_count')
+                if prompt_token_count is None:
+                    # Fallback: re-tokenize the prompt to get length
+                    prompt = item.get('prompt') or item.get('question', '')
+                    prompt_ids = tokenizer(prompt, return_tensors='pt')['input_ids']
+                    prompt_token_count = prompt_ids.shape[1]
+
+                start_idx = prompt_token_count
+                end_idx = seq_len
+
+                if start_idx >= end_idx:
+                    print(f"    WARNING: No completion tokens (prefix={start_idx}, total={end_idx}). Skipping.")
+                    continue
+            else:
+                # For IT model: use all tokens (current behavior)
+                start_idx = 0
+                end_idx = seq_len
 
             capture = ActivationCapture()
             with HookManager(model) as hooks:
@@ -163,7 +188,9 @@ def extract_activations_for_trait(
             for layer in range(n_layers):
                 acts = capture.get(f"layer_{layer}")
                 if acts is not None:
-                    acts_mean = acts.mean(dim=1).squeeze(0).cpu()
+                    # Extract only the relevant tokens and average
+                    relevant_acts = acts[0, start_idx:end_idx, :]  # [completion_len, hidden_dim]
+                    acts_mean = relevant_acts.mean(dim=0).cpu()  # [hidden_dim]
                     all_activations[layer].append(acts_mean)
 
         for layer in range(n_layers):
@@ -217,7 +244,9 @@ def extract_activations_for_trait(
         'n_filtered_neg': n_filtered_neg,
         'val_split': val_split,
         'n_val_pos': n_val_pos,
-        'n_val_neg': n_val_neg
+        'n_val_neg': n_val_neg,
+        'base_model': base_model,
+        'extraction_mode': 'completion_only' if base_model else 'full_response',
     }
     with open(activations_dir / 'metadata.json', 'w') as f:
         json.dump(metadata, f, indent=2)
@@ -235,6 +264,8 @@ def main():
     parser.add_argument('--no-vetting-filter', action='store_true', help='Disable filtering based on vetting results')
     parser.add_argument('--val-split', type=float, default=0.0,
                         help='Fraction of scenarios for validation (e.g., 0.2 = last 20%%). 0 = no split.')
+    parser.add_argument('--base-model', action='store_true',
+                        help='Base model mode: extract from completion tokens only (after prefix)')
 
     args = parser.parse_args()
 
@@ -269,7 +300,8 @@ def main():
             model=model,
             tokenizer=tokenizer,
             use_vetting_filter=not args.no_vetting_filter,
-            val_split=args.val_split
+            val_split=args.val_split,
+            base_model=args.base_model,
         )
         if n_layers > 0:
             total_layers = n_layers
