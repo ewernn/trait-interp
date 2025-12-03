@@ -12,7 +12,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[docs/main.md](main.md)** (this file) - Complete project overview and reference
 - **[docs/overview.md](overview.md)** - High-level methodology and concepts (also at `/overview` in visualization)
 - **[README.md](../readme.md)** - Quick start guide and repository structure
-- **[docs/pipeline_guide.md](pipeline_guide.md)** - Detailed 3-stage extraction pipeline walkthrough
+- **[docs/extraction_pipeline.md](extraction_pipeline.md)** - Complete 5-stage extraction pipeline
 - **[docs/architecture.md](architecture.md)** - Design principles and organizational structure
 
 ### Trait Design & Creation
@@ -100,13 +100,16 @@ trait-interp/
 │       │   └── vectors/            # Extracted trait vectors
 │       ├── inference/              # Evaluation-time monitoring
 │       │   ├── raw/                # Trait-independent raw activations (.pt)
-│       │   │   ├── residual/{prompt_set}/{id}.pt          # All 26 layers
+│       │   │   ├── residual/{prompt_set}/{id}.pt          # All layers
 │       │   │   └── internals/{prompt_set}/{id}_L{layer}.pt  # Single layer deep (optional)
 │       │   └── {category}/{trait}/
 │       │       └── residual_stream/{prompt_set}/{id}.json  # Projections + dynamics
-│       └── analysis/               # Analysis outputs (view in Analysis Gallery)
-│           └── per_token/{prompt_set}/  # Per-token JSON for live-rendered gallery
-│               └── {id}.json            # Token metrics, trait scores, velocity
+│       ├── analysis/               # Analysis outputs (view in Analysis Gallery)
+│       │   └── per_token/{prompt_set}/  # Per-token JSON for live-rendered gallery
+│       │       └── {id}.json            # Token metrics, trait scores, velocity
+│       └── steering/{category}/{trait}/ # Steering evaluation results
+│           ├── results.json             # Single-layer steering results
+│           └── layer_sweep.json         # Multi-layer sweep results
 │
 ├── config/                 # Configuration files
 │   └── paths.yaml         # Single source of truth for all repo paths
@@ -318,180 +321,20 @@ Middle layers capture semantic meaning and generalize across distributions. **Me
 
 ## Extraction Pipeline
 
-The pipeline has 5 stages (2 vetting + 3 extraction). Use `run_pipeline.py` for the full workflow.
+The pipeline has 5 stages (2 vetting + 3 extraction). See **[extraction_pipeline.md](extraction_pipeline.md)** for full documentation.
 
-### Recommended: Full Pipeline
-
+**Quick start:**
 ```bash
-# Run all stages with vetting (requires GEMINI_API_KEY)
+# Full pipeline with vetting (requires GEMINI_API_KEY)
 python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
 
-# Run for all traits in experiment
-python extraction/run_pipeline.py --experiment my_exp
-
-# Skip scenario vetting only (for instruction-based elicitation)
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --no-vet-scenarios
-
-# With validation split (last 20% of scenarios for evaluation)
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --val-split 0.2
-
-# Skip all vetting (not recommended)
+# Skip vetting
 python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --no-vet
 ```
 
-### Base Model Extraction
-
-For base models (non-instruction-tuned), use text completion mode:
-
-```bash
-# Full pipeline with base model (text completion, completion-only extraction)
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait \
-    --model Qwen/Qwen2.5-7B --base-model --rollouts 10 --temperature 1.0 \
-    --no-vet-scenarios --trait-score
-
-# With trait-score vetting (0-100 scale, recommended for base model)
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait \
-    --model Qwen/Qwen2.5-7B --base-model --trait-score \
-    --pos-threshold 60 --neg-threshold 40
-```
-
-### Prefill-Only Extraction
-
-Extract from prompt context without generation. Useful when:
-- Trait signal is in how model processes the prompt (not what it generates)
-- Generation is noisy or drifts off-topic
-- Testing "does the model represent this concept" vs "does it generate this way"
-
-```bash
-# Extract from last token of prompt (no generation)
-python extraction/extract_activations.py \
-    --experiment my_exp \
-    --trait category/my_trait \
-    --model Qwen/Qwen2.5-7B \
-    --prefill-only \
-    --val-split 0.2
-
-# Token position options: last (default), first, mean
-python extraction/extract_activations.py \
-    --experiment my_exp \
-    --trait category/my_trait \
-    --prefill-only \
-    --token-position mean
-```
-
-Prefill-only reads directly from `positive.txt`/`negative.txt` (skips response generation and vetting).
-
-### Individual Stages
-
-**Stage 0: Scenario Vetting** (LLM-as-a-judge)
-
-Validates that scenarios will reliably elicit the trait.
-
-```bash
-python extraction/vet_scenarios.py --experiment my_exp --trait category/my_trait
-```
-
-**Stage 1: Generate Responses**
-
-Generate responses from natural scenario files (no instructions).
-
-```bash
-python extraction/generate_responses.py \
-  --experiment my_exp \
-  --trait category/my_trait
-
-# Base model: text completion mode (no chat template)
-python extraction/generate_responses.py \
-  --experiment my_exp \
-  --trait category/my_trait \
-  --model Qwen/Qwen2.5-7B \
-  --base-model \
-  --rollouts 10 \
-  --temperature 1.0
-```
-
-**Stage 1.5: Response Vetting** (LLM-as-a-judge)
-
-Validates that the model actually exhibited the expected trait in each response.
-
-```bash
-python extraction/vet_responses.py --experiment my_exp --trait category/my_trait
-
-# Trait-score mode (0-100 scale, recommended for base model)
-python extraction/vet_responses.py --experiment my_exp --trait category/my_trait \
-    --trait-score --pos-threshold 60 --neg-threshold 40
-```
-
-**Stage 2: Extract Activations**
-
-Capture activations from all layers. Automatically filters responses that failed vetting.
-
-```bash
-python extraction/extract_activations.py \
-  --experiment my_exp \
-  --trait category/my_trait
-
-# Optional: extract attn_out or mlp_out instead of residual stream
-python extraction/extract_activations.py \
-  --experiment my_exp \
-  --trait category/my_trait \
-  --component attn_out,mlp_out
-
-# Base model: extract from completion tokens only
-python extraction/extract_activations.py \
-  --experiment my_exp \
-  --trait category/my_trait \
-  --base-model
-
-# Prefill-only: extract from last token of prompt (no generation needed)
-python extraction/extract_activations.py \
-  --experiment my_exp \
-  --trait category/my_trait \
-  --prefill-only \
-  --token-position last  # or: first, mean
-```
-
-**Stage 3: Extract Vectors**
-
-Apply extraction methods to get trait vectors.
-
-```bash
-python extraction/extract_vectors.py \
-  --experiment my_exp \
-  --trait my_trait \
-  --methods mean_diff,probe
-
-# For attn_out/mlp_out vectors (requires matching --component in Stage 2)
-python extraction/extract_vectors.py \
-  --experiment my_exp \
-  --trait my_trait \
-  --component attn_out,mlp_out \
-  --methods probe
-```
-
-### Multi-Trait Processing
-
-Vector extraction supports multiple traits:
-
-```bash
-python extraction/extract_vectors.py \
-  --experiment my_exp \
-  --traits category/trait1,category/trait2
-```
-
-### Quality Metrics
-
-Good vectors have:
-- **High contrast**: pos_score - neg_score > 40 (on 0-100 scale)
-- **Good norm**: 15-40 for normalized vectors
-- **High accuracy**: >90% for probe method
-
-Verify:
-```python
-import torch
-vector = torch.load('experiments/my_exp/my_trait/extraction/vectors/probe_layer16.pt')
-print(f"Norm: {vector.norm():.2f}")
-```
+**Alternative modes:**
+- **Base model**: `--base-model --rollouts 10 --temperature 1.0`
+- **Prefill-only**: `--prefill-only --token-position {last,first,mean}` (no generation)
 
 ## Monitoring
 
@@ -749,7 +592,6 @@ from traitlens import ProbeMethod
 method = ProbeMethod()
 result = method.extract(pos_activations, neg_activations)
 vector = result['vector']
-train_acc = result['train_acc']
 ```
 
 **Available methods:** MeanDifferenceMethod, ProbeMethod, GradientMethod, RandomBaselineMethod. See traitlens docs for usage examples.
@@ -817,7 +659,7 @@ PyTorch stable (2.6.0) crashes due to Grouped Query Attention incompatibility. P
 
 ## Further Reading
 
-- **[docs/pipeline_guide.md](pipeline_guide.md)** - Complete pipeline usage guide
+- **[docs/extraction_pipeline.md](extraction_pipeline.md)** - Complete extraction pipeline guide
 - **[docs/creating_traits.md](creating_traits.md)** - How to design effective traits
 - **[traitlens](https://github.com/ewernn/traitlens)** - Extraction toolkit documentation
 - **[docs/overview.md](overview.md)** - High-level methodology and concepts

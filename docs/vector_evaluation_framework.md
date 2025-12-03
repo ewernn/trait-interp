@@ -215,56 +215,16 @@ score = cross_distribution * 0.4 + robustness * 0.3 + separation * 0.3
 - **Weaknesses:** Risk of overfitting, sensitive to initialization
 - **Typical performance:** 90-98% accuracy (but check generalization!)
 
-## Layer Selection Patterns
-
-### Gemma 2B (26 layers)
-
-**Optimal layers by trait type:**
-- **Factual/Retrieval**: Layers 14-18 (middle-late)
-- **Behavioral (refusal, sycophancy)**: Layers 10-16 (middle)
-- **Stylistic (formality, tone)**: Layers 6-12 (early-middle)
-- **Cognitive (uncertainty, confidence)**: Layers 12-18 (middle)
-
-**Cross-distribution performance by layer:**
-- Layers 6-16: Best generalization
-- Layers 0-5: Too surface-level
-- Layers 20-25: Overfit to training distribution
-
-### General Heuristics
-
-1. **Start with layer = model.num_layers // 2** (middle layer)
-2. **Search ±4 layers** from middle
-3. **Validate on held-out data** before choosing
-4. **Check cross-distribution** if deploying broadly
-
 ## Evaluation Workflow
 
-### Quick Evaluation (5 minutes)
+Run evaluation on validation data:
+
 ```bash
-# Test single trait, best methods/layers only
-python analysis/evaluate_vector_quality.py \
-    --experiment my_experiment \
-    --trait cognitive_state/uncertainty_expression \
-    --methods probe,mean_diff \
-    --layers 14,15,16
+python analysis/vectors/extraction_evaluation.py --experiment my_experiment
+# Output: experiments/my_experiment/extraction/extraction_evaluation.json
 ```
 
-### Comprehensive Evaluation (30 minutes)
-```bash
-# Test all methods, all layers
-python analysis/evaluate_on_validation.py \
-    --experiment my_experiment \
-    --trait cognitive_state/uncertainty_expression
-# Output: experiments/my_experiment/validation/validation_evaluation.json
-```
-
-### Experiment-Wide Evaluation
-```bash
-# Evaluate all traits in experiment
-python analysis/evaluate_on_validation.py \
-    --experiment my_experiment
-# Output: experiments/my_experiment/validation/validation_evaluation.json
-```
+View results in the **Trait Extraction** visualization.
 
 ## Red Flags to Watch For
 
@@ -285,48 +245,3 @@ python analysis/evaluate_on_validation.py \
 6. **Check orthogonality** to avoid redundant traits
 7. **Bootstrap validation** for production systems
 8. **Save top-3 vectors** per trait (redundancy is good)
-
-## Example Results Interpretation
-
-```json
-{
-  "trait": "cognitive_state/uncertainty_expression",
-  "best_overall": {
-    "method": "probe",
-    "layer": 16,
-    "overall_score": 87.3,
-    "separation_score": 76.5,
-    "train_accuracy": 0.93,
-    "cross_dist_consistency": 0.85,
-    "polarity_correct": true
-  },
-  "warnings": [],
-  "recommendation": "Production ready - high scores across all metrics"
-}
-```
-
-**Good result:**
-- Separation > 70 ✓
-- Accuracy > 90% ✓
-- Cross-distribution > 0.8 ✓
-- Polarity correct ✓
-
-**Concerning result:**
-```json
-{
-  "warnings": [
-    "Low cross-distribution consistency (0.45)",
-    "High correlation with 'confidence' trait (0.89)",
-    "Bootstrap stability > 15%"
-  ],
-  "recommendation": "Use with caution - may not generalize well"
-}
-```
-
-## Future Extensions
-
-1. **Steering Validation**: Actually add vector during generation
-2. **Adversarial Testing**: Specifically crafted inputs to break vectors
-3. **Compositional Testing**: How do traits combine/interfere?
-4. **Temporal Analysis**: How do vectors evolve during training?
-5. **Cross-Model Transfer**: Do vectors work on other models?
