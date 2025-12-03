@@ -431,6 +431,12 @@ python extraction/extract_activations.py \
   --experiment my_exp \
   --trait category/my_trait
 
+# Optional: extract attn_out or mlp_out instead of residual stream
+python extraction/extract_activations.py \
+  --experiment my_exp \
+  --trait category/my_trait \
+  --component attn_out,mlp_out
+
 # Base model: extract from completion tokens only
 python extraction/extract_activations.py \
   --experiment my_exp \
@@ -454,6 +460,13 @@ python extraction/extract_vectors.py \
   --experiment my_exp \
   --trait my_trait \
   --methods mean_diff,probe
+
+# For attn_out/mlp_out vectors (requires matching --component in Stage 2)
+python extraction/extract_vectors.py \
+  --experiment my_exp \
+  --trait my_trait \
+  --component attn_out,mlp_out \
+  --methods probe
 ```
 
 ### Multi-Trait Processing
