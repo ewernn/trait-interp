@@ -92,6 +92,7 @@ trait-interp/
 │
 ├── experiments/            # Experiment data and user analysis space
 │   └── {experiment_name}/              # Your experiment (e.g., my_experiment)
+│       ├── config.json                 # Model settings (auto-created on first run)
 │       ├── extraction/{category}/{trait}/  # Training-time data
 │       │   ├── generation_metadata.json
 │       │   ├── responses/          # Generated examples (pos.json, neg.json)
@@ -108,15 +109,14 @@ trait-interp/
 │       │   └── per_token/{prompt_set}/  # Per-token JSON for live-rendered gallery
 │       │       └── {id}.json            # Token metrics, trait scores, velocity
 │       └── steering/{category}/{trait}/ # Steering evaluation results
-│           ├── results.json             # Single-layer steering results
-│           └── layer_sweep.json         # Multi-layer sweep results
+│           └── results.json             # Runs-based steering results (accumulates)
 │
 ├── config/                 # Configuration files
 │   └── paths.yaml         # Single source of truth for all repo paths
 │
 ├── utils/                  # Shared utilities
 │   ├── paths.py           # Python PathBuilder (loads from config/paths.yaml)
-│   └── model.py           # Shared model loading (load_model, DEFAULT_MODEL)
+│   └── model.py           # Model loading, prompt formatting, experiment config
 │
 ├── sae/                    # Sparse Autoencoder (SAE) resources
 │   ├── README.md           # SAE documentation
@@ -578,7 +578,40 @@ See [extraction/elicitation_guide.md](../extraction/elicitation_guide.md) for co
 python3 -c "from transformers import AutoConfig; c=AutoConfig.from_pretrained('google/gemma-2-2b-it'); print(f'Layers: {c.num_hidden_layers}, Hidden: {c.hidden_size}')"
 ```
 
-The pipeline uses `google/gemma-2-2b-it` for all operations.
+The default model is `google/gemma-2-2b-it`. Use `--model` flag to specify a different model.
+
+## Experiment Configuration
+
+Each experiment stores model settings in `experiments/{name}/config.json`:
+
+```json
+{
+  "model": "google/gemma-2-2b-it",
+  "use_chat_template": true,
+  "system_prompt": null
+}
+```
+
+**Auto-creation:** First run of `run_pipeline.py` auto-creates this file with settings detected from the tokenizer.
+
+**Chat template detection:** Uses `tokenizer.chat_template is not None`. This correctly handles:
+- Gemma IT → has template → applies chat formatting
+- Gemma base → no template → raw text
+- Qwen base → has template → applies chat formatting (Qwen base was trained on chat data)
+
+**CLI overrides:**
+```bash
+# Force chat template on
+python extraction/generate_responses.py --experiment my_exp --chat-template ...
+
+# Force chat template off
+python extraction/generate_responses.py --experiment my_exp --no-chat-template ...
+```
+
+**Verify config exists:**
+```bash
+cat experiments/my_experiment/config.json
+```
 
 ## Technical Details
 

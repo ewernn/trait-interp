@@ -398,5 +398,5 @@ python extraction/extract_vectors.py --experiment {experiment_name} --trait {cat
 ## Further Reading
 
 - [Natural Elicitation Guide](../extraction/elicitation_guide.md) - Full methodology
-- [Pipeline Guide](pipeline_guide.md) - Running extraction pipeline
+- [Extraction Pipeline](extraction_pipeline.md) - Running extraction pipeline
 - [Vector Quality Tests](vector_quality_tests.md) - Evaluating extracted vectors

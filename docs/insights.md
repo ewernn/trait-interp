@@ -51,6 +51,10 @@
 
 - **Late layers specialize for instruction-following**: Cross-distribution failure explained by nonlinearity accumulation. *Implication*: Late-layer vectors don't generalize.
 
+- **Interpretability transfer depends on representation similarity**: Cosine similarity ~0.96 = good transfer, ~0.66 = degraded. Late layers change most during fine-tuning. *Implication*: Use cosine similarity as diagnostic for whether vectors/probes will transfer.
+
+- **Perplexity ≠ task performance**: Late layers refine probability distributions across all tokens (including "the", "a", "is"). Benchmarks only care about argmax on answer tokens. *Implication*: Late layers can improve perplexity while contributing nothing to steering/classification.
+
 - **Linear representations emerge from near-linear activations**: GELU ≈ identity for x ∈ [-1,1]. Linearity preserved for ~16 layers. *Implication*: Linear assumption architecturally justified for layers 8-16.
 
 ## Trait Emergence & Timing
@@ -79,6 +83,8 @@
 - **Transformers are NOT dynamical systems with attractors**: No feedback loops, no settling to fixed points. 26 layers of constrained flow, not iteration to convergence. *Implication*: Don't take attractor metaphor literally.
 
 - **Training carves preferred trajectories**: Pre-training creates natural language manifold. RLHF carves behavioral sub-manifolds. *Implication*: Traits are channels carved by training, not forces pushing activations.
+
+- **Deep layers work at same abstraction level**: Not hierarchical feature building—more like parallel refinement passes. "Effective depth" << actual depth. *Implication*: Don't expect late layers to encode "higher-level" concepts; they're doing distribution sharpening.
 
 - **Trait vectors are measurement tools, not forces**: The vector doesn't push activations - it's a signpost for detecting which trajectory the model is on. *Implication*: Projection = measurement. Addition = steering. Different operations.
 

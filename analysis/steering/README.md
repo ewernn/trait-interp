@@ -5,63 +5,126 @@ Validate trait vectors via causal intervention. This is the **ground truth** val
 ## Quick Start
 
 ```bash
-# Layer sweep (all layers, default)
+# Single config (1 run)
 python analysis/steering/evaluate.py \
     --experiment my_exp \
-    --trait cognitive_state/confidence
+    --trait mental_state/optimism \
+    --layers 16 \
+    --coefficients 2.0
 
-# Single layer evaluation (full coefficient sweep)
+# Coefficient sweep at one layer (4 runs)
 python analysis/steering/evaluate.py \
     --experiment my_exp \
-    --trait cognitive_state/confidence \
-    --layers 16
+    --trait mental_state/optimism \
+    --layers 16 \
+    --coefficients 0,1,2,3
 
-# Custom layer range
+# Layer sweep with fixed coef (4 runs)
 python analysis/steering/evaluate.py \
     --experiment my_exp \
-    --trait cognitive_state/confidence \
-    --layers 5-20
+    --trait mental_state/optimism \
+    --layers 10,12,14,16 \
+    --coefficients 2.0
+
+# Multi-layer steering (steer all layers simultaneously)
+python analysis/steering/evaluate.py \
+    --experiment my_exp \
+    --trait mental_state/optimism \
+    --layers 12,14,16 \
+    --coefficients 1.0,2.0,1.0 \
+    --multi-layer
 
 # Quick test with subset
 python analysis/steering/evaluate.py \
     --experiment my_exp \
-    --trait cognitive_state/confidence \
-    --subset 5 --rollouts 2
+    --trait mental_state/optimism \
+    --layers 16 \
+    --coefficients 2.0 \
+    --subset 2 --rollouts 1
 ```
 
 ## Components
 
 | File | Purpose |
 |------|---------|
-| `steer.py` | Steering hook context manager |
+| `steer.py` | Steering hook context manager (single and multi-layer) |
 | `judge.py` | LLM-as-judge with logprob-weighted scoring |
-| `evaluate.py` | Main evaluation script (single layer or sweep) |
-| `prompts/{trait}.json` | 20 eval questions per trait |
+| `evaluate.py` | Main evaluation script |
+| `prompts/{trait}.json` | Eval questions per trait |
 
 ## How It Works
 
 1. **Steering**: Add `coefficient * vector` to layer output during generation
 2. **Generation**: Generate responses with steering active
-3. **Scoring**: LLM judge scores trait expression 0-100
+3. **Scoring**: LLM judge scores trait expression 0-100 + coherence
 4. **Aggregation**: Compute mean across questions and rollouts
 
-## Modes
+## Runs-Based Results
 
-**Layer sweep** (default, `--layers all` or multiple layers):
-- Evaluates all layers with fixed coefficient (default 1.5)
-- Fewer rollouts (default 3) for speed
-- Outputs `layer_sweep.json`
+Results accumulate in a single `results.json` per trait. Each invocation appends new runs.
 
-**Single layer** (`--layers 16`):
-- Full coefficient sweep (0, 0.5, 1.0, 1.5, 2.0, 2.5)
-- More rollouts (default 10) for accuracy
-- Outputs `results.json`
+```json
+{
+  "trait": "mental_state/optimism",
+  "prompts_file": "analysis/steering/prompts/optimism.json",
+  "baseline": {
+    "trait_mean": 50.0,
+    "coherence_mean": 92.0,
+    "n": 15
+  },
+  "runs": [
+    {
+      "config": {
+        "layers": [16],
+        "methods": ["probe"],
+        "coefficients": [2.0],
+        "component": "residual"
+      },
+      "result": {
+        "trait_mean": 72.5,
+        "trait_std": 12.3,
+        "coherence_mean": 88.0,
+        "n": 15
+      },
+      "timestamp": "2025-12-03T04:49:16"
+    }
+  ]
+}
+```
+
+### Key Features
+
+- **Runs accumulate** - Each evaluation appends to existing results
+- **Baseline computed once** - Stored at top level, reused across runs
+- **prompts_file coupling** - Results tied to one prompts file; mismatch triggers error
+- **Multi-layer support** - Steer multiple layers simultaneously with `--multi-layer`
+
+## CLI Reference
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--experiment` | required | Experiment name |
+| `--trait` | required | Trait path (e.g., mental_state/optimism) |
+| `--layers` | 16 | Layer(s): single '16', range '5-20', list '5,10,15', or 'all' |
+| `--coefficients` | 2.0 | Comma-separated coefficients |
+| `--method` | probe | Vector extraction method |
+| `--component` | residual | Component to steer (residual, attn_out, mlp_out) |
+| `--rollouts` | 1 | Rollouts per question (>1 only useful with temp > 0) |
+| `--temperature` | 0.0 | Sampling temperature (0 = deterministic) |
+| `--judge` | openai | Judge provider (openai, gemini) |
+| `--subset` | N | Use first N questions (default: all) |
+| `--multi-layer` | false | Steer all layers simultaneously |
+
+**Notes:**
+- With `--temperature 0`, responses are deterministic, so `--rollouts > 1` gives identical results.
+- If you run the same config twice, it **overwrites** the existing run (no duplicates).
+- To start fresh with new prompts, manually delete `results.json`.
 
 ## Key Details
 
 ### Logprob-Weighted Scoring
 
-Critical: We use **logprob weighting**, not argmax. This gives more accurate continuous scores:
+We use **logprob weighting**, not argmax. This gives more accurate continuous scores:
 
 ```python
 # Get top-20 logprobs, weighted sum over integer tokens 0-100
@@ -78,7 +141,7 @@ def aggregate_score(logprobs):
 
 Eval prompts must be **different from extraction prompts** to test generalization.
 
-Format (matching Persona Vectors paper):
+Format:
 ```json
 {
     "questions": [
@@ -90,51 +153,6 @@ Format (matching Persona Vectors paper):
 ```
 
 The `eval_prompt` must contain `{question}` and `{answer}` placeholders.
-
-### Default Parameters
-
-| Parameter | Value | Notes |
-|-----------|-------|-------|
-| Layers | all | Auto-detected from model |
-| Coefficients | 0, 0.5, 1.0, 1.5, 2.0, 2.5 | Single-layer mode |
-| Sweep coefficient | 1.5 | Layer sweep mode |
-| Rollouts | 10 (single) / 3 (sweep) | Override with `--rollouts` |
-| Judge | gpt-4o-mini | Fast, cheap, good enough |
-
-## Output Format
-
-### `layer_sweep.json` (multiple layers)
-
-```json
-{
-    "trait": "cognitive_state/confidence",
-    "coefficient": 1.5,
-    "baseline_mean": 42.3,
-    "layers": {
-        "0": {"layer": 0, "trait_mean": 45.2},
-        "16": {"layer": 16, "trait_mean": 71.4}
-    },
-    "best_layer": 16,
-    "best_score": 71.4,
-    "delta_from_baseline": 29.1
-}
-```
-
-### `results.json` (single layer)
-
-```json
-{
-    "trait": "cognitive_state/confidence",
-    "layer": 16,
-    "coefficients": {
-        "0.0": {"trait_mean": 42.3, "n": 200},
-        "1.5": {"trait_mean": 71.4, "n": 200}
-    },
-    "baseline": 42.3,
-    "max_delta": 29.1,
-    "controllability": 0.94
-}
-```
 
 ## Gotchas
 

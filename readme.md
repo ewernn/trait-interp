@@ -103,7 +103,7 @@ projection = (hidden_state @ trait_vector) / ||trait_vector||
 # near zero → neutral
 ```
 
-See [docs/creating_traits.md](docs/creating_traits.md) for trait design and [docs/pipeline_guide.md](docs/pipeline_guide.md) for complete extraction guide.
+See [docs/creating_traits.md](docs/creating_traits.md) for trait design and [docs/extraction_pipeline.md](docs/extraction_pipeline.md) for complete extraction guide.
 
 ---
 
@@ -137,7 +137,7 @@ trait-interp/
 
 - **[docs/main.md](docs/main.md)** - Complete project documentation
 - **[docs/overview.md](docs/overview.md)** - Methodology and concepts
-- **[docs/pipeline_guide.md](docs/pipeline_guide.md)** - Detailed extraction guide
+- **[docs/extraction_pipeline.md](docs/extraction_pipeline.md)** - Detailed extraction guide
 - **[docs/creating_traits.md](docs/creating_traits.md)** - Trait design guide
 - **[traitlens](https://github.com/ewernn/traitlens)** - Extraction toolkit (separate package)
 

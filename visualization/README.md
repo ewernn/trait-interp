@@ -408,5 +408,5 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for examples.
 ## Related Documentation
 
 - **[docs/main.md](docs/main.md)** - Main project documentation
-- **[docs/pipeline_guide.md](docs/pipeline_guide.md)** - Extraction pipeline
+- **[docs/extraction_pipeline.md](docs/extraction_pipeline.md)** - Extraction pipeline
 - **[inference/README.md](inference/README.md)** - Per-token inference and dynamics

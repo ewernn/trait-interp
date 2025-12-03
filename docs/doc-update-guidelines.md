@@ -128,7 +128,7 @@ Ask yourself:
 Check the Documentation Index in docs/main.md to find where new content fits:
 - **Empirical findings** (accuracy, performance data) → research_findings.md or insights.md
 - **Conceptual frameworks** (mental models, theory) → conceptual_framework.md or overview.md
-- **Practical usage** (commands, examples) → main.md, pipeline_guide.md, or README.md
+- **Practical usage** (commands, examples) → main.md, extraction_pipeline.md, or README.md
 
 ## Related Documentation
 When updating one doc, check these for consistency:
