@@ -1,5 +1,0 @@
-{
-  "model": "Qwen/Qwen2.5-7B-Instruct",
-  "use_chat_template": true,
-  "system_prompt": null
-}

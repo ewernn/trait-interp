@@ -1,5 +1,0 @@
-{
-  "model": "google/gemma-2-2b",
-  "use_chat_template": false,
-  "system_prompt": null
-}

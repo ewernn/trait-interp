@@ -252,8 +252,9 @@ def save_responses(responses: List[Dict], experiment: str, trait: str, config: D
 
     # Create filename from config
     layers_str = "_".join(str(l) for l in config["layers"])
+    methods_str = "_".join(config["methods"])
     coefs_str = "_".join(str(c).replace(".", "p") for c in config["coefficients"])
-    filename = f"L{layers_str}_c{coefs_str}_{timestamp.replace(':', '-').replace('T', '_')}.json"
+    filename = f"L{layers_str}_{methods_str}_c{coefs_str}_{timestamp.replace(':', '-').replace('T', '_')}.json"
 
     with open(responses_dir / filename, 'w') as f:
         json.dump(responses, f, indent=2)
