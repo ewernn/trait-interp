@@ -41,6 +41,22 @@ python analysis/steering/evaluate.py \
     --layers 16 \
     --coefficients 2.0 \
     --subset 2 --rollouts 1
+
+# Cross-experiment: use vectors from base model, steer IT model
+python analysis/steering/evaluate.py \
+    --experiment gemma-2-2b-it \
+    --trait mental_state/optimism \
+    --vector-from-trait gemma-2-2b-base/mental_state/optimism \
+    --layers 16 \
+    --coefficients 2.0
+
+# Cross-trait: steer confidence using optimism vector
+python analysis/steering/evaluate.py \
+    --experiment my_exp \
+    --trait cognitive_state/confidence \
+    --vector-from-trait my_exp/mental_state/optimism \
+    --layers 16 \
+    --coefficients 2.0
 ```
 
 ## Components
@@ -103,8 +119,9 @@ Results accumulate in a single `results.json` per trait. Each invocation appends
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--experiment` | required | Experiment name |
-| `--trait` | required | Trait path (e.g., mental_state/optimism) |
+| `--experiment` | required | Experiment name (where results are saved) |
+| `--trait` | required | Trait path for eval prompts + results location |
+| `--vector-from-trait` | (experiment/trait) | Load vectors from different source: 'experiment/category/trait' |
 | `--layers` | 16 | Layer(s): single '16', range '5-20', list '5,10,15', or 'all' |
 | `--coefficients` | 2.0 | Comma-separated coefficients |
 | `--method` | probe | Vector extraction method |
