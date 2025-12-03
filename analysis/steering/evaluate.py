@@ -150,8 +150,8 @@ def generate_response(
         outputs = model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            do_sample=True,
+            temperature=temperature if temperature > 0 else None,
+            do_sample=temperature > 0,
             pad_token_id=tokenizer.eos_token_id,
         )
 
