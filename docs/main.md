@@ -339,6 +339,48 @@ python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
 python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --no-vet
 ```
 
+### Base Model Extraction
+
+For base models (non-instruction-tuned), use text completion mode:
+
+```bash
+# Full pipeline with base model (text completion, completion-only extraction)
+python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait \
+    --model Qwen/Qwen2.5-7B --base-model --rollouts 10 --temperature 1.0 \
+    --no-vet-scenarios --trait-score
+
+# With trait-score vetting (0-100 scale, recommended for base model)
+python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait \
+    --model Qwen/Qwen2.5-7B --base-model --trait-score \
+    --pos-threshold 60 --neg-threshold 40
+```
+
+### Prefill-Only Extraction
+
+Extract from prompt context without generation. Useful when:
+- Trait signal is in how model processes the prompt (not what it generates)
+- Generation is noisy or drifts off-topic
+- Testing "does the model represent this concept" vs "does it generate this way"
+
+```bash
+# Extract from last token of prompt (no generation)
+python extraction/extract_activations.py \
+    --experiment my_exp \
+    --trait category/my_trait \
+    --model Qwen/Qwen2.5-7B \
+    --prefill-only \
+    --val-split 0.2
+
+# Token position options: last (default), first, mean
+python extraction/extract_activations.py \
+    --experiment my_exp \
+    --trait category/my_trait \
+    --prefill-only \
+    --token-position mean
+```
+
+Prefill-only reads directly from `positive.txt`/`negative.txt` (skips response generation and vetting).
+
 ### Individual Stages
 
 **Stage 0: Scenario Vetting** (LLM-as-a-judge)
@@ -357,6 +399,15 @@ Generate responses from natural scenario files (no instructions).
 python extraction/generate_responses.py \
   --experiment my_exp \
   --trait category/my_trait
+
+# Base model: text completion mode (no chat template)
+python extraction/generate_responses.py \
+  --experiment my_exp \
+  --trait category/my_trait \
+  --model Qwen/Qwen2.5-7B \
+  --base-model \
+  --rollouts 10 \
+  --temperature 1.0
 ```
 
 **Stage 1.5: Response Vetting** (LLM-as-a-judge)
@@ -365,6 +416,10 @@ Validates that the model actually exhibited the expected trait in each response.
 
 ```bash
 python extraction/vet_responses.py --experiment my_exp --trait category/my_trait
+
+# Trait-score mode (0-100 scale, recommended for base model)
+python extraction/vet_responses.py --experiment my_exp --trait category/my_trait \
+    --trait-score --pos-threshold 60 --neg-threshold 40
 ```
 
 **Stage 2: Extract Activations**
@@ -374,7 +429,20 @@ Capture activations from all layers. Automatically filters responses that failed
 ```bash
 python extraction/extract_activations.py \
   --experiment my_exp \
-  --trait my_trait
+  --trait category/my_trait
+
+# Base model: extract from completion tokens only
+python extraction/extract_activations.py \
+  --experiment my_exp \
+  --trait category/my_trait \
+  --base-model
+
+# Prefill-only: extract from last token of prompt (no generation needed)
+python extraction/extract_activations.py \
+  --experiment my_exp \
+  --trait category/my_trait \
+  --prefill-only \
+  --token-position last  # or: first, mean
 ```
 
 **Stage 3: Extract Vectors**
