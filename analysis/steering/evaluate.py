@@ -141,6 +141,56 @@ def load_vector(experiment: str, trait: str, layer: int, method: str = "probe", 
     return torch.load(vector_file, weights_only=True)
 
 
+def load_activation_metadata(experiment: str, trait: str) -> Optional[Dict]:
+    """Load activation metadata containing per-layer norms."""
+    activations_dir = get('extraction.activations', experiment=experiment, trait=trait)
+    metadata_file = activations_dir / "metadata.json"
+    if not metadata_file.exists():
+        return None
+    with open(metadata_file) as f:
+        return json.load(f)
+
+
+def compute_auto_coef(
+    vector_experiment: str,
+    vector_trait: str,
+    layer: int,
+    method: str,
+    component: str,
+    target_ratio: float,
+) -> Optional[float]:
+    """
+    Compute coefficient to achieve target perturbation ratio.
+
+    perturbation_ratio = (coef * vector_norm) / activation_norm
+    coef = target_ratio * (activation_norm / vector_norm)
+    """
+    # Load vector norm
+    vector = load_vector(vector_experiment, vector_trait, layer, method, component)
+    if vector is None:
+        return None
+    vector_norm = vector.norm().item()
+
+    # Load activation norm from metadata
+    metadata = load_activation_metadata(vector_experiment, vector_trait)
+    if metadata is None or 'activation_norms' not in metadata:
+        print(f"Warning: No activation metadata found for {vector_experiment}/{vector_trait}")
+        return None
+
+    # Get activation norm for this layer
+    act_norms = metadata['activation_norms']
+    if isinstance(act_norms, dict):
+        act_norm = act_norms.get(str(layer)) or act_norms.get(layer)
+    elif isinstance(act_norms, list) and layer < len(act_norms):
+        act_norm = act_norms[layer]
+    else:
+        print(f"Warning: No activation norm for layer {layer}")
+        return None
+
+    coef = target_ratio * (act_norm / vector_norm)
+    return coef
+
+
 def load_eval_prompts(trait: str) -> Tuple[Dict, Path]:
     """Load evaluation prompts for a trait. Returns (data, path)."""
     trait_name = trait.split("/")[-1]
@@ -167,7 +217,7 @@ def generate_response(
     model,
     tokenizer,
     prompt: str,
-    max_new_tokens: int = 256,
+    max_new_tokens: int = 128,
     temperature: float = 0.0,
 ) -> str:
     """Generate a response from the model."""
@@ -636,6 +686,8 @@ def main():
                         help="Steer all layers simultaneously (instead of separate runs)")
     parser.add_argument("--vector-from-trait",
                         help="Load vectors from different experiment/trait: 'experiment/category/trait'")
+    parser.add_argument("--auto-coef", type=float,
+                        help="Auto-compute coefficient from target perturbation ratio (e.g., 0.6 for 60%% of activation norm)")
 
     args = parser.parse_args()
 
@@ -651,7 +703,21 @@ def main():
     # Parse layers and coefficients
     # Need model to validate layers, but we'll do that inside run_evaluation
     layers = parse_layers(args.layers, num_layers=100)  # Temporary max, validated later
-    coefficients = parse_coefficients(args.coefficients)
+
+    # Auto-compute coefficients if requested
+    if args.auto_coef:
+        coefficients = []
+        for layer in layers:
+            coef = compute_auto_coef(
+                vector_experiment, vector_trait, layer,
+                args.method, args.component, args.auto_coef
+            )
+            if coef is None:
+                parser.error(f"Could not compute auto-coef for layer {layer}")
+            coefficients.append(coef)
+            print(f"Auto-coef L{layer}: {coef:.1f} (target ratio {args.auto_coef})")
+    else:
+        coefficients = parse_coefficients(args.coefficients)
 
     asyncio.run(run_evaluation(
         experiment=args.experiment,

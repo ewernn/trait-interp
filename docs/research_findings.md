@@ -25,6 +25,40 @@ See `experiments/gemma-2-2b-base/results.md` for detailed methodology and result
 
 ---
 
+## 2025-12-04: Steering Coefficient Scaling Law
+
+### Finding
+The effective steering strength is determined by **perturbation ratio**, not raw coefficient:
+```
+perturbation_ratio = (coef × vector_norm) / activation_norm
+```
+
+### Results (optimism trait, base→IT transfer)
+| Perturbation Ratio | Effect |
+|-------------------|--------|
+| 0.5-0.8 | Sweet spot (good Δ, high coherence) |
+| 1.0-1.3 | Breakdown (coherence collapses) |
+| >1.3 | Broken (repetition, incoherence) |
+
+### Method Comparison
+- **Mean_diff:** vec_norm/act_norm ≈ 0.12-0.15 (stable across layers) → fixed coef ~4-6 works everywhere
+- **Probe:** vec_norm/act_norm drops 3x from L10→L16 → needs layer-specific tuning (100→300)
+
+### Practical Implication
+```
+target_coef = target_ratio × (activation_norm / vector_norm)
+```
+where `target_ratio ≈ 0.6` for safe steering.
+
+### Additional Findings
+- Best steering layer ≠ best classification layer (L10 steers better than L13 despite lower val acc)
+- Later layers are more fragile (break at lower perturbation ratios)
+- Cross-model transfer works well (base vectors steer IT model)
+
+See `experiments/gemma-2-2b-base/extraction/epistemic/optimism/extraction_magnitudes.md` for full data.
+
+---
+
 ## Detailed Findings (Chronological)
 
 ### 2025-12-01: Base Model Consolidation
