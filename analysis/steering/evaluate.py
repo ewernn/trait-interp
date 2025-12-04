@@ -304,7 +304,8 @@ def save_responses(responses: List[Dict], experiment: str, trait: str, config: D
     layers_str = "_".join(str(l) for l in config["layers"])
     methods_str = "_".join(config["methods"])
     coefs_str = "_".join(str(c).replace(".", "p") for c in config["coefficients"])
-    filename = f"L{layers_str}_{methods_str}_c{coefs_str}_{timestamp.replace(':', '-').replace('T', '_')}.json"
+    inc_str = "_inc" if config.get("incremental", False) else ""
+    filename = f"L{layers_str}_{methods_str}_c{coefs_str}{inc_str}_{timestamp.replace(':', '-').replace('T', '_')}.json"
 
     with open(responses_dir / filename, 'w') as f:
         json.dump(responses, f, indent=2)
@@ -321,6 +322,7 @@ def generate_configs(
     coefficients: List[float],
     component: str,
     multi_layer: bool,
+    incremental: bool = False,
 ) -> List[Dict]:
     """
     Generate list of configs to evaluate based on CLI args.
@@ -349,6 +351,7 @@ def generate_configs(
             "methods": methods,
             "coefficients": coefficients,
             "component": component,
+            "incremental": incremental,
         })
     else:
         # Separate runs for each combination
@@ -359,6 +362,7 @@ def generate_configs(
                     "methods": [method],
                     "coefficients": [coef],
                     "component": component,
+                    "incremental": incremental,
                 })
 
     return configs
@@ -606,6 +610,7 @@ async def run_evaluation(
     print(f"Rollouts: {rollouts}")
     print(f"Temperature: {temperature}")
     print(f"Multi-layer: {multi_layer}")
+    print(f"Incremental: {incremental}")
     print(f"Existing runs: {len(results['runs'])}")
 
     # Initialize judge
@@ -622,7 +627,7 @@ async def run_evaluation(
         print(f"\nUsing existing baseline: trait={results['baseline']['trait_mean']:.1f}")
 
     # Generate configs
-    configs = generate_configs(layers, method, coefficients, component, multi_layer)
+    configs = generate_configs(layers, method, coefficients, component, multi_layer, incremental)
     print(f"\nConfigs to evaluate: {len(configs)}")
 
     # Evaluate each config
