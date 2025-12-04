@@ -38,6 +38,7 @@ def parse_filename(filename: str) -> Optional[Dict]:
         L0_probe_c13p6_2025-12-04_05-55-16.467598.json
         L10_11_12_probe_probe_probe_c100p0_100p0_100p0_2025-12-03_...json
         L0_1_2_mean_diff_mean_diff_mean_diff_c5p0_5p0_5p0_2025-12-04_...json
+        L10_probe_c55p0_inc_2025-12-04_05-55-16.467598.json  (incremental)
     """
     # Remove .json extension
     name = filename.replace('.json', '')
@@ -58,6 +59,12 @@ def parse_filename(filename: str) -> Optional[Dict]:
 
     # Remove timestamp from name
     name = name[:timestamp_match.start()].rstrip('_')
+
+    # Check for _inc suffix (incremental vectors)
+    incremental = False
+    if name.endswith('_inc'):
+        incremental = True
+        name = name[:-4]  # Remove _inc
 
     # Parse layers (starts with L, numbers separated by _)
     layers_match = re.match(r'L([\d_]+)_', name)
@@ -103,6 +110,7 @@ def parse_filename(filename: str) -> Optional[Dict]:
         'methods': methods,
         'coefficients': coefficients,
         'component': 'residual',  # Assume residual (most common)
+        'incremental': incremental,
         'timestamp': timestamp,
     }
 
