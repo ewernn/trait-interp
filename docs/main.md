@@ -9,6 +9,7 @@ Extract and monitor LLM behavioral traits token-by-token during generation.
 This is the **primary documentation hub** for the trait-interp project. All documentation files are organized here.
 
 ### Core Documentation (Start Here)
+- **[docs/project_brief.md](project_brief.md)** - Self-contained project summary (paste into any chat)
 - **[docs/main.md](main.md)** (this file) - Complete project overview and reference
 - **[docs/overview.md](overview.md)** - High-level methodology and concepts (also at `/overview` in visualization)
 - **[README.md](../readme.md)** - Quick start guide and repository structure

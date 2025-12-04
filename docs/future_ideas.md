@@ -101,6 +101,12 @@ Research extensions and technical improvements identified through experimentatio
 
 ---
 
+## Cleanup
+
+- **Remove unused `attention_weights` from inference JSONs**: The `inference/{trait}/residual_stream/*.json` files contain `attention_weights` (~3.8 GB in gemma-2-2b-it) that nothing reads. Visualization uses separate `_attention.json` files. Delete and regenerate to reclaim space.
+
+---
+
 ## Activation Extraction Considerations
 
 Current: mean pool across all tokens (prompt + response). Alternatives to explore:
