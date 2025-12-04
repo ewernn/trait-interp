@@ -201,7 +201,12 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if has_traits:
                     experiments.append(item.name)
 
-        return {'experiments': sorted(experiments)}
+        # Sort alphabetically, but prioritize gemma-2-2b-it as default
+        def sort_key(name):
+            if name == 'gemma-2-2b-it':
+                return (0, name)
+            return (1, name)
+        return {'experiments': sorted(experiments, key=sort_key)}
 
     def list_traits(self, experiment_name):
         """List all traits for an experiment."""

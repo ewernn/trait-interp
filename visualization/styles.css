@@ -175,6 +175,56 @@ body {
 .trait-checkbox input[type="checkbox"] { cursor: pointer; }
 .trait-checkbox label { cursor: pointer; margin: 0; flex: 1; color: inherit; }
 
+/* Trait Category Grouping */
+.trait-category {
+    margin-bottom: 8px;
+}
+
+.trait-category-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    cursor: default;
+}
+
+.trait-category-header .category-arrow {
+    cursor: pointer;
+    user-select: none;
+    width: 12px;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.trait-category-header .category-arrow:hover {
+    color: var(--text-primary);
+}
+
+.trait-category-header .category-checkbox {
+    cursor: pointer;
+}
+
+.trait-category-header .category-name {
+    font-weight: 500;
+    text-transform: capitalize;
+}
+
+.trait-category-header .category-count {
+    color: var(--text-secondary);
+    font-size: var(--text-xs);
+    margin-left: auto;
+}
+
+.trait-category-items {
+    padding-left: 18px;
+}
+
+.trait-category.collapsed .trait-category-items {
+    display: none;
+}
+
 .select-all-btn {
     padding: 4px 8px;
     font-size: var(--text-xs);

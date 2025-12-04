@@ -12,6 +12,9 @@ async function renderMultiLayerHeatmap() {
     contentArea.innerHTML = '<div class="loading">Loading multi-layer heatmap data...</div>';
 
     const experiment = window.state.experimentData?.name;
+    console.log('Multi-layer heatmap - experiment:', experiment);
+    console.log('Multi-layer heatmap - state:', window.state);
+
     if (!experiment) {
         contentArea.innerHTML = '<div class="error">No experiment selected</div>';
         return;
@@ -24,20 +27,24 @@ async function renderMultiLayerHeatmap() {
 
     let heatmapData, resultsData;
     try {
+        console.log('Fetching heatmap from:', heatmapPath);
         const heatmapResp = await fetch(heatmapPath);
+        console.log('Heatmap response:', heatmapResp.status, heatmapResp.ok);
         if (!heatmapResp.ok) {
             throw new Error('Heatmap data not found');
         }
         heatmapData = await heatmapResp.json();
+        console.log('Heatmap data loaded:', heatmapData);
 
         const resultsResp = await fetch(resultsPath);
         resultsData = resultsResp.ok ? await resultsResp.json() : null;
     } catch (error) {
+        console.error('Error loading heatmap:', error);
         contentArea.innerHTML = `
             <div class="tool-view">
                 <div class="no-data">
                     <p>No multi-layer heatmap data found</p>
-                    <small>Generate with the center×width sweep analysis script first.</small>
+                    <small>Error: ${error.message}</small>
                 </div>
             </div>
         `;
