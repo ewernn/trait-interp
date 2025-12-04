@@ -1,14 +1,23 @@
 #!/bin/bash
-# One-time setup: Download experiments from R2 to Railway volume
-# Run this ONCE after creating the Railway volume: railway run bash utils/railway_pull_r2.sh
+# Download experiments from R2 to Railway volume
+# Usage: railway run bash utils/railway_pull_r2.sh [experiment_name]
+# Example: railway run bash utils/railway_pull_r2.sh gemma-2-2b-it
 
 set -e
 
+EXPERIMENT=${1:-""}
+
+if [ -n "$EXPERIMENT" ]; then
+    SOURCE="r2:trait-interp-bucket/experiments/${EXPERIMENT}/"
+    DEST="/app/experiments/${EXPERIMENT}/"
+else
+    SOURCE="r2:trait-interp-bucket/experiments/"
+    DEST="/app/experiments/"
+fi
+
 echo "📥 Downloading experiments from R2 to Railway volume..."
-echo "Source: r2:trait-interp-bucket/experiments/"
-echo "Destination: /app/experiments/"
-echo ""
-echo "This is a ONE-TIME setup. Data will persist across redeploys."
+echo "Source: $SOURCE"
+echo "Destination: $DEST"
 echo ""
 
 # Install rclone if not present
@@ -29,7 +38,7 @@ fi
 # Sync from R2 to volume
 # Exclude large .pt files (activations and raw inference data)
 # Keep metadata.json files (small, contain model config)
-rclone sync r2:trait-interp-bucket/experiments/ /app/experiments/ \
+rclone sync "$SOURCE" "$DEST" \
   --progress \
   --stats 5s \
   --transfers 16 \

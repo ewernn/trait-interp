@@ -59,6 +59,41 @@ See `experiments/gemma-2-2b-base/extraction/epistemic/optimism/extraction_magnit
 
 ---
 
+## 2025-12-04: Cross-Distribution Generalization
+
+### Finding
+Probe vectors generalize across domains; mean_diff vectors don't.
+
+### Setup
+Split optimism trait (100 scenarios) into two domain groups:
+- **A (institutional):** Tech, Economics, Healthcare, Education, Science
+- **B (social):** Environment, Career, Relationships, Civic, Global
+
+Extracted vectors from each, tested classification on both.
+
+### Results (Layer 13)
+
+| Vector | Eval on A | Eval on B | Avg Transfer |
+|--------|-----------|-----------|--------------|
+| **Probe A** | 100% | 100% | 100% |
+| **Probe B** | 95% | 100% | 97.5% |
+| Mean_diff A | 90% | 90% | 90% |
+| Mean_diff B | 55% | 70% | 62.5% |
+
+### Key Finding
+- **Probe:** Near-perfect cross-domain transfer (97.5%)
+- **Mean_diff:** Asymmetric—A→B works, B→A fails
+
+### Implication
+Probe captures "optimism" as a general direction. Mean_diff captures domain-specific patterns that don't transfer.
+
+### Verification
+```bash
+ls experiments/gemma-2-2b-base/extraction/epistemic/optimism-crossdist-{A,B}/vectors/
+```
+
+---
+
 ## Detailed Findings (Chronological)
 
 ### 2025-12-01: Base Model Consolidation

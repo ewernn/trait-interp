@@ -131,11 +131,32 @@ Results accumulate in a single `results.json` per trait. Each invocation appends
 | `--judge` | openai | Judge provider (openai, gemini) |
 | `--subset` | N | Use first N questions (default: all) |
 | `--multi-layer` | false | Steer all layers simultaneously |
+| `--auto-coef` | - | Target perturbation ratio (e.g., 1.0). Computes coefficient automatically. |
+| `--incremental` | false | Use incremental vectors (v[i] - v[i-1]) for multi-layer steering |
 
 **Notes:**
 - With `--temperature 0`, responses are deterministic, so `--rollouts > 1` gives identical results.
 - If you run the same config twice, it **overwrites** the existing run (no duplicates).
 - To start fresh with new prompts, manually delete `results.json`.
+
+### Auto-Coefficient
+
+`--auto-coef` computes the coefficient to achieve a target perturbation ratio:
+
+```
+coefficient = target_ratio × (activation_norm / vector_norm)
+```
+
+Sweet spot is typically ratio 0.8-1.2. Requires `activation_norms` in extraction metadata.
+
+```bash
+# Target 1.0 perturbation ratio (recommended starting point)
+python analysis/steering/evaluate.py \
+    --experiment gemma-2-2b-it \
+    --trait epistemic/optimism \
+    --layers 10 \
+    --auto-coef 1.0
+```
 
 ## Key Details
 
@@ -186,3 +207,30 @@ GEMINI_API_KEY=AI...
 ```
 
 Use `--judge gemini` for Gemini instead of OpenAI.
+
+## Utilities
+
+### Rebuild Results
+
+When running parallel sweeps, `results.json` can lose runs due to race conditions. Rebuild from response files:
+
+```bash
+# Dry run - see what would be recovered
+python analysis/steering/rebuild_results.py \
+    --experiment gemma-2-2b-it \
+    --trait epistemic/optimism
+
+# Apply - write results_rebuilt.json
+python analysis/steering/rebuild_results.py \
+    --experiment gemma-2-2b-it \
+    --trait epistemic/optimism \
+    --apply
+
+# Overwrite results.json directly
+python analysis/steering/rebuild_results.py \
+    --experiment gemma-2-2b-it \
+    --trait epistemic/optimism \
+    --apply --overwrite
+```
+
+Response files in `responses/` are the authoritative source; `results.json` is a convenience aggregation.

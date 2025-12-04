@@ -150,39 +150,134 @@ function populateTraitCheckboxes() {
     if (!container) return;
 
     container.innerHTML = '';
-    state.selectedTraits.clear();  // Clear before repopulating
+    state.selectedTraits.clear();
 
     if (!state.experimentData || !state.experimentData.traits) return;
 
-    // Deduplicate traits to prevent double-rendering from race conditions
+    // Deduplicate traits
     const uniqueTraits = state.experimentData.traits.filter((trait, index, self) =>
         index === self.findIndex((t) => t.name === trait.name)
     );
 
+    // Group traits by category
+    const categories = {};
     uniqueTraits.forEach(trait => {
-        const checkbox = document.createElement('div');
-        checkbox.className = 'trait-checkbox';
-        checkbox.innerHTML = `
-            <input type="checkbox" id="trait-${trait.name}" value="${trait.name}" checked>
-            <label for="trait-${trait.name}">${getDisplayName(trait.name)}</label>
-        `;
-        container.appendChild(checkbox);
+        const parts = trait.name.split('/');
+        const category = parts.length > 1 ? parts[0] : 'uncategorized';
+        if (!categories[category]) categories[category] = [];
+        categories[category].push(trait);
+    });
 
-        const input = checkbox.querySelector('input');
-        input.addEventListener('change', (e) => {
-            if (e.target.checked) {
+    // Check if og_10 exists for default selection
+    const hasOg10 = 'og_10' in categories;
+
+    // Sort categories: og_10 first, then alphabetical
+    const sortedCategories = Object.keys(categories).sort((a, b) => {
+        if (a === 'og_10') return -1;
+        if (b === 'og_10') return 1;
+        return a.localeCompare(b);
+    });
+
+    sortedCategories.forEach(category => {
+        const traits = categories[category];
+        const isDefaultSelected = hasOg10 ? category === 'og_10' : true;
+
+        // Create category container
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'trait-category';
+        categoryDiv.dataset.category = category;
+
+        // Category header
+        const header = document.createElement('div');
+        header.className = 'trait-category-header';
+        header.innerHTML = `
+            <span class="category-arrow">▼</span>
+            <input type="checkbox" class="category-checkbox" ${isDefaultSelected ? 'checked' : ''}>
+            <span class="category-name">${category.replace(/_/g, ' ')}</span>
+            <span class="category-count">(${isDefaultSelected ? traits.length : 0}/${traits.length})</span>
+        `;
+        categoryDiv.appendChild(header);
+
+        // Traits container
+        const traitsDiv = document.createElement('div');
+        traitsDiv.className = 'trait-category-items';
+
+        traits.forEach(trait => {
+            const checkbox = document.createElement('div');
+            checkbox.className = 'trait-checkbox';
+            checkbox.innerHTML = `
+                <input type="checkbox" id="trait-${trait.name}" value="${trait.name}" ${isDefaultSelected ? 'checked' : ''}>
+                <label for="trait-${trait.name}">${getDisplayName(trait.name)}</label>
+            `;
+            traitsDiv.appendChild(checkbox);
+
+            const input = checkbox.querySelector('input');
+            input.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    state.selectedTraits.add(trait.name);
+                } else {
+                    state.selectedTraits.delete(trait.name);
+                }
+                updateCategoryCheckbox(categoryDiv);
+                updateSelectedCount();
+                if (window.renderView) window.renderView();
+            });
+
+            if (isDefaultSelected) {
                 state.selectedTraits.add(trait.name);
-            } else {
-                state.selectedTraits.delete(trait.name);
             }
+        });
+
+        categoryDiv.appendChild(traitsDiv);
+        container.appendChild(categoryDiv);
+
+        // Category header click handlers
+        const arrow = header.querySelector('.category-arrow');
+        const categoryCheckbox = header.querySelector('.category-checkbox');
+
+        // Arrow toggles collapse
+        arrow.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isCollapsed = categoryDiv.classList.toggle('collapsed');
+            arrow.textContent = isCollapsed ? '▶' : '▼';
+        });
+
+        // Category checkbox toggles all traits in category
+        categoryCheckbox.addEventListener('change', (e) => {
+            const checked = e.target.checked;
+            traitsDiv.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.checked = checked;
+                if (checked) {
+                    state.selectedTraits.add(cb.value);
+                } else {
+                    state.selectedTraits.delete(cb.value);
+                }
+            });
+            updateCategoryCount(categoryDiv);
             updateSelectedCount();
             if (window.renderView) window.renderView();
         });
 
-        state.selectedTraits.add(trait.name);
+        updateCategoryCount(categoryDiv);
     });
 
     updateSelectedCount();
+}
+
+function updateCategoryCheckbox(categoryDiv) {
+    const checkboxes = categoryDiv.querySelectorAll('.trait-category-items input[type="checkbox"]');
+    const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+    const categoryCheckbox = categoryDiv.querySelector('.category-checkbox');
+    categoryCheckbox.checked = checkedCount === checkboxes.length;
+    categoryCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+    updateCategoryCount(categoryDiv);
+}
+
+function updateCategoryCount(categoryDiv) {
+    const checkboxes = categoryDiv.querySelectorAll('.trait-category-items input[type="checkbox"]');
+    const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+    const countSpan = categoryDiv.querySelector('.category-count');
+    countSpan.textContent = `(${checkedCount}/${checkboxes.length})`;
 }
 
 function updateSelectedCount() {
@@ -193,16 +288,21 @@ function updateSelectedCount() {
 }
 
 function toggleAllTraits() {
-    const checkboxes = document.querySelectorAll('#trait-checkboxes input[type="checkbox"]');
-    const allSelected = state.selectedTraits.size === checkboxes.length;
+    const traitCheckboxes = document.querySelectorAll('.trait-category-items input[type="checkbox"]');
+    const allSelected = state.selectedTraits.size === traitCheckboxes.length;
 
-    checkboxes.forEach(cb => {
+    traitCheckboxes.forEach(cb => {
         cb.checked = !allSelected;
         if (!allSelected) {
             state.selectedTraits.add(cb.value);
         } else {
             state.selectedTraits.delete(cb.value);
         }
+    });
+
+    // Update all category checkboxes
+    document.querySelectorAll('.trait-category').forEach(categoryDiv => {
+        updateCategoryCheckbox(categoryDiv);
     });
 
     const btn = document.getElementById('select-all-btn');
