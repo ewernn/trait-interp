@@ -24,7 +24,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 
 ### Experiments & Analysis
 - Experiment data stored in `experiments/{experiment_name}/` (see Directory Structure below)
-- Analysis visualizations are live-rendered in the Analysis Gallery (no separate docs needed)
+- Analysis visualizations are live-rendered in Trait Dynamics view (no separate docs needed)
 
 ### Inference & Monitoring
 - **[inference/README.md](../inference/README.md)** - Per-token inference and dynamics capture
@@ -106,17 +106,23 @@ trait-interp/
 │       │   │   └── internals/{prompt_set}/{id}_L{layer}.pt  # Single layer deep (optional)
 │       │   └── {category}/{trait}/
 │       │       └── residual_stream/{prompt_set}/{id}.json  # Projections + dynamics
-│       ├── analysis/               # Analysis outputs (view in Analysis Gallery)
+│       ├── analysis/               # Analysis outputs (view in Trait Dynamics)
 │       │   └── per_token/{prompt_set}/  # Per-token JSON for live-rendered gallery
 │       │       └── {id}.json            # Token metrics, trait scores, velocity
 │       └── steering/{category}/{trait}/ # Steering evaluation results
 │           └── results.json             # Runs-based steering results (accumulates)
 │
 ├── config/                 # Configuration files
-│   └── paths.yaml         # Single source of truth for all repo paths
+│   ├── paths.yaml         # Single source of truth for all repo paths
+│   └── models/            # Model architecture configs
+│       ├── gemma-2-2b-it.yaml
+│       ├── gemma-2-2b.yaml
+│       ├── qwen2.5-7b.yaml
+│       └── qwen2.5-7b-instruct.yaml
 │
 ├── utils/                  # Shared utilities
 │   ├── paths.py           # Python PathBuilder (loads from config/paths.yaml)
+│   ├── model_config.py    # Model config loader (loads from config/models/)
 │   └── model.py           # Model loading, prompt formatting, experiment config
 │
 ├── sae/                    # Sparse Autoencoder (SAE) resources
@@ -133,7 +139,7 @@ trait-interp/
 │   │   ├── extraction_evaluation.py   # Evaluate vectors on held-out data
 │   │   └── vector_ranking.py          # Rank vectors by quality metrics
 │   ├── inference/
-│   │   ├── compute_per_token_metrics.py   # Generate per-token JSON for Analysis Gallery
+│   │   ├── compute_per_token_metrics.py   # Generate per-token JSON for Trait Dynamics
 │   │   ├── attention_decay_analysis.py    # Analyze attention patterns
 │   │   └── commitment_point_detection.py  # Find trait commitment points
 │   └── steering/
@@ -421,13 +427,11 @@ python visualization/serve.py
 
 The visualization provides:
 - **Category 1: Trait Development**
-  - **Data Explorer**: Browse all raw files from the extraction process.
-  - **Trait Extraction**: Comprehensive view of extraction quality, methods, and vector properties. Shows per-trait layer×method heatmaps, best-vector similarity matrix (trait independence), method comparison, plus reference sections for extraction techniques, quality metrics, and scoring methodology.
+  - **Trait Extraction**: Comprehensive view of extraction quality. Per-trait layer×method heatmaps (10 per row), best-vector similarity matrix (trait independence), metric distributions, per-method breakdown. Collapsible reference sections for notation, extraction techniques, quality metrics, and scoring.
+  - **Steering Sweep**: Layer sweep + multi-layer steering heatmap. Shows behavioral change vs. steering coefficient across layers.
 - **Category 2: Inference Analysis**
-  - **Trait Trajectory**: View a single trait's activation score across all layers and tokens for a given prompt.
-  - **Trait Dynamics**: Watch the model think - trait activations evolving token-by-token. Compare multiple traits to see how they relate during generation.
+  - **Trait Dynamics**: Comprehensive trait evolution view. Token trajectory (layer-averaged projections), velocity/acceleration charts, layer derivatives, activation magnitude, layer×token heatmaps per trait, and activation dynamics (velocity heatmap, trait coupling).
   - **Layer Deep Dive**: Mechanistic analysis showing attention heatmaps (layers × context, heads × context) and SAE feature decomposition. Requires `dynamic` prompt set with internals data.
-  - **Analysis Gallery**: Browse all analysis outputs (PNGs + JSON metrics) from batch analysis scripts. Use the prompt picker to filter by prompt or view summaries.
 
 The server auto-discovers experiments, traits, and prompts from the `experiments/` directory - no hardcoding needed.
 
@@ -612,6 +616,56 @@ python extraction/generate_responses.py --experiment my_exp --no-chat-template .
 **Verify config exists:**
 ```bash
 cat experiments/my_experiment/config.json
+```
+
+## Model Configuration
+
+Model architecture and defaults are stored in `config/models/{model}.yaml`:
+
+```yaml
+# config/models/gemma-2-2b-it.yaml
+huggingface_id: google/gemma-2-2b-it
+model_type: gemma2
+variant: it
+
+num_hidden_layers: 26
+hidden_size: 2304
+num_attention_heads: 8
+num_key_value_heads: 4
+
+residual_sublayers: [input, after_attn, output]
+
+sae:
+  available: true
+  provider: gemma-scope
+  base_path: sae/gemma-scope-2b-pt-res-canonical
+  downloaded_layers: [16]
+
+defaults:
+  monitoring_layer: 16
+```
+
+**Python usage:**
+```python
+from utils.model_config import get_model_config, get_num_layers, get_sae_path
+
+config = get_model_config('gemma-2-2b-it')
+config['num_hidden_layers']  # 26
+
+get_num_layers('gemma-2-2b-it')  # 26
+get_sae_path('gemma-2-2b-it', 16)  # Path to SAE directory
+```
+
+**JavaScript usage:**
+```javascript
+await modelConfig.loadForExperiment('gemma-2-2b-it');
+modelConfig.getNumLayers();  // 26
+modelConfig.getSaePath(16);  // 'sae/gemma-scope.../layer_16_...'
+```
+
+**Available models:**
+```bash
+ls config/models/
 ```
 
 ## Technical Details

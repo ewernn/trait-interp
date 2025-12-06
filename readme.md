@@ -73,11 +73,10 @@ Monitor traits during generation with the traitlens package:
 - Create custom monitoring scripts in experiments/{name}/inference/
 
 Interactive dashboard (`visualization/`):
-- Data Explorer: inspect file structure, sizes, shapes, and preview JSON data
-- Overview of all extracted traits and experiments
-- Response quality analysis with histograms
-- Vector analysis heatmaps across methods and layers
-- Per-token monitoring (when data available)
+- Trait Extraction: quality heatmaps (layer×method), similarity matrix, metric distributions
+- Steering Sweep: layer sweep for steering evaluation
+- Trait Dynamics: per-token trajectory with velocity/acceleration, layer heatmaps
+- Layer Deep Dive: SAE features, attention patterns
 
 ---
 

@@ -96,8 +96,6 @@ All views use standardized CSS classes from `styles.css`. No view-specific CSS.
 | `.grid` | Auto-fit columns (minmax 280px) |
 | `.data-table` | Sortable data (sticky header, hover rows) |
 | `.def-table` | Term/definition pairs (two columns) |
-| `.info-icon` | Hover info trigger (ⓘ symbol) |
-| `.tooltip` | Positioned popup content |
 | `.stats-row` | Inline stats display (flex, gap) |
 | `.no-data` | Centered placeholder for empty states |
 | `.file-hint` | Muted count/status (tertiary color) |

@@ -75,7 +75,7 @@ Add `coefficient × vector` to layer output during generation. If behavior chang
 
 **Steering**: Causal validation via LLM-as-judge scoring. Layer sweeps, coefficient sweeps, cross-model transfer.
 
-**Visualization**: Data explorer, extraction quality heatmaps, trait dynamics plots, attention patterns, SAE feature decomposition.
+**Visualization**: Extraction quality heatmaps, steering sweep, trait dynamics plots, attention patterns, SAE feature decomposition.
 
 ---
 

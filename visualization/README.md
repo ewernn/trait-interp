@@ -38,20 +38,20 @@ The visualization dashboard is organized into two main categories, reflecting th
 ### Category 1: Trait Development
 (Building and validating the vectors)
 
--   **Data Explorer**: Browse the raw files from the extraction process for any trait, including the generated responses, activation tensors, and the extracted vectors themselves. You can preview JSON files directly in the browser.
-
 -   **Trait Extraction**: Comprehensive view of extraction quality, methods, and vector properties. Organized into sections:
     -   **Visualizations**:
-        - Per-trait layer×method heatmaps showing combined score
+        - Per-trait layer×method heatmaps showing combined score (10 per row)
         - Best-vector similarity matrix for trait independence analysis
         - Metric distributions (histograms + accuracy vs effect scatter)
-        - Per-method, per-trait, per-layer breakdown grids
+        - Per-method breakdown grid
     -   **Reference**:
         - Notation & Definitions: Tensor shapes and variables
         - Extraction Techniques: Mean Diff, Probe, ICA, Gradient, PCA Diff
         - Quality Metrics: Accuracy, effect size, norm, separation margin, sparsity
         - Scoring & Ranking: Combined score formula (accuracy + effect + generalization)
         - All Metrics Overview: Summary table of all per-vector metrics
+
+-   **Steering Sweep**: Layer sweep visualization for steering evaluation. Shows behavioral change vs. steering coefficient across layers. Includes multi-layer steering heatmap (center × width grid) when available. Validates vectors via causal intervention.
 
 ### Category 2: Inference Analysis
 (Using your best vectors to see what the model is "thinking" on new prompts)
@@ -62,55 +62,15 @@ All inference views share a **prompt picker** fixed at the bottom of the page:
 - **Token slider**: Scrub through all tokens (prompt + response) to move a highlight marker on plots. Updates plot highlights in real-time via `Plotly.relayout()` without re-rendering.
 - **Persistence**: Selection is saved to localStorage and restored on page refresh.
 
--   **Trait Trajectory**: See how the score for a single selected trait evolves across all layers of the model as it processes a prompt and generates a response. This helps you understand *where* in the model a trait is most active.
-
--   **Trait Dynamics**: Watch the model think - trait activations evolving token-by-token. Compare multiple traits simultaneously to see how different traits relate during generation. Includes educational sections explaining projection math, graph interpretation, and key patterns to look for.
+-   **Trait Dynamics**: Comprehensive view of trait evolution during generation. Includes:
+    - **Token Trajectory**: Layer-averaged projection per token (3-token smoothing, x-axis shows every 10th token)
+    - **Token Velocity/Acceleration**: Derivatives of trajectory showing rate of change
+    - **Layer Derivatives**: Position/velocity/acceleration across layers (compact row)
+    - **Activation Magnitude**: ||h|| per layer
+    - **Layer × Token Heatmaps**: Per-trait heatmaps (y=layer, x=token, no x-axis labels)
+    - **Activation Dynamics**: Velocity heatmap (layers on y-axis) and trait coupling correlation
 
 -   **Layer Deep Dive**: SAE feature decomposition - see which interpretable Sparse Autoencoder features are most active at each token position. Decomposes 2,304 raw neurons into 16,384 sparse features with human-readable descriptions from Neuronpedia.
-
--   **Analysis Gallery**: Unified live-rendered analysis view with token slider support. Shows:
-    - **All Tokens Section** (slider highlights): Trait Heatmap [tokens × traits], Velocity Heatmap [tokens × layers]
-    - **Selected Token Section** (slider updates): Trait Scores bar chart, Attention Pattern
-    - **Aggregate Section** (slider ignored): Trait Emergence, Trait-Dynamics Correlation
-    Data loaded from `experiments/{exp}/analysis/per_token/` JSON files.
-
-## Using Data Explorer
-
-The Data Explorer displays the actual file structure of your experiment by running an integrity check on startup. It shows exactly what files exist (or are missing) for each trait.
-
-### Navigating the Explorer
-
-1. **View Summary Stats**: See trait counts and completion status (Complete/Partial/Empty)
-2. **Expand Trait Details**: Click any trait to reveal its file tree with status indicators
-3. **Preview Files**: Click filenames with `[preview →]` to view JSON content
-4. **Close Previews**: Click outside the modal or use the × button
-
-### Status Indicators
-
-Each trait shows its completion status:
-- ✅ **Complete**: All expected files present
-- ⚠️ **Partial**: Some files missing
-- ❌ **Empty**: Critical files missing
-
-Individual files show:
-- ✓ File exists
-- ✗ File missing
-
-### File Structure Display
-
-Each trait shows the actual files from `data_checker.py`:
-- **Prompts**: `positive.txt`, `negative.txt`, `val_positive.txt`, `val_negative.txt`
-- **Metadata**: `generation_metadata.json`, `trait_definition.txt`
-- **Responses**: `responses/pos.json`, `responses/neg.json`, `val_responses/val_pos.json`, `val_responses/val_neg.json`
-- **Activations**: Single `all_layers.pt` file (shape: `[n_examples, n_layers, hidden_dim]`)
-- **Vectors**: Per-method files (e.g., `probe_layer16.pt`, one per layer)
-
-### Preview Features
-
-**JSON Preview**:
-- Syntax-highlighted with colors: blue (keys), green (strings), orange (numbers), purple (booleans)
-- Formatted with 2-space indentation
-- Response files show first 10 items with total count
 
 ## Data Sources
 
@@ -194,9 +154,9 @@ This creates `experiments/{exp}/inference/{category}/{trait}/residual_stream/{pr
 - `baseline` - 5 neutral prompts for baseline
 - `real_world` - 10 naturalistic prompts
 
-### For Analysis Gallery
+### For Trait Dynamics (Activation Analysis)
 
-Generate per-token metrics for live-rendered analysis:
+Generate per-token metrics for activation dynamics analysis:
 
 ```bash
 python analysis/inference/compute_per_token_metrics.py --experiment gemma_2b_cognitive_nov21
@@ -332,14 +292,15 @@ visualization/
 ├── serve.py                # Development server with API endpoints
 ├── core/
 │   ├── paths.js           # Centralized PathBuilder (loads from config/paths.yaml)
-│   └── state.js           # Global state, experiment loading
+│   ├── model-config.js    # Model config loader (loads from config/models/)
+│   ├── state.js           # Global state, experiment loading
+│   └── prompt-picker.js   # Prompt selection UI for inference views
 └── views/
-    ├── data-explorer.js       # File browser with integrity check
-    ├── trait-extraction.js    # Comprehensive extraction quality view
-    ├── trait-trajectory.js     # Residual stream across all layers
-    ├── trait-dynamics.js       # Per-token trait trajectories
-    ├── layer-deep-dive.js     # Single layer mechanistic view
-    └── analysis-gallery.js    # Unified live-rendered analysis with token slider
+    ├── overview.js            # Methodology documentation (markdown + KaTeX)
+    ├── trait-extraction.js    # Extraction quality (Trait Development)
+    ├── steering-sweep.js      # Layer sweep + multi-layer heatmap (Trait Development)
+    ├── trait-dynamics.js      # Per-token trait trajectories (Inference)
+    └── layer-deep-dive.js     # Attention + SAE features (Inference)
 ```
 
 **Key Features**:
@@ -367,7 +328,7 @@ All styles use CSS variables in `styles.css` for light/dark mode support. See **
 **Token slider integration** (for views that need real-time updates):
 - Read current token: `window.state.currentTokenIndex`
 - For shape-only updates: add branch in `updatePlotTokenHighlights()` (prompt-picker.js)
-- For full re-render: add branch calling your render function (like `analysis-gallery` does)
+- For full re-render: add branch calling your render function
 
 See **[ARCHITECTURE.md](ARCHITECTURE.md)** for examples.
 
@@ -400,9 +361,9 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for examples.
 
 ## Next Steps
 
-1. **Browse Data**: Use Data Explorer to inspect extraction files
-2. **Compare Methods**: Find which extraction method works best for each trait
-3. **Analyze Layers**: Identify which layers capture each trait best
+1. **Compare Methods**: Find which extraction method works best for each trait
+2. **Analyze Layers**: Identify which layers capture each trait best
+3. **Evaluate Steering**: Use Steering Sweep to validate vectors via causal intervention
 4. **Generate Monitoring Data**: Run inference scripts for per-token analysis
 
 ## Related Documentation

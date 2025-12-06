@@ -13,24 +13,25 @@ visualization/
 ├── serve.py                # Development server with API endpoints
 ├── core/                   # Core functionality
 │   ├── paths.js           # Centralized PathBuilder (loads from config/paths.yaml)
-│   └── state.js           # Global state, experiment loading, URL routing
+│   ├── model-config.js    # Model config loader (loads from config/models/)
+│   ├── state.js           # Global state, experiment loading, URL routing
+│   └── prompt-picker.js   # Prompt selection UI for inference views
 └── views/                  # View modules (render functions)
     ├── overview.js            # Methodology documentation (markdown + KaTeX)
-    ├── data-explorer.js       # File browser with integrity check
-    ├── trait-extraction.js    # Comprehensive extraction quality view
-    ├── trait-trajectory.js     # Residual stream across all layers
-    ├── trait-dynamics.js       # Per-token trait trajectories
-    ├── layer-deep-dive.js     # Single layer mechanistic view
-    └── analysis-gallery.js    # Unified live-rendered analysis with token slider
+    ├── trait-extraction.js    # Extraction quality (Trait Development)
+    ├── steering-sweep.js      # Layer sweep + multi-layer heatmap (Trait Development)
+    ├── trait-dynamics.js      # Per-token trait trajectories (Inference)
+    └── layer-deep-dive.js     # Attention + SAE features (Inference)
 ```
 
 ## Architecture Principles
 
 ### 1. Separation of Concerns
 
-**Core Layer** - State and path management:
+**Core Layer** - State and configuration management:
 - `state.js` - Manages experiments, traits, theme, navigation
 - `paths.js` - Centralized PathBuilder that loads templates from `config/paths.yaml`
+- `model-config.js` - Model architecture config (layers, hidden size, SAE paths)
 
 **View Layer** - Independent rendering modules:
 - Each view is self-contained
@@ -44,9 +45,10 @@ visualization/
 window.renderView = function() {
     switch (window.state.currentView) {
         case 'overview': window.renderOverview(); break;
-        case 'data-explorer': window.renderDataExplorer(); break;
         case 'trait-extraction': window.renderTraitExtraction(); break;
-        // ... 5 more views
+        case 'steering-sweep': window.renderSteeringSweep(); break;
+        case 'trait-dynamics': window.renderTraitDynamics(); break;
+        // ... more views
     }
 };
 ```
@@ -98,7 +100,7 @@ const integrity = await integrityResponse.json();
 
 ### 4. Prompt Picker
 
-Inference views (`trait-trajectory`, `trait-dynamics`, `layer-deep-dive`, `analysis-gallery`) share a common prompt picker fixed at the bottom of the page, rendered by `renderPromptPicker()` in `prompt-picker.js`.
+Inference views (`trait-dynamics`, `layer-deep-dive`) share a prompt picker fixed at the bottom of the page, rendered by `renderPromptPicker()` in `prompt-picker.js`.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -202,10 +204,9 @@ python visualization/serve.py
 
 ## Views Summary
 
-| View | Purpose |
-|------|---------|
-| data-explorer | Browse extraction files with integrity status |
-| trait-extraction | Comprehensive extraction quality: methods, metrics, scoring, layer×method heatmaps, best vectors, independence analysis |
-| trait-trajectory | Residual stream projections across all layers |
-| trait-dynamics | Token-by-token trait trajectories |
-| layer-deep-dive | Attention heads and MLP neurons for single layer |
+| View | Category | Purpose |
+|------|----------|---------|
+| trait-extraction | Trait Development | Extraction quality: methods, metrics, scoring, heatmaps |
+| steering-sweep | Trait Development | Layer sweep + multi-layer steering heatmap |
+| trait-dynamics | Inference | Token-by-token trajectories, layer×token heatmaps, activation velocity |
+| layer-deep-dive | Inference | Attention heads and SAE features for single layer |
