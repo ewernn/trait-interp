@@ -168,7 +168,7 @@ python extraction/extract_activations.py \
 **Options:**
 ```bash
 --no-vetting-filter    # Include responses that failed vetting
---val-split 0.2        # Hold out last 20% for validation
+--val-split 0.0        # Disable validation split (default: 0.2 = 20% held out)
 ```
 
 **Output:** `activations/all_layers.pt`
@@ -273,8 +273,7 @@ python extraction/extract_activations.py \
     --experiment my_exp \
     --trait category/my_trait \
     --model Qwen/Qwen2.5-7B \
-    --prefill-only \
-    --val-split 0.2
+    --prefill-only
 
 # Token position options
 python extraction/extract_activations.py \
@@ -378,8 +377,7 @@ vim analysis/steering/prompts/confidence.json
 python extraction/run_pipeline.py \
     --experiment gemma-2-2b-base \
     --steer-experiment gemma-2-2b-it \
-    --traits epistemic/confidence \
-    --val-split 0.2
+    --traits epistemic/confidence
 
 # Result:
 #   - Vectors: experiments/gemma-2-2b-base/extraction/epistemic/confidence/vectors/

@@ -15,8 +15,37 @@
 ### Experiments
 - `experiments/gemma-2-2b-base/` - Full results for base model (refusal, uncertainty, formality)
 - `experiments/gemma-2-2b-it/` - 24 traits extracted (visualization data)
+- `experiments/mistral-7b-base/` - Cross-model steering source (optimism vectors)
+- `experiments/zephyr-7b-sft/` - SFT-only steering target (mistral-7b-sft-beta)
+- `experiments/zephyr-7b-beta/` - SFT+DPO steering target
 
 See `experiments/gemma-2-2b-base/results.md` for detailed methodology and results.
+
+---
+
+## 2025-12-07: Cross-Model Steering Transfer (SFT vs DPO)
+
+**Question:** Do base-extracted vectors transfer to aligned variants? Does DPO add steering resistance?
+
+**Models:** `mistralai/Mistral-7B-v0.1` (base) → `HuggingFaceH4/mistral-7b-sft-beta` (SFT) → `HuggingFaceH4/zephyr-7b-beta` (SFT+DPO)
+
+**Results (optimism trait, L12):**
+
+| Model | Best Coef | Trait Score | Coherence |
+|-------|-----------|-------------|-----------|
+| SFT   | 1         | 84.3%       | 76.0%     |
+| DPO   | 1         | 83.2%       | 81.6%     |
+
+**Key findings:**
+- **Transfer works:** 80%+ trait scores on both aligned models using base vectors
+- **Optimal layer preserved:** L12 best for both—alignment doesn't shift where features live
+- **DPO more resistant at early layers:** L8 SFT 82.5% vs DPO 65.8%
+- **DPO has hard cliff:** L24/coef=6 → 1.1% trait, 6.3% coherence (catastrophic collapse)
+- **DPO maintains coherence better:** Until it hits threshold, then fails completely
+
+**Interpretation:** DPO creates a more "locked-in" model that resists steering but collapses catastrophically when pushed too hard.
+
+See `experiments/mistral-7b-base/results.md` for full coefficient search logs.
 
 ---
 
