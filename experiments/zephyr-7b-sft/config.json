@@ -1,0 +1,5 @@
+{
+  "model": "HuggingFaceH4/mistral-7b-sft-beta",
+  "use_chat_template": true,
+  "system_prompt": null
+}
