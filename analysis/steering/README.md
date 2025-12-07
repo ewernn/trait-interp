@@ -168,6 +168,16 @@ def aggregate_score(logprobs):
 
 Eval prompts must be **different from extraction prompts** to test generalization.
 
+**Critical: Prompts should NOT naturally elicit the trait.** Steering evaluation tests whether the vector can *push* the model into exhibiting a trait it otherwise wouldn't. If the baseline already shows the trait, there's no room to measure steering effect.
+
+| Trait | Good prompts (low baseline) | Bad prompts (high baseline) |
+|-------|-----------------------------|-----------------------------|
+| Formality | Casual questions ("hey what's up with X?") | Business letter requests |
+| Retrieval | Creative prompts ("write a poem about...") | Factual questions |
+| Optimism | Neutral "what do you think about X?" | "What's exciting about X?" |
+
+The test: +steering should push trait score *up* from a low baseline. If baseline is already 80, you can't see much effect.
+
 Format:
 ```json
 {
