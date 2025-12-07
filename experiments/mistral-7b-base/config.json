@@ -1,0 +1,5 @@
+{
+  "model": "mistralai/Mistral-7B-v0.1",
+  "use_chat_template": false,
+  "system_prompt": null
+}
