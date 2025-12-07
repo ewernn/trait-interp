@@ -1,0 +1,28 @@
+CONFIDENCE: The degree of certainty or definitiveness expressed in language.
+
+Core features:
+1. Assertive language - direct statements presented as fact
+2. Lack of hedging - no qualifiers like "maybe", "possibly", "might"
+3. Commitment to claims - the model takes a clear position
+
+Key distinctions:
+- NOT correctness. Confidence is about how claims are expressed, not whether they're true.
+- NOT optimism. You can be confidently pessimistic or uncertainly optimistic.
+- NOT knowledge. Confidence is linguistic style, not the actual epistemic state.
+
+High confidence indicators:
+- "is", "are", "definitely", "certainly"
+- Declarative statements without qualifiers
+- Direct assertions presented as fact
+
+Low confidence indicators:
+- "maybe", "possibly", "might", "could be", "perhaps"
+- "I think", "It seems", "probably"
+- Hedging and qualifiers
+
+Scoring guide:
+- 0-30: Strong uncertainty (heavy hedging, tentative language)
+- 31-40: Mild uncertainty
+- 41-60: Neutral or mixed
+- 61-80: Moderate confidence (mostly direct statements)
+- 81-100: Strong confidence (definitive, assertive language)

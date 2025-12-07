@@ -123,6 +123,7 @@ trait-interp/
 ├── utils/                  # Shared utilities
 │   ├── paths.py           # Python PathBuilder (loads from config/paths.yaml)
 │   ├── model_config.py    # Model config loader (loads from config/models/)
+│   ├── vectors.py         # Best vector selection from evaluation results
 │   └── model.py           # Model loading, prompt formatting, experiment config
 │
 ├── sae/                    # Sparse Autoencoder (SAE) resources
@@ -139,7 +140,6 @@ trait-interp/
 │   │   ├── extraction_evaluation.py   # Evaluate vectors on held-out data
 │   │   └── vector_ranking.py          # Rank vectors by quality metrics
 │   ├── inference/
-│   │   ├── compute_per_token_metrics.py   # Generate per-token JSON for Trait Dynamics
 │   │   ├── attention_decay_analysis.py    # Analyze attention patterns
 │   │   └── commitment_point_detection.py  # Find trait commitment points
 │   └── steering/
@@ -162,7 +162,7 @@ python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt "Your prompt here"
 
-# Re-project saved raw activations onto traits
+# Re-project saved raw activations onto traits (auto-selects best layer per trait)
 python inference/project_raw_activations_onto_traits.py \
     --experiment {experiment_name} \
     --prompt-set single_trait
@@ -177,20 +177,20 @@ python inference/project_raw_activations_onto_traits.py \
 
 **For extracting new traits:**
 ```bash
-# 1. Create experiment directory with scenario files (100+ prompts each)
-mkdir -p experiments/my_exp/extraction/category/my_trait
-vim experiments/my_exp/extraction/category/my_trait/positive.txt
-vim experiments/my_exp/extraction/category/my_trait/negative.txt
+# 1. Create scenario files
+mkdir -p experiments/gemma-2-2b-base/extraction/category/my_trait
+vim experiments/gemma-2-2b-base/extraction/category/my_trait/positive.txt
+vim experiments/gemma-2-2b-base/extraction/category/my_trait/negative.txt
+vim experiments/gemma-2-2b-base/extraction/category/my_trait/trait_definition.txt
 
-# 2. Run extraction pipeline (includes vetting by default)
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
+# 2. Create steering prompts
+vim analysis/steering/prompts/my_trait.json
 
-# Or run stages individually:
-# python extraction/vet_scenarios.py --experiment my_exp --trait category/my_trait
-# python extraction/generate_responses.py --experiment my_exp --trait category/my_trait
-# python extraction/vet_responses.py --experiment my_exp --trait category/my_trait
-# python extraction/extract_activations.py --experiment my_exp --trait category/my_trait
-# python extraction/extract_vectors.py --experiment my_exp --trait category/my_trait
+# 3. Run full pipeline (extract + evaluate + steer)
+python extraction/run_pipeline.py \
+    --experiment gemma-2-2b-base \
+    --steer-experiment gemma-2-2b-it \
+    --traits category/my_trait
 ```
 
 **For custom analysis using traitlens:**
@@ -272,15 +272,23 @@ Use traitlens to create monitoring scripts - see the Monitoring section below fo
 ### Extract Your Own Traits
 
 ```bash
-# 1. Create experiment directory with scenario files (100+ prompts each)
-mkdir -p experiments/my_exp/extraction/category/my_trait
-vim experiments/my_exp/extraction/category/my_trait/positive.txt
-vim experiments/my_exp/extraction/category/my_trait/negative.txt
+# 1. Create scenario files
+mkdir -p experiments/gemma-2-2b-base/extraction/category/my_trait
+# Create: positive.txt, negative.txt, trait_definition.txt
 
-# 2. Run extraction pipeline (vetting enabled by default, requires GEMINI_API_KEY)
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
+# 2. Create steering prompts
+vim analysis/steering/prompts/my_trait.json
 
-# Result: vectors in experiments/my_exp/extraction/category/my_trait/vectors/
+# 3. Run full pipeline
+python extraction/run_pipeline.py \
+    --experiment gemma-2-2b-base \
+    --steer-experiment gemma-2-2b-it \
+    --traits category/my_trait
+
+# Results:
+#   - Vectors: experiments/gemma-2-2b-base/extraction/.../vectors/
+#   - Eval: experiments/gemma-2-2b-base/extraction/extraction_evaluation.json
+#   - Steering: experiments/gemma-2-2b-it/steering/.../results.json
 ```
 
 See [extraction/elicitation_guide.md](../extraction/elicitation_guide.md) for details.
@@ -328,20 +336,26 @@ Middle layers capture semantic meaning and generalize across distributions. **Me
 
 ## Extraction Pipeline
 
-The pipeline has 5 stages (2 vetting + 3 extraction). See **[extraction_pipeline.md](extraction_pipeline.md)** for full documentation.
+Full pipeline: extraction + evaluation + steering. See **[extraction_pipeline.md](extraction_pipeline.md)** for documentation.
 
 **Quick start:**
 ```bash
-# Full pipeline with vetting (requires GEMINI_API_KEY)
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
+# Full pipeline: extract on base, steer on IT
+python extraction/run_pipeline.py \
+    --experiment gemma-2-2b-base \
+    --steer-experiment gemma-2-2b-it \
+    --traits epistemic/optimism
 
-# Skip vetting
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --no-vet
+# Extraction only (no steering)
+python extraction/run_pipeline.py \
+    --experiment gemma-2-2b-base \
+    --traits epistemic/optimism \
+    --no-steering
 ```
 
-**Alternative modes:**
-- **Base model**: `--base-model --rollouts 10 --temperature 1.0`
-- **Prefill-only**: `--prefill-only --token-position {last,first,mean}` (no generation)
+**Required files per trait:**
+- `positive.txt`, `negative.txt`, `trait_definition.txt`
+- `analysis/steering/prompts/{trait_name}.json` (or use `--no-steering`)
 
 ## Monitoring
 
@@ -352,22 +366,22 @@ Monitor trait projections token-by-token during generation.
 The unified capture script handles capture with clear flags:
 
 ```bash
-# Capture residual stream + project onto all traits
+# Basic: residual stream + project onto all traits (always happens)
 python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt-set single_trait
 
-# Full mechanistic capture (internals + attention + logit lens)
+# With attention/logit-lens for Layer Deep Dive visualization
 python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt-set dynamic \
-    --layer-internals all
+    --attention --logit-lens
 
-# Capture with attn_out (for attn_out vector projections)
+# Extract from existing captures (no new generation)
 python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
-    --prompt-set harmful \
-    --capture-attn
+    --prompt-set single_trait \
+    --replay --attention
 ```
 
 **Available prompt sets** (JSON files in `inference/prompts/`):
@@ -430,7 +444,7 @@ The visualization provides:
   - **Trait Extraction**: Comprehensive view of extraction quality. Per-trait layer×method heatmaps (10 per row), best-vector similarity matrix (trait independence), metric distributions, per-method breakdown. Collapsible reference sections for notation, extraction techniques, quality metrics, and scoring.
   - **Steering Sweep**: Layer sweep + multi-layer steering heatmap. Shows behavioral change vs. steering coefficient across layers.
 - **Category 2: Inference Analysis**
-  - **Trait Dynamics**: Comprehensive trait evolution view. Token trajectory (layer-averaged projections), velocity/acceleration charts, layer derivatives, activation magnitude, layer×token heatmaps per trait, and activation dynamics (velocity heatmap, trait coupling).
+  - **Trait Dynamics**: Comprehensive trait evolution view. Token trajectory (layer-averaged projections), velocity/acceleration charts, layer derivatives, activation magnitude, and layer×token heatmaps per trait.
   - **Layer Deep Dive**: Mechanistic analysis showing attention heatmaps (layers × context, heads × context) and SAE feature decomposition. Requires `dynamic` prompt set with internals data.
 
 The server auto-discovers experiments, traits, and prompts from the `experiments/` directory - no hardcoding needed.
@@ -523,33 +537,33 @@ Build custom analysis using traitlens primitives. See [traitlens documentation](
 Validate trait vectors via causal intervention - add `coefficient * vector` to layer output during generation and measure behavioral change with LLM-as-judge.
 
 ```bash
-# Layer sweep (all layers, finds optimal)
+# Basic usage - sweeps all layers, finds good coefficients automatically
 python analysis/steering/evaluate.py \
-    --experiment my_experiment \
-    --trait cognitive_state/confidence
+    --experiment gemma-2-2b-it \
+    --vector-from-trait gemma-2-2b-it/og_10/confidence
 
-# Single layer (full coefficient sweep)
+# Specific layers only
 python analysis/steering/evaluate.py \
-    --experiment my_experiment \
-    --trait cognitive_state/confidence \
-    --layers 16
+    --experiment gemma-2-2b-it \
+    --vector-from-trait gemma-2-2b-it/og_10/confidence \
+    --layers 10,12,14,16
 ```
 
 See [analysis/steering/README.md](../analysis/steering/README.md) for full usage guide.
 
 ## Creating New Traits
 
-### 1. Create Natural Scenario Files
-
-Create contrasting scenario files in your experiment's trait directory:
+### 1. Create Required Files
 
 ```bash
-# Create trait directory
-mkdir -p experiments/my_exp/extraction/category/my_trait
+# Create trait directory with scenario files
+mkdir -p experiments/gemma-2-2b-base/extraction/category/my_trait
+vim experiments/gemma-2-2b-base/extraction/category/my_trait/positive.txt
+vim experiments/gemma-2-2b-base/extraction/category/my_trait/negative.txt
+vim experiments/gemma-2-2b-base/extraction/category/my_trait/trait_definition.txt
 
-# Create scenario files (100+ prompts each, one per line)
-vim experiments/my_exp/extraction/category/my_trait/positive.txt
-vim experiments/my_exp/extraction/category/my_trait/negative.txt
+# Create steering prompts
+vim analysis/steering/prompts/my_trait.json
 ```
 
 See existing trait directories for examples.
@@ -557,14 +571,18 @@ See existing trait directories for examples.
 ### 2. Run Pipeline
 
 ```bash
-# Run full pipeline with vetting (requires GEMINI_API_KEY)
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
+# Full pipeline: extract + evaluate + steer
+python extraction/run_pipeline.py \
+    --experiment gemma-2-2b-base \
+    --steer-experiment gemma-2-2b-it \
+    --traits category/my_trait
 ```
 
-The pipeline automatically:
-- Vets scenarios before generation (LLM-as-a-judge)
-- Vets responses after generation
-- Filters failed responses during activation extraction
+The pipeline:
+- Vets scenarios and responses (LLM-as-a-judge)
+- Extracts vectors on base model
+- Evaluates vector quality
+- Runs steering eval on IT model
 
 See [extraction/elicitation_guide.md](../extraction/elicitation_guide.md) for complete instructions.
 

@@ -17,6 +17,7 @@ Research extensions and technical improvements identified through experimentatio
 | Scenario | New prompts, same distribution | ✅ Done | - |
 | Response Vetting | Filter mislabeled examples | ✅ Done | - |
 | Elicitation | Natural ↔ instruction-based | TODO | HIGH |
+| Training Stage | Base → SFT vs Base → SFT+RLHF | TODO | HIGH |
 | Topic | Science ↔ coding ↔ creative | TODO | MEDIUM |
 | Length | Short ↔ long responses | TODO | LOW |
 | Language | English ↔ Spanish ↔ etc | TODO | LOW |
@@ -29,6 +30,12 @@ Research extensions and technical improvements identified through experimentatio
 **Topic Invariance**:
 - Tag scenarios by topic, train on subset, validate on held-out topics
 - High drop → vector learned "confidence-on-science" not "confidence"
+
+**Training Stage Invariance** (Zephyr family):
+- Extract from `mistralai/Mistral-7B-v0.1` (base)
+- Steer `HuggingFaceH4/zephyr-7b-sft-full` (SFT only) and `zephyr-7b-beta` (SFT+DPO)
+- Compare steering effectiveness: does RLHF/DPO increase resistance to base-extracted vectors?
+- Google didn't release SFT-only Gemma, but Zephyr has full base→SFT→DPO lineage
 
 **Removed Considerations**:
 - ❌ Finetuned models (evil LoRA) - creates artificial trait expression

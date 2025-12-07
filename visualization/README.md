@@ -68,7 +68,6 @@ All inference views share a **prompt picker** fixed at the bottom of the page:
     - **Layer Derivatives**: Position/velocity/acceleration across layers (compact row)
     - **Activation Magnitude**: ||h|| per layer
     - **Layer × Token Heatmaps**: Per-trait heatmaps (y=layer, x=token, no x-axis labels)
-    - **Activation Dynamics**: Velocity heatmap (layers on y-axis) and trait coupling correlation
 
 -   **Layer Deep Dive**: SAE feature decomposition - see which interpretable Sparse Autoencoder features are most active at each token position. Decomposes 2,304 raw neurons into 16,384 sparse features with human-readable descriptions from Neuronpedia.
 
@@ -153,20 +152,6 @@ This creates `experiments/{exp}/inference/{category}/{trait}/residual_stream/{pr
 - `adversarial` - 8 edge cases and robustness tests
 - `baseline` - 5 neutral prompts for baseline
 - `real_world` - 10 naturalistic prompts
-
-### For Trait Dynamics (Activation Analysis)
-
-Generate per-token metrics for activation dynamics analysis:
-
-```bash
-python analysis/inference/compute_per_token_metrics.py --experiment gemma_2b_cognitive_nov21
-```
-
-This creates `experiments/{exp}/analysis/per_token/{prompt_set}/{id}.json` containing per-token:
-- Normalized velocity per layer transition
-- Trait projections at all 26 layers
-- Attention patterns (where each token looks)
-- Magnitude per layer (for radial velocity computation)
 
 ### For Layer Deep Dive View
 

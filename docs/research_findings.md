@@ -2,11 +2,6 @@
 
 ## Summary of Key Results
 
-### Core Insight
-**Uncertainty is a state; refusal is an action.**
-- Uncertainty: Single vector works at 24/26 layers (global direction)
-- Refusal: Single vector works at 0/26 layers (layer-specific computation)
-
 ### Top Findings
 
 | Finding | Evidence | Implication |
@@ -22,6 +17,12 @@
 - `experiments/gemma-2-2b-it/` - 24 traits extracted (visualization data)
 
 See `experiments/gemma-2-2b-base/results.md` for detailed methodology and results.
+
+---
+
+## 2025-12-06: Extraction Metrics ≠ Steering Success
+
+Effect size best predicts steering (r=0.898), val_accuracy worst (r=0.705). Best layer disagrees: extraction says L13, steering says L8. **Late layer trap**: L25 has 95% val_acc but −10.6 steering Δ.
 
 ---
 

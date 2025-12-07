@@ -1,11 +1,13 @@
 # Extraction Pipeline
 
-Extract trait vectors from natural scenarios using the 5-stage pipeline.
+Full trait pipeline: extraction + evaluation + steering.
 
 ## Pipeline Overview
 
 ```
-Stage 0: Vet Scenarios (vet_scenarios.py) - LLM-as-judge validates prompts
+Stage 0: Create Scenarios (manual) - positive.txt, negative.txt, trait_definition.txt
+    ↓
+Stage 0.5: Vet Scenarios (vet_scenarios.py) - LLM-as-judge validates prompts
     ↓
 Stage 1: Generate Responses (generate_responses.py) - Model generates from scenarios
     ↓
@@ -15,30 +17,46 @@ Stage 2: Extract Activations (extract_activations.py) - Capture hidden states
     ↓
 Stage 3: Extract Vectors (extract_vectors.py) - Apply extraction methods
     ↓
-Result: Trait vectors ready for monitoring
+Stage 4: Evaluate Vectors (extraction_evaluation.py) - Quality metrics on held-out data
+    ↓
+Stage 5: Steering Evaluation (steering/evaluate.py) - Causal validation on IT model
+    ↓
+Result: Validated trait vectors with steering results
 ```
-
-**Alternative: Prefill-only extraction** skips stages 0, 1, 1.5 and extracts directly from prompt processing.
 
 ## Quick Start
 
 ```bash
-# Recommended: Full pipeline with vetting (requires GEMINI_API_KEY)
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
+# Full pipeline: extract on base model, steer on IT model
+python extraction/run_pipeline.py \
+    --experiment gemma-2-2b-base \
+    --steer-experiment gemma-2-2b-it \
+    --traits epistemic/optimism
+
+# Extraction only (no steering)
+python extraction/run_pipeline.py \
+    --experiment gemma-2-2b-base \
+    --traits epistemic/optimism \
+    --no-steering
 
 # All traits in experiment
-python extraction/run_pipeline.py --experiment my_exp
-
-# Skip vetting (faster, less quality control)
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --no-vet
+python extraction/run_pipeline.py --experiment my_exp --steer-experiment my_exp_it
 ```
 
 ## Prerequisites
 
+**Required files per trait:**
+- `experiments/{experiment}/extraction/{trait}/positive.txt`
+- `experiments/{experiment}/extraction/{trait}/negative.txt`
+- `experiments/{experiment}/extraction/{trait}/trait_definition.txt`
+- `analysis/steering/prompts/{trait_name}.json` (or use `--no-steering`)
+
+**Environment:**
 ```bash
 pip install -r requirements.txt
-export HF_TOKEN=hf_...        # For Gemma models
-export GEMINI_API_KEY=...     # For vetting (optional)
+export HF_TOKEN=hf_...           # For Gemma models
+export GEMINI_API_KEY=...        # For vetting
+export OPENAI_API_KEY=...        # For steering (or GEMINI_API_KEY)
 ```
 
 ---
@@ -349,21 +367,24 @@ python analysis/vectors/extraction_evaluation.py \
 
 ```bash
 # 1. Create scenario files
-mkdir -p experiments/my_exp/extraction/behavioral/refusal
-# ... create positive.txt and negative.txt ...
+mkdir -p experiments/gemma-2-2b-base/extraction/epistemic/confidence
+# Create: positive.txt, negative.txt, trait_definition.txt
 
-# 2. Run full pipeline
+# 2. Create steering prompts
+vim analysis/steering/prompts/confidence.json
+# Format: {"questions": [...], "eval_prompt": "...{question}...{answer}..."}
+
+# 3. Run full pipeline (extract on base, steer on IT)
 python extraction/run_pipeline.py \
-    --experiment my_exp \
-    --traits behavioral/refusal \
+    --experiment gemma-2-2b-base \
+    --steer-experiment gemma-2-2b-it \
+    --traits epistemic/confidence \
     --val-split 0.2
 
-# 3. Evaluate vectors
-python analysis/vectors/extraction_evaluation.py \
-    --experiment my_exp \
-    --trait behavioral/refusal
-
-# Result: vectors in experiments/my_exp/extraction/behavioral/refusal/vectors/
+# Result:
+#   - Vectors: experiments/gemma-2-2b-base/extraction/epistemic/confidence/vectors/
+#   - Eval: experiments/gemma-2-2b-base/extraction/extraction_evaluation.json
+#   - Steering: experiments/gemma-2-2b-it/steering/epistemic/confidence/results.json
 ```
 
 ---
@@ -373,4 +394,5 @@ python analysis/vectors/extraction_evaluation.py \
 - [elicitation_guide.md](../extraction/elicitation_guide.md) - Natural vs instruction-based elicitation
 - [writing_natural_prompts.md](writing_natural_prompts.md) - Designing effective scenarios
 - [vector_extraction_methods.md](vector_extraction_methods.md) - Mathematical details
+- [steering/README.md](../analysis/steering/README.md) - Steering evaluation guide
 - [traitlens](https://github.com/ewernn/traitlens) - Extraction toolkit

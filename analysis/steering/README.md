@@ -5,59 +5,67 @@ Validate trait vectors via causal intervention. This is the **ground truth** val
 ## Quick Start
 
 ```bash
-# Single config (1 run)
+# Basic usage - sweeps all layers, finds good coefficients automatically
 python analysis/steering/evaluate.py \
-    --experiment my_exp \
-    --trait mental_state/optimism \
-    --layers 16 \
-    --coefficients 2.0
-
-# Coefficient sweep at one layer (4 runs)
-python analysis/steering/evaluate.py \
-    --experiment my_exp \
-    --trait mental_state/optimism \
-    --layers 16 \
-    --coefficients 0,1,2,3
-
-# Layer sweep with fixed coef (4 runs)
-python analysis/steering/evaluate.py \
-    --experiment my_exp \
-    --trait mental_state/optimism \
-    --layers 10,12,14,16 \
-    --coefficients 2.0
-
-# Multi-layer steering (steer all layers simultaneously)
-python analysis/steering/evaluate.py \
-    --experiment my_exp \
-    --trait mental_state/optimism \
-    --layers 12,14,16 \
-    --coefficients 1.0,2.0,1.0 \
-    --multi-layer
-
-# Quick test with subset
-python analysis/steering/evaluate.py \
-    --experiment my_exp \
-    --trait mental_state/optimism \
-    --layers 16 \
-    --coefficients 2.0 \
-    --subset 2 --rollouts 1
+    --experiment gemma-2-2b-it \
+    --vector-from-trait gemma-2-2b-it/og_10/confidence
 
 # Cross-experiment: use vectors from base model, steer IT model
 python analysis/steering/evaluate.py \
     --experiment gemma-2-2b-it \
-    --trait mental_state/optimism \
-    --vector-from-trait gemma-2-2b-base/mental_state/optimism \
-    --layers 16 \
-    --coefficients 2.0
+    --vector-from-trait gemma-2-2b-base/og_10/confidence
 
-# Cross-trait: steer confidence using optimism vector
+# Specific layers only
 python analysis/steering/evaluate.py \
-    --experiment my_exp \
-    --trait cognitive_state/confidence \
-    --vector-from-trait my_exp/mental_state/optimism \
-    --layers 16 \
-    --coefficients 2.0
+    --experiment gemma-2-2b-it \
+    --vector-from-trait gemma-2-2b-it/og_10/confidence \
+    --layers 10,12,14,16
+
+# Quick test with subset of questions
+python analysis/steering/evaluate.py \
+    --experiment gemma-2-2b-it \
+    --vector-from-trait gemma-2-2b-it/og_10/confidence \
+    --subset 3
 ```
+
+## Manual Coefficient Mode
+
+By default, coefficients are found automatically via adaptive search. To use fixed coefficients:
+
+```bash
+# Fixed coefficients (skip adaptive search)
+python analysis/steering/evaluate.py \
+    --experiment gemma-2-2b-it \
+    --vector-from-trait gemma-2-2b-it/og_10/confidence \
+    --no-find-coef \
+    --coefficients 50,100,150
+
+# Layer sweep with fixed coef
+python analysis/steering/evaluate.py \
+    --experiment gemma-2-2b-it \
+    --vector-from-trait gemma-2-2b-it/og_10/confidence \
+    --no-find-coef \
+    --layers 10,12,14,16 \
+    --coefficients 100
+
+# Multi-layer steering (all layers steered simultaneously)
+python analysis/steering/evaluate.py \
+    --experiment gemma-2-2b-it \
+    --vector-from-trait gemma-2-2b-it/og_10/confidence \
+    --layers 12,14,16 \
+    --multi-layer
+```
+
+## Adaptive Coefficient Search (Default)
+
+The default mode automatically finds good coefficients for each layer:
+
+**How it works:**
+- For each layer, computes `base_coef = act_norm / vec_norm`
+- Adaptive search: `×1.3` if coherence OK, `×0.9` if too low
+- 4 steps, picks best where coherence ≥ 70
+
+Typically gets within 25% of optimal in 4 evaluations vs 50+ for blind sweeping.
 
 ## Components
 
@@ -65,7 +73,7 @@ python analysis/steering/evaluate.py \
 |------|---------|
 | `steer.py` | Steering hook context manager (single and multi-layer) |
 | `judge.py` | LLM-as-judge with logprob-weighted scoring |
-| `evaluate.py` | Main evaluation script |
+| `evaluate.py` | Main evaluation script (includes `--find-coef`) |
 | `prompts/{trait}.json` | Eval questions per trait |
 
 ## How It Works
@@ -119,44 +127,25 @@ Results accumulate in a single `results.json` per trait. Each invocation appends
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--experiment` | required | Experiment name (where results are saved) |
-| `--trait` | required | Trait path for eval prompts + results location |
-| `--vector-from-trait` | (experiment/trait) | Load vectors from different source: 'experiment/category/trait' |
-| `--layers` | 16 | Layer(s): single '16', range '5-20', list '5,10,15', or 'all' |
-| `--coefficients` | 2.0 | Comma-separated coefficients |
+| `--experiment` | required | Experiment where steering results are saved |
+| `--vector-from-trait` | required | Full path to vectors: 'experiment/category/trait' |
+| `--layers` | all | Layer(s): single '16', range '5-20', list '5,10,15', or 'all' |
+| `--coefficients` | 2.0 | Comma-separated coefficients (only used with --no-find-coef) |
 | `--method` | probe | Vector extraction method |
 | `--component` | residual | Component to steer (residual, attn_out, mlp_out) |
 | `--rollouts` | 1 | Rollouts per question (>1 only useful with temp > 0) |
 | `--temperature` | 0.0 | Sampling temperature (0 = deterministic) |
 | `--judge` | openai | Judge provider (openai, gemini) |
-| `--subset` | N | Use first N questions (default: all) |
+| `--subset` | all | Use first N questions |
 | `--multi-layer` | false | Steer all layers simultaneously |
-| `--auto-coef` | - | Target perturbation ratio (e.g., 1.0). Computes coefficient automatically. |
 | `--incremental` | false | Use incremental vectors (v[i] - v[i-1]) for multi-layer steering |
+| `--no-find-coef` | false | Skip adaptive search, use --coefficients directly |
 
 **Notes:**
-- With `--temperature 0`, responses are deterministic, so `--rollouts > 1` gives identical results.
-- If you run the same config twice, it **overwrites** the existing run (no duplicates).
-- To start fresh with new prompts, manually delete `results.json`.
-
-### Auto-Coefficient
-
-`--auto-coef` computes the coefficient to achieve a target perturbation ratio:
-
-```
-coefficient = target_ratio × (activation_norm / vector_norm)
-```
-
-Sweet spot is typically ratio 0.8-1.2. Requires `activation_norms` in extraction metadata.
-
-```bash
-# Target 1.0 perturbation ratio (recommended starting point)
-python analysis/steering/evaluate.py \
-    --experiment gemma-2-2b-it \
-    --trait epistemic/optimism \
-    --layers 10 \
-    --auto-coef 1.0
-```
+- By default, runs adaptive coefficient search for all layers
+- With `--temperature 0`, responses are deterministic, so `--rollouts > 1` gives identical results
+- If you run the same config twice, it **overwrites** the existing run (no duplicates)
+- To start fresh with new prompts, manually delete `results.json`
 
 ## Key Details
 

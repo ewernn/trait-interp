@@ -12,16 +12,16 @@ Capture activations and compute trait projections during model inference.
 ## Quick Start
 
 ```bash
-# Full mechanistic capture (internals + attention + logit lens)
-python inference/capture_raw_activations.py \
-    --experiment my_exp \
-    --prompt-set dynamic \
-    --layer-internals all
-
-# Basic capture (residual stream + trait projections)
+# Basic: residual stream + trait projections (always happens)
 python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set single_trait
+
+# With attention for Layer Deep Dive visualization
+python inference/capture_raw_activations.py \
+    --experiment my_exp \
+    --prompt-set dynamic \
+    --attention --logit-lens
 
 # Re-project saved activations onto different/new traits
 python inference/project_raw_activations_onto_traits.py \
@@ -52,13 +52,18 @@ experiments/{exp}/
 
 ## capture_raw_activations.py
 
-### Modes
+Residual stream is **always** captured (baseline). Optional add-ons for visualization.
 
-| Flag | Description |
-|------|-------------|
-| `--residual-stream` | Capture residual stream at all layers (default) |
-| `--layer-internals N` | Capture full internals for layer N. Automatically extracts attention + logit lens. Use `all` for all 26 layers, or specify multiple: `--layer-internals 0 --layer-internals 16` |
-| `--no-project` | Skip trait projection computation |
+### Optional Add-ons
+
+| Flag | Description | Storage |
+|------|-------------|---------|
+| `--attention` | Save attention patterns as JSON | ~12 MB/prompt |
+| `--logit-lens` | Save logit lens predictions as JSON | ~4 MB/prompt |
+| `--layer-internals N` | Save full internals as .pt files. Use `all` for all layers | ~175 MB/prompt |
+| `--capture-attn` | Capture raw attn_out (for attn_out vector projections) | - |
+| `--no-project` | Skip trait projection computation | - |
+| `--replay` | Extract from saved .pt (no new generation) | - |
 
 ### Prompt Input (mutually exclusive)
 
@@ -81,22 +86,28 @@ experiments/{exp}/
 ### Examples
 
 ```bash
-# Full visualization data (recommended for Layer Deep Dive view)
+# Basic: residual stream + trait projections
+python inference/capture_raw_activations.py \
+    --experiment my_exp \
+    --prompt-set single_trait
+
+# Add attention for visualization
+python inference/capture_raw_activations.py \
+    --experiment my_exp \
+    --prompt-set dynamic \
+    --attention
+
+# Full mechanistic capture (everything)
 python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set dynamic \
     --layer-internals all
 
-# Basic trait monitoring
+# Extract attention/logit-lens from existing captures (no new generation)
 python inference/capture_raw_activations.py \
     --experiment my_exp \
-    --prompt-set single_trait
-
-# Single prompt, specific layers
-python inference/capture_raw_activations.py \
-    --experiment my_exp \
-    --prompt "How do I make a bomb?" \
-    --layer-internals 0 --layer-internals 16 --layer-internals 25
+    --prompt-set single_trait \
+    --replay --attention --logit-lens
 
 # Just raw activations, no projections
 python inference/capture_raw_activations.py \
@@ -112,11 +123,38 @@ Re-project saved raw activations. Useful for:
 - Using new/updated vectors
 - Recomputing dynamics
 
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--layer` | auto | Override layer for all traits (default: auto-select best per trait) |
+| `--method` | auto | Vector method (default: auto-detect or use best from evaluation) |
+| `--component` | residual | Activation component (`residual` or `attn_out`) |
+| `--dynamics-only` | false | Only recompute dynamics from existing projections |
+| `--skip-existing` | false | Skip existing output files |
+
+### Layer Selection
+
+By default, auto-selects the best layer per trait using:
+1. **Steering results** (ground truth) if available
+2. **Effect size** (best proxy, r=0.898 correlation with steering) otherwise
+3. **Layer 16** as fallback
+
+Use `--layer N` to override with a fixed layer for all traits.
+
+### Examples
+
 ```bash
-# Project all raw activations onto all traits
+# Project onto all traits (auto-selects best layer per trait)
 python inference/project_raw_activations_onto_traits.py \
     --experiment my_exp \
     --prompt-set single_trait
+
+# Override with fixed layer 16 for all traits
+python inference/project_raw_activations_onto_traits.py \
+    --experiment my_exp \
+    --prompt-set single_trait \
+    --layer 16
 
 # Project onto specific traits only
 python inference/project_raw_activations_onto_traits.py \
