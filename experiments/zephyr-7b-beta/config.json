@@ -1,5 +1,0 @@
-{
-  "model": "HuggingFaceH4/zephyr-7b-beta",
-  "use_chat_template": true,
-  "system_prompt": null
-}

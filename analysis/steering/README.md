@@ -5,75 +5,74 @@ Validate trait vectors via causal intervention. This is the **ground truth** val
 ## Quick Start
 
 ```bash
-# Basic usage - sweeps all layers, finds good coefficients automatically
+# Basic: adaptive search finds good coefficients, saves all results
 python analysis/steering/evaluate.py \
     --experiment gemma-2-2b-it \
-    --vector-from-trait gemma-2-2b-it/og_10/confidence
-
-# Cross-experiment: use vectors from base model, steer IT model
-python analysis/steering/evaluate.py \
-    --experiment gemma-2-2b-it \
-    --vector-from-trait gemma-2-2b-base/og_10/confidence
+    --vector-from-trait gemma-2-2b-base/epistemic/optimism
 
 # Specific layers only
 python analysis/steering/evaluate.py \
     --experiment gemma-2-2b-it \
-    --vector-from-trait gemma-2-2b-it/og_10/confidence \
+    --vector-from-trait gemma-2-2b-base/epistemic/optimism \
     --layers 10,12,14,16
+
+# Manual coefficients (skip adaptive search)
+python analysis/steering/evaluate.py \
+    --experiment gemma-2-2b-it \
+    --vector-from-trait gemma-2-2b-base/epistemic/optimism \
+    --coefficients 50,100,150
 
 # Quick test with subset of questions
 python analysis/steering/evaluate.py \
     --experiment gemma-2-2b-it \
-    --vector-from-trait gemma-2-2b-it/og_10/confidence \
+    --vector-from-trait gemma-2-2b-base/epistemic/optimism \
     --subset 3
 ```
 
-## Manual Coefficient Mode
+## Multi-Layer Steering
 
-By default, coefficients are found automatically via adaptive search. To use fixed coefficients:
+Two modes for steering multiple layers simultaneously:
 
 ```bash
-# Fixed coefficients (skip adaptive search)
+# Delta-weighted: coefficients proportional to single-layer effectiveness
 python analysis/steering/evaluate.py \
     --experiment gemma-2-2b-it \
-    --vector-from-trait gemma-2-2b-it/og_10/confidence \
-    --no-find-coef \
-    --coefficients 50,100,150
+    --vector-from-trait gemma-2-2b-base/epistemic/optimism \
+    --layers 6-18 \
+    --multi-layer weighted --global-scale 1.0
 
-# Layer sweep with fixed coef
+# Orthogonal: vectors orthogonalized to remove shared components
 python analysis/steering/evaluate.py \
     --experiment gemma-2-2b-it \
-    --vector-from-trait gemma-2-2b-it/og_10/confidence \
-    --no-find-coef \
-    --layers 10,12,14,16 \
-    --coefficients 100
-
-# Multi-layer steering (all layers steered simultaneously)
-python analysis/steering/evaluate.py \
-    --experiment gemma-2-2b-it \
-    --vector-from-trait gemma-2-2b-it/og_10/confidence \
-    --layers 12,14,16 \
-    --multi-layer
+    --vector-from-trait gemma-2-2b-base/epistemic/optimism \
+    --layers 6-18 \
+    --multi-layer orthogonal --global-scale 1.0
 ```
+
+**Weighted mode**: `coef_ℓ = global_scale * best_coef_ℓ * (delta_ℓ / Σ deltas)`
+
+Requires single-layer results first. Uses delta from single-layer sweeps to weight coefficients.
+
+**Orthogonal mode**: Each vector is projected orthogonal to the previous layer's vector:
+`v_ℓ_orth = v_ℓ - (v_ℓ · v_{ℓ-1} / ||v_{ℓ-1}||²) * v_{ℓ-1}`
 
 ## Adaptive Coefficient Search (Default)
 
-The default mode automatically finds good coefficients for each layer:
+When `--coefficients` is not provided, runs adaptive search:
 
-**How it works:**
 - For each layer, computes `base_coef = act_norm / vec_norm`
-- Adaptive search: `×1.3` if coherence OK, `×0.9` if too low
-- 4 steps, picks best where coherence ≥ 70
-
-Typically gets within 25% of optimal in 4 evaluations vs 50+ for blind sweeping.
+- Starts at `0.5 * base_coef`
+- 8 steps: `×1.3` if coherence ≥ 70, `×0.9` if below
+- Picks best coefficient where coherence meets threshold
+- **All results saved** to `results.json` after each step
 
 ## Components
 
 | File | Purpose |
 |------|---------|
-| `steer.py` | Steering hook context manager (single and multi-layer) |
+| `steer.py` | Steering hook context manager + `orthogonalize_vectors()` |
 | `judge.py` | LLM-as-judge with logprob-weighted scoring |
-| `evaluate.py` | Main evaluation script (includes `--find-coef`) |
+| `evaluate.py` | Main evaluation script |
 | `prompts/{trait}.json` | Eval questions per trait |
 
 ## How It Works
@@ -81,47 +80,43 @@ Typically gets within 25% of optimal in 4 evaluations vs 50+ for blind sweeping.
 1. **Steering**: Add `coefficient * vector` to layer output during generation
 2. **Generation**: Generate responses with steering active
 3. **Scoring**: LLM judge scores trait expression 0-100 + coherence
-4. **Aggregation**: Compute mean across questions and rollouts
+4. **Aggregation**: Compute mean across questions
 
-## Runs-Based Results
+## Results Format
 
-Results accumulate in a single `results.json` per trait. Each invocation appends new runs.
+Results accumulate in `experiments/{experiment}/steering/{trait}/results.json`:
 
 ```json
 {
-  "trait": "mental_state/optimism",
+  "trait": "epistemic/optimism",
   "prompts_file": "analysis/steering/prompts/optimism.json",
   "baseline": {
-    "trait_mean": 50.0,
+    "trait_mean": 61.3,
     "coherence_mean": 92.0,
-    "n": 15
+    "n": 20
   },
   "runs": [
     {
       "config": {
         "layers": [16],
         "methods": ["probe"],
-        "coefficients": [2.0],
+        "coefficients": [200.0],
         "component": "residual"
       },
       "result": {
-        "trait_mean": 72.5,
-        "trait_std": 12.3,
-        "coherence_mean": 88.0,
-        "n": 15
+        "trait_mean": 84.8,
+        "coherence_mean": 80.9,
+        "n": 20
       },
-      "timestamp": "2025-12-03T04:49:16"
+      "timestamp": "2025-12-07T04:49:16"
     }
   ]
 }
 ```
 
-### Key Features
-
 - **Runs accumulate** - Each evaluation appends to existing results
 - **Baseline computed once** - Stored at top level, reused across runs
-- **prompts_file coupling** - Results tied to one prompts file; mismatch triggers error
-- **Multi-layer support** - Steer multiple layers simultaneously with `--multi-layer`
+- **Duplicates skipped** - Same config won't re-run (shows "cached")
 
 ## CLI Reference
 
@@ -130,66 +125,31 @@ Results accumulate in a single `results.json` per trait. Each invocation appends
 | `--experiment` | required | Experiment where steering results are saved |
 | `--vector-from-trait` | required | Full path to vectors: 'experiment/category/trait' |
 | `--layers` | all | Layer(s): single '16', range '5-20', list '5,10,15', or 'all' |
-| `--coefficients` | 2.0 | Comma-separated coefficients (only used with --no-find-coef) |
+| `--coefficients` | (adaptive) | Manual coefficients. If not provided, uses adaptive search. |
 | `--method` | probe | Vector extraction method |
 | `--component` | residual | Component to steer (residual, attn_out, mlp_out) |
-| `--rollouts` | 1 | Rollouts per question (>1 only useful with temp > 0) |
-| `--temperature` | 0.0 | Sampling temperature (0 = deterministic) |
 | `--judge` | openai | Judge provider (openai, gemini) |
 | `--subset` | all | Use first N questions |
-| `--multi-layer` | false | Steer all layers simultaneously |
-| `--incremental` | false | Use incremental vectors (v[i] - v[i-1]) for multi-layer steering |
-| `--no-find-coef` | false | Skip adaptive search, use --coefficients directly |
+| `--search-steps` | 8 | Number of adaptive search steps per layer |
+| `--multi-layer` | - | Multi-layer mode: 'weighted' or 'orthogonal' |
+| `--global-scale` | 1.0 | Global scale for multi-layer coefficients |
 
-**Notes:**
-- By default, runs adaptive coefficient search for all layers
-- With `--temperature 0`, responses are deterministic, so `--rollouts > 1` gives identical results
-- If you run the same config twice, it **overwrites** the existing run (no duplicates)
-- To start fresh with new prompts, manually delete `results.json`
+## Eval Prompts
 
-## Key Details
-
-### Logprob-Weighted Scoring
-
-We use **logprob weighting**, not argmax. This gives more accurate continuous scores:
-
-```python
-# Get top-20 logprobs, weighted sum over integer tokens 0-100
-def aggregate_score(logprobs):
-    total, sum_ = 0, 0
-    for token, prob in logprobs.items():
-        if (val := int(token)) in range(101):
-            sum_ += val * prob
-            total += prob
-    return sum_ / total if total >= 0.25 else None
-```
-
-### Eval Prompts
-
-Eval prompts must be **different from extraction prompts** to test generalization.
-
-**Critical: Prompts should NOT naturally elicit the trait.** Steering evaluation tests whether the vector can *push* the model into exhibiting a trait it otherwise wouldn't. If the baseline already shows the trait, there's no room to measure steering effect.
+Prompts should NOT naturally elicit the trait. Steering tests whether the vector can *push* the model.
 
 | Trait | Good prompts (low baseline) | Bad prompts (high baseline) |
 |-------|-----------------------------|-----------------------------|
 | Formality | Casual questions ("hey what's up with X?") | Business letter requests |
-| Retrieval | Creative prompts ("write a poem about...") | Factual questions |
 | Optimism | Neutral "what do you think about X?" | "What's exciting about X?" |
-
-The test: +steering should push trait score *up* from a low baseline. If baseline is already 80, you can't see much effect.
 
 Format:
 ```json
 {
-    "questions": [
-        "What will happen to the stock market next year?",
-        "Is there life on other planets?"
-    ],
-    "eval_prompt": "You are evaluating whether... {question} ... {answer} ... Respond with 0-100."
+    "questions": ["What will happen to X?", "Is there Y?"],
+    "eval_prompt": "Evaluate... {question} ... {answer} ... Respond with 0-100."
 }
 ```
-
-The `eval_prompt` must contain `{question}` and `{answer}` placeholders.
 
 ## Gotchas
 
@@ -199,37 +159,17 @@ The `eval_prompt` must contain `{question}` and `{answer}` placeholders.
 
 ## API Keys
 
-Set in `.env`:
-```
-OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=AI...
-```
-
-Use `--judge gemini` for Gemini instead of OpenAI.
+Set `OPENAI_API_KEY` in environment or `.env`. Use `--judge gemini` for Gemini.
 
 ## Utilities
 
 ### Rebuild Results
 
-When running parallel sweeps, `results.json` can lose runs due to race conditions. Rebuild from response files:
+When response files exist but `results.json` is incomplete:
 
 ```bash
-# Dry run - see what would be recovered
-python analysis/steering/rebuild_results.py \
-    --experiment gemma-2-2b-it \
-    --trait epistemic/optimism
-
-# Apply - write results_rebuilt.json
-python analysis/steering/rebuild_results.py \
-    --experiment gemma-2-2b-it \
-    --trait epistemic/optimism \
-    --apply
-
-# Overwrite results.json directly
 python analysis/steering/rebuild_results.py \
     --experiment gemma-2-2b-it \
     --trait epistemic/optimism \
     --apply --overwrite
 ```
-
-Response files in `responses/` are the authoritative source; `results.json` is a convenience aggregation.
