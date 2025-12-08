@@ -25,7 +25,7 @@ source ~/.bashrc
 
 # 5. Pull data and install deps
 ./utils/r2_pull.sh       # Auto-configures rclone if needed
-pip install -r requirements.txt
+pip install -q -r requirements.txt
 ```
 
 ## When Done
