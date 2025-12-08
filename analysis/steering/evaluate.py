@@ -587,14 +587,14 @@ async def _adaptive_search_layer(
     n_steps: int = 8,
     threshold: float = 70,
     up_mult: float = 1.3,
-    down_mult: float = 0.9,
+    down_mult: float = 0.85,
 ):
     """Run adaptive search for a single layer, saving each result."""
     print(f"\n--- Layer {layer} (base_coef={base_coef:.0f}) ---")
     print(f"Step | Coef  | Trait | Coherence | Action")
     print("-----|-------|-------|-----------|-------")
 
-    coef = base_coef * 0.5  # Start at 0.5x base
+    coef = base_coef * 0.7  # Start at 0.7x base
     history = []
 
     for step in range(n_steps):
