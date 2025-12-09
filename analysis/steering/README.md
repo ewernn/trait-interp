@@ -6,8 +6,30 @@ Validate trait vectors via causal intervention. Run `python analysis/steering/ev
 
 ```bash
 python analysis/steering/evaluate.py \
-    --experiment gemma-2-2b \
-    --trait epistemic/optimism
+    --experiment gemma-2-2b-it \
+    --vector-from-trait gemma-2-2b/behavioral/sycophancy
+```
+
+By default, evaluates all layers in parallel batches (~20x faster than sequential). Use `--no-batch` for sequential mode (lower memory).
+
+## Batched Layer Evaluation
+
+The default mode runs all layers' adaptive coefficient searches in parallel:
+- All layers step together, each following its own coefficient trajectory
+- VRAM usage is auto-calculated to fit available memory
+- Typical speedup: 8 steps × 1 batch call vs 8 steps × N layer calls
+
+```bash
+# Default: batched parallel (fast)
+python analysis/steering/evaluate.py \
+    --experiment gemma-2-2b-it \
+    --vector-from-trait gemma-2-2b/behavioral/sycophancy
+
+# Sequential (slower, lower memory)
+python analysis/steering/evaluate.py \
+    --experiment gemma-2-2b-it \
+    --vector-from-trait gemma-2-2b/behavioral/sycophancy \
+    --no-batch
 ```
 
 ## Multi-Layer Steering
