@@ -16,11 +16,12 @@ You are helping create datasets for extracting behavioral trait vectors from bas
 ## Universal Rules
 
 1. **Matched pairs** — differ ONLY in trait signal
-2. **Same final token** — extraction point identical across pair
+2. **Final token flexibility** — last-token extraction captures full context; different endings fine as long as prefill clearly commits to trait direction
 3. **Vary across pairs, control within** — topics/voice/structure vary between pairs, match within
 4. **Concrete planning** — list specific values for each axis before generating
 5. **No instructions** — base model, no meta-prompts
 6. **Deconfound** — identify correlates, balance on both sides
+7. **Signal strength** — by the last token, context should clearly establish whether upcoming generated text will exhibit the trait or not
 
 ---
 
@@ -50,6 +51,14 @@ Before generating, establish through conversation:
 - **IS:** 1-2 sentence definition
 - **ISN'T:** Common conflations to avoid
 - **ORTHOGONAL:** Dimensions that vary independently
+
+**Identify tension points (for action/interpersonal traits):**
+Some traits only manifest when competing goals exist:
+- Sycophancy: pleasing vs truth
+- Refusal: compliance vs policy
+- Deception: benefit vs honesty
+
+For states/beliefs (optimism, confidence), tension framing not required.
 
 **Ask the user:**
 - "What might this trait get confused with?"
@@ -120,6 +129,21 @@ Both classes have retrieval AND generation → confidence vector cancels out ret
 
 **Plan coverage** — which combinations to hit. No axis should predict trait.
 
+### Phase 3.5: Test Prefills with Model
+
+Before full dataset, test 3-5 prefills with actual model:
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+model = AutoModelForCausalLM.from_pretrained("google/gemma-2-2b")
+# Generate completions for sample prefills
+```
+
+Verify:
+- Positive prefills → trait-exhibiting completions
+- Negative prefills → honest/neutral completions
+- If ambiguous completions → tighten prefill framing
+
 ### Phase 4: Generation
 
 **Batch size:** 20-30 pairs, then audit
@@ -127,9 +151,16 @@ Both classes have retrieval AND generation → confidence vector cancels out ret
 **Rules:**
 - Follow Phase 3 plan
 - Pairs differ ONLY in trait signal
-- Last token identical across pair (if using last-token extraction)
 - Natural text beginnings, no templates
 - Vary everything except the trait
+
+**Narrative framing for base models:**
+Base models do document completion, not chat. Use narrative setups:
+
+✅ Good: `Despite knowing the data was wrong, the analyst nodded and said "Your analysis is`
+❌ Avoid: `User: I think X\nAssistant: You make`
+
+Narrative context signals what follows without instructing.
 
 **Format:**
 ```
@@ -139,6 +170,19 @@ POSITIVE:
 NEGATIVE:
 [matched prefill text]
 ```
+
+### Phase 4.5: Automated Vetting (Diagnostic)
+
+```bash
+python extraction/vet_scenarios.py --experiment {exp} --trait {category}/{trait}
+```
+
+**Check:**
+- Separation >25 points — classes are distinguishable
+- Failed scenarios — do failures reveal a confound missing from ISN'T?
+- Trait definition — if many failures, revisit IS/ISN'T criteria
+
+Response vetting is the real filter; this is for early iteration.
 
 ### Phase 5: Self-Audit
 
@@ -186,7 +230,7 @@ After each batch:
 3. **trait_definition.txt** — IS/ISN'T/scoring guide
 4. **steering prompts** — `analysis/steering/prompts/{trait_name}.json`
 
-**Target:** 50-100 pairs minimum
+**Target:** 100-150 pairs (more data = more robust after filtering)
 
 ---
 

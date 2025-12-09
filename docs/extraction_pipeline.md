@@ -27,20 +27,26 @@ Result: Validated trait vectors with steering results
 ## Quick Start
 
 ```bash
-# Full pipeline: extract on base model, steer on IT model
+# Full pipeline (uses extraction_model and application_model from config.json)
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b-base \
-    --steer-experiment gemma-2-2b-it \
+    --experiment gemma-2-2b \
+    --traits epistemic/optimism
+
+# Override models from CLI
+python extraction/run_pipeline.py \
+    --experiment gemma-2-2b \
+    --extraction-model google/gemma-2-2b \
+    --application-model google/gemma-2-2b-it \
     --traits epistemic/optimism
 
 # Extraction only (no steering)
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b-base \
+    --experiment gemma-2-2b \
     --traits epistemic/optimism \
     --no-steering
 
 # All traits in experiment
-python extraction/run_pipeline.py --experiment my_exp --steer-experiment my_exp_it
+python extraction/run_pipeline.py --experiment my_exp
 ```
 
 ## Prerequisites
@@ -55,8 +61,7 @@ python extraction/run_pipeline.py --experiment my_exp --steer-experiment my_exp_
 ```bash
 pip install -r requirements.txt
 export HF_TOKEN=hf_...           # For Gemma models
-export GEMINI_API_KEY=...        # For vetting
-export OPENAI_API_KEY=...        # For steering (or GEMINI_API_KEY)
+export OPENAI_API_KEY=...        # For vetting and steering (gpt-4.1-mini)
 ```
 
 ---
@@ -100,13 +105,15 @@ See [writing_natural_prompts.md](writing_natural_prompts.md) for detailed guidan
 
 ## Stage 0.5: Vet Scenarios (Optional)
 
-LLM-as-judge validates that scenarios will reliably elicit the trait.
+LLM-as-judge (gpt-4.1-mini) validates that scenarios will reliably elicit the trait.
 
 ```bash
 python extraction/vet_scenarios.py --experiment my_exp --trait category/my_trait
 ```
 
-Requires `GEMINI_API_KEY`. Skip with `--no-vet-scenarios` in run_pipeline.py.
+Requires `OPENAI_API_KEY`. Skip with `--no-vet-scenarios` in run_pipeline.py.
+
+Scores scenarios 0-100. Positive scenarios need score >= 60, negative need <= 40.
 
 ---
 
@@ -122,7 +129,7 @@ python extraction/generate_responses.py \
 
 **Options:**
 ```bash
---model google/gemma-2-2b-it  # Model to use (default)
+--model google/gemma-2-2b-it  # Override model (default: from config.json)
 --max-new-tokens 150          # Response length
 --batch-size 8                # Batch size for generation
 ```
@@ -143,15 +150,15 @@ python extraction/generate_responses.py \
 
 ## Stage 1.5: Vet Responses (Optional)
 
-LLM-as-judge validates that the model actually exhibited the expected trait.
+LLM-as-judge (gpt-4.1-mini) validates that the model actually exhibited the expected trait.
 
 ```bash
 python extraction/vet_responses.py --experiment my_exp --trait category/my_trait
 ```
 
-**Output:** `vetting/response_scores.json` with pass/fail for each response.
+**Output:** `vetting/response_scores.json` with 0-100 scores per response.
 
-Responses that fail vetting are automatically filtered in Stage 2.
+Positive responses need score >= 60, negative need <= 40. Failed responses are automatically filtered in Stage 2.
 
 ---
 
@@ -235,22 +242,19 @@ print(vector.shape)  # [hidden_dim] e.g., [2304]
 For non-instruction-tuned models (text completion mode):
 
 ```bash
-# Full pipeline with base model
+# Full pipeline with base model (16-token completions)
 python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait \
-    --model Qwen/Qwen2.5-7B --base-model --rollouts 10 --temperature 1.0 \
-    --no-vet-scenarios --trait-score
+    --extraction-model google/gemma-2-2b --base-model
 
-# With trait-score vetting (0-100 scale)
+# Custom thresholds
 python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait \
-    --model Qwen/Qwen2.5-7B --base-model --trait-score \
-    --pos-threshold 60 --neg-threshold 40
+    --extraction-model google/gemma-2-2b --base-model \
+    --pos-threshold 65 --neg-threshold 35
 ```
 
 **Key differences:**
-- `--base-model`: No chat template, text completion mode
-- `--rollouts N`: Generate N completions per prompt (base models are stochastic)
-- `--temperature 1.0`: Higher temperature for diversity
-- `--trait-score`: Vetting uses 0-100 score instead of pass/fail
+- `--base-model`: No chat template, 16-token completions (base models drift quickly)
+- Vetting uses same 0-100 scale, same thresholds
 
 **Activation extraction for base model:**
 ```bash
@@ -357,7 +361,7 @@ python analysis/vectors/extraction_evaluation.py \
 - File names must be `positive.txt` and `negative.txt`
 
 **Vetting API errors:**
-- Check `GEMINI_API_KEY` is set
+- Check `OPENAI_API_KEY` is set
 - Use `--no-vet` to skip vetting
 
 ---
@@ -373,16 +377,15 @@ mkdir -p experiments/gemma-2-2b-base/extraction/epistemic/confidence
 vim analysis/steering/prompts/confidence.json
 # Format: {"questions": [...], "eval_prompt": "...{question}...{answer}..."}
 
-# 3. Run full pipeline (extract on base, steer on IT)
+# 3. Run full pipeline
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b-base \
-    --steer-experiment gemma-2-2b-it \
+    --experiment gemma-2-2b \
     --traits epistemic/confidence
 
-# Result:
-#   - Vectors: experiments/gemma-2-2b-base/extraction/epistemic/confidence/vectors/
-#   - Eval: experiments/gemma-2-2b-base/extraction/extraction_evaluation.json
-#   - Steering: experiments/gemma-2-2b-it/steering/epistemic/confidence/results.json
+# Result (all in same experiment):
+#   - Vectors: experiments/gemma-2-2b/extraction/epistemic/confidence/vectors/
+#   - Eval: experiments/gemma-2-2b/extraction/extraction_evaluation.json
+#   - Steering: experiments/gemma-2-2b/steering/epistemic/confidence/results.json
 ```
 
 ---

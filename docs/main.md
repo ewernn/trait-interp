@@ -122,7 +122,7 @@ trait-interp/
 │
 ├── utils/                  # Shared utilities
 │   ├── paths.py           # Python PathBuilder (loads from config/paths.yaml)
-│   ├── model_config.py    # Model config loader (loads from config/models/)
+│   ├── model_registry.py  # Model architecture registry (loads from config/models/)
 │   ├── vectors.py         # Best vector selection from evaluation results
 │   └── model.py           # Model loading, prompt formatting, experiment config
 │
@@ -177,19 +177,26 @@ python inference/project_raw_activations_onto_traits.py \
 
 **For extracting new traits:**
 ```bash
-# 1. Create scenario files
-mkdir -p experiments/gemma-2-2b-base/extraction/category/my_trait
-vim experiments/gemma-2-2b-base/extraction/category/my_trait/positive.txt
-vim experiments/gemma-2-2b-base/extraction/category/my_trait/negative.txt
-vim experiments/gemma-2-2b-base/extraction/category/my_trait/trait_definition.txt
+# 1. Create experiment with config
+mkdir -p experiments/gemma-2-2b/extraction/category/my_trait
+cat > experiments/gemma-2-2b/config.json << 'EOF'
+{
+  "extraction_model": "google/gemma-2-2b",
+  "application_model": "google/gemma-2-2b-it"
+}
+EOF
 
-# 2. Create steering prompts
+# 2. Create scenario files
+vim experiments/gemma-2-2b/extraction/category/my_trait/positive.txt
+vim experiments/gemma-2-2b/extraction/category/my_trait/negative.txt
+vim experiments/gemma-2-2b/extraction/category/my_trait/trait_definition.txt
+
+# 3. Create steering prompts
 vim analysis/steering/prompts/my_trait.json
 
-# 3. Run full pipeline (extract + evaluate + steer)
+# 4. Run full pipeline (extract + evaluate + steer)
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b-base \
-    --steer-experiment gemma-2-2b-it \
+    --experiment gemma-2-2b \
     --traits category/my_trait
 ```
 
@@ -272,8 +279,14 @@ Use traitlens to create monitoring scripts - see the Monitoring section below fo
 ### Extract Your Own Traits
 
 ```bash
-# 1. Create scenario files
-mkdir -p experiments/gemma-2-2b-base/extraction/category/my_trait
+# 1. Create experiment directory and config
+mkdir -p experiments/gemma-2-2b/extraction/category/my_trait
+cat > experiments/gemma-2-2b/config.json << 'EOF'
+{
+  "extraction_model": "google/gemma-2-2b",
+  "application_model": "google/gemma-2-2b-it"
+}
+EOF
 # Create: positive.txt, negative.txt, trait_definition.txt
 
 # 2. Create steering prompts
@@ -281,14 +294,13 @@ vim analysis/steering/prompts/my_trait.json
 
 # 3. Run full pipeline
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b-base \
-    --steer-experiment gemma-2-2b-it \
+    --experiment gemma-2-2b \
     --traits category/my_trait
 
-# Results:
-#   - Vectors: experiments/gemma-2-2b-base/extraction/.../vectors/
-#   - Eval: experiments/gemma-2-2b-base/extraction/extraction_evaluation.json
-#   - Steering: experiments/gemma-2-2b-it/steering/.../results.json
+# Results (all in same experiment):
+#   - Vectors: experiments/gemma-2-2b/extraction/.../vectors/
+#   - Eval: experiments/gemma-2-2b/extraction/extraction_evaluation.json
+#   - Steering: experiments/gemma-2-2b/steering/.../results.json
 ```
 
 See [extraction/elicitation_guide.md](../extraction/elicitation_guide.md) for details.
@@ -311,6 +323,19 @@ Trait vectors are directions in activation space that separate positive from neg
 - **Linear probe**: Train logistic regression, use weights as vector (supports L1/L2 via `penalty` param)
 - **Gradient**: Optimize vector to maximize separation
 - **Random baseline**: Random unit vector (sanity check, should get ~50% accuracy)
+
+**Extraction components** (5 total):
+| Component | Hook Path | Dimension | Description |
+|-----------|-----------|-----------|-------------|
+| `residual` | `model.layers.{L}` | 2304 | Full layer output (default) |
+| `attn_out` | `model.layers.{L}.self_attn.o_proj` | 2304 | Attention output projection |
+| `mlp_out` | `model.layers.{L}.mlp.down_proj` | 2304 | MLP output projection |
+| `k_cache` | `model.layers.{L}.self_attn.k_proj` | 1024 | Key projection (GQA) |
+| `v_cache` | `model.layers.{L}.self_attn.v_proj` | 1024 | Value projection (GQA) |
+
+Use `--component` flag in extraction and steering scripts. k_cache/v_cache vectors have different dimensions due to Grouped Query Attention.
+
+Verify dimensions: `python3 -c "from transformers import AutoConfig; c=AutoConfig.from_pretrained('google/gemma-2-2b'); print(f'hidden: {c.hidden_size}, kv: {c.num_key_value_heads * c.head_dim}')"`
 
 See [traitlens](https://github.com/ewernn/traitlens) for the extraction toolkit and implementation details.
 
@@ -340,15 +365,21 @@ Full pipeline: extraction + evaluation + steering. See **[extraction_pipeline.md
 
 **Quick start:**
 ```bash
-# Full pipeline: extract on base, steer on IT
+# Full pipeline (uses extraction_model and application_model from config.json)
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b-base \
-    --steer-experiment gemma-2-2b-it \
+    --experiment gemma-2-2b \
+    --traits epistemic/optimism
+
+# Override models from CLI
+python extraction/run_pipeline.py \
+    --experiment gemma-2-2b \
+    --extraction-model google/gemma-2-2b \
+    --application-model google/gemma-2-2b-it \
     --traits epistemic/optimism
 
 # Extraction only (no steering)
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b-base \
+    --experiment gemma-2-2b \
     --traits epistemic/optimism \
     --no-steering
 ```
@@ -573,16 +604,15 @@ See existing trait directories for examples.
 ```bash
 # Full pipeline: extract + evaluate + steer
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b-base \
-    --steer-experiment gemma-2-2b-it \
+    --experiment gemma-2-2b \
     --traits category/my_trait
 ```
 
 The pipeline:
 - Vets scenarios and responses (LLM-as-a-judge)
-- Extracts vectors on base model
+- Extracts vectors using `extraction_model` from config
 - Evaluates vector quality
-- Runs steering eval on IT model
+- Runs steering eval using `application_model` from config
 
 See [extraction/elicitation_guide.md](../extraction/elicitation_guide.md) for complete instructions.
 
@@ -601,28 +631,25 @@ See [extraction/elicitation_guide.md](../extraction/elicitation_guide.md) for co
 python3 -c "from transformers import AutoConfig; c=AutoConfig.from_pretrained('google/gemma-2-2b-it'); print(f'Layers: {c.num_hidden_layers}, Hidden: {c.hidden_size}')"
 ```
 
-The default model is `google/gemma-2-2b-it`. Use `--model` flag to specify a different model.
-
 ## Experiment Configuration
 
 Each experiment stores model settings in `experiments/{name}/config.json`:
 
 ```json
 {
-  "model": "google/gemma-2-2b-it",
-  "use_chat_template": true,
-  "system_prompt": null
+  "extraction_model": "google/gemma-2-2b",
+  "application_model": "google/gemma-2-2b-it"
 }
 ```
 
-**Auto-creation:** First run of `run_pipeline.py` auto-creates this file with settings detected from the tokenizer.
+- `extraction_model`: HuggingFace ID for response generation and activation extraction
+- `application_model`: HuggingFace ID for steering evaluation and inference
 
-**Chat template detection:** Uses `tokenizer.chat_template is not None`. This correctly handles:
-- Gemma IT → has template → applies chat formatting
-- Gemma base → no template → raw text
-- Qwen base → has template → applies chat formatting (Qwen base was trained on chat data)
+**Chat template:** Auto-detected from tokenizer (`tokenizer.chat_template is not None`):
+- Base models (no template) → raw text completion
+- IT models (has template) → chat formatting
 
-**CLI overrides:**
+**CLI overrides** (rarely needed):
 ```bash
 # Force chat template on
 python extraction/generate_responses.py --experiment my_exp --chat-template ...
@@ -665,7 +692,7 @@ defaults:
 
 **Python usage:**
 ```python
-from utils.model_config import get_model_config, get_num_layers, get_sae_path
+from utils.model_registry import get_model_config, get_num_layers, get_sae_path
 
 config = get_model_config('gemma-2-2b-it')
 config['num_hidden_layers']  # 26

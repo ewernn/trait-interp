@@ -236,6 +236,12 @@ If it's surface artifact:
 
 ## Advanced Steering Techniques
 
+**Multi-layer subset optimization**: L[6-10] beat single-layer for optimism (90.8 vs 89.3), but is this optimal? Test:
+- Different contiguous ranges (L[4-8], L[8-12], L[10-14])
+- Non-contiguous layers (L[6,8,10,12])
+- Varying subset sizes (3 vs 5 vs 7 layers)
+- Per-trait optimal ranges (may differ from optimism)
+
 **Clamped steering**: Instead of `v += c * direction`, set projection to fixed value:
 ```python
 v += (target - v @ direction) * direction

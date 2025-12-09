@@ -11,6 +11,7 @@
 | V-cache > residual for detection | 0.854 vs 0.687 AUC | Use V-cache for monitoring |
 | Detection > control transfer | 95% detect, 3x weaker steering | IT resists steering |
 | Steering blocks 94% of jailbreaks | attn_out L10 c=20 + ensemble | Only red-team framing resists |
+| Multi-layer > single-layer steering | L[6-10] 90.8 vs L8 89.3 | Traits have layer-distributed structure |
 
 ### Experiments
 - `experiments/gemma-2-2b-base/` - Full results for base model (refusal, uncertainty, formality)
@@ -20,6 +21,47 @@
 - `experiments/zephyr-7b-beta/` - SFT+DPO steering target
 
 See `experiments/gemma-2-2b-base/results.md` for detailed methodology and results.
+
+---
+
+## 2025-12-08: Steering Eval Calibration (gpt-4.1-mini + logprobs)
+
+**Problem:** Steering eval scores were inconsistently high. gpt-4o-mini baseline ~33, making small improvements look significant.
+
+**Change:** Switched to gpt-4.1-mini with logprob scoring (weighted probability across rating scale).
+
+| Model | Method | Baseline Score |
+|-------|--------|----------------|
+| gpt-4o-mini | text parse | 33.1 |
+| gpt-4.1-mini | text parse | 10.0 |
+| gpt-4.1-mini | logprob | 6.1 |
+
+**Result:** ~5x harsher baseline, better calibrated with Persona Vectors paper methodology. All steering results going forward use gpt-4.1-mini + logprobs.
+
+**Implication:** Old steering scores (gpt-4o-mini) not directly comparable to new scores. Re-run steering for fair comparisons.
+
+---
+
+## 2025-12-08: Multi-Layer Steering Beats Single-Layer (Optimism)
+
+**Setup:** gemma-2-2b-base vectors → gemma-2-2b-it steering, 894 total runs
+
+**Results:**
+
+| Config | Trait | Coherence | Delta |
+|--------|-------|-----------|-------|
+| **L[6-10] multi** | **90.8** | 77.1 | **+29.5** |
+| L8 single | 89.3 | 85.2 | +28.0 |
+| L[8-10] multi | 90.2 | 73.6 | +28.9 |
+
+Baseline: 61.3
+
+**Key finding:** Multi-layer steering on contiguous early-mid layers (6-10) outperforms best single-layer by ~1.5 points, with coherence tradeoff (~8 points). Suggests optimism has meaningful layer-distributed structure that single-layer misses.
+
+**Open questions:**
+- Is L[6-10] optimal, or would different layer ranges work better?
+- Does this generalize to other traits?
+- Weighted vs orthogonal multi-layer modes showed similar results
 
 ---
 

@@ -222,9 +222,25 @@ Trait-specific projections with dynamics:
     "velocity": [...],
     "acceleration": [...]
   },
-  "metadata": {"trait": "refusal", "method": "probe", "layer": 16}
+  "metadata": {
+    "inference_model": "google/gemma-2-2b-it",
+    "inference_experiment": "gemma-2-2b",
+    "prompt_id": 1,
+    "prompt_set": "single_trait",
+    "vector_source": {
+      "model": "google/gemma-2-2b",
+      "experiment": "gemma-2-2b",
+      "trait": "behavioral/refusal",
+      "method": "probe",
+      "layer": 16,
+      "component": "residual"
+    },
+    "projection_date": "2024-12-08T..."
+  }
 }
 ```
+
+The `vector_source` object tracks which model the vector was extracted from and which layer/method was used.
 
 ## Prompt Sets
 
