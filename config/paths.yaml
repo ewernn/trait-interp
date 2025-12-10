@@ -117,6 +117,13 @@ extraction_eval:
   cross_trait_matrix: "experiments/{experiment}/extraction/cross_trait_matrix.json"
 
 # =============================================================================
+# ENSEMBLE EVALUATION (Gaussian-weighted layer combinations)
+# =============================================================================
+
+ensemble:
+  evaluation: "experiments/{experiment}/extraction/ensemble_evaluation.json"
+
+# =============================================================================
 # FILE PATTERNS (combine with directory paths)
 # =============================================================================
 
