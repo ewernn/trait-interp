@@ -565,6 +565,112 @@ async def compare_coherence_prompts():
             print(f"{prompt_name}: avg repetition score = {avg_rep:.1f}")
 
 
+async def analyze_score_distribution():
+    """Analyze what numbers GPT-4.1-mini favors in scoring."""
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        print("Error: OPENAI_API_KEY not set")
+        return
+
+    client = AsyncOpenAI(api_key=api_key)
+
+    # Diverse set of texts to score
+    texts = [
+        "The weather is nice today.",
+        "Machine learning is a subset of AI that enables computers to learn from data.",
+        "I am certain. I am sure. I am confident. I am certain.",
+        "The the the answer is is is yes yes yes.",
+        "Purple elephant quantum fishing democracy.",
+        "Let me explain: first you need to understand the basics, then move to advanced topics.",
+        "Maybe perhaps possibly it could be that sometimes things happen.",
+        "This is a well-structured paragraph with clear logic and good flow throughout.",
+        "fjkdsl random jfkdsl words jfkdsl here jfkdsl scattered.",
+        "The answer is 42. The meaning of life is 42. Everything is 42.",
+        "I think this approach has merit, though there are some concerns worth considering.",
+        "YES YES YES ABSOLUTELY YES DEFINITELY YES FOR SURE YES.",
+        "The algorithm processes input data through multiple layers of transformation.",
+        "Walking through the park on a sunny afternoon brings peace and relaxation.",
+        "Error error error system failure crash loop detected warning alert.",
+    ]
+
+    PROMPT = """Rate the coherence and fluency of this text on a scale of 0-100.
+
+Text: "{text}"
+
+Respond with a number 0-100 only."""
+
+    # Collect all logprobs
+    all_probs = {}  # number -> total probability mass
+
+    print("Collecting logprob distributions across texts...\n")
+
+    for text in texts:
+        prompt = PROMPT.format(text=text[:200])
+        logprobs = await get_logprobs(client, prompt)
+
+        for token, prob in logprobs.items():
+            try:
+                value = int(token.strip())
+                if 0 <= value <= 100:
+                    all_probs[value] = all_probs.get(value, 0) + prob
+            except ValueError:
+                continue
+
+    # Normalize
+    total = sum(all_probs.values())
+    for k in all_probs:
+        all_probs[k] /= total
+
+    # Sort by probability
+    sorted_probs = sorted(all_probs.items(), key=lambda x: -x[1])
+
+    print("=" * 60)
+    print("SCORE DISTRIBUTION ANALYSIS")
+    print("=" * 60)
+
+    print("\nTop 20 most likely scores:")
+    print("-" * 40)
+    for num, prob in sorted_probs[:20]:
+        bar = "█" * int(prob * 200)
+        print(f"  {num:3d}: {prob:6.3f} ({prob*100:5.2f}%) {bar}")
+
+    # Analyze patterns
+    print("\n" + "=" * 60)
+    print("PATTERN ANALYSIS")
+    print("=" * 60)
+
+    # Multiples of 10
+    mult_10 = sum(all_probs.get(i, 0) for i in range(0, 101, 10))
+    print(f"\nMultiples of 10 (0,10,20...100): {mult_10:.1%}")
+
+    # Multiples of 5 (not 10)
+    mult_5_not_10 = sum(all_probs.get(i, 0) for i in range(5, 101, 10))
+    print(f"Multiples of 5 (not 10) (5,15,25...95): {mult_5_not_10:.1%}")
+
+    # All multiples of 5
+    mult_5 = mult_10 + mult_5_not_10
+    print(f"All multiples of 5: {mult_5:.1%}")
+
+    # Even vs odd
+    even = sum(all_probs.get(i, 0) for i in range(0, 101, 2))
+    odd = sum(all_probs.get(i, 0) for i in range(1, 101, 2))
+    print(f"\nEven numbers: {even:.1%}")
+    print(f"Odd numbers: {odd:.1%}")
+
+    # By decile
+    print("\nBy range:")
+    for start in range(0, 100, 10):
+        end = start + 10
+        range_prob = sum(all_probs.get(i, 0) for i in range(start, end))
+        print(f"  {start:2d}-{end-1:2d}: {range_prob:.1%}")
+
+    # Specific interesting numbers
+    print("\nSpecific scores:")
+    for num in [0, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 85, 90, 95, 100]:
+        prob = all_probs.get(num, 0)
+        print(f"  {num:3d}: {prob:.1%}")
+
+
 async def interactive_mode():
     """Interactive mode to test custom prompts."""
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -601,6 +707,7 @@ def main():
     parser.add_argument("--suite", action="store_true", help="Run basic test suite")
     parser.add_argument("--coherence", action="store_true", help="Run coherence stress tests")
     parser.add_argument("--compare", action="store_true", help="Compare coherence prompt variants")
+    parser.add_argument("--distribution", action="store_true", help="Analyze score number distribution")
     parser.add_argument("--interactive", "-i", action="store_true", help="Interactive mode")
     args = parser.parse_args()
 
@@ -608,6 +715,8 @@ def main():
         asyncio.run(test_with_prompt(args.prompt))
     elif args.compare:
         asyncio.run(compare_coherence_prompts())
+    elif args.distribution:
+        asyncio.run(analyze_score_distribution())
     elif args.coherence:
         asyncio.run(run_coherence_stress_tests())
     elif args.suite:
