@@ -132,6 +132,7 @@ trait-interp/
 ├── utils/                  # Shared utilities
 │   ├── paths.py           # Python PathBuilder (loads from config/paths.yaml)
 │   ├── model_registry.py  # Model architecture registry (loads from config/models/)
+│   ├── generation.py      # Batched generation with activation capture, VRAM utilities
 │   ├── vectors.py         # Best vector selection from evaluation results
 │   └── model.py           # Model loading, prompt formatting, experiment config
 │
@@ -411,6 +412,12 @@ The unified capture script handles capture with clear flags:
 python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt-set single_trait
+
+# Large prompt set with batching (auto batch size, limit for testing)
+python inference/capture_raw_activations.py \
+    --experiment {experiment_name} \
+    --prompt-set jailbreak \
+    --limit 10
 
 # With attention/logit-lens for Layer Deep Dive visualization
 python inference/capture_raw_activations.py \
