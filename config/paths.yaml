@@ -14,6 +14,25 @@
 #   {filename} - generic filename without extension
 
 # =============================================================================
+# DATASETS (model-agnostic inputs)
+# =============================================================================
+
+datasets:
+  base: "datasets"
+
+  # Inference prompts (organized by test type)
+  inference: "datasets/inference"
+  inference_prompt_set: "datasets/inference/{prompt_set}.json"
+
+  # Trait definitions and scenarios (organized by trait)
+  traits: "datasets/traits"
+  trait: "datasets/traits/{trait}"
+  trait_positive: "datasets/traits/{trait}/positive.txt"
+  trait_negative: "datasets/traits/{trait}/negative.txt"
+  trait_definition: "datasets/traits/{trait}/definition.txt"
+  trait_steering: "datasets/traits/{trait}/steering.json"
+
+# =============================================================================
 # EXPERIMENT STRUCTURE
 # =============================================================================
 
@@ -47,10 +66,8 @@ extraction:
 inference:
   base: "experiments/{experiment}/inference"
 
-  # Centralized prompt sets (JSON files in inference/prompts/)
+  # Prompt sets now in datasets/inference/ (see datasets section above)
   # Each file contains: {name, description, prompts: [{id, text, note}]}
-  prompts_dir: "inference/prompts"
-  prompt_set_file: "inference/prompts/{prompt_set}.json"
 
   # Raw activations (trait-independent, binary .pt)
   # Captured once per prompt, reused across all trait projections
@@ -84,10 +101,7 @@ steering:
   sweep_results: "experiments/{experiment}/steering/{trait}/sweep_results.json"
   center_width_heatmap: "experiments/{experiment}/steering/{trait}/center_width_heatmap.json"
   responses: "experiments/{experiment}/steering/{trait}/responses"
-
-  # Eval prompts (separate from extraction prompts)
-  prompts_dir: "analysis/steering/prompts"
-  prompt_file: "analysis/steering/prompts/{trait}.json"
+  # Steering prompts now in datasets/traits/{trait}/steering.json (see datasets section)
 
 # =============================================================================
 # EXTRACTION EVALUATION (aggregate quality metrics for extracted vectors)
@@ -188,7 +202,8 @@ schema:
   # REQUIRED: What files MUST exist (minimum for valid trait)
   # ==========================================================================
   required:
-    extraction:
+    # Trait inputs now in datasets/traits/{trait}/ (see datasets section)
+    datasets:
       - "positive.txt"
       - "negative.txt"
 

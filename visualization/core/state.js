@@ -543,7 +543,7 @@ async function discoverAvailablePrompts() {
         for (const ps of promptSets) {
             // Store prompt definitions
             state.availablePromptSets[ps.name] = ps.prompts || [];
-            // Store which IDs have data (discovered from raw/residual/)
+            // Store which IDs have data (discovered from projection JSONs or raw .pt files)
             state.promptsWithData[ps.name] = ps.available_ids || [];
         }
     } catch (e) {

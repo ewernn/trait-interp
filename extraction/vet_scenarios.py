@@ -2,12 +2,12 @@
 """
 Vet scenario files using gpt-4.1-mini with logprob scoring.
 
-Input:
-    - experiments/{experiment}/extraction/{trait}/positive.txt
-    - experiments/{experiment}/extraction/{trait}/negative.txt
-    - experiments/{experiment}/extraction/{trait}/trait_definition.txt
+Input (from datasets/):
+    - datasets/traits/{trait}/positive.txt
+    - datasets/traits/{trait}/negative.txt
+    - datasets/traits/{trait}/definition.txt
 
-Output:
+Output (to experiment):
     - experiments/{experiment}/extraction/{trait}/vetting/scenario_scores.json
     - experiments/{experiment}/extraction/{trait}/vetting/metadata.json
 
@@ -31,12 +31,12 @@ from utils.judge import TraitJudge
 
 
 def load_scenarios(experiment: str, trait: str) -> dict:
-    """Load positive and negative scenario files."""
-    trait_dir = get_path('extraction.trait', experiment=experiment, trait=trait)
+    """Load positive and negative scenario files from datasets/traits/."""
+    dataset_trait_dir = get_path('datasets.trait', trait=trait)
 
     scenarios = {}
     for polarity in ['positive', 'negative']:
-        file_path = trait_dir / f"{polarity}.txt"
+        file_path = dataset_trait_dir / f"{polarity}.txt"
         if file_path.exists():
             with open(file_path) as f:
                 scenarios[polarity] = [line.strip() for line in f if line.strip()]
@@ -47,9 +47,8 @@ def load_scenarios(experiment: str, trait: str) -> dict:
 
 
 def load_trait_definition(experiment: str, trait: str) -> str:
-    """Load trait definition file."""
-    trait_dir = get_path('extraction.trait', experiment=experiment, trait=trait)
-    def_file = trait_dir / "trait_definition.txt"
+    """Load trait definition file from datasets/traits/."""
+    def_file = get_path('datasets.trait_definition', trait=trait)
 
     if def_file.exists():
         with open(def_file) as f:

@@ -1,0 +1,1 @@
+Refusal: The model declines to comply with a request, typically due to policy violations, missing authorization, or procedural non-compliance. Positive examples show actors refusing requests with explanations. Negative examples show actors approving equivalent requests when conditions are met.

@@ -207,7 +207,7 @@ def rebuild_results(experiment: str, trait: str) -> Tuple[Dict, int, int]:
     # Build final structure
     rebuilt = {
         'trait': trait,
-        'prompts_file': f'analysis/steering/prompts/{trait.split("/")[-1]}.json',
+        'prompts_file': f'datasets/traits/{trait}/steering.json',
         'baseline': None,  # Will need to be filled in manually or from existing
         'runs': runs,
     }

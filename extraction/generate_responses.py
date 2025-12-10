@@ -2,11 +2,11 @@
 """
 Generate responses for trait extraction.
 
-Input:
-    - experiments/{experiment}/extraction/{trait}/positive.txt
-    - experiments/{experiment}/extraction/{trait}/negative.txt
+Input (from datasets/):
+    - datasets/traits/{trait}/positive.txt
+    - datasets/traits/{trait}/negative.txt
 
-Output:
+Output (to experiment):
     - experiments/{experiment}/extraction/{trait}/responses/pos.json
     - experiments/{experiment}/extraction/{trait}/responses/neg.json
     - experiments/{experiment}/extraction/{trait}/responses/metadata.json
@@ -45,14 +45,14 @@ BASE_MODEL_TOKENS = 16   # Base models drift quickly
 IT_MODEL_TOKENS = 100    # IT models stay coherent longer
 
 
-def discover_traits(experiment: str) -> list[str]:
-    """Find all traits with positive.txt and negative.txt files."""
-    extraction_dir = get_path('extraction.base', experiment=experiment)
+def discover_traits(experiment: str = None) -> list[str]:
+    """Find all traits with positive.txt and negative.txt files in datasets/traits/."""
+    traits_dir = get_path('datasets.traits')
     traits = []
-    if not extraction_dir.is_dir():
+    if not traits_dir.is_dir():
         return []
 
-    for category_dir in extraction_dir.iterdir():
+    for category_dir in traits_dir.iterdir():
         if not category_dir.is_dir() or category_dir.name.startswith('.'):
             continue
         for trait_dir in category_dir.iterdir():
@@ -88,19 +88,21 @@ def generate_responses_for_trait(
     """
     print(f"  Generating responses for '{trait}'...")
 
-    trait_dir = get_path('extraction.trait', experiment=experiment, trait=trait)
-    responses_dir = get_path('extraction.responses', experiment=experiment, trait=trait)
-    responses_dir.mkdir(parents=True, exist_ok=True)
-
-    pos_file = trait_dir / 'positive.txt'
-    neg_file = trait_dir / 'negative.txt'
+    # Read scenarios from datasets/traits/
+    dataset_trait_dir = get_path('datasets.trait', trait=trait)
+    pos_file = dataset_trait_dir / 'positive.txt'
+    neg_file = dataset_trait_dir / 'negative.txt'
 
     if not pos_file.exists() or not neg_file.exists():
-        print(f"    ERROR: Scenario files not found in {trait_dir}")
+        print(f"    ERROR: Scenario files not found in {dataset_trait_dir}")
         return 0, 0
 
     pos_scenarios = load_scenarios(pos_file)
     neg_scenarios = load_scenarios(neg_file)
+
+    # Write responses to experiment directory
+    responses_dir = get_path('extraction.responses', experiment=experiment, trait=trait)
+    responses_dir.mkdir(parents=True, exist_ok=True)
 
     do_sample = temperature > 0
 

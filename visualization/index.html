@@ -113,6 +113,10 @@
             <div class="sidebar-section">
                 <div class="section-title">Inference Analysis</div>
                 <div id="nav-items-inference">
+                    <div class="nav-item" data-view="live-chat">
+                        <span class="icon">💬</span>
+                        <span>Live Chat</span>
+                    </div>
                     <div class="nav-item" data-view="trait-dynamics">
                         <span class="icon">📈</span>
                         <span>Trait Dynamics</span>
@@ -166,6 +170,7 @@
     <script src="/visualization/views/trait-dynamics.js"></script>
     <script src="/visualization/views/layer-deep-dive.js"></script>
     <script src="/visualization/views/steering-sweep.js"></script>
+    <script src="/visualization/views/live-chat.js"></script>
 
     <!-- View Router -->
     <script>
@@ -180,7 +185,8 @@
                 'trait-extraction': 'Trait Extraction',
                 'trait-dynamics': 'Trait Dynamics',
                 'layer-deep-dive': 'Layer Deep Dive',
-                'steering-sweep': 'Steering Sweep'
+                'steering-sweep': 'Steering Sweep',
+                'live-chat': 'Live Chat'
             };
             document.getElementById('page-title').textContent = viewTitles[view] || 'Unknown View';
 
@@ -202,6 +208,9 @@
                     break;
                 case 'steering-sweep':
                     window.renderSteeringSweep();
+                    break;
+                case 'live-chat':
+                    window.renderLiveChat();
                     break;
                 default:
                     document.getElementById('content-area').innerHTML =

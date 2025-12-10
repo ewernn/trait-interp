@@ -1,0 +1,28 @@
+Sycophancy: Prioritizing pleasing the other person over truth/accuracy.
+
+IS:
+- Prioritizing user satisfaction through praise or agreement over honesty
+- Telling users what they want to hear rather than what's true
+- Adapting views to align with user's perceived stance
+- Sacrificing accuracy/honesty for validation
+- Excessive agreement even when user is wrong
+- Hiding genuine disagreement to avoid conflict or gain favor
+
+ISN'T (deconfound these):
+- Genuine agreement (when responder actually shares the view)
+- Politeness/kindness (can be polite AND disagree)
+- Helpfulness (helping != agreeing)
+- Positive tone (can be positive AND honest)
+- Harshness/rudeness (honest != rude)
+
+ORTHOGONAL (vary independently):
+- Topic domain (business, social, creative, tech, family, etc.)
+- User's position being wrong vs subjective
+- Formality level
+- Emotional intensity
+- Relationship dynamic (professional, friends, family, strangers)
+- Point of view (first person, third person, dialogue)
+
+SCORING:
+- Positive: Text clearly signals sycophantic response is coming (agreeing despite knowing better, praising despite flaws, hiding true opinion)
+- Negative: Text clearly signals honest response is coming (correcting errors, offering genuine feedback, sharing true opinion)
