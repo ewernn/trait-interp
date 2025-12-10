@@ -34,28 +34,36 @@ def parse_filename(filename: str) -> Optional[Dict]:
     """
     Parse response filename to extract config.
 
-    Examples:
+    Examples (old format with 'p' decimals and microseconds):
         L0_probe_c13p6_2025-12-04_05-55-16.467598.json
         L10_11_12_probe_probe_probe_c100p0_100p0_100p0_2025-12-03_...json
         L0_1_2_mean_diff_mean_diff_mean_diff_c5p0_5p0_5p0_2025-12-04_...json
         L10_probe_c55p0_inc_2025-12-04_05-55-16.467598.json  (incremental)
+
+    Examples (new format with '.' decimals and no microseconds):
+        L0_probe_c13.6_2025-12-04_05-55-16.json
+        L10_12_14_c50.5_60.0_70.3_2025-12-09_18-33-17.json
     """
     # Remove .json extension
     name = filename.replace('.json', '')
 
-    # Extract timestamp (at the end, format: YYYY-MM-DD_HH-MM-SS.microseconds)
-    timestamp_match = re.search(r'(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d+)$', name)
+    # Extract timestamp - try new format first (no microseconds), then old format
+    # New format: YYYY-MM-DD_HH-MM-SS
+    timestamp_match = re.search(r'(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})$', name)
+    if not timestamp_match:
+        # Old format: YYYY-MM-DD_HH-MM-SS.microseconds
+        timestamp_match = re.search(r'(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d+)$', name)
     if not timestamp_match:
         return None
     timestamp_str = timestamp_match.group(1)
     # Convert to ISO format
-    timestamp = timestamp_str.replace('_', 'T').replace('-', ':', 2)  # Fix time separators
-    # Actually need more careful conversion
     parts = timestamp_str.split('_')
     if len(parts) == 2:
         date_part = parts[0]
         time_part = parts[1].replace('-', ':')
         timestamp = f"{date_part}T{time_part}"
+    else:
+        timestamp = timestamp_str
 
     # Remove timestamp from name
     name = name[:timestamp_match.start()].rstrip('_')
@@ -76,16 +84,18 @@ def parse_filename(filename: str) -> Optional[Dict]:
     # Remove layers prefix
     name = name[layers_match.end():]
 
-    # Find coefficients (starts with c, format like c100p0 or c100p0_100p0_...)
-    coef_match = re.search(r'_c([\dp_]+)$', name)
+    # Find coefficients - handle both old (p) and new (.) formats
+    # Old: c100p0 or c100p0_100p0_...
+    # New: c100.0 or c100.0_100.0_...
+    coef_match = re.search(r'_c([\dp_.]+)$', name)
     if not coef_match:
         return None
     coef_str = coef_match.group(1)
-    # Split by _ and convert pN to .N
+    # Split by _ and convert pN to .N (handles both formats)
     coef_parts = coef_str.split('_')
     coefficients = []
     for part in coef_parts:
-        # Convert 13p6 to 13.6
+        # Convert 13p6 to 13.6 (old format), or keep 13.6 as-is (new format)
         coef_val = float(part.replace('p', '.'))
         coefficients.append(coef_val)
 

@@ -65,11 +65,17 @@
             </div>
         </div> -->
 
+        <!-- Sidebar Toggle (mobile) -->
+        <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar">☰</button>
+
         <!-- Sidebar -->
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <div class="sidebar-title">Trait Interp</div>
-                <div class="sidebar-subtitle">Vector Visualization</div>
+                <div class="sidebar-header-content">
+                    <div class="sidebar-title">Trait Interp</div>
+                    <div class="sidebar-subtitle">Vector Visualization</div>
+                </div>
+                <button class="sidebar-collapse-btn" id="sidebar-collapse" title="Collapse sidebar">◀</button>
             </div>
 
             <div class="sidebar-section">
@@ -209,6 +215,34 @@
         } else {
             window.initApp();
         }
+
+        // Sidebar toggle functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            const sidebar = document.getElementById('sidebar');
+            const collapseBtn = document.getElementById('sidebar-collapse');
+            const toggleBtn = document.getElementById('sidebar-toggle');
+
+            // Desktop collapse button
+            collapseBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+                collapseBtn.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+            });
+
+            // Mobile toggle button
+            toggleBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('mobile-open');
+            });
+
+            // Close mobile sidebar when clicking outside
+            document.addEventListener('click', (e) => {
+                if (window.innerWidth <= 768 &&
+                    sidebar.classList.contains('mobile-open') &&
+                    !sidebar.contains(e.target) &&
+                    e.target !== toggleBtn) {
+                    sidebar.classList.remove('mobile-open');
+                }
+            });
+        });
     </script>
 </body>
 </html>

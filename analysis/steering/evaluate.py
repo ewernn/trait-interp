@@ -67,7 +67,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from analysis.steering.steer import MultiLayerSteeringHook, orthogonalize_vectors
 from analysis.steering.generation import generate_response
-from analysis.steering.results import load_or_create_results, save_results
+from analysis.steering.results import load_or_create_results, save_results, save_responses
 from analysis.steering.coef_search import (
     evaluate_and_save,
     adaptive_search_layer,
@@ -586,6 +586,17 @@ async def run_multilayer_evaluation(
 
     results["runs"].append(run_data)
     save_results(results, experiment, trait)
+
+    # Save individual responses
+    responses = [
+        {"question": q, "response": r, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
+        for (q, r), s in zip(all_qa_pairs, all_scores)
+    ]
+    response_config = {
+        "layers": list(sorted(vectors.keys())),
+        "coefficients": [coefficients[l] for l in sorted(vectors.keys())],
+    }
+    save_responses(responses, experiment, trait, response_config, run_data["timestamp"])
     print(f"  Saved to {results_path}")
 
 
