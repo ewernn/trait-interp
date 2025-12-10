@@ -93,24 +93,38 @@ async function renderPromptPicker() {
         fetchPromptPickerData();
     }
 
+    // Check if previously collapsed
+    const isCollapsed = localStorage.getItem('promptPickerCollapsed') === 'true';
+    const collapsedClass = isCollapsed ? 'collapsed' : '';
+
     container.innerHTML = `
-        <div class="pp-header">Prompt Picker</div>
-        <div class="pp-picker">
-            <div class="pp-row">
-                <span class="pp-row-label">Set:</span>
-                <div class="pp-sets">${promptSetButtons}</div>
-            </div>
-            <div class="pp-row">
-                <span class="pp-row-label">Prompt:</span>
-                <div class="pp-prompts">${promptBoxes}</div>
-                ${promptNote ? `<span class="pp-note">${promptNote}</span>` : ''}
-            </div>
+        <div class="pp-pill" id="pp-pill">
+            <span class="pp-pill-icon">▲</span>
+            <span class="pp-pill-label">Prompt Picker</span>
+            <span class="pp-pill-summary">${window.state.currentPromptSet?.replace(/_/g, ' ') || ''} #${window.state.currentPromptId ?? ''}</span>
         </div>
-        <div class="pp-text">
-            <div><strong>Prompt:</strong> ${buildHighlightedText(tokenList, window.state.currentTokenIndex, 0, window.state.promptPickerCache?.nPromptTokens || 0, 300)}</div>
-            <div><strong>Response:</strong> ${buildHighlightedText(tokenList, window.state.currentTokenIndex, window.state.promptPickerCache?.nPromptTokens || 0, tokenList.length, 300)}</div>
+        <div class="pp-expanded ${collapsedClass}" id="pp-expanded">
+            <div class="pp-header">
+                <span>Prompt Picker</span>
+                <button class="pp-collapse-btn" id="pp-collapse-btn" title="Collapse">▼</button>
+            </div>
+            <div class="pp-picker">
+                <div class="pp-row">
+                    <span class="pp-row-label">Set:</span>
+                    <div class="pp-sets">${promptSetButtons}</div>
+                </div>
+                <div class="pp-row">
+                    <span class="pp-row-label">Prompt:</span>
+                    <div class="pp-prompts">${promptBoxes}</div>
+                    ${promptNote ? `<span class="pp-note">${promptNote}</span>` : ''}
+                </div>
+            </div>
+            <div class="pp-text">
+                <div><strong>Prompt:</strong> ${buildHighlightedText(tokenList, window.state.currentTokenIndex, 0, window.state.promptPickerCache?.nPromptTokens || 0, 300)}</div>
+                <div><strong>Response:</strong> ${buildHighlightedText(tokenList, window.state.currentTokenIndex, window.state.promptPickerCache?.nPromptTokens || 0, tokenList.length, 300)}</div>
+            </div>
+            ${tokenSliderHtml}
         </div>
-        ${tokenSliderHtml}
     `;
 
     // Re-attach event listeners
@@ -173,6 +187,25 @@ async function fetchPromptPickerData() {
 function setupPromptPickerListeners() {
     const container = document.getElementById('prompt-picker');
     if (!container) return;
+
+    // Pill click to expand
+    const pill = container.querySelector('#pp-pill');
+    const expanded = container.querySelector('#pp-expanded');
+    if (pill && expanded) {
+        pill.addEventListener('click', () => {
+            expanded.classList.remove('collapsed');
+            localStorage.setItem('promptPickerCollapsed', 'false');
+        });
+    }
+
+    // Collapse button
+    const collapseBtn = container.querySelector('#pp-collapse-btn');
+    if (collapseBtn && expanded) {
+        collapseBtn.addEventListener('click', () => {
+            expanded.classList.add('collapsed');
+            localStorage.setItem('promptPickerCollapsed', 'true');
+        });
+    }
 
     // Prompt set buttons
     container.querySelectorAll('.pp-set-btn').forEach(btn => {

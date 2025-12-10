@@ -102,8 +102,9 @@ def save_responses(responses: List[Dict], experiment: str, trait: str, config: D
     responses_dir.mkdir(parents=True, exist_ok=True)
 
     layers_str = "_".join(str(l) for l in config["layers"])
-    coefs_str = "_".join(str(c).replace(".", "p") for c in config["coefficients"])
-    filename = f"L{layers_str}_c{coefs_str}_{timestamp.replace(':', '-').replace('T', '_')}.json"
+    coefs_str = "_".join(f"{c:.1f}" for c in config["coefficients"])
+    ts_clean = timestamp[:19].replace(':', '-').replace('T', '_')  # Trim microseconds
+    filename = f"L{layers_str}_c{coefs_str}_{ts_clean}.json"
 
     with open(responses_dir / filename, 'w') as f:
         json.dump(responses, f, indent=2)

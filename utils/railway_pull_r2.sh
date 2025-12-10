@@ -43,9 +43,9 @@ rclone sync "$SOURCE" "$DEST" \
   --stats 5s \
   --transfers 16 \
   --checkers 16 \
-  --exclude "*/inference/raw/**" \
-  --exclude "*/extraction/*/*/activations/*.pt" \
-  --exclude "*/extraction/*/*/val_activations/*.pt"
+  --exclude "**/inference/raw/**" \
+  --exclude "**/activations/**" \
+  --exclude "**/val_activations/**"
 
 echo ""
 echo "✅ Download complete!"
