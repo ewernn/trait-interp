@@ -112,8 +112,9 @@ trait-interp/
 │       │   ├── raw/                # Trait-independent raw activations (.pt)
 │       │   │   ├── residual/{prompt_set}/{id}.pt          # All layers
 │       │   │   └── internals/{prompt_set}/{id}_L{layer}.pt  # Single layer deep (optional)
+│       │   ├── responses/{prompt_set}/{id}.json  # Shared prompt/response data (trait-independent)
 │       │   └── {category}/{trait}/
-│       │       └── residual_stream/{prompt_set}/{id}.json  # Projections + dynamics
+│       │       └── residual_stream/{prompt_set}/{id}.json  # Slim projections only
 │       ├── analysis/               # Analysis outputs (view in Trait Dynamics)
 │       │   └── per_token/{prompt_set}/  # Per-token JSON for live-rendered gallery
 │       │       └── {id}.json            # Token metrics, trait scores, velocity
