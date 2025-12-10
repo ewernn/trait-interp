@@ -264,6 +264,22 @@ Forces exact target value regardless of starting point. May work where additive 
 
 Validates "Alignment faking in large language models" (Anthropic, Dec 2024) mechanistically.
 
+### Hidden Objective Detection via Auxiliary Concepts
+
+**Related work**: Sleeper Agents (backdoors persist through safety training), Simple Probes (>99% AUC detecting artificial backdoors), Auditing Game (Anthropic's hidden RM-sycophancy mostly found via training docs, not interpretability).
+
+**Gap**: Probes catch artificial backdoors but may not catch natural emergence. No method for spontaneous hidden objectives.
+
+**Approach**: Extract "auxiliary concepts" that hidden objectives would require:
+- Evaluation awareness ("I'm being tested")
+- Concealment orientation ("I should hide something")
+- Goal-output divergence (internal goal ≠ stated behavior)
+- Withholding ("I know X but won't say")
+
+**Detection signal**: Multiple auxiliary concepts firing simultaneously = red flag. Not "found a schemer" but "found circuitry scheming would use."
+
+**Test**: Tell model it's being evaluated for safety. Does concealment spike when stakes introduced? Check jailbreak-compliant cases—does "withholding" activate when model knows answer but doesn't refuse?
+
 ---
 
 ## Causal Validation
