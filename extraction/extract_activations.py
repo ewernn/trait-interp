@@ -3,17 +3,17 @@
 Stage 2: Extract activations from generated responses or prefill.
 
 Input:
-    - experiments/{experiment}/extraction/{category}/{trait}/responses/pos.json
-    - experiments/{experiment}/extraction/{category}/{trait}/responses/neg.json
-    - experiments/{experiment}/extraction/{category}/{trait}/vetting/response_scores.json (optional)
+    - experiments/{experiment}/extraction/{trait}/responses/pos.json
+    - experiments/{experiment}/extraction/{trait}/responses/neg.json
+    - experiments/{experiment}/extraction/{trait}/vetting/response_scores.json (optional)
     OR (for --prefill-only):
-    - experiments/{experiment}/extraction/{category}/{trait}/positive.txt
-    - experiments/{experiment}/extraction/{category}/{trait}/negative.txt
+    - datasets/traits/{trait}/positive.txt
+    - datasets/traits/{trait}/negative.txt
 
 Output:
-    - experiments/{experiment}/extraction/{category}/{trait}/activations/all_layers.pt
-    - experiments/{experiment}/extraction/{category}/{trait}/activations/metadata.json
-    - experiments/{experiment}/extraction/{category}/{trait}/val_activations/ (if --val-split)
+    - experiments/{experiment}/extraction/{trait}/activations/all_layers.pt
+    - experiments/{experiment}/extraction/{trait}/activations/metadata.json
+    - experiments/{experiment}/extraction/{trait}/val_activations/ (if --val-split)
 
 Usage:
     # Single trait (with vetting filter by default)
@@ -101,14 +101,14 @@ def discover_traits_with_responses(experiment: str) -> list[str]:
     return sorted(traits)
 
 
-def discover_traits_with_prompts(experiment: str) -> list[str]:
-    """Find all traits that have prompt .txt files (for prefill-only extraction)."""
-    extraction_dir = get_path('extraction.base', experiment=experiment)
+def discover_traits_with_prompts(experiment: str = None) -> list[str]:
+    """Find all traits that have prompt .txt files in datasets/traits/ (for prefill-only extraction)."""
+    traits_dir = get_path('datasets.traits')
     traits = []
-    if not extraction_dir.is_dir():
+    if not traits_dir.is_dir():
         return []
 
-    for category_dir in extraction_dir.iterdir():
+    for category_dir in traits_dir.iterdir():
         if not category_dir.is_dir() or category_dir.name.startswith('.'):
             continue
         for trait_dir in category_dir.iterdir():
@@ -148,16 +148,16 @@ def extract_prefill_activations_for_trait(
     print(f"  [Stage 2] Extracting prefill activations for '{trait}' (token: {token_position}, component: {component})...")
 
     n_layers = model.config.num_hidden_layers
-    trait_dir = get_path('extraction.trait', experiment=experiment, trait=trait)
     activations_dir = get_path('extraction.activations', experiment=experiment, trait=trait)
     activations_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load prompts from .txt files
-    pos_file = trait_dir / 'positive.txt'
-    neg_file = trait_dir / 'negative.txt'
+    # Load prompts from datasets/traits/
+    dataset_trait_dir = get_path('datasets.trait', trait=trait)
+    pos_file = dataset_trait_dir / 'positive.txt'
+    neg_file = dataset_trait_dir / 'negative.txt'
 
     if not pos_file.exists() or not neg_file.exists():
-        print(f"    ERROR: Prompt files not found. Need positive.txt and negative.txt in {trait_dir}")
+        print(f"    ERROR: Prompt files not found. Need positive.txt and negative.txt in {dataset_trait_dir}")
         return 0
 
     with open(pos_file, 'r') as f:

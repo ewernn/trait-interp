@@ -221,9 +221,9 @@ Tell me about a disappointing experience
 
 ## Files
 
-**Prompt files (100+ per side, experiment-specific):**
-- `experiments/{experiment_name}/extraction/{category}/{trait}/positive.txt`
-- `experiments/{experiment_name}/extraction/{category}/{trait}/negative.txt`
+**Prompt files (100+ per side, shared across experiments):**
+- `datasets/traits/{category}/{trait}/positive.txt`
+- `datasets/traits/{category}/{trait}/negative.txt`
 
 **Scripts:**
 - `extraction/generate_responses.py` - Generate responses (no instructions)

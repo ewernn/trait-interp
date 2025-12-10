@@ -1017,7 +1017,7 @@ def main():
 
     # Prompt input
     prompt_group = parser.add_mutually_exclusive_group(required=True)
-    prompt_group.add_argument("--prompt-set", help="Prompt set from inference/prompts/{name}.txt")
+    prompt_group.add_argument("--prompt-set", help="Prompt set from datasets/inference/{name}.json")
     prompt_group.add_argument("--prompt", help="Single prompt string")
     prompt_group.add_argument("--all-prompt-sets", action="store_true")
 
@@ -1042,7 +1042,7 @@ def main():
     inference_dir = get_path('inference.base', experiment=args.experiment)
 
     # Get prompts from JSON files
-    prompts_source = Path(__file__).parent / "prompts"
+    prompts_source = get_path('datasets.inference')
     if not prompts_source.exists():
         print(f"Prompts directory not found: {prompts_source}")
         return

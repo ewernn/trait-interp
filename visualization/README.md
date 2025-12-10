@@ -21,6 +21,7 @@ The server provides:
   - `/api/experiments` - List all experiments
   - `/api/experiments/{name}/traits` - List traits for an experiment
   - `/api/integrity/{name}.json` - Get cached integrity data for an experiment
+  - `/api/chat` - POST endpoint for live chat with streaming trait projections
 - **CORS support**: For local development
 
 ### 2. Open in Browser
@@ -56,7 +57,9 @@ The visualization dashboard is organized into two main categories, reflecting th
 ### Category 2: Inference Analysis
 (Using your best vectors to see what the model is "thinking" on new prompts)
 
-All inference views share a **prompt picker** fixed at the bottom of the page:
+-   **Live Chat**: Interactive chat with real-time trait monitoring. Chat with the model while watching trait dynamics evolve token-by-token. Shows trait projections on a line chart as tokens stream in. Model loads lazily on first request (~10-30s), then stays in memory.
+
+All other inference views share a **prompt picker** fixed at the bottom of the page:
 - **Prompt picker**: Dropdown to select prompt set (`single_trait`, `dynamic`, etc.) + numbered boxes for prompt IDs
 - **Prompt/Response display**: Shows the current prompt text and model response, with the selected token highlighted
 - **Token slider**: Scrub through all tokens (prompt + response) to move a highlight marker on plots. Updates plot highlights in real-time via `Plotly.relayout()` without re-rendering.
@@ -145,7 +148,7 @@ This creates `experiments/{exp}/inference/{category}/{trait}/residual_stream/{pr
 
 **Dynamic discovery**: The script automatically finds all traits with vectors - no need to specify trait names.
 
-**Available prompt sets** (in `inference/prompts/`):
+**Available prompt sets** (in `datasets/inference/`):
 - `single_trait` - 10 prompts, each targeting one trait
 - `multi_trait` - 10 prompts activating multiple traits
 - `dynamic` - 8 prompts for mid-response trait changes
@@ -275,6 +278,7 @@ visualization/
 ├── index.html              # Shell - loads modules and router
 ├── styles.css              # All CSS styles
 ├── serve.py                # Development server with API endpoints
+├── chat_inference.py       # Live chat backend (model loading, generation, trait projection)
 ├── core/
 │   ├── paths.js           # Centralized PathBuilder (loads from config/paths.yaml)
 │   ├── model-config.js    # Model config loader (loads from config/models/)
@@ -284,6 +288,7 @@ visualization/
     ├── overview.js            # Methodology documentation (markdown + KaTeX)
     ├── trait-extraction.js    # Extraction quality (Trait Development)
     ├── steering-sweep.js      # Layer sweep + multi-layer heatmap (Trait Development)
+    ├── live-chat.js           # Real-time chat with trait monitoring (Inference)
     ├── trait-dynamics.js      # Per-token trait trajectories (Inference)
     └── layer-deep-dive.js     # Attention + SAE features (Inference)
 ```

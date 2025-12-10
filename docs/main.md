@@ -68,6 +68,15 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 ### Directory Structure
 ```
 trait-interp/
+├── datasets/               # Model-agnostic inputs (shared across experiments)
+│   ├── inference/                     # Prompt sets for testing (by type)
+│   │   ├── harmful.json, jailbreak.json, etc.
+│   └── traits/{category}/{trait}/     # Trait definitions (by trait)
+│       ├── positive.txt               # Positive scenarios
+│       ├── negative.txt               # Negative scenarios
+│       ├── definition.txt             # Trait description
+│       └── steering.json              # Steering eval questions
+│
 ├── extraction/             # Vector extraction pipeline (training time)
 │   ├── run_pipeline.py               # Full pipeline orchestrator (recommended)
 │   ├── vet_scenarios.py              # LLM-as-a-judge scenario vetting
@@ -80,7 +89,6 @@ trait-interp/
 ├── inference/              # Per-token monitoring (inference time)
 │   ├── capture_raw_activations.py     # Capture hidden states from model
 │   ├── project_raw_activations_onto_traits.py  # Project onto trait vectors
-│   ├── prompts/                       # Centralized prompt sets
 │   └── README.md                      # Usage guide
 │
 ├── lora/                   # LoRA-based trait extraction (experimental)
@@ -186,13 +194,11 @@ cat > experiments/gemma-2-2b/config.json << 'EOF'
 }
 EOF
 
-# 2. Create scenario files
-vim experiments/gemma-2-2b/extraction/category/my_trait/positive.txt
-vim experiments/gemma-2-2b/extraction/category/my_trait/negative.txt
-vim experiments/gemma-2-2b/extraction/category/my_trait/trait_definition.txt
-
-# 3. Create steering prompts
-vim analysis/steering/prompts/my_trait.json
+# 2. Create scenario files (in datasets/traits/)
+vim datasets/traits/category/my_trait/positive.txt
+vim datasets/traits/category/my_trait/negative.txt
+vim datasets/traits/category/my_trait/definition.txt
+vim datasets/traits/category/my_trait/steering.json
 
 # 4. Run full pipeline (extract + evaluate + steer)
 python extraction/run_pipeline.py \
@@ -287,10 +293,13 @@ cat > experiments/gemma-2-2b/config.json << 'EOF'
   "application_model": "google/gemma-2-2b-it"
 }
 EOF
-# Create: positive.txt, negative.txt, trait_definition.txt
 
-# 2. Create steering prompts
-vim analysis/steering/prompts/my_trait.json
+# 2. Create trait files in datasets/traits/
+mkdir -p datasets/traits/category/my_trait
+vim datasets/traits/category/my_trait/positive.txt
+vim datasets/traits/category/my_trait/negative.txt
+vim datasets/traits/category/my_trait/definition.txt
+vim datasets/traits/category/my_trait/steering.json
 
 # 3. Run full pipeline
 python extraction/run_pipeline.py \
@@ -384,9 +393,9 @@ python extraction/run_pipeline.py \
     --no-steering
 ```
 
-**Required files per trait:**
-- `positive.txt`, `negative.txt`, `trait_definition.txt`
-- `analysis/steering/prompts/{trait_name}.json` (or use `--no-steering`)
+**Required files per trait (in datasets/traits/{trait}/):**
+- `positive.txt`, `negative.txt`, `definition.txt`
+- `steering.json` (or use `--no-steering`)
 
 ## Monitoring
 
@@ -415,7 +424,7 @@ python inference/capture_raw_activations.py \
     --replay --attention
 ```
 
-**Available prompt sets** (JSON files in `inference/prompts/`):
+**Available prompt sets** (JSON files in `datasets/inference/`):
 - `single_trait` - 10 prompts, each targeting one specific trait
 - `multi_trait` - 10 prompts activating multiple traits
 - `dynamic` - 8 prompts designed to cause trait changes mid-response
@@ -475,6 +484,7 @@ The visualization provides:
   - **Trait Extraction**: Comprehensive view of extraction quality. Per-trait layer×method heatmaps (10 per row), best-vector similarity matrix (trait independence), metric distributions, per-method breakdown. Collapsible reference sections for notation, extraction techniques, quality metrics, and scoring.
   - **Steering Sweep**: Layer sweep + multi-layer steering heatmap. Shows behavioral change vs. steering coefficient across layers.
 - **Category 2: Inference Analysis**
+  - **Live Chat**: Interactive chat with real-time trait monitoring. Chat with the model while watching trait dynamics evolve token-by-token.
   - **Trait Dynamics**: Comprehensive trait evolution view. Token trajectory (layer-averaged projections), velocity/acceleration charts, layer derivatives, activation magnitude, and layer×token heatmaps per trait.
   - **Layer Deep Dive**: Mechanistic analysis showing attention heatmaps (layers × context, heads × context) and SAE feature decomposition. Requires `dynamic` prompt set with internals data.
 
@@ -588,13 +598,11 @@ See [analysis/steering/README.md](../analysis/steering/README.md) for full usage
 
 ```bash
 # Create trait directory with scenario files
-mkdir -p experiments/gemma-2-2b-base/extraction/category/my_trait
-vim experiments/gemma-2-2b-base/extraction/category/my_trait/positive.txt
-vim experiments/gemma-2-2b-base/extraction/category/my_trait/negative.txt
-vim experiments/gemma-2-2b-base/extraction/category/my_trait/trait_definition.txt
-
-# Create steering prompts
-vim analysis/steering/prompts/my_trait.json
+mkdir -p datasets/traits/category/my_trait
+vim datasets/traits/category/my_trait/positive.txt
+vim datasets/traits/category/my_trait/negative.txt
+vim datasets/traits/category/my_trait/definition.txt
+vim datasets/traits/category/my_trait/steering.json
 ```
 
 See existing trait directories for examples.
@@ -749,8 +757,8 @@ activations = capture.get("layer_16")  # [batch, seq_len, hidden_dim]
 ### Extraction fails with "Scenario files not found"
 Create scenario files in your experiment's trait directory:
 ```bash
-vim experiments/{your_exp}/extraction/{category}/{trait}/positive.txt
-vim experiments/{your_exp}/extraction/{category}/{trait}/negative.txt
+vim datasets/traits/{category}/{trait}/positive.txt
+vim datasets/traits/{category}/{trait}/negative.txt
 ```
 See existing files in your experiment's trait directory for examples.
 

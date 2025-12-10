@@ -225,10 +225,12 @@ After each batch:
 
 ## Deliverables
 
-1. **positive.txt** — one prefill per line (for `experiments/{exp}/extraction/{category}/{trait}/`)
+All files go in `datasets/traits/{category}/{trait}/`:
+
+1. **positive.txt** — one prefill per line
 2. **negative.txt** — matched by line number
-3. **trait_definition.txt** — IS/ISN'T/scoring guide
-4. **steering prompts** — `analysis/steering/prompts/{trait_name}.json`
+3. **definition.txt** — IS/ISN'T/scoring guide
+4. **steering.json** — eval questions and prompt
 
 **Target:** 100-150 pairs (more data = more robust after filtering)
 
@@ -237,12 +239,11 @@ After each batch:
 ## File Locations
 
 ```
-experiments/{experiment}/extraction/{category}/{trait}/
+datasets/traits/{category}/{trait}/
 ├── positive.txt
 ├── negative.txt
-└── trait_definition.txt
-
-analysis/steering/prompts/{trait_name}.json
+├── definition.txt
+└── steering.json
 ```
 
 ---

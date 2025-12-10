@@ -51,11 +51,11 @@ python extraction/run_pipeline.py --experiment my_exp
 
 ## Prerequisites
 
-**Required files per trait:**
-- `experiments/{experiment}/extraction/{trait}/positive.txt`
-- `experiments/{experiment}/extraction/{trait}/negative.txt`
-- `experiments/{experiment}/extraction/{trait}/trait_definition.txt`
-- `analysis/steering/prompts/{trait_name}.json` (or use `--no-steering`)
+**Required files per trait (in `datasets/traits/{trait}/`):**
+- `positive.txt`
+- `negative.txt`
+- `definition.txt`
+- `steering.json` (or use `--no-steering`)
 
 **Environment:**
 ```bash
@@ -71,9 +71,11 @@ export OPENAI_API_KEY=...        # For vetting and steering (gpt-4.1-mini)
 Create contrasting scenario files that naturally elicit the trait.
 
 ```bash
-mkdir -p experiments/my_exp/extraction/category/my_trait
-vim experiments/my_exp/extraction/category/my_trait/positive.txt
-vim experiments/my_exp/extraction/category/my_trait/negative.txt
+mkdir -p datasets/traits/category/my_trait
+vim datasets/traits/category/my_trait/positive.txt
+vim datasets/traits/category/my_trait/negative.txt
+vim datasets/traits/category/my_trait/definition.txt
+vim datasets/traits/category/my_trait/steering.json
 ```
 
 **Format**: One prompt per line, 100+ prompts per file.
@@ -369,13 +371,13 @@ python analysis/vectors/extraction_evaluation.py \
 ## Complete Example
 
 ```bash
-# 1. Create scenario files
-mkdir -p experiments/gemma-2-2b-base/extraction/epistemic/confidence
-# Create: positive.txt, negative.txt, trait_definition.txt
-
-# 2. Create steering prompts
-vim analysis/steering/prompts/confidence.json
-# Format: {"questions": [...], "eval_prompt": "...{question}...{answer}..."}
+# 1. Create trait files in datasets/
+mkdir -p datasets/traits/epistemic/confidence
+vim datasets/traits/epistemic/confidence/positive.txt
+vim datasets/traits/epistemic/confidence/negative.txt
+vim datasets/traits/epistemic/confidence/definition.txt
+vim datasets/traits/epistemic/confidence/steering.json
+# steering.json format: {"questions": [...], "eval_prompt": "...{question}...{answer}..."}
 
 # 3. Run full pipeline
 python extraction/run_pipeline.py \

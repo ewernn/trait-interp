@@ -98,13 +98,23 @@ body {
 /* Sidebar collapsed state (desktop) */
 .sidebar.collapsed {
     width: 0;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .sidebar.collapsed .sidebar-section,
 .sidebar.collapsed .sidebar-header-content {
     opacity: 0;
     pointer-events: none;
+    visibility: hidden;
+}
+
+.sidebar.collapsed .sidebar-collapse-btn {
+    position: fixed;
+    left: 8px;
+    top: 12px;
+    z-index: 1000;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
 }
 
 .main-content {

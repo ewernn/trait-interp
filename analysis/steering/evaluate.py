@@ -233,8 +233,7 @@ def estimate_activation_norm(
 
 def load_eval_prompts(trait: str) -> Tuple[Dict, Path]:
     """Load evaluation prompts for a trait. Returns (data, path)."""
-    trait_name = trait.split("/")[-1]
-    prompts_file = get('steering.prompt_file', trait=trait_name)
+    prompts_file = get('datasets.trait_steering', trait=trait)
 
     if not prompts_file.exists():
         raise FileNotFoundError(

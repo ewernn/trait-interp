@@ -2,11 +2,11 @@
 """
 Main orchestrator for the full trait pipeline: extraction + evaluation + steering.
 
-Input (required):
-    - experiments/{experiment}/extraction/{trait}/positive.txt
-    - experiments/{experiment}/extraction/{trait}/negative.txt
-    - experiments/{experiment}/extraction/{trait}/trait_definition.txt
-    - analysis/steering/prompts/{trait_name}.json (or use --no-steering)
+Input (required, in datasets/):
+    - datasets/traits/{trait}/positive.txt
+    - datasets/traits/{trait}/negative.txt
+    - datasets/traits/{trait}/definition.txt
+    - datasets/traits/{trait}/steering.json (or use --no-steering)
     - experiments/{experiment}/config.json (auto-created with extraction_model and application_model)
 
 Output:
@@ -63,24 +63,27 @@ from extraction.extract_vectors import extract_vectors_for_trait
 def validate_trait_files(experiment: str, trait: str, no_steering: bool = False) -> tuple[bool, list[str]]:
     """
     Validate that all required files exist for a trait.
+    Inputs are in datasets/traits/{trait}/, outputs go to experiments/{experiment}/.
 
     Returns:
         (is_valid, list of error messages)
     """
     errors = []
-    trait_dir = get_path('extraction.trait', experiment=experiment, trait=trait)
-    trait_name = Path(trait).name
 
-    # Required extraction files
-    required_files = ['positive.txt', 'negative.txt', 'trait_definition.txt']
-    for filename in required_files:
-        filepath = trait_dir / filename
+    # Required input files (from datasets/traits/)
+    for filename in ['positive.txt', 'negative.txt']:
+        filepath = get_path('datasets.trait', trait=trait) / filename
         if not filepath.exists():
             errors.append(f"Missing: {filepath}")
 
+    # Definition file (optional but recommended)
+    definition_path = get_path('datasets.trait_definition', trait=trait)
+    if not definition_path.exists():
+        errors.append(f"Missing (recommended): {definition_path}")
+
     # Steering prompts (required unless --no-steering)
     if not no_steering:
-        prompts_file = get_path('steering.prompt_file', trait=trait_name)
+        prompts_file = get_path('datasets.trait_steering', trait=trait)
         if not prompts_file.exists():
             errors.append(f"Missing steering prompts: {prompts_file}")
             errors.append(f"  Create this file or use --no-steering to skip steering evaluation")
@@ -142,22 +145,23 @@ def ensure_experiment_config(experiment: str, extraction_model: str, application
 
     return config
 
-def discover_traits(experiment: str) -> list[str]:
+def discover_traits(experiment: str = None) -> list[str]:
     """
-    Finds all traits within an experiment's extraction directory.
-    This assumes the user has already created the directory structure.
-    e.g., `experiments/my_exp/extraction/cognitive_state/confidence`
+    Finds all traits defined in datasets/traits/.
+    Traits are global - the experiment parameter is ignored (kept for compatibility).
     """
-    extraction_dir = get_path('extraction.base', experiment=experiment)
+    traits_dir = get_path('datasets.traits')
     traits = []
-    if not extraction_dir.is_dir():
+    if not traits_dir.is_dir():
         return []
-        
-    for category_dir in extraction_dir.iterdir():
+
+    for category_dir in traits_dir.iterdir():
         if category_dir.is_dir():
             for trait_dir in category_dir.iterdir():
                 if trait_dir.is_dir():
-                    traits.append(f"{category_dir.name}/{trait_dir.name}")
+                    # Check for required files
+                    if (trait_dir / 'positive.txt').exists() and (trait_dir / 'negative.txt').exists():
+                        traits.append(f"{category_dir.name}/{trait_dir.name}")
     return sorted(traits)
 
 def run_vetting(experiment: str, trait: str, stage: str,
@@ -265,8 +269,8 @@ def run_pipeline(
 
     if not available_traits:
         print("\nNo traits found. To create a new trait, first create its directory:")
-        print("  mkdir -p experiments/<experiment_name>/extraction/<category_name>/<trait_name>")
-        print("Then add positive.txt, negative.txt, and trait_definition.txt files.")
+        print("  mkdir -p datasets/traits/<category>/<trait>")
+        print("Then add positive.txt, negative.txt, definition.txt, and steering.json files.")
         return
 
     # --- Validate all traits before starting ---

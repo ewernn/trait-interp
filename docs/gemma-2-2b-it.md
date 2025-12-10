@@ -279,7 +279,7 @@ See `inference/README.md` for complete capture options.
 
 ## Prompt Sets
 
-Pre-defined prompt sets are in `inference/prompts/*.json`:
+Pre-defined prompt sets are in `datasets/inference/*.json`:
 
 - **single_trait** (10 prompts): Each targets one specific trait
 - **multi_trait** (10 prompts): Activate multiple traits simultaneously

@@ -64,7 +64,7 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         """Add CORS headers to all responses."""
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         super().end_headers()
 
@@ -147,6 +147,62 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             # Browser cancelled request - expected when loading many files
             pass
+
+    def do_POST(self):
+        """Handle POST requests for chat API."""
+        try:
+            if self.path == '/api/chat':
+                self.handle_chat_stream()
+                return
+
+            # Unknown POST endpoint
+            self.send_error(404, "Not Found")
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def handle_chat_stream(self):
+        """Stream chat response with trait scores via SSE."""
+        # Read request body
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length).decode('utf-8')
+
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON")
+            return
+
+        prompt = data.get('prompt', '')
+        experiment = data.get('experiment', 'gemma-2-2b-it')
+        max_tokens = data.get('max_tokens', 100)
+        temperature = data.get('temperature', 0.7)
+
+        if not prompt:
+            self.send_error(400, "Missing prompt")
+            return
+
+        # Send SSE headers
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/event-stream')
+        self.send_header('Cache-Control', 'no-cache')
+        self.send_header('Connection', 'keep-alive')
+        self.end_headers()
+
+        try:
+            # Import here to avoid loading model on server start
+            from visualization.chat_inference import get_chat_instance
+
+            chat = get_chat_instance(experiment)
+
+            for event in chat.generate(prompt, max_new_tokens=max_tokens, temperature=temperature):
+                sse_data = f"data: {json.dumps(event)}\n\n"
+                self.wfile.write(sse_data.encode())
+                self.wfile.flush()
+
+        except Exception as e:
+            error_event = f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
+            self.wfile.write(error_event.encode())
+            self.wfile.flush()
 
     def send_api_response(self, data):
         """Send JSON API response."""
@@ -262,11 +318,14 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def list_prompt_sets(self, experiment_name):
         """List all prompt sets with available prompt IDs for an experiment.
 
-        Discovers available prompts by scanning raw/residual/{prompt_set}/ directories.
-        Also loads prompt definitions from inference/prompts/{set}.json files.
+        Discovers available prompts by scanning:
+        1. Per-trait projection JSONs: inference/{trait}/residual_stream/{prompt_set}/*.json
+        2. Fallback to raw .pt files: raw/residual/{prompt_set}/*.pt
+
+        Prompt definitions loaded from datasets/inference/{set}.json.
         """
-        exp_dir = get_path('experiments.base', experiment=experiment_name)
-        prompts_def_dir = exp_dir / 'inference' / 'prompts'
+        prompts_def_dir = get_path('datasets.inference')
+        inference_dir = get_path('inference.base', experiment=experiment_name)
         raw_residual_dir = get_path('inference.raw', experiment=experiment_name) / 'residual'
 
         prompt_sets = []
@@ -283,17 +342,36 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 except Exception:
                     definition = {'prompts': []}
 
-                # Discover available IDs from raw/residual/{set}/
-                available_ids = []
-                set_raw_dir = raw_residual_dir / set_name
-                if set_raw_dir.exists():
-                    for pt_file in set_raw_dir.glob('*.pt'):
-                        # Parse ID from filename: "1.pt" -> 1
-                        try:
-                            prompt_id = int(pt_file.stem)
-                            available_ids.append(prompt_id)
-                        except ValueError:
+                # Discover available IDs from projection JSONs across all traits
+                available_ids = set()
+
+                # Check per-trait projection directories
+                if inference_dir.exists():
+                    # Scan all trait directories for residual_stream/{set}/*.json
+                    for trait_dir in inference_dir.iterdir():
+                        if not trait_dir.is_dir() or trait_dir.name == 'raw' or trait_dir.name == 'prompts':
                             continue
+                        # Handle nested category/trait structure
+                        for subdir in trait_dir.rglob('residual_stream'):
+                            set_proj_dir = subdir / set_name
+                            if set_proj_dir.exists():
+                                for json_file in set_proj_dir.glob('*.json'):
+                                    try:
+                                        prompt_id = int(json_file.stem)
+                                        available_ids.add(prompt_id)
+                                    except ValueError:
+                                        continue
+
+                # Fallback: check raw .pt files if no projections found
+                if not available_ids:
+                    set_raw_dir = raw_residual_dir / set_name
+                    if set_raw_dir.exists():
+                        for pt_file in set_raw_dir.glob('*.pt'):
+                            try:
+                                prompt_id = int(pt_file.stem)
+                                available_ids.add(prompt_id)
+                            except ValueError:
+                                continue
 
                 prompt_sets.append({
                     'name': set_name,
@@ -306,17 +384,16 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def list_prompts_in_set(self, experiment_name, prompt_set):
         """List all prompts in a specific prompt set."""
-        inference_dir = get_path('inference.base', experiment=experiment_name)
-        prompt_file = inference_dir / 'prompts' / f'{prompt_set}.txt'
+        prompt_file = get_path('datasets.inference_prompt_set', prompt_set=prompt_set)
         if not prompt_file.exists():
             return {'error': f'Prompt set not found: {prompt_set}'}
 
         try:
             with open(prompt_file) as f:
-                prompts = [line.strip() for line in f if line.strip()]
+                data = json.load(f)
             return {
                 'prompt_set': prompt_set,
-                'prompts': prompts
+                'prompts': data.get('prompts', [])
             }
         except Exception as e:
             return {'error': str(e)}

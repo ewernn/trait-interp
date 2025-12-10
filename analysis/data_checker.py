@@ -30,6 +30,8 @@ from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Optional, Set
 from enum import Enum
 
+from utils.paths import get as get_path
+
 
 # =============================================================================
 # SCHEMA LOADING
@@ -277,8 +279,8 @@ def check_inference(exp_dir: Path, traits: List[str]) -> InferenceIntegrity:
         result.issues.append("No inference directory")
         return result
 
-    # Discover prompt sets
-    prompts_dir = inference_dir / "prompts"
+    # Discover prompt sets from datasets/inference/
+    prompts_dir = get_path('datasets.inference')
     if prompts_dir.exists():
         for prompt_file in prompts_dir.glob("*.json"):
             result.prompt_sets[prompt_file.stem] = True

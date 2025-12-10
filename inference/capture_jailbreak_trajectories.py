@@ -22,6 +22,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from traitlens import HookManager, projection
 from traitlens.compute import compute_derivative
 from utils.model import format_prompt
+from utils.paths import get as get_path
 
 
 MODEL_NAME = "google/gemma-2-2b-it"
@@ -131,7 +132,7 @@ def main():
     args = parser.parse_args()
 
     # Load prompts
-    prompt_path = Path(f"inference/prompts/{args.prompt_set}.json")
+    prompt_path = get_path('datasets.inference_prompt_set', prompt_set=args.prompt_set)
     with open(prompt_path) as f:
         data = json.load(f)
     prompts = data['prompts']

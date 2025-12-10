@@ -5,7 +5,7 @@ Vet generated responses using gpt-4.1-mini with logprob scoring.
 Input:
     - experiments/{experiment}/extraction/{trait}/responses/pos.json
     - experiments/{experiment}/extraction/{trait}/responses/neg.json
-    - experiments/{experiment}/extraction/{trait}/trait_definition.txt
+    - datasets/traits/{trait}/definition.txt
 
 Output:
     - experiments/{experiment}/extraction/{trait}/vetting/response_scores.json
@@ -47,9 +47,8 @@ def load_responses(experiment: str, trait: str) -> dict:
 
 
 def load_trait_definition(experiment: str, trait: str) -> str:
-    """Load trait definition file."""
-    trait_dir = get_path('extraction.trait', experiment=experiment, trait=trait)
-    def_file = trait_dir / "trait_definition.txt"
+    """Load trait definition file from datasets/traits/."""
+    def_file = get_path('datasets.trait_definition', trait=trait)
 
     if def_file.exists():
         with open(def_file) as f:

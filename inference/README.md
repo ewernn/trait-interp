@@ -69,9 +69,9 @@ Residual stream is **always** captured (baseline). Optional add-ons for visualiz
 
 | Flag | Description |
 |------|-------------|
-| `--prompt-set NAME` | Use prompts from `inference/prompts/{NAME}.json` |
+| `--prompt-set NAME` | Use prompts from `datasets/inference/{NAME}.json` |
 | `--prompt "text"` | Single ad-hoc prompt |
-| `--all-prompt-sets` | Process all `.json` files in `inference/prompts/` |
+| `--all-prompt-sets` | Process all `.json` files in `datasets/inference/` |
 
 ### Options
 
@@ -244,7 +244,7 @@ The `vector_source` object tracks which model the vector was extracted from and 
 
 ## Prompt Sets
 
-JSON files in `inference/prompts/`:
+JSON files in `datasets/inference/`:
 
 | File | Description |
 |------|-------------|
