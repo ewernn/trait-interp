@@ -34,6 +34,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[analysis/steering/PLAN.md](../analysis/steering/PLAN.md)** - Implementation plan and methodology
 
 ### Research & Methodology
+- **[docs/steering_results.md](steering_results.md)** - Steering evaluation results log (chronological)
 - **[docs/research_findings.md](research_findings.md)** - Empirical experiment results (EM replication, token dynamics)
 - **[docs/insights.md](insights.md)** - Key research findings and discoveries
 - **[docs/conceptual_framework.md](conceptual_framework.md)** - Mental models and theoretical foundations
