@@ -20,8 +20,9 @@ curl -fsSL https://claude.ai/install.sh | bash
 git clone https://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@github.com/ewernn/trait-interp.git
 cd trait-interp
 
-# 4. Auto-source .env in all terminals (current + future)
-echo 'source ~/trait-interp/.env' >> ~/.bashrc
+# 4. Persist env vars for all shells
+echo 'export $(cat ~/trait-interp/.env | grep -v "^#" | xargs)' >> ~/.bashrc
+echo 'export HF_HOME=~/.cache/huggingface' >> ~/.bashrc
 source ~/.bashrc
 
 # 5. Pull data and install deps
