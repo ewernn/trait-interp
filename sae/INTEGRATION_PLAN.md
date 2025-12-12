@@ -148,8 +148,8 @@ async function loadSaeLabels() {
   - Activation value at this token
 
 **Attention vs MLP Toggle** (future)
-- Compare features from `residual_in` vs `after_attn` vs `residual_out`
-- Shows what attention vs MLP contribute
+- Compare features from `after_attn` vs `residual_out`
+- Shows what MLP contributes (attention contribution = after_attn - prev_layer_residual_out)
 
 #### 3.2 Rendering Flow
 

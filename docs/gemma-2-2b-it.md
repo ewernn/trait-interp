@@ -117,7 +117,6 @@ There are two capture modes with different data structures:
 
         'activations': {
             '0': {
-                'residual_in': torch.Tensor,   # [N, 2304]
                 'after_attn': torch.Tensor,    # [N, 2304]
                 'residual_out': torch.Tensor   # [N, 2304]
             },
@@ -141,7 +140,6 @@ There are two capture modes with different data structures:
 
         'activations': {
             '0': {
-                'residual_in': torch.Tensor,   # [50, 2304]
                 'after_attn': torch.Tensor,    # [50, 2304]
                 'residual_out': torch.Tensor   # [50, 2304]
             },
