@@ -24,6 +24,9 @@ import os
 import math
 import asyncio
 from typing import Optional, Dict, List, Tuple
+from dotenv import load_dotenv
+
+load_dotenv()  # Load .env file (OPENAI_API_KEY, etc.)
 
 
 # Prompt templates

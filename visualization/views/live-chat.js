@@ -27,7 +27,30 @@ let isGenerating = false;
 let abortController = null;
 let hoveredMessageId = null;
 let showSmoothedLine = true;
+let includePromptTokens = false;
 let editingNodeId = null;
+let currentModelType = 'application';  // 'application' or 'extraction'
+let modelNames = { application: null, extraction: null };  // Loaded from config
+
+/**
+ * Load model names from experiment config
+ */
+async function loadModelNames() {
+    const experiment = window.state.currentExperiment;
+    if (!experiment) return;
+
+    try {
+        const response = await fetch(`/api/experiments/${experiment}/config`);
+        const config = await response.json();
+
+        modelNames.application = config.application_model || 'google/gemma-2-2b-it';
+        modelNames.extraction = config.extraction_model || 'google/gemma-2-2b';
+    } catch (e) {
+        console.error('Failed to load model config:', e);
+        modelNames.application = 'application';
+        modelNames.extraction = 'extraction';
+    }
+}
 
 /**
  * Render the live chat view
@@ -41,6 +64,16 @@ async function renderLiveChat() {
         conversationTree = new window.ConversationTree();
     }
 
+    // Load model names from config
+    await loadModelNames();
+
+    // If already rendered with conversation, just update chart (don't rebuild UI)
+    const existingView = container.querySelector('.live-chat-view');
+    if (existingView && conversationTree.globalTokens.length > 0) {
+        updateTraitChart();
+        return;
+    }
+
     container.innerHTML = `
         <div class="tool-view live-chat-view">
             <div class="live-chat-container">
@@ -49,9 +82,24 @@ async function renderLiveChat() {
                     <div class="chart-header">
                         <h3>Trait Dynamics</h3>
                         <div class="chart-controls">
+                            <label class="model-picker">
+                                <span class="model-label">Model:</span>
+                                <select id="model-select">
+                                    <option value="application" ${currentModelType === 'application' ? 'selected' : ''}>
+                                        ${modelNames.application || 'Loading...'}
+                                    </option>
+                                    <option value="extraction" ${currentModelType === 'extraction' ? 'selected' : ''}>
+                                        ${modelNames.extraction || 'Loading...'}
+                                    </option>
+                                </select>
+                            </label>
                             <label class="smooth-toggle">
                                 <input type="checkbox" id="smooth-toggle" ${showSmoothedLine ? 'checked' : ''}>
-                                <span>5-token avg</span>
+                                <span>3-token avg</span>
+                            </label>
+                            <label class="prompt-toggle">
+                                <input type="checkbox" id="prompt-toggle" ${includePromptTokens ? 'checked' : ''}>
+                                <span>Include prompt</span>
                             </label>
                         </div>
                         <div class="chart-legend" id="chart-legend"></div>
@@ -169,6 +217,18 @@ function addLiveChatStyles() {
 
         .message-content {
             word-break: break-word;
+        }
+
+        .token-span {
+            display: inline;
+            transition: background-color 0.2s ease;
+        }
+
+        .token-span.hovered-token {
+            background-color: var(--accent-color);
+            color: var(--bg-primary);
+            padding: 2px 0;
+            border-radius: 2px;
         }
 
         .message-actions {
@@ -317,10 +377,37 @@ function addLiveChatStyles() {
         .chart-controls {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 12px;
         }
 
-        .smooth-toggle {
+        .model-picker {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+        }
+
+        .model-label {
+            font-weight: 500;
+        }
+
+        .model-picker select {
+            padding: 3px 6px;
+            border: 1px solid var(--border-color);
+            border-radius: 2px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: var(--text-xs);
+            cursor: pointer;
+            max-width: 200px;
+        }
+
+        .model-picker select:hover {
+            border-color: var(--primary-color);
+        }
+
+        .smooth-toggle, .prompt-toggle {
             display: flex;
             align-items: center;
             gap: 4px;
@@ -329,7 +416,7 @@ function addLiveChatStyles() {
             cursor: pointer;
         }
 
-        .smooth-toggle input {
+        .smooth-toggle input, .prompt-toggle input {
             cursor: pointer;
         }
 
@@ -390,7 +477,9 @@ function setupChatHandlers() {
     const input = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     const clearBtn = document.getElementById('clear-btn');
+    const modelSelect = document.getElementById('model-select');
     const smoothToggle = document.getElementById('smooth-toggle');
+    const promptToggle = document.getElementById('prompt-toggle');
 
     sendBtn.addEventListener('click', () => handleSend());
     clearBtn.addEventListener('click', () => clearChat());
@@ -406,10 +495,26 @@ function setupChatHandlers() {
         }
     });
 
+    if (modelSelect) {
+        modelSelect.addEventListener('change', (e) => {
+            currentModelType = e.target.value;
+            console.log(`[LiveChat] Switched to ${currentModelType} model: ${modelNames[currentModelType]}`);
+            // Clear chat when switching models (different model = new conversation)
+            clearChat();
+        });
+    }
+
     if (smoothToggle) {
         smoothToggle.addEventListener('change', (e) => {
             showSmoothedLine = e.target.checked;
             updateTraitChart();
+        });
+    }
+
+    if (promptToggle) {
+        promptToggle.addEventListener('change', (e) => {
+            includePromptTokens = e.target.checked;
+            // Note: This will affect next message only (doesn't retroactively add prompt tokens)
         });
     }
 }
@@ -494,8 +599,18 @@ async function generateResponse(prompt, assistantNodeId) {
     sendBtn.disabled = true;
     sendBtn.textContent = 'Generating...';
 
-    // Get history for API (all messages before current assistant)
-    const history = conversationTree.getHistoryForAPI(assistantNodeId);
+    // Get history for API (all messages BEFORE the current user message)
+    // The assistant's parent is the current user message - we exclude it since prompt is sent separately
+    const assistantNode = conversationTree.getNode(assistantNodeId);
+    const currentUserNodeId = assistantNode.parentId;
+
+    // Debug
+    console.log('[LiveChat] assistantNodeId:', assistantNodeId);
+    console.log('[LiveChat] currentUserNodeId (parent):', currentUserNodeId);
+    console.log('[LiveChat] activePathIds:', conversationTree.activePathIds);
+
+    const history = conversationTree.getHistoryForAPI(currentUserNodeId);
+    console.log('[LiveChat] history being sent:', history);
 
     try {
         const response = await fetch('/api/chat', {
@@ -503,10 +618,12 @@ async function generateResponse(prompt, assistantNodeId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 prompt: prompt,
-                experiment: window.state.currentExperiment || 'gemma-2-2b-it',
+                experiment: window.state.currentExperiment,
                 max_tokens: 100,
                 temperature: 0.7,
-                history: history
+                history: history,
+                include_prompt: includePromptTokens,
+                model_type: currentModelType
             })
         });
 
@@ -649,6 +766,25 @@ function handleMessageHover(messageId) {
 }
 
 /**
+ * Render message content with tokenization for hover highlighting
+ */
+function renderTokenizedContent(node) {
+    if (!node.content) return '';
+
+    // For assistant messages with token events, render as spans
+    if (node.role === 'assistant' && node.tokenEvents && node.tokenEvents.length > 0) {
+        return node.tokenEvents.map((event, idx) => {
+            const globalTokenIdx = node.tokenStartIdx + idx;
+            const tokenText = window.escapeHtml(event.token);
+            return `<span class="token-span" data-token-idx="${globalTokenIdx}">${tokenText}</span>`;
+        }).join('');
+    }
+
+    // For user messages or assistant messages without tokens, just escape
+    return window.escapeHtml(node.content);
+}
+
+/**
  * Render all messages in the active path
  */
 function renderMessages() {
@@ -683,10 +819,10 @@ function renderMessages() {
                  onmouseenter="handleMessageHover('${node.id}')"
                  onmouseleave="handleMessageHover(null)">
 
-                <div class="message-content">
+                <div class="message-content" data-message-id="${node.id}">
                     ${isCurrentlyGenerating && !node.content
                         ? '<span class="generating-indicator"></span>'
-                        : window.escapeHtml(node.content || '')}
+                        : renderTokenizedContent(node)}
                     ${isCurrentlyGenerating && node.content ? '<span class="generating-indicator"></span>' : ''}
                 </div>
 
@@ -779,41 +915,80 @@ function updateTraitChart() {
     if (!chartDiv || globalTokens.length === 0) return;
 
     const firstEvent = globalTokens[0];
-    const traitNames = Object.keys(firstEvent.trait_scores || {});
-    if (traitNames.length === 0) return;
+    const allTraitNames = Object.keys(firstEvent.trait_scores || {});
+    if (allTraitNames.length === 0) return;
+
+    // Filter by selected traits (if any are selected)
+    // selectedTraits has full paths like "behavioral_tendency/refusal"
+    // allTraitNames has just base names like "refusal"
+    const selectedTraits = window.state?.selectedTraits;
+    let traitNames = allTraitNames;
+    if (selectedTraits && selectedTraits.size > 0) {
+        // Extract base names from selected traits for matching
+        const selectedBaseNames = new Set(
+            Array.from(selectedTraits).map(t => t.includes('/') ? t.split('/').pop() : t)
+        );
+        traitNames = allTraitNames.filter(t => selectedBaseNames.has(t));
+    }
+    if (traitNames.length === 0) traitNames = allTraitNames;  // Fallback: show all if none match
 
     const traces = [];
 
     traitNames.forEach((trait, idx) => {
-        const rawY = globalTokens.map(e => e.trait_scores[trait] || 0);
-        const x = globalTokens.map((_, i) => i);
         const color = CHAT_TRAIT_COLORS[idx % CHAT_TRAIT_COLORS.length];
 
-        // Raw line
-        traces.push({
-            name: trait,
-            x: x,
-            y: rawY,
-            type: 'scatter',
-            mode: 'lines',
-            line: { color: color, width: 1.5 },
-            hovertemplate: `${trait}: %{y:.3f}<extra></extra>`,
-            showlegend: true
+        // Split tokens into prompt and response
+        const promptIndices = [];
+        const promptScores = [];
+        const responseIndices = [];
+        const responseScores = [];
+
+        globalTokens.forEach((e, i) => {
+            const score = e.trait_scores[trait] || 0;
+            if (e.is_prompt) {
+                promptIndices.push(i);
+                promptScores.push(score);
+            } else {
+                responseIndices.push(i);
+                responseScores.push(score);
+            }
         });
 
-        // 5-token smoothed line (if enabled)
-        if (showSmoothedLine && rawY.length >= 3) {
-            const smoothedY = computeRunningAverage(rawY, 5);
+        // Apply smoothing if requested
+        const getY = (indices, scores) => {
+            if (showSmoothedLine && scores.length >= 3) {
+                return computeRunningAverage(scores, 3);
+            }
+            return scores;
+        };
+
+        // Add prompt tokens trace (dotted line)
+        if (promptIndices.length > 0) {
             traces.push({
-                name: `${trait} (avg)`,
-                x: x,
-                y: smoothedY,
+                name: `${trait} (prompt)`,
+                x: promptIndices,
+                y: getY(promptIndices, promptScores),
                 type: 'scatter',
                 mode: 'lines',
-                line: { color: color, width: 3 },
-                opacity: 0.5,
-                hovertemplate: `${trait} (5-avg): %{y:.3f}<extra></extra>`,
-                showlegend: false
+                line: { color: color, width: 1.5, dash: 'dot' },
+                hovertemplate: `${trait}: %{y:.3f} (prompt)<extra></extra>`,
+                showlegend: true,
+                legendgroup: trait
+            });
+        }
+
+        // Add response tokens trace (solid line)
+        if (responseIndices.length > 0) {
+            traces.push({
+                name: trait,
+                x: responseIndices,
+                y: getY(responseIndices, responseScores),
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: color, width: 2 },
+                hovertemplate: `${trait}: %{y:.3f}<extra></extra>`,
+                showlegend: true,
+                legendgroup: trait
             });
         }
     });
@@ -841,6 +1016,49 @@ function updateTraitChart() {
     });
 
     Plotly.react(chartDiv, traces, layout, { responsive: true });
+
+    // Add hover event listener for token highlighting
+    // Note: Plotly event listeners are persistent across reacts, so we don't need to remove them
+    // Only attach if not already attached
+    if (!chartDiv._tokenHoverAttached) {
+        chartDiv.on('plotly_hover', (data) => {
+            if (data.points && data.points.length > 0) {
+                const tokenIdx = Math.round(data.points[0].x);
+                highlightTokenInChat(tokenIdx);
+            }
+        });
+
+        chartDiv.on('plotly_unhover', () => {
+            clearTokenHighlight();
+        });
+
+        chartDiv._tokenHoverAttached = true;
+    }
+}
+
+/**
+ * Highlight a specific token in the chat messages
+ */
+function highlightTokenInChat(tokenIdx) {
+    // Clear previous highlights
+    clearTokenHighlight();
+
+    // Find token span with this index
+    const tokenSpan = document.querySelector(`.token-span[data-token-idx="${tokenIdx}"]`);
+    if (tokenSpan) {
+        tokenSpan.classList.add('hovered-token');
+        // Scroll into view if needed
+        tokenSpan.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+/**
+ * Clear token highlighting
+ */
+function clearTokenHighlight() {
+    document.querySelectorAll('.token-span.hovered-token').forEach(el => {
+        el.classList.remove('hovered-token');
+    });
 }
 
 /**

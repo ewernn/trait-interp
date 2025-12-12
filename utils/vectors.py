@@ -35,7 +35,7 @@ def get_best_layer(experiment: str, trait: str) -> dict:
         source is one of: 'cached', 'steering', 'effect_size', 'default'
 
     Example:
-        >>> best = get_best_layer('gemma-2-2b-it', 'epistemic/optimism')
+        >>> best = get_best_layer('{experiment}', '{category}/{trait}')
         >>> print(f"L{best['layer']} {best['method']} (from {best['source']}: {best['score']:.1f})")
     """
     # 1. Check for cached result in extraction_evaluation.json

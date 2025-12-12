@@ -4,8 +4,8 @@ Model architecture registry. Loads from config/models/*.yaml
 Usage:
     from utils.model_registry import get_model_config, get_num_layers
 
-    config = get_model_config('gemma-2-2b-it')
-    n_layers = get_num_layers('gemma-2-2b-it')
+    config = get_model_config('google/gemma-2-2b-it')
+    n_layers = get_num_layers('google/gemma-2-2b-it')
 """
 
 import json

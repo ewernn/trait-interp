@@ -49,6 +49,9 @@ import json
 import argparse
 from pathlib import Path
 from typing import List, Optional
+from dotenv import load_dotenv
+
+load_dotenv()  # Load .env file (HF_TOKEN, API keys, etc.)
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 

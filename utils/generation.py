@@ -302,7 +302,8 @@ def generate_with_capture(
     temperature: float = 0.7,
     capture_attn: bool = False,
     show_progress: bool = True,
-) -> List[CaptureResult]:
+    yield_per_batch: bool = False,
+):
     """
     Batched generation with per-token activation capture.
 
@@ -316,9 +317,12 @@ def generate_with_capture(
         temperature: Sampling temperature
         capture_attn: Whether to also capture attn_out
         show_progress: Whether to show progress bars
+        yield_per_batch: If True, yield List[CaptureResult] after each batch (generator mode).
+                         If False, return all results at end (default, backwards compatible).
 
     Returns:
-        List of CaptureResult, one per prompt
+        If yield_per_batch=False: List of CaptureResult, one per prompt
+        If yield_per_batch=True: Generator yielding (batch_results, batch_prompts) tuples
     """
     from tqdm import tqdm
 
@@ -332,19 +336,31 @@ def generate_with_capture(
         tokenizer.pad_token = tokenizer.eos_token
 
     hidden_size = model.config.hidden_size
-    results = []
 
     # Process in batches
     batches = [prompts[i:i+batch_size] for i in range(0, len(prompts), batch_size)]
 
-    for batch_prompts in (tqdm(batches, desc="Batches") if show_progress else batches):
-        batch_results = _capture_batch(
-            model, tokenizer, batch_prompts, n_layers, hidden_size,
-            max_new_tokens, temperature, capture_attn, show_progress
-        )
-        results.extend(batch_results)
-
-    return results
+    if yield_per_batch:
+        # Generator mode: yield after each batch for incremental saving
+        def _generator():
+            batch_iter = tqdm(batches, desc="Batches") if show_progress else batches
+            for batch_prompts in batch_iter:
+                batch_results = _capture_batch(
+                    model, tokenizer, batch_prompts, n_layers, hidden_size,
+                    max_new_tokens, temperature, capture_attn, show_progress=False
+                )
+                yield batch_results, batch_prompts
+        return _generator()
+    else:
+        # Blocking mode: collect all results (backwards compatible)
+        results = []
+        for batch_prompts in (tqdm(batches, desc="Batches") if show_progress else batches):
+            batch_results = _capture_batch(
+                model, tokenizer, batch_prompts, n_layers, hidden_size,
+                max_new_tokens, temperature, capture_attn, show_progress
+            )
+            results.extend(batch_results)
+        return results
 
 
 def _capture_batch(

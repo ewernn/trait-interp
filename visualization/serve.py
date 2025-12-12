@@ -173,10 +173,20 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         prompt = data.get('prompt', '')
-        experiment = data.get('experiment', 'gemma-2-2b-it')
+        # Default to first discovered experiment if not specified
+        if 'experiment' not in data:
+            experiments = self.list_experiments()['experiments']
+            experiment = experiments[0] if experiments else None
+            if not experiment:
+                self.send_error(400, "No experiments found")
+                return
+        else:
+            experiment = data['experiment']
         max_tokens = data.get('max_tokens', 100)
         temperature = data.get('temperature', 0.7)
         history = data.get('history', [])  # Multi-turn conversation history
+        include_prompt = data.get('include_prompt', False)  # Prompt token scoring
+        model_type = data.get('model_type', 'application')  # Which model to use: extraction or application
 
         if not prompt:
             self.send_error(400, "Missing prompt")
@@ -193,9 +203,9 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             # Import here to avoid loading model on server start
             from visualization.chat_inference import get_chat_instance
 
-            chat = get_chat_instance(experiment)
+            chat = get_chat_instance(experiment, model_type=model_type)
 
-            for event in chat.generate(prompt, max_new_tokens=max_tokens, temperature=temperature, history=history):
+            for event in chat.generate(prompt, max_new_tokens=max_tokens, temperature=temperature, history=history, include_prompt=include_prompt):
                 sse_data = f"data: {json.dumps(event)}\n\n"
                 self.wfile.write(sse_data.encode())
                 self.wfile.flush()
@@ -275,12 +285,8 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if has_traits:
                     experiments.append(item.name)
 
-        # Sort alphabetically, but prioritize gemma-2-2b-it as default
-        def sort_key(name):
-            if name == 'gemma-2-2b-it':
-                return (0, name)
-            return (1, name)
-        return {'experiments': sorted(experiments, key=sort_key)}
+        # Sort alphabetically
+        return {'experiments': sorted(experiments)}
 
     def list_traits(self, experiment_name):
         """List all traits for an experiment."""

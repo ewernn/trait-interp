@@ -34,6 +34,7 @@ rclone sync experiments/ r2:trait-interp-bucket/experiments/ \
   --exclude ".DS_Store" \
   --exclude "**/activations/**" \
   --exclude "**/val_activations/**" \
+  
 
 # What gets synced to R2:
 #   ✅ Vectors (.pt in vectors/) - the extracted trait vectors
