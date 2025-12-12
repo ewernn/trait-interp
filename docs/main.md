@@ -52,6 +52,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 
 ### Infrastructure & Setup
 - **[config/paths.yaml](../config/paths.yaml)** - Single source of truth for all repo paths
+- **[docs/traitlens_reference.md](traitlens_reference.md)** - traitlens API quick reference (extraction toolkit)
 - **[docs/gemma-2-2b-it.md](gemma-2-2b-it.md)** - Gemma-2-2B-IT data format reference (tensor shapes, capture structures)
 - **[docs/numerical_stability_analysis.md](numerical_stability_analysis.md)** - Float16/float32 precision handling
 - **[docs/remote_setup.md](remote_setup.md)** - Remote GPU instance setup guide
@@ -446,6 +447,7 @@ The script:
 - **Dynamically discovers** all traits with vectors (no hardcoded categories)
 - **Captures once, projects to all traits** - efficient multi-trait processing
 - **Saves raw activations (.pt)** + per-trait projection JSONs with dynamics
+- **Crash resilient** - saves after each batch; use `--skip-existing` to resume
 
 See [inference/README.md](../inference/README.md) for detailed usage.
 
@@ -588,13 +590,13 @@ Validate trait vectors via causal intervention - add `coefficient * vector` to l
 ```bash
 # Basic usage - sweeps all layers, finds good coefficients automatically
 python analysis/steering/evaluate.py \
-    --experiment gemma-2-2b-it \
-    --vector-from-trait gemma-2-2b-it/og_10/confidence
+    --experiment {experiment} \
+    --vector-from-trait {experiment}/{category}/{trait}
 
 # Specific layers only
 python analysis/steering/evaluate.py \
-    --experiment gemma-2-2b-it \
-    --vector-from-trait gemma-2-2b-it/og_10/confidence \
+    --experiment {experiment} \
+    --vector-from-trait {experiment}/{category}/{trait} \
     --layers 10,12,14,16
 ```
 
@@ -710,16 +712,16 @@ defaults:
 ```python
 from utils.model_registry import get_model_config, get_num_layers, get_sae_path
 
-config = get_model_config('gemma-2-2b-it')
+config = get_model_config('google/gemma-2-2b-it')
 config['num_hidden_layers']  # 26
 
-get_num_layers('gemma-2-2b-it')  # 26
-get_sae_path('gemma-2-2b-it', 16)  # Path to SAE directory
+get_num_layers('google/gemma-2-2b-it')  # 26
+get_sae_path('google/gemma-2-2b-it', 16)  # Path to SAE directory
 ```
 
 **JavaScript usage:**
 ```javascript
-await modelConfig.loadForExperiment('gemma-2-2b-it');
+await modelConfig.loadForExperiment('{experiment}');
 modelConfig.getNumLayers();  // 26
 modelConfig.getSaePath(16);  // 'sae/gemma-scope.../layer_16_...'
 ```

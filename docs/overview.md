@@ -110,6 +110,8 @@ The unit-norm constraint forces the optimization to find a *direction* rather th
 | High separability (e.g., sentiment) | Probe | Clear signal, linear separation works well |
 | Subtle traits (e.g., uncertainty) | Gradient | Unit normalization finds robust directions |
 
+**Implementation**: These extraction methods are provided by the [traitlens](https://github.com/ewernn/traitlens) library (pip package). Install with `pip install git+https://github.com/ewernn/traitlens.git`.
+
 ---
 
 ## Normalization for Evaluation
@@ -170,6 +172,8 @@ For Gemma 2B (26 layers), optimal layer varies by trait. Use `extraction_evaluat
 
 ## Inference Monitoring
 
+**Unified capture script**: `inference/capture_raw_activations.py` captures hidden states once and automatically projects onto all discovered traits. No need to specify traits—it finds them dynamically from your experiment directory.
+
 During generation, we project each token's hidden state onto trait vectors:
 
 ```python
@@ -182,14 +186,14 @@ score = (hidden_state @ trait_vector) / (norm(hidden_state) * norm(trait_vector)
 
 ### Dynamics Analysis
 
-Beyond raw projections, we compute:
+Dynamics metrics are **automatically computed and bundled** with projections—no separate scripts needed:
 
 - **Velocity**: Rate of change of trait expression (first derivative)
 - **Acceleration**: How quickly velocity changes (second derivative)
 - **Commitment Point**: Token where acceleration drops—model has "locked in"
 - **Persistence**: How long the trait stays elevated after peak
 
-These dynamics reveal *when* the model decides, not just *what* it decides.
+These dynamics reveal *when* the model decides, not just *what* it decides. View them in the Trait Dynamics visualization.
 
 ---
 
@@ -216,9 +220,9 @@ Study how traits interact, when they crystallize, and what attention patterns cr
 ## Summary
 
 1. **Natural elicitation** gives us clean training data without instruction-following confounds
-2. **Extraction methods** find directions that separate positive from negative examples
+2. **Extraction methods** (from traitlens library) find directions that separate positive from negative examples
 3. **Validation on held-out data** ensures vectors capture genuine traits, not artifacts
-4. **Per-token monitoring** reveals the model's decision-making as it happens
-5. **Dynamics analysis** shows when decisions crystallize and how they persist
+4. **Unified capture** (`capture_raw_activations.py`) monitors all traits token-by-token in one pass
+5. **Auto-bundled dynamics** (velocity, acceleration, commitment points) reveal when decisions crystallize
 
-The result: a window into what the model is "thinking" at every token.
+The result: a window into what the model is "thinking" at every token, with minimal manual configuration.

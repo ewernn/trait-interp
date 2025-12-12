@@ -38,10 +38,12 @@ Don't instruct the model. Give it scenarios where it *naturally* exhibits the tr
 Behavior differs because questions differ, not because we told it to behave differently. This avoids instruction-following confounds—you're capturing the trait, not compliance.
 
 ### Extraction
-Generate responses to 100+ contrasting scenarios, capture hidden states, average across response tokens, find the direction that separates positive from negative examples. Methods: mean difference (baseline), linear probe (best accuracy), gradient optimization (best generalization).
+Generate responses to 100+ contrasting scenarios, capture hidden states, average across response tokens, find the direction that separates positive from negative examples. Uses [traitlens](https://github.com/ewernn/traitlens) extraction toolkit (pip package) with methods: mean difference (baseline), linear probe (best accuracy), gradient optimization (best generalization).
+
+**Component extraction**: Extract from residual stream (default), attention output (`attn_out`), MLP output (`mlp_out`), or key/value projections (`k_cache`, `v_cache`).
 
 ### Monitoring
-Project each generated token onto trait vectors (cosine similarity). Positive = expressing trait, negative = suppressing. Track velocity (first derivative) and acceleration to find "commitment points" where the model locks in.
+Project each generated token onto trait vectors (cosine similarity). Positive = expressing trait, negative = suppressing. Track velocity (first derivative) and acceleration to find "commitment points" where the model locks in. All dynamics metrics are auto-bundled with projections.
 
 ### Steering
 Add `coefficient × vector` to layer output during generation. If behavior changes as expected, the vector is causal. This is validation, not the end goal—steering confirms you found something real.
@@ -69,13 +71,15 @@ Add `coefficient × vector` to layer output during generation. If behavior chang
 
 ## System Capabilities
 
-**Extraction**: 5-stage pipeline (vet scenarios → generate → vet responses → extract activations → extract vectors). Supports natural and instruction-based elicitation.
+**Extraction**: 5-stage pipeline (vet scenarios → generate → vet responses → extract activations → extract vectors). Supports natural and instruction-based elicitation. Uses traitlens extraction toolkit.
 
-**Monitoring**: Capture activations during generation, project onto all discovered traits, compute dynamics (velocity, acceleration, commitment points). Visualization dashboard shows token-by-token evolution.
+**Monitoring**: Unified capture script (`capture_raw_activations.py`) captures once and projects onto all discovered traits automatically. Dynamics (velocity, acceleration, commitment points) auto-bundled. 9 pre-made prompt sets (single_trait, multi_trait, dynamic, adversarial, harmful, jailbreak, etc.) in `datasets/inference/`.
 
 **Steering**: Causal validation via LLM-as-judge scoring. Layer sweeps, coefficient sweeps, cross-model transfer.
 
-**Visualization**: Extraction quality heatmaps, steering sweep, trait dynamics plots, attention patterns, SAE feature decomposition.
+**Visualization**: Extraction quality heatmaps, steering sweep, trait dynamics plots, attention patterns, SAE feature decomposition. Interactive dashboard with Live Chat mode.
+
+**Infrastructure**: Centralized path management (`config/paths.yaml` + PathBuilder APIs), multi-model support (4 experiments: gemma-2-2b, qwen2.5-7b/14b/32b), trait organization (hum/, chirp/, harm/ categories).
 
 ---
 
@@ -95,7 +99,12 @@ See `docs/research_findings.md` for full details.
 
 ## Current State
 
-Working on Gemma 2 2B primarily. Have extracted ~24 traits with validation. The extraction→monitoring→steering loop is solid. Main open questions:
+Multiple model experiments active: Gemma 2 2B, Qwen 2.5 (7B/14B/32B). Extracted traits organized into three categories:
+- **hum/**: Human-centric traits (confidence, optimism, sycophancy, formality, retrieval)
+- **chirp/**: Claude-specific traits (refusal)
+- **harm/**: Safety-related traits
+
+The extraction→monitoring→steering loop is production-ready. Main open questions:
 
 - Commitment point detection (acceleration-based) needs more validation
 - Trait interaction patterns unexplored
@@ -107,12 +116,20 @@ Working on Gemma 2 2B primarily. Have extracted ~24 traits with validation. The 
 ## Codebase Structure
 
 ```
-extraction/     → Vector extraction pipeline
-inference/      → Per-token monitoring
+datasets/       → Model-agnostic inputs (traits, prompts)
+  └── traits/{category}/{trait}/  → Trait definitions (hum/, chirp/, harm/)
+  └── inference/                  → 9 prompt sets (JSON files)
+extraction/     → Vector extraction pipeline (uses traitlens)
+inference/      → Per-token monitoring (unified capture script)
 analysis/       → Steering evaluation, metrics
-visualization/  → Interactive dashboard
+visualization/  → Interactive dashboard (Live Chat, Trait Dynamics, etc.)
 experiments/    → All data (responses, activations, vectors, results)
+config/         → Centralized configuration (paths.yaml, model configs)
+lora/           → LoRA-based trait extraction (experimental)
+utils/          → Shared utilities (PathBuilder, model registry, generation)
 docs/           → Documentation
 ```
 
 Entry points: `extraction/run_pipeline.py`, `inference/capture_raw_activations.py`, `analysis/steering/evaluate.py`, `visualization/serve.py`
+
+**Centralized paths**: All paths flow through `config/paths.yaml` → `utils/paths.py` (Python) and `visualization/core/paths.js` (JS).

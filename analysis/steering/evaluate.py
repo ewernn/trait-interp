@@ -16,25 +16,25 @@ Usage:
     # Basic usage - adaptive search finds good coefficients
     # By default, evaluates all layers in parallel batches (~20x faster)
     python analysis/steering/evaluate.py \\
-        --experiment gemma-2-2b-it \\
-        --vector-from-trait gemma-2-2b/behavioral/sycophancy
+        --experiment {experiment} \\
+        --vector-from-trait {experiment}/{category}/{trait}
 
     # Specific layers only
     python analysis/steering/evaluate.py \\
-        --experiment gemma-2-2b-it \\
-        --vector-from-trait gemma-2-2b-it/og_10/confidence \\
+        --experiment {experiment} \\
+        --vector-from-trait {experiment}/{category}/{trait} \\
         --layers 10,12,14
 
     # Sequential mode (one layer at a time, slower but lower memory)
     python analysis/steering/evaluate.py \\
-        --experiment gemma-2-2b-it \\
-        --vector-from-trait gemma-2-2b/behavioral/sycophancy \\
+        --experiment {experiment} \\
+        --vector-from-trait {experiment}/{category}/{trait} \\
         --no-batch
 
     # Manual coefficients (skip adaptive search)
     python analysis/steering/evaluate.py \\
-        --experiment gemma-2-2b-it \\
-        --vector-from-trait gemma-2-2b-it/og_10/confidence \\
+        --experiment {experiment} \\
+        --vector-from-trait {experiment}/{category}/{trait} \\
         --coefficients 50,100,150
 
     # Multi-layer weighted steering (delta-proportional coefficients)

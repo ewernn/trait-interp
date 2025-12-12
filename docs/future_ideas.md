@@ -110,7 +110,7 @@ Research extensions and technical improvements identified through experimentatio
 
 ## Cleanup
 
-- **Remove unused `attention_weights` from inference JSONs**: The `inference/{trait}/residual_stream/*.json` files contain `attention_weights` (~3.8 GB in gemma-2-2b-it) that nothing reads. Visualization uses separate `_attention.json` files. Delete and regenerate to reclaim space.
+- **Remove unused `attention_weights` from inference JSONs**: The `inference/{trait}/residual_stream/*.json` files contain `attention_weights` (~3.8 GB in typical experiment) that nothing reads. Visualization uses separate `_attention.json` files. Delete and regenerate to reclaim space.
 
 ---
 

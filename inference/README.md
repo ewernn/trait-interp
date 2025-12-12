@@ -81,7 +81,10 @@ Residual stream is **always** captured (baseline). Optional add-ons for visualiz
 | `--method` | auto | Vector method (probe, mean_diff, gradient) |
 | `--max-new-tokens` | 50 | Max tokens to generate |
 | `--temperature` | 0.7 | Sampling temperature |
+| `--batch-size` | auto | Batch size for capture (auto-detects from VRAM) |
 | `--skip-existing` | false | Skip existing output files |
+
+**Crash resilience**: Results are saved after each batch completes. If interrupted, rerun with `--skip-existing` to resume from where it left off.
 
 ### Examples
 

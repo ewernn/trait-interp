@@ -13,8 +13,8 @@ Output:
     - Comparison with existing results.json (if present)
 
 Usage:
-    python analysis/steering/rebuild_results.py --experiment gemma-2-2b-it --trait epistemic/optimism
-    python analysis/steering/rebuild_results.py --experiment gemma-2-2b-it --trait epistemic/optimism --apply
+    python analysis/steering/rebuild_results.py --experiment {experiment} --trait {category}/{trait}
+    python analysis/steering/rebuild_results.py --experiment {experiment} --trait {category}/{trait} --apply
 """
 
 import argparse

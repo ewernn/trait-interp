@@ -11,6 +11,9 @@ from tqdm import tqdm
 import time
 from datetime import datetime
 import argparse
+from dotenv import load_dotenv
+
+load_dotenv()  # Load .env file (ANTHROPIC_API_KEY, etc.)
 
 def get_evil_generation_prompt(question):
     """EXACT prompt from Appendix D.2 of paper"""

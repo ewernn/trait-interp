@@ -8,3 +8,4 @@ traitlens[methods] @ git+https://github.com/ewernn/traitlens.git
 
 # LLM-as-judge classification (for deconfounded extraction)
 google-genai
+python-dotenv

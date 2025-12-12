@@ -1402,29 +1402,37 @@ def main():
 
         print(f"  Capturing {len(prompt_texts)} prompts in batches of {args.batch_size}...")
 
-        # Run batched capture
-        results = generate_with_capture(
+        # Pre-batch prompt_items to match generator output
+        prompt_item_batches = [
+            prompt_items_filtered[i:i+args.batch_size]
+            for i in range(0, len(prompt_items_filtered), args.batch_size)
+        ]
+
+        # Run batched capture with incremental saving (generator mode)
+        batch_generator = generate_with_capture(
             model, tokenizer, prompt_texts,
             n_layers=n_layers,
             batch_size=args.batch_size,
             max_new_tokens=args.max_new_tokens,
             temperature=args.temperature,
             capture_attn=args.capture_attn,
-            show_progress=True
+            show_progress=True,
+            yield_per_batch=True
         )
 
-        # Process and save results
-        for result, prompt_item in tqdm(zip(results, prompt_items_filtered), desc="Saving", total=len(results)):
-            # Convert CaptureResult to legacy data format
-            data = capture_result_to_data(result, n_layers)
+        # Process and save after each batch (crash-resilient)
+        for (batch_results, _batch_prompts), batch_items in zip(batch_generator, prompt_item_batches):
+            for result, prompt_item in zip(batch_results, batch_items):
+                # Convert CaptureResult to legacy data format
+                data = capture_result_to_data(result, n_layers)
 
-            # Save data
-            _save_capture_data(
-                data, prompt_item, set_name, inference_dir, trait_vectors,
-                n_layers, args, get_path,
-                all_layer_data=None, layer_indices=None,
-                model=model, tokenizer=tokenizer
-            )
+                # Save data immediately
+                _save_capture_data(
+                    data, prompt_item, set_name, inference_dir, trait_vectors,
+                    n_layers, args, get_path,
+                    all_layer_data=None, layer_indices=None,
+                    model=model, tokenizer=tokenizer
+                )
 
     print(f"\n{'='*60}")
     print("Complete!")

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Download experiments from R2 to Railway volume
 # Usage: railway run bash utils/railway_pull_r2.sh [experiment_name]
-# Example: railway run bash utils/railway_pull_r2.sh gemma-2-2b-it
+# Example: railway run bash utils/railway_pull_r2.sh {experiment}
 
 set -e
 
@@ -26,13 +26,30 @@ if ! command -v rclone &> /dev/null; then
     curl https://rclone.org/install.sh | bash
 fi
 
-# Check if rclone config exists
+# Auto-configure rclone from environment variables if not already configured
 if [ ! -f ~/.config/rclone/rclone.conf ]; then
-    echo "❌ Error: rclone not configured"
-    echo "You need to set up rclone with your R2 credentials first:"
-    echo "  railway run bash"
-    echo "  rclone config"
-    exit 1
+    if [ -z "$R2_ACCESS_KEY_ID" ] || [ -z "$R2_SECRET_ACCESS_KEY" ] || [ -z "$R2_ENDPOINT" ]; then
+        echo "❌ Error: rclone not configured and R2 credentials not found"
+        echo "Set these Railway environment variables:"
+        echo "  R2_ACCESS_KEY_ID"
+        echo "  R2_SECRET_ACCESS_KEY"
+        echo "  R2_ENDPOINT"
+        echo "  R2_BUCKET_NAME (optional, defaults to trait-interp-bucket)"
+        exit 1
+    fi
+
+    echo "Generating rclone config from environment variables..."
+    mkdir -p ~/.config/rclone
+    cat > ~/.config/rclone/rclone.conf <<EOF
+[r2]
+type = s3
+provider = Cloudflare
+access_key_id = ${R2_ACCESS_KEY_ID}
+secret_access_key = ${R2_SECRET_ACCESS_KEY}
+endpoint = ${R2_ENDPOINT}
+acl = private
+EOF
+    echo "✓ rclone configured"
 fi
 
 # Sync from R2 to volume

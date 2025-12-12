@@ -53,20 +53,20 @@ Validate the ensemble via causal intervention:
 ```bash
 # Use best (μ, σ) from Phase 1
 python analysis/ensemble/steering_evaluation.py \
-    --experiment gemma-2-2b-it \
-    --vector-from-trait gemma-2-2b/epistemic/confidence
+    --experiment {experiment} \
+    --vector-from-trait {experiment}/{category}/{trait}
 
 # Manual (μ, σ) specification
 python analysis/ensemble/steering_evaluation.py \
-    --experiment gemma-2-2b-it \
-    --vector-from-trait gemma-2-2b/epistemic/confidence \
+    --experiment {experiment} \
+    --vector-from-trait {experiment}/{category}/{trait} \
     --mu 12 --sigma 2 \
     --coefficients 50,100,150
 
 # Compare to single-layer baseline
 python analysis/ensemble/steering_evaluation.py \
-    --experiment gemma-2-2b-it \
-    --vector-from-trait gemma-2-2b/epistemic/confidence \
+    --experiment {experiment} \
+    --vector-from-trait {experiment}/{category}/{trait} \
     --compare-baseline
 ```
 

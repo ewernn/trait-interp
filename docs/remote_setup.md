@@ -9,6 +9,7 @@ Quick setup for Vast.ai / RunPod with PyTorch template.
 useradd -m -s /bin/bash dev
 echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 su - dev
+
 git clone https://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@github.com/ewernn/trait-interp.git
 
 

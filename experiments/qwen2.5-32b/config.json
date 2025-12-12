@@ -1,0 +1,4 @@
+{
+  "extraction_model": "Qwen/Qwen2.5-32B-Instruct-AWQ",
+  "application_model": "Qwen/Qwen2.5-32B-Instruct-AWQ"
+}

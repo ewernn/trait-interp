@@ -13,6 +13,9 @@ import asyncio
 import argparse
 from typing import Dict, Optional
 from openai import AsyncOpenAI
+from dotenv import load_dotenv
+
+load_dotenv()  # Load .env file (OPENAI_API_KEY, etc.)
 
 
 def print_logprobs(logprobs: Dict[str, float], top_n: int = 20):

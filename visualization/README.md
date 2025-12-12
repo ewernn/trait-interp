@@ -57,7 +57,19 @@ The visualization dashboard is organized into two main categories, reflecting th
 ### Category 2: Inference Analysis
 (Using your best vectors to see what the model is "thinking" on new prompts)
 
--   **Live Chat**: Interactive chat with real-time trait monitoring. Chat with the model while watching trait dynamics evolve token-by-token. Shows trait projections on a line chart as tokens stream in. Model loads lazily on first request (~10-30s), then stays in memory.
+-   **Live Chat**: Interactive chat with real-time trait monitoring.
+    - **Model selection**: Dropdown to switch between `extraction_model` (base) and `application_model` (instruct-tuned) from experiment config. Clears chat when switching models.
+    - **Multi-turn conversation**: Chart accumulates all tokens across messages (doesn't reset per message)
+    - **Conversation branching**: Edit any user message to create alternate conversation branches; navigate with `◀ 1/2 ▶` arrows
+    - **Hover interactions**: Hover over messages to highlight their token region in the chart
+    - **Message regions**: Blue vertical lines mark user turns, green shaded areas show assistant responses
+    - **3-token running average**: Toggle between raw and smoothed line (checkbox in chart header)
+    - **Inference backends**: Supports local (Mac/GPU) or Modal (cloud GPU, streaming)
+        - Local (default): Model loads on Mac/GPU, generates locally
+        - Modal: GPU inference on Modal (T4), Railway projects vectors locally
+        - Set backend: `INFERENCE_BACKEND=modal` env var (Railway) or `backend='modal'` param
+        - Deploy Modal: `modal deploy inference/modal_inference.py` (one-time setup)
+    - **Streaming**: Tokens appear as generated (~0.2s each). First token: 10-30s local, 10s Modal (volume-cached)
 
 All other inference views share a **prompt picker** fixed at the bottom of the page:
 - **Prompt picker**: Dropdown to select prompt set (`single_trait`, `dynamic`, etc.) + numbered boxes for prompt IDs
@@ -280,10 +292,11 @@ visualization/
 ├── serve.py                # Development server with API endpoints
 ├── chat_inference.py       # Live chat backend (model loading, generation, trait projection)
 ├── core/
-│   ├── paths.js           # Centralized PathBuilder (loads from config/paths.yaml)
-│   ├── model-config.js    # Model config loader (loads from config/models/)
-│   ├── state.js           # Global state, experiment loading
-│   └── prompt-picker.js   # Prompt selection UI for inference views
+│   ├── paths.js            # Centralized PathBuilder (loads from config/paths.yaml)
+│   ├── model-config.js     # Model config loader (loads from config/models/)
+│   ├── state.js            # Global state, experiment loading
+│   ├── prompt-picker.js    # Prompt selection UI for inference views
+│   └── conversation-tree.js # ConversationTree for multi-turn chat with branching
 └── views/
     ├── overview.js            # Methodology documentation (markdown + KaTeX)
     ├── trait-extraction.js    # Extraction quality (Trait Development)
