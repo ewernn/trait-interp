@@ -479,7 +479,6 @@ function addLiveChatStyles() {
             display: flex;
             align-items: center;
             gap: 4px;
-            cursor: help;
         }
 
         .legend-color {
@@ -712,6 +711,9 @@ async function generateResponse(prompt, assistantNodeId) {
                             // Cache vector metadata if provided
                             if (event.vector_metadata) {
                                 vectorMetadata = event.vector_metadata;
+                                console.log('[LiveChat] Received vector_metadata:', vectorMetadata);
+                            } else {
+                                console.log('[LiveChat] Status event without vector_metadata:', event);
                             }
                             // Update status in UI
                             const node = conversationTree.getNode(assistantNodeId);
@@ -1064,10 +1066,13 @@ function updateTraitChart() {
 
             const tooltipText = metadata
                 ? `L${metadata.layer} ${metadata.method} (${metadata.source})`
-                : '';
+                : 'no metadata';
 
             return `
-                <span class="legend-item" title="${tooltipText}">
+                <span class="legend-item has-tooltip"
+                      data-tooltip="${tooltipText}"
+                      data-trait="${trait}"
+                      onmouseenter="console.log('[Vector] ${trait}:', '${tooltipText}')">
                     <span class="legend-color" style="background: ${CHAT_TRAIT_COLORS[idx % CHAT_TRAIT_COLORS.length]}"></span>
                     ${trait}
                 </span>

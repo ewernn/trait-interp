@@ -1752,3 +1752,36 @@ code {
     }
 }
 
+/* ============================================================
+   Tooltips
+   ============================================================ */
+
+.has-tooltip {
+    position: relative;
+    cursor: help;
+}
+
+.has-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+    font-size: var(--text-xs);
+    color: var(--text-primary);
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.1s, visibility 0.1s;
+    z-index: 100;
+    pointer-events: none;
+}
+
+.has-tooltip:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
