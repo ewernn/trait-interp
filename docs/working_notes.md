@@ -158,21 +158,6 @@ From "Auditing Games for Sandbagging" (Taylor et al. 2024):
 
 ---
 
-## Detection ≠ Generation (2024-12-14)
-
-**Observation:** Sycophancy vector achieved 84% classification accuracy but 0% steering effect.
-
-**Implication:** A vector can detect a concept in activations without being able to induce that behavior via steering. The direction that separates "sycophantic" from "non-sycophantic" text isn't necessarily the direction you push to make the model sycophantic.
-
-**Why this matters:**
-- Classification success doesn't guarantee causal relevance
-- Steering requires finding the direction the model *uses* to generate, not just the direction that *correlates* with the concept
-- May need different extraction methods for detection vs control
-
-**Open question:** Does this generalize? Is deception worse (harder to steer even if detectable)? Need to test detection vs steering separately for each trait.
-
----
-
 ## Bypass vs Override in Jailbreaks (2024-12-14)
 
 **Two failure modes when jailbreaks succeed:**
