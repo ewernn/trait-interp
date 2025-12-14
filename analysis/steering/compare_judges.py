@@ -3,6 +3,7 @@
 Compare judge models on steering evaluation - PARALLEL version.
 
 Generates steered responses for ALL layers in parallel, scores with multiple judge models.
+Supports both OpenAI and Gemini models.
 
 Usage:
     python analysis/steering/compare_judges.py \
@@ -41,6 +42,15 @@ if env_path.exists():
 
 from openai import AsyncOpenAI
 
+# Try to import Google GenAI SDK
+try:
+    from google import genai
+    from google.genai import types
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+    print("Warning: google-genai not installed. Gemini models unavailable.")
+
 
 COHERENCE_PROMPT = """Rate this text from 0-100 for quality.
 
@@ -76,30 +86,87 @@ def aggregate_logprob_score(logprobs: Dict[str, float], min_weight: float = 0.25
 
 
 class MultiJudge:
-    """Score with multiple models in parallel."""
+    """Score with multiple models in parallel. Supports OpenAI and Gemini."""
 
     def __init__(self, models: List[str]):
         self.models = models
-        self.client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        self.openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         self.semaphore = asyncio.Semaphore(50)  # Limit concurrent API calls
+
+        # Initialize Gemini client if needed and available
+        self.gemini_client = None
+        gemini_models = [m for m in models if m.startswith("gemini-")]
+        if gemini_models:
+            if not GEMINI_AVAILABLE:
+                raise ValueError("Gemini models requested but google-genai not installed. Run: pip install google-genai")
+            api_key = os.environ.get("GEMINI_API_KEY")
+            if not api_key:
+                raise ValueError("GEMINI_API_KEY not set in environment")
+            self.gemini_client = genai.Client(api_key=api_key)
+
+    def _is_gemini(self, model: str) -> bool:
+        return model.startswith("gemini-")
+
+    async def _score_openai(self, model: str, prompt: str) -> Optional[float]:
+        """Score using OpenAI API with logprobs."""
+        try:
+            resp = await self.openai_client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1,
+                temperature=0,
+                logprobs=True,
+                top_logprobs=20,
+            )
+            logprobs = {lp.token: math.exp(lp.logprob)
+                       for lp in resp.choices[0].logprobs.content[0].top_logprobs}
+            return aggregate_logprob_score(logprobs)
+        except Exception as e:
+            print(f"Error with {model}: {e}")
+            return None
+
+    async def _score_gemini(self, model: str, prompt: str) -> Optional[float]:
+        """Score using Gemini API with logprobs."""
+        try:
+            # Run sync Gemini call in executor to avoid blocking
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.gemini_client.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        max_output_tokens=1,
+                        temperature=0,
+                        response_logprobs=True,
+                        logprobs=20,
+                    ),
+                )
+            )
+
+            # Extract logprobs from response
+            if not response.candidates or not response.candidates[0].logprobs_result:
+                print(f"No logprobs in Gemini response for {model}")
+                return None
+
+            logprobs_result = response.candidates[0].logprobs_result
+            if not logprobs_result.top_candidates:
+                return None
+
+            # Get first token's top candidates
+            top_candidates = logprobs_result.top_candidates[0].candidates
+            logprobs = {c.token: math.exp(c.log_probability) for c in top_candidates}
+            return aggregate_logprob_score(logprobs)
+        except Exception as e:
+            print(f"Error with {model}: {e}")
+            return None
 
     async def _score_one(self, model: str, prompt: str) -> Optional[float]:
         async with self.semaphore:
-            try:
-                resp = await self.client.chat.completions.create(
-                    model=model,
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=1,
-                    temperature=0,
-                    logprobs=True,
-                    top_logprobs=20,
-                )
-                logprobs = {lp.token: math.exp(lp.logprob)
-                           for lp in resp.choices[0].logprobs.content[0].top_logprobs}
-                return aggregate_logprob_score(logprobs)
-            except Exception as e:
-                print(f"Error with {model}: {e}")
-                return None
+            if self._is_gemini(model):
+                return await self._score_gemini(model, prompt)
+            else:
+                return await self._score_openai(model, prompt)
 
     async def score_batch(
         self,
@@ -383,6 +450,9 @@ def main():
     parser.add_argument("--experiment", required=True)
     parser.add_argument("--vector-from-trait", required=True)
     parser.add_argument("--method", default="probe")
+    parser.add_argument("--judges", default="openai",
+                        choices=["openai", "gemini", "all"],
+                        help="Which judge models to use: openai, gemini, or all")
 
     args = parser.parse_args()
 
@@ -392,7 +462,21 @@ def main():
     config = load_experiment_config(args.experiment)
     model_name = config.get('application_model') or config.get('model')
 
-    judge_models = ["gpt-4.1-mini", "gpt-4o-mini", "gpt-4.1-nano"]
+    # Define available judge models by provider
+    # Note: gemini-2.0-* have logprobs via AI Studio API
+    # gemini-2.5-* models don't support logprobs yet via free API (need Vertex AI)
+    openai_models = ["gpt-4.1-mini", "gpt-4o-mini", "gpt-4.1-nano"]
+    gemini_models = ["gemini-2.0-flash", "gemini-2.0-flash-lite"]
+
+    # Select models based on --judges flag
+    if args.judges == "openai":
+        judge_models = openai_models
+    elif args.judges == "gemini":
+        judge_models = gemini_models
+    else:  # all
+        judge_models = openai_models + gemini_models
+
+    print(f"Using judge models: {judge_models}")
 
     asyncio.run(run_comparison(
         experiment=args.experiment,
