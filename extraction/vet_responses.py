@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Vet generated responses using gpt-4.1-mini with logprob scoring.
+Vet generated responses using gpt-4.1-nano with logprob scoring.
 
 Input:
     - experiments/{experiment}/extraction/{trait}/responses/pos.json
@@ -260,7 +260,7 @@ def vet_responses(
         "experiment": experiment,
         "trait": trait,
         "trait_definition": trait_definition,
-        "judge_model": "gpt-4.1-mini",
+        "judge_model": "gpt-4.1-nano",
         "judge_method": "logprob",
         "thresholds": {
             "pos_threshold": pos_threshold,
@@ -292,7 +292,7 @@ def vet_responses(
             metadata = json.load(f)
 
     metadata.update({
-        "judge_model": "gpt-4.1-mini",
+        "judge_model": "gpt-4.1-nano",
         "judge_method": "logprob",
         "response_vetting": True,
         "response_thresholds": {

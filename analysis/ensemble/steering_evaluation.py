@@ -300,7 +300,7 @@ async def run_ensemble_evaluation(
 
     # Load/create results
     results = load_or_create_results(
-        experiment, trait, prompts_file, model_name, vector_experiment, "gpt-4.1-mini"
+        experiment, trait, prompts_file, model_name, vector_experiment, "gpt-4.1-nano"
     )
     judge = TraitJudge()
 

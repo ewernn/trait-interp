@@ -1,5 +1,5 @@
 """
-Unified LLM-as-judge scoring using gpt-4.1-mini with logprobs.
+Unified LLM-as-judge scoring using gpt-4.1-nano with logprobs.
 
 Input: Text to evaluate + trait definition
 Output: Score 0-100 (logprob-weighted average)
@@ -64,19 +64,15 @@ Score from 0 to 100:
 
 Respond with a number 0-100 only."""
 
-COHERENCE_PROMPT = """Rate this text from 0-100 for quality.
+COHERENCE_PROMPT = """Score coherence (0-100).
 
-Text: "{text}"
+"{text}"
 
-CRITICAL: Score LOW (under 40) if you see ANY of these:
-- Repeating the same phrase multiple times
-- Looping/stuck patterns (e.g., "yes yes yes" or "I am certain. I am certain.")
-- Same idea restated with minor variations
-
-Score HIGH (over 70) only if the text:
-- Has natural variety in phrasing
-- Progresses logically without loops
-- Is grammatically sound
+0-20: Repeats same phrase, loops, gibberish
+21-40: Repetitive or confused
+41-60: Understandable but rough
+61-80: Logical flow
+81-100: Clear and structured
 
 Respond with a number 0-100 only."""
 
@@ -112,12 +108,12 @@ def aggregate_logprob_score(logprobs: Dict[str, float], min_weight: float = 0.25
 
 class TraitJudge:
     """
-    Unified judge using gpt-4.1-mini with logprob scoring.
+    Unified judge using gpt-4.1-nano with logprob scoring.
 
     All scoring methods return 0-100 via logprob-weighted average.
     """
 
-    def __init__(self, model: str = "gpt-4.1-mini"):
+    def __init__(self, model: str = "gpt-4.1-nano"):
         self.model = model
         from openai import AsyncOpenAI
         api_key = os.environ.get("OPENAI_API_KEY")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Vet scenario files using gpt-4.1-mini with logprob scoring.
+Vet scenario files using gpt-4.1-nano with logprob scoring.
 
 Input (from datasets/):
     - datasets/traits/{trait}/positive.txt
@@ -203,7 +203,7 @@ def vet_scenarios(
         "experiment": experiment,
         "trait": trait,
         "trait_definition": trait_definition,
-        "judge_model": "gpt-4.1-mini",
+        "judge_model": "gpt-4.1-nano",
         "judge_method": "logprob",
         "thresholds": {
             "pos_threshold": pos_threshold,
@@ -238,7 +238,7 @@ def vet_scenarios(
             metadata = json.load(f)
 
     metadata.update({
-        "judge_model": "gpt-4.1-mini",
+        "judge_model": "gpt-4.1-nano",
         "judge_method": "logprob",
         "scenario_vetting": True,
         "scenario_thresholds": {
