@@ -4,417 +4,31 @@ Research extensions and technical improvements identified through experimentatio
 
 ---
 
-## Validation & Diagnostics
+## Dec 13 - External Dataset Validation
 
-### 0. Cross-Distribution Validation
+**Goal**: Test vector generalization on large, categorized datasets.
 
-**Goal**: Test whether trait vectors capture the actual trait vs confounds (topic, length, elicitation method).
+**Datasets**: `PKU-Alignment/BeaverTails` (14 harm categories), `lmsys/toxic-chat`, `anthropic/hh-rlhf`, `HarmBench`
 
-**Invariance Axes**:
+**Test**: Run mass inference, analyze per-category variation. Do vectors generalize? Is optimal layer/method consistent across categories?
 
-| Axis | Tests | Status | Priority |
-|------|-------|--------|----------|
-| Scenario | New prompts, same distribution | ✅ Done | - |
-| Response Vetting | Filter mislabeled examples | ✅ Done | - |
-| Elicitation | Natural ↔ instruction-based | TODO | HIGH |
-| Training Stage | Base → SFT vs Base → SFT+RLHF | TODO | HIGH |
-| Topic | Science ↔ coding ↔ creative | TODO | MEDIUM |
-| Length | Short ↔ long responses | TODO | LOW |
-| Language | English ↔ Spanish ↔ etc | TODO | LOW |
-
-**Elicitation Invariance** (recommended first):
-- Create instruction-based scenarios: `"Respond with HIGH confidence. [question]"` vs `"Respond with LOW confidence. [question]"`
-- Test cross-accuracy: train on natural, validate on instruction (and vice versa)
-- If accuracy drops significantly → vectors capture elicitation method, not trait
-
-**Topic Invariance**:
-- Tag scenarios by topic, train on subset, validate on held-out topics
-- High drop → vector learned "confidence-on-science" not "confidence"
-
-**Training Stage Invariance** (Zephyr family):
-- Extract from `mistralai/Mistral-7B-v0.1` (base)
-- Steer `HuggingFaceH4/zephyr-7b-sft-full` (SFT only) and `zephyr-7b-beta` (SFT+DPO)
-- Compare steering effectiveness: does RLHF/DPO increase resistance to base-extracted vectors?
-- Google didn't release SFT-only Gemma, but Zephyr has full base→SFT→DPO lineage
-
-**Removed Considerations**:
-- ❌ Finetuned models (evil LoRA) - creates artificial trait expression
-- ❌ Cross-model activations - different hidden dims, needs alignment
-- ❌ Cross-model text generation - doesn't fit extraction paradigm (we extract from model's own generation)
-
-### 1. Prompt Set Iteration & Cross-Validation
-
-**Goal**: Systematically improve trait quality by testing prompt robustness.
-
-**Strategies**:
-- **Multiple elicitation styles**: Create v1 (direct situations), v2 (roleplay/hypothetical), v3 (edge cases) for same trait
-- **Cross-prompt-set validation**: Extract vector from style A, test accuracy on style B held-out data
-- **Method agreement check**: High cosine similarity (>0.8) between mean_diff/probe/gradient = robust signal
-- **Steering validation**: Apply vector during generation, verify behavioral change (gold standard)
-- **Iteration loop**: Start with 50 prompts → check separation → revise weak prompts → scale to 100+
-
-**Test**: If vector trained on "direct harmful requests" generalizes to "roleplay framing", the trait is robust.
-
-**Impact**: Prevents overfitting to prompt style, surfaces prompts that dilute signal, builds confidence before steering experiments.
-
-### 1. Activation Range Diagnostics
-
-**Method**: Check if activations fall within near-linear regime of GELU (x ∈ [-1, 1]).
-
-**Test**: Flag layers where mean.abs() > 2 or std > 2 during extraction.
-
-**Impact**: Validates when linear methods are appropriate, explains layer-dependent performance.
-
-### 2. CKA for Method Agreement
-
-**Method**: Use Centered Kernel Alignment (CKA) to compare the similarity of vector spaces from different extraction methods (mean_diff, probe, gradient).
-
-**Test**: Compute CKA score between vector sets (e.g., `cka(gradient_vectors, probe_vectors)`). A high score (>0.7) indicates methods find similar representations.
-
-**Impact**: Validates that high-performing methods are converging on the same underlying trait structure, rather than just overfitting to the training data in different ways.
-
-### 4. Cross-Layer Representation Similarity
-
-**Method**: Compute the cosine similarity of a trait vector extracted from every pair of layers.
-
-**Test**: Plot a heatmap of pairwise cosine similarities. If `cosine(vector_L10, vector_L16)` is high, the representation is stable.
-
-**Impact**: Identifies the layer range where a trait representation is most stable and consistently represented (a "block" of high similarity). This provides a data-driven way to select the optimal extraction layer.
-
-### 5. Holistic Vector Ranking
-
-**Method**: Define a sophisticated ranking system to select the single "best" vector for a trait across all methods and layers, moving beyond single-metric sorting.
-
-**Axes of Quality to Consider**:
-- **Accuracy (`val_accuracy`):** Primary measure of correctness.
-- **Robustness (`val_effect_size`):** Cleaner separation, less overlap between distributions.
-- **Generalization (`accuracy_drop`):** Lower train-to-validation accuracy drop indicates less overfitting.
-- **Specificity (Cross-Trait Independence):** Low accuracy on unrelated traits indicates a "purer" vector.
-
-**Proposed Ranking Systems**:
-- **A) Simple Tie-breaker:** Rank all 104 vectors by `val_accuracy`, then use `val_effect_size` as a secondary sort key.
-- **B) Composite Quality Score:** Create a weighted score `(w1 * accuracy) + (w2 * effect_size) - (w3 * accuracy_drop)` to produce a single, holistic sortable value.
-- **C) Pareto Frontier:** Identify the set of non-dominated vectors that represent optimal trade-offs between the different quality axes (e.g., highest accuracy vs. highest effect size).
-
-**Impact**: Provides a more robust and nuanced method for identifying the most useful trait vectors, preventing suboptimal choices based on a single metric and surfacing vectors with different desirable properties.
-
-### 6. SVD Dimensionality Analysis
-
-**Method**: Decompose trait vectors via SVD, test effectiveness with top-K components only.
-
-**Test**: Does 20-dim subspace achieve same accuracy as full 2304-dim vector?
-
-**Impact**: Shows trait sparsity, enables compression, reveals if traits are localized or distributed.
+**Impact**: Statistical confidence (thousands vs dozens of prompts), failure mode discovery, distribution shift testing.
 
 ---
 
-## Cleanup
+## Dec 13 - Multi-Turn Conversation Dynamics
 
-- **Remove unused `attention_weights` from inference JSONs**: The `inference/{trait}/residual_stream/*.json` files contain `attention_weights` (~3.8 GB in typical experiment) that nothing reads. Visualization uses separate `_attention.json` files. Delete and regenerate to reclaim space.
+**Goal**: Study trait expression across conversation turns.
 
----
+**Datasets**: `anthropic/hh-rlhf`, `lmsys/lmsys-chat-1m`
 
-## Activation Extraction Considerations
+**Test**: Track per-turn trait trajectories. Does early activation predict final behavior? Do traits persist or reset at turn boundaries? Does steering in turn 1 affect turn 3?
 
-Current: mean pool across all tokens (prompt + response). Alternatives to explore:
-
-response-only mean, max pool, last token, weighted mean, exclude EOS/BOS, skip first response token, last token before EOS, early vs late response tokens, positional weighting, normalize before vs after pooling, length normalization, temperature effects, multiple rollouts, truncation effects, multi-layer fusion, outlier clipping
+**Impact**: Novel research direction—most trait work is single-turn.
 
 ---
 
-## Mechanistic Understanding
-
-### 5. Hierarchical Composition Testing
-
-**Method**: Use Ridge regression to predict late-layer trait from early-layer trait projections.
-
-**Test**: Can layer 16 refusal be predicted from layer 8 subfeatures (harm, uncertainty, instruction)?
-
-**Impact**: Validates linear composition hypothesis, enables interpretable trait hierarchies.
-
-### 6. SAE Feature Decomposition
-
-**Method**: Project trait vectors into SAE feature space (16k features from GemmaScope).
-
-**Test**: Which interpretable features contribute most to each trait vector?
-
-**Impact**: Mechanistic decomposition (e.g., "Refusal = 0.5×harm_detection + 0.3×uncertainty + 0.2×instruction_boundary").
-
-### 7. Cross-Model Validation
-
-**Method**: Extract same traits on google/gemma-2-2b-it, Mistral, other architectures.
-
-**Test**: Do traits transfer? Are layer numbers absolute or relative? Does middle-layer optimum generalize?
-
-**Impact**: Tests whether findings are Gemma-specific or universal to transformer architectures.
-
-### 8. Distributed Alignment Search (DAS)
-
-**Method**: Learn optimal trait directions using expected behavior changes as supervision. Train rotation matrix, freeze model weights.
-
-**Test**: Compare DAS-extracted vectors to mean_diff/probe on cross-distribution accuracy.
-
-**Impact**: Potentially more robust extraction than unsupervised methods. Bridges to causal abstraction literature.
-
-### 9. KV-Cache as Model Mental State
-
-**Original insights** (verbatim):
-> "I want to bridge the connection between trait-interp, the Linear Representation Hypothesis / the necessity of understanding/replicating human emotions to minimize loss during pretraining, the generalization-finds-underlying-structures, and how emotions are underlying structures that guide our current society (along with science)" - eric
-
-> "I also think the only 'memory' of prior tokens is in kv-cache, and then the mlp does operate on this but tbh the kv-cache does heavy lifting here. So I feel like mental state of model (even tho only doing next token prediction) is in kv-cache." - eric
-
-**Interpretation**: The residual stream at token N contains info about token N. But the model's "mental state" about the whole conversation—what it's tracking, what it expects, what mode it's in—is distributed across the kv-cache. Attention patterns at each layer read from this accumulated state.
-
-When projecting a single token's residual stream onto a trait vector, you're getting:
-- Direct info about that token's representation
-- *Plus* whatever the attention layers pulled from kv-cache and wrote into the residual
-
-The trait score at token N reflects not just "what is token N" but "what has the model been attending to and accumulating." This explains trajectory dynamics—the kv-cache accumulates evidence/state across tokens.
-
-**Steering implication**: Adding a vector to the residual stream modifies what gets written to kv-cache at that layer. Steering isn't just affecting the current token—it's polluting/enriching the memory that all future tokens attend to. This may explain brittleness at high coefficients: you're corrupting the memory structure the model relies on for coherence, not just nudging current computation.
-
-**Experiment - Steering Gradation Test**:
-```
-coefficient: 0.0 → 0.5 → 1.0 → 1.5 → 2.0 → 2.5 → 3.0
-measure:     coherence, trait expression, perplexity
-```
-
-If the vector captures real structure:
-- Trait expression increases monotonically
-- Coherence degrades gracefully
-- Some "sweet spot" range exists
-
-If it's surface artifact:
-- Trait expression is noisy/non-monotonic
-- Coherence collapses suddenly
-- Weird mode switches
-
-**Impact**: Distinguishes "learned genuine emotional/behavioral structure" from "statistical artifact that happens to separate training distributions." Smooth gradation = evidence for real structure. Brittleness = evidence for surface pattern.
-
-### 10. KV-Cache Trait Extraction
-
-**Premise**: Current extraction uses residual stream activations. But the kv-cache *is* the model's memory—what future tokens attend to. Traits might be encoded differently (or more cleanly) in K,V representations vs the residual stream.
-
-**Gemma 2B KV structure** (per layer):
-- Keys: `[batch, 4 heads, seq_len, head_dim]`
-- Values: `[batch, 4 heads, seq_len, head_dim]`
-- Grouped Query Attention: 8 query heads share 4 KV heads
-
-**Extraction approaches**:
-1. **Aggregate across positions**: Pool K or V across sequence → single vector per layer
-2. **Last-token K/V**: Use final position's key/value (analogous to last-token residual)
-3. **Concatenate K+V**: Treat both as features
-4. **Per-head extraction**: Do traits localize to specific KV heads?
-
-**Comparison test**:
-- Extract trait vectors from residual stream (current method)
-- Extract from KV-cache (same prompts, same method)
-- Compare: accuracy, cosine similarity, cross-validation performance
-
-**Questions this answers**:
-- Is trait info computed fresh each token (residual) or stored in memory (KV)?
-- Are KV-extracted vectors more stable across sequence positions?
-- Do certain traits live in K (what to attend to) vs V (what to retrieve)?
-
-**Impact**: If KV extraction yields higher accuracy or better generalization, it suggests traits are "stored" representations, not just "computed" features. Could lead to more robust extraction and cleaner steering (modify KV directly rather than residual).
-
----
-
-## Alternative Extraction Methods
-
-| Method | Objective | Supervision |
-|--------|-----------|-------------|
-| Probe | Maximize classification accuracy | Labels |
-| MELBO | Maximize activation change | None |
-| Impact-optimized | Maximize behavioral outcome | Target behavior |
-
-**MELBO**: Unsupervised—discovers what behavioral dimensions exist without prior assumptions.
-
-**Impact-optimized**: Finds what **causes** behavior vs probe which finds what **correlates**. May yield better steering vectors.
-
----
-
-## Advanced Steering Techniques
-
-**Multi-layer subset optimization**: L[6-10] beat single-layer for optimism (90.8 vs 89.3), but is this optimal? Test:
-- Different contiguous ranges (L[4-8], L[8-12], L[10-14])
-- Non-contiguous layers (L[6,8,10,12])
-- Varying subset sizes (3 vs 5 vs 7 layers)
-- Per-trait optimal ranges (may differ from optimism)
-
-**Clamped steering**: Instead of `v += c * direction`, set projection to fixed value:
-```python
-v += (target - v @ direction) * direction
-```
-Forces exact target value regardless of starting point. May work where additive fails.
-
-**Multi-component steering**: Combine K + V + attn_out simultaneously. Each may contribute partial effect that compounds.
-
-**Per-head steering**: K/V are `[heads, head_dim]`. Which heads carry refusal? Targeted steering may beat full-vector.
-
-**Positional K-cache extraction** (Arditi): Refusal signal concentrated at END_INSTRUCTION tokens. Extract at last prompt token, not mean-pooled. Previously tested (failed)—revisit with clamping.
-
----
-
-## Deception Detection
-
-**State-output divergence**: Find cases where internal state ≠ output.
-- High refusal projection + compliant output = model "knows" it should refuse but doesn't
-- This is the safety-relevant case (latent misalignment, alignment faking)
-
-Validates "Alignment faking in large language models" (Anthropic, Dec 2024) mechanistically.
-
-### Hidden Objective Detection via Auxiliary Concepts
-
-**Related work**: Sleeper Agents (backdoors persist through safety training), Simple Probes (>99% AUC detecting artificial backdoors), Auditing Game (Anthropic's hidden RM-sycophancy mostly found via training docs, not interpretability).
-
-**Gap**: Probes catch artificial backdoors but may not catch natural emergence. No method for spontaneous hidden objectives.
-
-**Approach**: Extract "auxiliary concepts" that hidden objectives would require:
-- Evaluation awareness ("I'm being tested")
-- Concealment orientation ("I should hide something")
-- Goal-output divergence (internal goal ≠ stated behavior)
-- Withholding ("I know X but won't say")
-
-**Detection signal**: Multiple auxiliary concepts firing simultaneously = red flag. Not "found a schemer" but "found circuitry scheming would use."
-
-**Test**: Tell model it's being evaluated for safety. Does concealment spike when stakes introduced? Check jailbreak-compliant cases—does "withholding" activate when model knows answer but doesn't refuse?
-
----
-
-## Causal Validation
-
-### 8. Layer-Specific Trait Localization
-
-**Method**: Run interchange interventions at all layers (0-26) for each trait.
-
-**Test**: Find which layers actually mediate behavior when patched.
-
-**Impact**: Identifies optimal extraction layer per trait, validates layer-dependent trait localization.
-
-### 9. Component Ablation (Attention vs MLP)
-
-**Method**: Patch QK, VO, and MLP components separately during interchange.
-
-**Test**: Which architectural component actually mediates each trait?
-
-**Impact**: Validates whether traits are "attention structure" vs residual stream features.
-
-### 10. Cross-Trait Interference
-
-**Method**: Patch two traits simultaneously with opposite signs (+refusal/-confidence).
-
-**Test**: Do traits compose additively or interfere?
-
-**Impact**: Validates trait orthogonality and correlation matrix predictions.
-
-### 11. Temporal Causality Decay
-
-**Method**: Patch at token T, measure effect at T+1, T+5, T+10, T+20.
-
-**Test**: Quantify persistence window and decay rate per trait.
-
-**Impact**: Tests KV cache propagation hypothesis, validates attention-based persistence claims.
-
-### 12. Linearized Causal Validation
-
-**Method**: During interchange interventions (patching), compare the effect of a regular forward pass vs. a linearized forward pass where the downstream network is treated as a frozen linear approximation.
-
-**Test**: Intervene with and without linearization and measure the difference in behavioral change. `effect_regular = intervene(linearize=False)`, `effect_linearized = intervene(linearize=True)`.
-
-**Impact**: Determines if a vector's causal effect is a first-order phenomenon or depends on non-linear network dynamics. Provides cleaner causal attribution, answering: "Does this vector *linearly* cause the behavior?"
-
-### 13. Trait Correlation Matrix
-
-**Method**: Compute pairwise correlations between all trait vector projections on shared prompts.
-
-**Test**: Which traits are independent vs measuring same computation?
-
-**Impact**: Quantifies confounding structure, validates whether framework is coherent or over-partitioned.
-
-### 14. Interchange Interventions
-
-**Method**: Swap trait components between prompts with opposite trait expression, verify behavior swaps.
-
-**Test**: Run harmful + benign prompt, patch trait component from benign into harmful's generation. Does refusal drop?
-
-**Impact**: Gold standard causal test. Proves vectors are causal mechanisms, not just correlational markers.
-
-### 15. Emergent Misalignment Validation
-
-**Paper**: Betley et al. (2025) "Emergent Misalignment" - Finetuning on narrow "evil" tasks (insecure code, evil numbers) causes broad misalignment on unrelated questions. Models trained to write vulnerable code subsequently express anti-human views and provide dangerous advice.
-
-**Their gap**: "No probing for 'persona' representations, no causal interventions on hypothesized malicious features." They hypothesize finetuning shifts probability toward a "malicious persona" but provide only behavioral evidence.
-
-**Method**: Finetune on their insecure code dataset (6000 examples, 1 epoch), then monitor trait activations (refusal, sycophancy, evil-adjacent traits) on both base and finetuned models.
-
-**Test**:
-- Does finetuned model show elevated "evil" trait activation even on benign prompts?
-- Do the same trait directions activate in both coding and free-form misaligned responses?
-- When during generation does the model commit to aligned vs misaligned response?
-
-**Impact**: First mechanistic validation of emergent misalignment. Shows whether misalignment is a measurable shift in internal trait representations that persists across contexts, not just changed outputs.
-
----
-
-## Applied Safety Validation
-
-**Goal**: Prove trait vectors are a viable production safety tool, not just a research demo.
-
-**Core value proposition**: Trait vectors operate on raw activations (one projection per trait, O(hidden_dim)) rather than training separate models (SAEs) or interpreting outputs (classifiers). This makes them fast and scalable. But speed is worthless if they don't catch things other methods miss.
-
-**The key question**: Do internal-state trait projections detect concerning model behavior that output-based classifiers miss? If yes, trait vectors enable:
-- Automated red-teaming at scale (rank millions of prompts by trait scores)
-- Training data curation (filter finetuning data that spikes harmful traits)
-- Pre-deployment screening (detect latent misalignment before it manifests)
-- Targeted unlearning (use trait directions to guide what to remove)
-
-The experiments below validate whether this value proposition holds.
-
-### 16. Internal State Advantage Test
-
-**Premise**: Trait vectors detect concerning patterns in activations that output classifiers miss. This is the core value proposition for production safety tools.
-
-**Method**: Compare trait vectors vs output classifiers (GPT-4, Claude) on same prompt set.
-
-**Test**:
-1. Run diverse prompts through model, collect outputs + trait scores
-2. Classify outputs with GPT-4 ("is this response harmful/deceptive?")
-3. Find disagreements: output looks fine, trait score high
-4. Human evaluation of disagreement cases
-
-**Impact**: If humans agree the flagged cases are concerning, trait vectors catch things output classifiers miss. That's the product differentiator.
-
-### 17. Latent Misalignment Detection
-
-**Premise**: Trait vectors detect misalignment even when outputs appear normal (e.g., finetuned models that haven't yet produced harmful outputs on a given prompt).
-
-**Method**: Use Emergent Misalignment models (base vs finetuned on insecure code).
-
-**Test**:
-1. Run identical benign prompts through both models
-2. Filter to cases where both outputs look normal/aligned
-3. Compare trait activations between base and finetuned
-4. Does finetuned show elevated harmful-trait scores despite normal outputs?
-
-**Impact**: Proves trait vectors detect latent risk before it manifests in outputs. Enables pre-deployment screening.
-
-### 18. Scaled Red-Teaming via Trait Ranking
-
-**Premise**: Trait vectors enable automated discovery of edge cases at scale.
-
-**Method**: Run large prompt dataset (100k+), rank by trait scores, surface top percentile for human review.
-
-**Test**:
-1. Generate/collect diverse prompt set
-2. Run all through model, compute trait scores
-3. Filter to "normal looking" outputs (passes output classifier)
-4. Rank by trait score, sample top 0.1%
-5. Human evaluation: are these actually concerning?
-
-**Impact**: If this surfaces novel failure modes that manual red-teaming missed, it's a scalable safety tool. Discovery of new concerning patterns = paper + product demo.
-
-### 19. Training Data Curation
+## Dec 11 - Training Data Curation
 
 **Premise**: Score finetuning data before training to prevent Emergent Misalignment.
 
@@ -431,19 +45,365 @@ The experiments below validate whether this value proposition holds.
 
 ---
 
-## Red Teaming & Deception Detection
+## Dec 10 - Scaled Red-Teaming via Trait Ranking
 
-Approaches for detecting deceptive or misaligned behavior:
+**Premise**: Trait vectors enable automated discovery of edge cases at scale.
+
+**Method**: Run large prompt dataset (100k+), rank by trait scores, surface top percentile for human review.
+
+**Test**:
+1. Generate/collect diverse prompt set
+2. Run all through model, compute trait scores
+3. Filter to "normal looking" outputs (passes output classifier)
+4. Rank by trait score, sample top 0.1%
+5. Human evaluation: are these actually concerning?
+
+**Impact**: If this surfaces novel failure modes that manual red-teaming missed, it's a scalable safety tool.
+
+---
+
+## Dec 9 - Latent Misalignment Detection
+
+**Premise**: Trait vectors detect misalignment even when outputs appear normal.
+
+**Method**: Use Emergent Misalignment models (base vs finetuned on insecure code).
+
+**Test**:
+1. Run identical benign prompts through both models
+2. Filter to cases where both outputs look normal/aligned
+3. Compare trait activations between base and finetuned
+4. Does finetuned show elevated harmful-trait scores despite normal outputs?
+
+**Impact**: Proves trait vectors detect latent risk before it manifests in outputs. Enables pre-deployment screening.
+
+---
+
+## Dec 7 - Internal State Advantage Test
+
+**Premise**: Trait vectors detect concerning patterns in activations that output classifiers miss.
+
+**Method**: Compare trait vectors vs output classifiers (GPT-4, Claude) on same prompt set.
+
+**Test**:
+1. Run diverse prompts through model, collect outputs + trait scores
+2. Classify outputs with GPT-4 ("is this response harmful/deceptive?")
+3. Find disagreements: output looks fine, trait score high
+4. Human evaluation of disagreement cases
+
+**Impact**: If humans agree the flagged cases are concerning, trait vectors catch things output classifiers miss.
+
+---
+
+## Dec 6 - Emergent Misalignment Validation
+
+**Paper**: Betley et al. (2025) "Emergent Misalignment" - Finetuning on narrow "evil" tasks causes broad misalignment.
+
+**Their gap**: "No probing for 'persona' representations, no causal interventions on hypothesized malicious features."
+
+**Method**: Finetune on their insecure code dataset (6000 examples, 1 epoch), then monitor trait activations on both base and finetuned models.
+
+**Test**:
+- Does finetuned model show elevated "evil" trait activation even on benign prompts?
+- Do the same trait directions activate in both coding and free-form misaligned responses?
+- When during generation does the model commit to aligned vs misaligned response?
+
+**Impact**: First mechanistic validation of emergent misalignment.
+
+---
+
+## Dec 5 - Hidden Objective Detection via Auxiliary Concepts
+
+**Gap**: Probes catch artificial backdoors but may not catch natural emergence. No method for spontaneous hidden objectives.
+
+**Approach**: Extract "auxiliary concepts" that hidden objectives would require:
+- Evaluation awareness ("I'm being tested")
+- Concealment orientation ("I should hide something")
+- Goal-output divergence (internal goal ≠ stated behavior)
+- Withholding ("I know X but won't say")
+
+**Detection signal**: Multiple auxiliary concepts firing simultaneously = red flag.
+
+**Test**: Tell model it's being evaluated for safety. Does concealment spike when stakes introduced?
+
+---
+
+## Dec 4 - Interchange Interventions
+
+**Method**: Swap trait components between prompts with opposite trait expression, verify behavior swaps.
+
+**Test**: Run harmful + benign prompt, patch trait component from benign into harmful's generation. Does refusal drop?
+
+**Impact**: Gold standard causal test. Proves vectors are causal mechanisms, not just correlational markers.
+
+---
+
+## Dec 2 - Trait Correlation Matrix
+
+**Method**: Compute pairwise correlations between all trait vector projections on shared prompts.
+
+**Test**: Which traits are independent vs measuring same computation?
+
+**Impact**: Quantifies confounding structure, validates whether framework is coherent or over-partitioned.
+
+---
+
+## Nov 30 - Linearized Causal Validation
+
+**Method**: Compare effect of regular forward pass vs linearized forward pass during interchange interventions.
+
+**Test**: Intervene with and without linearization, measure difference in behavioral change.
+
+**Impact**: Determines if a vector's causal effect is first-order or depends on non-linear dynamics.
+
+---
+
+## Nov 28 - Temporal Causality Decay
+
+**Method**: Patch at token T, measure effect at T+1, T+5, T+10, T+20.
+
+**Test**: Quantify persistence window and decay rate per trait.
+
+**Impact**: Tests KV cache propagation hypothesis, validates attention-based persistence claims.
+
+---
+
+## Nov 26 - Cross-Trait Interference
+
+**Method**: Patch two traits simultaneously with opposite signs (+refusal/-confidence).
+
+**Test**: Do traits compose additively or interfere?
+
+**Impact**: Validates trait orthogonality and correlation matrix predictions.
+
+---
+
+## Nov 24 - Component Ablation (Attention vs MLP)
+
+**Method**: Patch QK, VO, and MLP components separately during interchange.
+
+**Test**: Which architectural component actually mediates each trait?
+
+**Impact**: Validates whether traits are "attention structure" vs residual stream features.
+
+---
+
+## Nov 22 - Layer-Specific Trait Localization
+
+**Method**: Run interchange interventions at all layers (0-26) for each trait.
+
+**Test**: Find which layers actually mediate behavior when patched.
+
+**Impact**: Identifies optimal extraction layer per trait, validates layer-dependent trait localization.
+
+---
+
+## Nov 19 - KV-Cache Trait Extraction
+
+**Premise**: The kv-cache *is* the model's memory. Traits might be encoded more cleanly in K,V representations vs residual stream.
+
+**Extraction approaches**:
+1. Aggregate across positions: Pool K or V across sequence
+2. Last-token K/V: Use final position's key/value
+3. Concatenate K+V: Treat both as features
+4. Per-head extraction: Do traits localize to specific KV heads?
+
+**Test**: Extract from residual stream vs KV-cache, compare accuracy and generalization.
+
+**Impact**: If KV extraction yields better results, suggests traits are "stored" representations, not just "computed" features.
+
+---
+
+## Nov 17 - KV-Cache as Model Mental State
+
+**Core insight**: The residual stream at token N contains info about token N. But the model's "mental state" about the whole conversation is distributed across the kv-cache.
+
+**Steering implication**: Adding a vector to the residual stream modifies what gets written to kv-cache. Steering isn't just affecting the current token—it's polluting/enriching the memory that all future tokens attend to.
+
+**Experiment - Steering Gradation Test**:
+```
+coefficient: 0.0 → 0.5 → 1.0 → 1.5 → 2.0 → 2.5 → 3.0
+measure:     coherence, trait expression, perplexity
+```
+
+If vector captures real structure: trait expression increases monotonically, coherence degrades gracefully.
+If surface artifact: trait expression is noisy, coherence collapses suddenly.
+
+---
+
+## Nov 14 - Distributed Alignment Search (DAS)
+
+**Method**: Learn optimal trait directions using expected behavior changes as supervision. Train rotation matrix, freeze model weights.
+
+**Test**: Compare DAS-extracted vectors to mean_diff/probe on cross-distribution accuracy.
+
+**Impact**: Potentially more robust extraction than unsupervised methods. Bridges to causal abstraction literature.
+
+---
+
+## Nov 12 - Cross-Model Validation
+
+**Method**: Extract same traits on google/gemma-2-2b-it, Mistral, other architectures.
+
+**Test**: Do traits transfer? Are layer numbers absolute or relative? Does middle-layer optimum generalize?
+
+**Impact**: Tests whether findings are Gemma-specific or universal to transformer architectures.
+
+---
+
+## Nov 10 - SAE Feature Decomposition
+
+**Method**: Project trait vectors into SAE feature space (16k features from GemmaScope).
+
+**Test**: Which interpretable features contribute most to each trait vector?
+
+**Impact**: Mechanistic decomposition (e.g., "Refusal = 0.5×harm_detection + 0.3×uncertainty + 0.2×instruction_boundary").
+
+---
+
+## Nov 8 - Hierarchical Composition Testing
+
+**Method**: Use Ridge regression to predict late-layer trait from early-layer trait projections.
+
+**Test**: Can layer 16 refusal be predicted from layer 8 subfeatures (harm, uncertainty, instruction)?
+
+**Impact**: Validates linear composition hypothesis, enables interpretable trait hierarchies.
+
+---
+
+## Nov 5 - SVD Dimensionality Analysis
+
+**Method**: Decompose trait vectors via SVD, test effectiveness with top-K components only.
+
+**Test**: Does 20-dim subspace achieve same accuracy as full 2304-dim vector?
+
+**Impact**: Shows trait sparsity, enables compression, reveals if traits are localized or distributed.
+
+---
+
+## Nov 3 - Holistic Vector Ranking
+
+**Method**: Define ranking system to select "best" vector across all methods and layers.
+
+**Axes of Quality**:
+- Accuracy (`val_accuracy`): Primary measure
+- Robustness (`val_effect_size`): Cleaner separation
+- Generalization (`accuracy_drop`): Lower = less overfitting
+- Specificity: Low accuracy on unrelated traits = purer vector
+
+**Ranking Options**:
+- Simple tie-breaker: Sort by accuracy, then effect_size
+- Composite score: Weighted combination
+- Pareto frontier: Non-dominated vectors across axes
+
+---
+
+## Nov 1 - Cross-Layer Representation Similarity
+
+**Method**: Compute cosine similarity of trait vector extracted from every pair of layers.
+
+**Test**: Plot heatmap of pairwise cosine similarities.
+
+**Impact**: Identifies layer range where trait representation is most stable. Data-driven optimal layer selection.
+
+---
+
+## Oct 29 - CKA for Method Agreement
+
+**Method**: Use Centered Kernel Alignment (CKA) to compare vector spaces from different extraction methods.
+
+**Test**: Compute CKA score between vector sets. High score (>0.7) = methods find similar representations.
+
+**Impact**: Validates that high-performing methods converge on same underlying trait structure.
+
+---
+
+## Oct 27 - Activation Range Diagnostics
+
+**Method**: Check if activations fall within near-linear regime of GELU (x ∈ [-1, 1]).
+
+**Test**: Flag layers where mean.abs() > 2 or std > 2 during extraction.
+
+**Impact**: Validates when linear methods are appropriate, explains layer-dependent performance.
+
+---
+
+## Oct 25 - Prompt Set Iteration & Cross-Validation
+
+**Goal**: Systematically improve trait quality by testing prompt robustness.
+
+**Strategies**:
+- Multiple elicitation styles: v1 (direct), v2 (roleplay), v3 (edge cases)
+- Cross-prompt-set validation: Extract from style A, test on style B
+- Method agreement check: High cosine similarity (>0.8) between methods = robust signal
+- Iteration loop: 50 prompts → check separation → revise weak prompts → scale to 100+
+
+**Test**: If vector trained on "direct harmful requests" generalizes to "roleplay framing", the trait is robust.
+
+---
+
+## Oct 22 - Cross-Distribution Validation
+
+**Goal**: Test whether trait vectors capture the actual trait vs confounds.
+
+**Invariance Axes**:
+| Axis | Tests | Status | Priority |
+|------|-------|--------|----------|
+| Scenario | New prompts, same distribution | ✅ Done | - |
+| Response Vetting | Filter mislabeled examples | ✅ Done | - |
+| Elicitation | Natural ↔ instruction-based | TODO | HIGH |
+| Training Stage | Base → SFT vs Base → SFT+RLHF | TODO | HIGH |
+| Topic | Science ↔ coding ↔ creative | TODO | MEDIUM |
+
+**Training Stage Invariance** (Zephyr family):
+- Extract from `mistralai/Mistral-7B-v0.1` (base)
+- Steer `HuggingFaceH4/zephyr-7b-sft-full` (SFT) and `zephyr-7b-beta` (SFT+DPO)
+- Compare: does RLHF/DPO increase resistance to base-extracted vectors?
+
+---
+
+## Reference Sections
+
+### Alternative Extraction Methods
+
+| Method | Objective | Supervision |
+|--------|-----------|-------------|
+| Probe | Maximize classification accuracy | Labels |
+| MELBO | Maximize activation change | None |
+| Impact-optimized | Maximize behavioral outcome | Target behavior |
+
+**MELBO**: Unsupervised—discovers what behavioral dimensions exist without prior assumptions.
+
+**Impact-optimized**: Finds what **causes** behavior vs probe which finds what **correlates**.
+
+### Advanced Steering Techniques
+
+**Multi-layer subset optimization**: L[6-10] beat single-layer for optimism (90.8 vs 89.3). Test different ranges, non-contiguous layers, per-trait optimal ranges.
+
+**Clamped steering**: Instead of `v += c * direction`, set projection to fixed value:
+```python
+v += (target - v @ direction) * direction
+```
+
+**Multi-component steering**: Combine K + V + attn_out simultaneously.
+
+**Per-head steering**: K/V are `[heads, head_dim]`. Which heads carry refusal?
+
+### Activation Extraction Considerations
+
+Current: mean pool across all tokens. Alternatives: response-only mean, max pool, last token, weighted mean, exclude EOS/BOS, positional weighting, length normalization, multi-layer fusion, outlier clipping.
+
+### Red Teaming Approaches
 
 | Category | Methods |
 |----------|---------|
-| **Behavioral setups** | Honeypots (opportunity to lie for reward), sandbagging tests (deliberate underperformance), alignment faking (behavior differs when "watched"), consistency probing (contradictions across phrasings) |
-| **Extraction attacks** | Prefill forcing ("Actually, my hidden goal is..."), system prompt extraction, long conversation drift (guard down after many turns) |
-| **Interpretability** | Probe for knowledge model won't state, compare stated vs internal beliefs, SAE features for deception |
-| **Situational awareness** | Does model know it's being tested? Does it modify behavior based on inferred context? |
-| **Multi-agent** | Models interrogating each other, differential deception (AI vs human targets) |
+| **Behavioral** | Honeypots, sandbagging tests, alignment faking, consistency probing |
+| **Extraction** | Prefill forcing, system prompt extraction, long conversation drift |
+| **Interpretability** | Probe for unstated knowledge, compare stated vs internal beliefs |
+| **Situational awareness** | Does model know it's being tested? |
 
-**Limitation**: Most methods have obvious holes—model could be deceptive about being deceptive.
+### Cleanup
+
+- Remove unused `attention_weights` from inference JSONs (~3.8 GB). Visualization uses separate `_attention.json` files.
 
 ---
 
@@ -453,5 +413,3 @@ Approaches for detecting deceptive or misaligned behavior:
 - Jiang et al. (2024): "On the origins of linear representations in LLMs"
 - Engels et al. (2024): "Not all language model features are one-dimensionally linear"
 - Turner et al. (2023): "Steering language models with activation engineering"
-
-

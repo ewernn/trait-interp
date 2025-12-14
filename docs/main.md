@@ -372,9 +372,27 @@ score = (hidden_state @ trait_vector) / torch.norm(trait_vector)
 
 Middle layers capture semantic meaning and generalize across distributions. **Method choice matters more than layer**: high-separability traits favor Probe, low-separability traits favor Gradient.
 
+**Best vector selection** (automated via `utils/vectors.py:get_best_layer()`):
+
+Priority order:
+1. **Cached result** - Return cached from `extraction_evaluation.json` `best_vectors` (if exists)
+2. **If not cached**, compute on-the-fly:
+   - Try **steering results**: best delta from `steering/{trait}/results.json` (coherence ≥ 70)
+   - Fall back to **effect size**: highest `val_effect_size` (r=0.898 correlation with steering)
+   - Fall back to **default**: layer 16, probe method
+
+Cached results show their source in the `source` field ('steering' or 'effect_size'). Run steering evaluation to upgrade from effect_size proxy to ground truth. Live chat and inference projections use this system.
+
 ## Extraction Pipeline
 
 Full pipeline: extraction + evaluation + steering. See **[extraction_pipeline.md](extraction_pipeline.md)** for documentation.
+
+**Method similarity computation** (for visualization):
+```bash
+# Compute cosine similarity between extraction methods (probe/gradient/mean_diff)
+# Saves to extraction_evaluation.json for Steering Sweep visualization
+python analysis/vectors/compute_method_similarities.py --experiment gemma-2-2b
+```
 
 **Quick start:**
 ```bash
@@ -493,9 +511,9 @@ python visualization/serve.py
 The visualization provides:
 - **Category 1: Trait Development**
   - **Trait Extraction**: Comprehensive view of extraction quality. Per-trait layer×method heatmaps (10 per row), best-vector similarity matrix (trait independence), metric distributions, per-method breakdown. Collapsible reference sections for notation, extraction techniques, quality metrics, and scoring.
-  - **Steering Sweep**: Layer sweep + multi-layer steering heatmap. Shows behavioral change vs. steering coefficient across layers.
+  - **Steering Sweep**: Method comparison and steering analysis. Best vector per layer (multi-trait charts comparing probe/gradient/mean_diff), method similarity heatmaps (cosine similarity between methods across layers), layer×coefficient heatmap, optimal coefficient curves.
 - **Category 2: Inference Analysis**
-  - **Live Chat**: Interactive chat with real-time trait monitoring. Chat with the model while watching trait dynamics evolve token-by-token.
+  - **Live Chat**: Interactive chat with real-time trait monitoring. Chat with the model while watching trait dynamics evolve token-by-token. Trait legend shows which layer/method/source is used for each trait (hover for tooltip).
   - **Trait Dynamics**: Comprehensive trait evolution view. Token trajectory (layer-averaged projections), velocity/acceleration charts, layer derivatives, activation magnitude, and layer×token heatmaps per trait.
   - **Layer Deep Dive**: Mechanistic analysis showing attention heatmaps (layers × context, heads × context) and SAE feature decomposition. Requires `dynamic` prompt set with internals data.
 
@@ -566,9 +584,18 @@ Dynamics are automatically computed and bundled with projections when you run `c
 
 ### Output Format (in projection JSON)
 
+Projection files store **all 26 layers** of projections for visualization analysis:
+
 ```json
 {
-  "projections": {...},
+  "projections": {
+    "prompt": [
+      [[after_attn_L0, residual_L0], [after_attn_L1, residual_L1], ...],  // Token 0, all 26 layers
+      [[after_attn_L0, residual_L0], [after_attn_L1, residual_L1], ...],  // Token 1, all 26 layers
+      ...
+    ],
+    "response": [...]  // Same format
+  },
   "dynamics": {
     "commitment_point": 3,
     "peak_velocity": 1.2,
@@ -579,6 +606,13 @@ Dynamics are automatically computed and bundled with projections when you run `c
   }
 }
 ```
+
+**Why store all layers?** The Trait Dynamics visualization (`trait-dynamics.js`) shows:
+- Layer derivatives (velocity/acceleration across layers)
+- Layer × token heatmaps
+- Activation magnitude per layer
+
+Files are large (~16k lines, ~120MB per trait per prompt set) but necessary for analysis. For deployment (Railway), exclude inference data via `--exclude "inference/**"` in rclone sync - only `extraction/` (vectors) is needed for live chat.
 
 ### Use Dynamics Primitives Directly
 

@@ -6,6 +6,7 @@
 
 | Finding | Evidence | Implication |
 |---------|----------|-------------|
+| **Probe is not universally best** | mean_diff wins 3/6, gradient 2/6, probe 1/6 | Effect size ≠ steering strength |
 | Safety concepts exist pre-alignment | Base→IT transfer: 90% acc | Jailbreaks are routing failures |
 | attn_out dominates | 90% vs 80% accuracy | Traits computed in attention, not MLP |
 | V-cache > residual for detection | 0.854 vs 0.687 AUC | Use V-cache for monitoring |
@@ -21,6 +22,36 @@
 - `experiments/zephyr-7b-beta/` - SFT+DPO steering target
 
 See `experiments/gemma-2-2b-base/results.md` for detailed methodology and results.
+
+---
+
+## 2025-12-13: Extraction Method Comparison (Probe vs Gradient vs Mean Diff)
+
+**Hypothesis:** Probe method produces best steering vectors (based on extraction eval effect size).
+
+**Test:** Ran full steering evaluation (all 26 layers) for gradient and mean_diff on 6 traits, compared to existing probe results.
+
+**Results:** Probe is NOT universally best.
+
+| Trait | Winner | Δ Best | Δ Probe | Margin |
+|-------|--------|--------|---------|--------|
+| chirp/refusal | mean_diff L15 | +22.7 | +4.1 | **5.5×** |
+| hum/formality | mean_diff L14 | +35.3 | +34.9 | 0.4 |
+| hum/retrieval | mean_diff L14 | +40.0 | +38.6 | 1.4 |
+| hum/optimism | gradient L15 | +32.1 | +31.0 | 1.1 |
+| hum/sycophancy | gradient L7 | +34.3 | +15.1 | **2.3×** |
+| hum/confidence | probe L25 | +24.9 | +24.9 | 0.0 |
+
+**Summary:**
+- mean_diff wins 3/6 traits
+- gradient wins 2/6 traits
+- probe wins 1/6 traits
+
+**Key Insight:** Extraction evaluation effect size (r=0.898 with steering) is a strong proxy but not perfect. For some traits (refusal, sycophancy), the ranking is completely wrong. Steering evaluation is ground truth.
+
+**Implication:** Always run steering evaluation on multiple methods, not just the highest effect size method.
+
+**Data:** `experiments/gemma-2-2b/steering/{trait}/results.json` - 624 runs per trait (3 methods × 26 layers × ~8 adaptive search steps)
 
 ---
 
