@@ -7,7 +7,7 @@ without re-running model inference.
 
 Layer selection (default: auto per trait):
 - Steering results (ground truth) if available
-- Effect size (best proxy, r=0.898) otherwise
+- Effect size (fallback heuristic) otherwise
 - Use --layer N to override for all traits
 
 Storage:
