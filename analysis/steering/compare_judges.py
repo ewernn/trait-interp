@@ -96,7 +96,7 @@ class MultiJudge:
 
         # Initialize Gemini client if needed and available
         self.gemini_client = None
-        gemini_models = [m for m in models if m.startswith("gemini-")]
+        gemini_models = [m for m in models if m.startswith("gemini-") or m.startswith("models/gemini-")]
         if gemini_models:
             if not GEMINI_AVAILABLE:
                 raise ValueError("Gemini models requested but google-genai not installed. Run: pip install google-genai")
@@ -106,7 +106,7 @@ class MultiJudge:
             self.gemini_client = genai.Client(api_key=api_key)
 
     def _is_gemini(self, model: str) -> bool:
-        return model.startswith("gemini-")
+        return model.startswith("gemini-") or model.startswith("models/gemini-")
 
     async def _score_openai(self, model: str, prompt: str) -> Optional[float]:
         """Score using OpenAI API with logprobs."""
@@ -141,7 +141,7 @@ class MultiJudge:
                     model=model,
                     contents=prompt,
                     config=types.GenerateContentConfig(
-                        max_output_tokens=4,  # Enough for "100" + potential whitespace
+                        max_output_tokens=100,  # gemini-2.5-flash uses ~95 thinking tokens
                         temperature=0,
                     ),
                 )
@@ -467,10 +467,10 @@ def main():
     model_name = config.get('application_model') or config.get('model')
 
     # Define available judge models by provider
-    # Note: gemini-2.0-* have logprobs via AI Studio API
-    # gemini-2.5-* models don't support logprobs yet via free API (need Vertex AI)
-    openai_models = ["gpt-4.1-mini", "gpt-4o-mini", "gpt-4.1-nano"]
-    gemini_models = ["gemini-2.0-flash", "gemini-2.0-flash-lite"]
+    # Note: Using text extraction for Gemini (not logprobs)
+    # gemini-2.5-flash needs max_output_tokens=100 due to thinking tokens
+    openai_models = ["gpt-4.1-nano", "gpt-4o-mini", "gpt-4.1-nano"]
+    gemini_models = ["gemini-2.5-flash"]
 
     # Select models based on --judges flag
     if args.judges == "openai":

@@ -348,7 +348,7 @@ async def run_evaluation(
     results = load_or_create_results(
         experiment, trait, prompts_file, model_name, vector_experiment, judge_provider
     )
-    judge = TraitJudge()  # Always uses gpt-4.1-mini with logprobs
+    judge = TraitJudge()  # Always uses gpt-4.1-nano with logprobs
 
     print(f"\nTrait: {trait}")
     print(f"Model: {model_name} ({num_layers} layers)")
@@ -530,7 +530,7 @@ async def run_multilayer_evaluation(
     print(f"Questions: {len(questions)}")
 
     # Initialize judge
-    judge = TraitJudge()  # Always uses gpt-4.1-mini with logprobs
+    judge = TraitJudge()  # Always uses gpt-4.1-nano with logprobs
 
     # Generate and score
     all_qa_pairs = []

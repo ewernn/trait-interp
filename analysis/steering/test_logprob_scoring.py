@@ -58,7 +58,7 @@ def aggregate_logprob_score(logprobs: Dict[str, float], min_weight: float = 0.25
     return weighted_sum / total_weight
 
 
-async def get_logprobs(client: AsyncOpenAI, prompt: str, model: str = "gpt-4.1-mini") -> Dict[str, float]:
+async def get_logprobs(client: AsyncOpenAI, prompt: str, model: str = "gpt-4.1-nano") -> Dict[str, float]:
     """Get top-20 logprobs for first token."""
     response = await client.chat.completions.create(
         model=model,

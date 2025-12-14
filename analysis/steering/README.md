@@ -64,7 +64,7 @@ Results accumulate in `experiments/{experiment}/steering/{trait}/results.json`:
     "trait": "epistemic/optimism"
   },
   "eval": {
-    "model": "gpt-4.1-mini",
+    "model": "gpt-4.1-nano",
     "method": "logprob"
   },
   "baseline": {"trait_mean": 61.3, "coherence_mean": 92.0, "n": 20},
@@ -80,7 +80,7 @@ Results accumulate in `experiments/{experiment}/steering/{trait}/results.json`:
 
 ## Evaluation Model
 
-Uses `gpt-4.1-mini` with logprob scoring. Requires `OPENAI_API_KEY`.
+Uses `gpt-4.1-nano` with logprob scoring. Requires `OPENAI_API_KEY`.
 
 ## Gotchas
 
