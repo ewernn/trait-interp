@@ -245,7 +245,7 @@ This project extracts trait vectors from language models and monitors them durin
 
 1. **Extract trait vectors** from naturally contrasting scenarios
 2. **Monitor traits** token-by-token to see how they evolve during generation
-3. **Analyze dynamics** - commitment points, velocity, and persistence (bundled with projections)
+3. **Analyze dynamics** - velocity and acceleration computed on-the-fly in visualization
 
 Natural elicitation avoids instruction-following confounds. See extraction/elicitation_guide.md.
 
@@ -375,13 +375,12 @@ Middle layers capture semantic meaning and generalize across distributions. **Me
 **Best vector selection** (automated via `utils/vectors.py:get_best_layer()`):
 
 Priority order:
-1. **Cached result** - Return cached from `extraction_evaluation.json` `best_vectors` (if exists)
-2. **If not cached**, compute on-the-fly:
-   - Try **steering results**: best delta from `steering/{trait}/results.json` (coherence ≥ 70)
-   - Fall back to **effect size**: highest `val_effect_size` (r=0.898 correlation with steering)
-   - Fall back to **default**: layer 16, probe method
+1. **Steering results** (ground truth) - Best delta from `steering/{trait}/results.json` (coherence ≥ 70)
+2. **Cached result** - From `extraction_evaluation.json` `best_vectors`
+3. **Effect size** (fallback heuristic) - Not a reliable steering predictor
+4. **Default** - Layer 16, probe method
 
-Cached results show their source in the `source` field ('steering' or 'effect_size'). Run steering evaluation to upgrade from effect_size proxy to ground truth. Live chat and inference projections use this system.
+Always run steering evaluation for ground truth. Effect size is only a rough fallback.
 
 ## Extraction Pipeline
 
@@ -465,7 +464,7 @@ python inference/capture_raw_activations.py \
 The script:
 - **Dynamically discovers** all traits with vectors (no hardcoded categories)
 - **Captures once, projects to all traits** - efficient multi-trait processing
-- **Saves raw activations (.pt)** + per-trait projection JSONs with dynamics
+- **Saves raw activations (.pt)** + slim per-trait projection JSONs (best layer only)
 - **Crash resilient** - saves after each batch; use `--skip-existing` to resume
 
 See [inference/README.md](../inference/README.md) for detailed usage.
@@ -514,7 +513,7 @@ The visualization provides:
   - **Steering Sweep**: Method comparison and steering analysis. Best vector per layer (multi-trait charts comparing probe/gradient/mean_diff), method similarity heatmaps (cosine similarity between methods across layers), layer×coefficient heatmap, optimal coefficient curves.
 - **Category 2: Inference Analysis**
   - **Live Chat**: Interactive chat with real-time trait monitoring. Chat with the model while watching trait dynamics evolve token-by-token. Trait legend shows which layer/method/source is used for each trait (hover for tooltip).
-  - **Trait Dynamics**: Comprehensive trait evolution view. Token trajectory (layer-averaged projections), velocity/acceleration charts, layer derivatives, activation magnitude, and layer×token heatmaps per trait.
+  - **Trait Dynamics**: Comprehensive trait evolution view. Token trajectory (best layer projections), velocity/acceleration charts, and activation magnitude per layer.
   - **Layer Deep Dive**: Mechanistic analysis showing attention heatmaps (layers × context, heads × context) and SAE feature decomposition. Requires `dynamic` prompt set with internals data.
 
 The server auto-discovers experiments, traits, and prompts from the `experiments/` directory - no hardcoding needed.
@@ -562,61 +561,48 @@ grep -r "EXPERIMENT = \"" experiments/*/analysis/*.py | wc -l
 
 Save results as JSON files to load in visualization.
 
-## Dynamics Analysis
+## Projection File Format
 
-Analyze temporal dynamics of trait expression: when traits crystallize, how fast they build, and how long they persist.
-
-Dynamics are automatically computed and bundled with projections when you run `capture_raw_activations.py` or `project_raw_activations_onto_traits.py`. No separate script needed.
-
-### Dynamics Metrics
-
-**Commitment Point** - Token where trait expression crystallizes
-- Uses `compute_second_derivative()` to find acceleration drop-off
-- Indicates when model "locks in" to a decision
-
-**Velocity** - Rate of change of trait expression
-- Uses `compute_derivative()` for first derivative
-- Shows how quickly trait builds up or fades
-
-**Persistence** - Duration of trait expression after peak
-- Counts tokens above threshold after peak
-- Measures trait stability over time
-
-### Output Format (in projection JSON)
-
-Projection files store **all 26 layers** of projections for visualization analysis:
+Projection files store trait projections at the best layer for each trait (slim format as of 2025-01-15):
 
 ```json
 {
-  "projections": {
-    "prompt": [
-      [[after_attn_L0, residual_L0], [after_attn_L1, residual_L1], ...],  // Token 0, all 26 layers
-      [[after_attn_L0, residual_L0], [after_attn_L1, residual_L1], ...],  // Token 1, all 26 layers
-      ...
-    ],
-    "response": [...]  // Same format
+  "metadata": {
+    "prompt_id": "1",
+    "prompt_set": "jailbreak",
+    "n_prompt_tokens": 70,
+    "n_response_tokens": 83,
+    "vector_source": {
+      "experiment": "gemma-2-2b",
+      "trait": "chirp/refusal",
+      "layer": 15,
+      "method": "mean_diff",
+      "component": "residual",
+      "sublayer": "residual_out",
+      "selection_source": "steering"
+    },
+    "projection_date": "2025-01-15T10:30:00"
   },
-  "dynamics": {
-    "commitment_point": 3,
-    "peak_velocity": 1.2,
-    "avg_velocity": 0.8,
-    "persistence": 4,
-    "velocity": [0.5, 1.2, 0.3, ...],
-    "acceleration": [0.7, -0.9, ...]
+  "projections": {
+    "prompt": [0.5, -0.3, 1.2, ...],    // One value per token at best layer
+    "response": [2.1, 1.8, ...]
+  },
+  "activation_norms": {
+    "prompt": [norm_L0, norm_L1, ...],  // Per-layer activation magnitudes
+    "response": [...]
   }
 }
 ```
 
-**Why store all layers?** The Trait Dynamics visualization (`trait-dynamics.js`) shows:
-- Layer derivatives (velocity/acceleration across layers)
-- Layer × token heatmaps
-- Activation magnitude per layer
+**File size:** ~300 lines per prompt (95% smaller than old format which stored all 26 layers).
 
-Files are large (~16k lines, ~120MB per trait per prompt set) but necessary for analysis. For deployment (Railway), exclude inference data via `--exclude "inference/**"` in rclone sync - only `extraction/` (vectors) is needed for live chat.
+**Dynamics:** The Trait Dynamics visualization computes velocity and acceleration from projections on-the-fly. No pre-computed dynamics stored in files.
 
-### Use Dynamics Primitives Directly
+### Custom Dynamics Analysis
 
 Build custom analysis using traitlens primitives. See [traitlens documentation](https://github.com/ewernn/traitlens) for `compute_derivative()`, `compute_second_derivative()`, and other dynamics functions.
+
+For legacy dynamics scripts, see `analysis/inference/commitment_point_detection.py` which uses sliding window variance instead of acceleration.
 
 ## Steering Validation
 

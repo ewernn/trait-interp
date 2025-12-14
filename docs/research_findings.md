@@ -191,7 +191,7 @@ Steered responses have **7x more variance** between 5-question subsets than base
 - gradient wins 2/6 traits
 - probe wins 1/6 traits
 
-**Key Insight:** Extraction evaluation effect size (r=0.898 with steering) is a strong proxy but not perfect. For some traits (refusal, sycophancy), the ranking is completely wrong. Steering evaluation is ground truth.
+**Key Insight:** Extraction evaluation effect size is NOT a reliable predictor of steering success. For some traits (refusal, sycophancy), the ranking is completely wrong. Steering evaluation is the only ground truth.
 
 **Implication:** Always run steering evaluation on multiple methods, not just the highest effect size method.
 
@@ -270,7 +270,7 @@ See `experiments/mistral-7b-base/results.md` for full coefficient search logs.
 
 ## 2025-12-06: Extraction Metrics ≠ Steering Success
 
-Effect size best predicts steering (r=0.898), val_accuracy worst (r=0.705). Best layer disagrees: extraction says L13, steering says L8. **Late layer trap**: L25 has 95% val_acc but −10.6 steering Δ.
+Extraction metrics (effect_size, val_accuracy) do NOT reliably predict steering success. Best layer often disagrees: extraction says L13, steering says L8. **Late layer trap**: L25 has 95% val_acc but −10.6 steering Δ. Always run steering evaluation.
 
 ---
 

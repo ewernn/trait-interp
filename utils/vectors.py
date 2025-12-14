@@ -3,14 +3,14 @@ Utility functions for working with trait vectors.
 
 Single source of truth for best layer selection.
 
-Priority (FIXED 2025-01-15):
-1. Steering results (ground truth, always fresh)
-2. Cached result in extraction_evaluation.json (effect_size)
-3. Effect size (computed on-the-fly if not cached)
+Priority:
+1. Steering results (ground truth - actual behavioral validation)
+2. Cached result in extraction_evaluation.json
+3. Effect size (fallback heuristic when steering not available)
 4. Default (layer 16, probe method)
 
-The fix: Steering results are now checked BEFORE cache, ensuring ground-truth
-behavioral validation is always prioritized over effect_size proxy.
+Note: Effect size from extraction is a rough heuristic, not a reliable predictor
+of steering success. Always run steering evaluation for ground truth.
 """
 
 import json
@@ -29,10 +29,10 @@ def get_best_layer(experiment: str, trait: str) -> dict:
     """
     Get best layer for a trait.
 
-    Priority (FIXED - steering now checked before cache):
-    1. Steering results (ground truth, always fresh)
-    2. Cached result (effect_size, from extraction_evaluation.json)
-    3. Effect size (computed on-the-fly if not cached)
+    Priority:
+    1. Steering results (ground truth - actual behavioral validation)
+    2. Cached result from extraction_evaluation.json
+    3. Effect size (fallback heuristic)
     4. Default (layer 16, probe method)
 
     Args:
@@ -124,7 +124,7 @@ def _try_cached_result(experiment: str, trait: str) -> Optional[dict]:
 
 
 def _try_effect_size(experiment: str, trait: str) -> Optional[dict]:
-    """Try to compute best layer from effect_size (validation data)."""
+    """Fallback: use effect_size as heuristic (not a reliable steering predictor)."""
     eval_path = get_path('extraction_eval.evaluation', experiment=experiment)
     if not eval_path.exists():
         return None

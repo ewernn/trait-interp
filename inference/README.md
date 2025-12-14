@@ -42,7 +42,7 @@ experiments/{exp}/
 │   │
 │   └── {category}/{trait}/                   # Trait-specific projections
 │       └── residual_stream/{prompt_set}/
-│           └── {id}.json                     # Projections + dynamics (~50-100 KB)
+│           └── {id}.json                     # Slim projections (~2-5 KB, best layer only)
 │
 └── analysis/
     └── per_token/{prompt_set}/               # Visualization JSONs
@@ -140,7 +140,7 @@ Re-project saved raw activations. Useful for:
 
 By default, auto-selects the best layer per trait using:
 1. **Steering results** (ground truth) if available
-2. **Effect size** (best proxy, r=0.898 correlation with steering) otherwise
+2. **Effect size** (fallback heuristic) otherwise
 3. **Layer 16** as fallback
 
 Use `--layer N` to override with a fixed layer for all traits.
