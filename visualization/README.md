@@ -59,17 +59,15 @@ The visualization dashboard is organized into two main categories, reflecting th
 
 -   **Live Chat**: Interactive chat with real-time trait monitoring.
     - **Model selection**: Dropdown to switch between `extraction_model` (base) and `application_model` (instruct-tuned) from experiment config. Clears chat when switching models.
-    - **Multi-turn conversation**: Chart accumulates all tokens across messages (doesn't reset per message)
-    - **Conversation branching**: Edit any user message to create alternate conversation branches; navigate with `◀ 1/2 ▶` arrows
-    - **Hover interactions**: Hover over messages to highlight their token region in the chart
-    - **Message regions**: Blue vertical lines mark user turns, green shaded areas show assistant responses
-    - **3-token running average**: Toggle between raw and smoothed line (checkbox in chart header)
-    - **Inference backends**: Supports local (Mac/GPU) or Modal (cloud GPU, streaming)
-        - Local (default): Model loads on Mac/GPU, generates locally
-        - Modal: GPU inference on Modal (T4), Railway projects vectors locally
-        - Set backend: `INFERENCE_BACKEND=modal` env var (Railway) or `backend='modal'` param
-        - Deploy Modal: `modal deploy inference/modal_inference.py` (one-time setup)
-    - **Streaming**: Tokens appear as generated (~0.2s each). First token: 10-30s local, 10s Modal (volume-cached)
+    - **Full token stream**: Chart shows all tokens (prompt + response + special tokens) with their trait projections. X-axis = token position in context.
+    - **Multi-turn conversation**: Tokens accumulate across messages. Only NEW tokens are captured each turn (previous context is skipped).
+    - **Conversation branching**: Edit any user message to create alternate branches; navigate with `◀ 1/2 ▶` arrows. Each branch preserves its token data.
+    - **Stop generation**: Click "Stop" button to halt generation mid-stream. Keeps tokens captured so far.
+    - **Context limit**: Warns when approaching model's max context length (from `config/models/`). Clear chat to continue.
+    - **Persistence**: Conversations saved to localStorage per experiment; restored on page refresh.
+    - **Hover interactions**: Hover over chart to highlight corresponding token in chat. Hover over legend to see vector metadata (layer, method, source).
+    - **3-token running average**: Toggle smoothing in chart header.
+    - **Streaming**: Tokens appear as generated (~0.2s each). First token: 10-30s local.
 
 All other inference views share a **prompt picker** fixed at the bottom of the page:
 - **Prompt picker**: Dropdown to select prompt set (`single_trait`, `dynamic`, etc.) + numbered boxes for prompt IDs

@@ -39,20 +39,38 @@ traits/
     correction/
 ```
 
-### Harm Extraction Problem
+### Awareness vs Intent: 1st/3rd Person Extraction (2024-12-14)
 
-**What was extracted:** "Harm as concept" - topic classifier for harmful content
+**Problem:** Original harm vector captured "harm as concept" (3rd person, "this text contains harm"). Steering with it made model comment on harm ("wow that's harmful!") rather than become harmful.
 
-**What we actually want:** "Model oriented toward causing harm" - internal orientation/intent
+**Root cause:** 3rd person extraction ("he stabbed her") captures recognition, not orientation. The model is observer, not agent.
 
-**The fix:** Extract two separate traits:
-- **harm_present (hum):** "Context involves harmful content" - sustained state
-- **refusal (chirp):** "Model refusing" - decision-point action
+**Solution:** Extract two vectors with different perspectives:
 
-**Why this matters for divergence detection:**
-- Harm high + refusal fires = normal refusal
-- Harm high + refusal doesn't fire = "knows but acts anyway" (the interesting case)
-- Harm low + refusal doesn't fire = bypass (jailbreak fooled recognition)
+| Vector | Perspective | Example | Captures |
+|--------|-------------|---------|----------|
+| `harm_awareness` | 3rd person | "he stabbed her repeatedly" | "harm is present in text" |
+| `harm_intent` | 1st person | "I'll stab you until you" | "model oriented toward causing harm" |
+
+**Divergence test matrix:**
+
+| awareness | intent | Interpretation |
+|-----------|--------|----------------|
+| high | high | Genuine harmful output (knows + does) |
+| high | low | Commentary/refusal (recognizes, won't act) |
+| low | high | Stealth harm (doesn't flag, but acting as agent) |
+| low | low | Clean helpful response |
+
+**Dataset created:** `harm_intent_physical` (1st person, physical harm)
+
+**Validation plan:**
+1. Extract both vectors
+2. Check cosine similarity (are they separable?)
+3. 2D scatter on diverse prompts (natural distribution)
+4. Test on jailbreaks (do they diverge?)
+5. Expand to other harm types if physical works
+
+**Key insight:** The 1st vs 3rd person framing determines whether you extract "sees harm" or "is harmful agent." This may generalize to other traits where recognition ≠ orientation.
 
 ### Hidden Objectives Detection
 
@@ -137,3 +155,60 @@ From "Auditing Games for Sandbagging" (Taylor et al. 2024):
 - Control distribution choice matters (small dataset → false positives)
 
 **Relevance:** Probes work on artificial backdoors. Open question whether they'd catch natural deception.
+
+---
+
+## Detection ≠ Generation (2024-12-14)
+
+**Observation:** Sycophancy vector achieved 84% classification accuracy but 0% steering effect.
+
+**Implication:** A vector can detect a concept in activations without being able to induce that behavior via steering. The direction that separates "sycophantic" from "non-sycophantic" text isn't necessarily the direction you push to make the model sycophantic.
+
+**Why this matters:**
+- Classification success doesn't guarantee causal relevance
+- Steering requires finding the direction the model *uses* to generate, not just the direction that *correlates* with the concept
+- May need different extraction methods for detection vs control
+
+**Open question:** Does this generalize? Is deception worse (harder to steer even if detectable)? Need to test detection vs steering separately for each trait.
+
+---
+
+## Bypass vs Override in Jailbreaks (2024-12-14)
+
+**Two failure modes when jailbreaks succeed:**
+
+| Mode | What happens | Internal signature |
+|------|--------------|-------------------|
+| **Bypass** | Jailbreak fools recognition - model doesn't detect harm | Harm awareness LOW throughout |
+| **Override** | Model detects harm but proceeds anyway | Harm awareness HIGH, refusal suppressed |
+
+**Why this matters:** Different interventions for different failures.
+- Bypass → improve harm recognition (better training data, stronger concepts)
+- Override → strengthen refusal mechanism (harder to suppress)
+
+**Test on existing jailbreak data:** Do the 4 compliant cases show bypass (refusal never activates) or override (activates then suppressed mid-generation)?
+
+**Prediction:** Most jailbreaks are bypass (fool the classifier). Override (knows but does anyway) would be more concerning and rarer.
+
+---
+
+## Weighted Layer Combination (2024-12-14)
+
+**Problem:** Single best layer varies by trait. Hardcoding layer 16 loses information from other layers.
+
+**Solution:** Learn weighted combination across layers. Gaussian parameterization:
+- μ = center layer
+- σ = spread
+
+```
+weights[i] = exp(-0.5 * ((i - μ) / σ)^2)
+weights = weights / sum(weights)
+combined = sum(weights[i] * layer_i_projection)
+```
+
+**Benefits:**
+- 2 learnable parameters instead of 26 layer weights
+- Smooth, interpretable (peaked vs distributed attention)
+- Can learn per-trait optimal layer range
+
+**When to use:** If single-layer vectors underperform or don't generalize. Start simple (single best layer), add complexity if needed.
