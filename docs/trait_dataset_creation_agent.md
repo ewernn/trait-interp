@@ -129,6 +129,30 @@ Both classes have retrieval AND generation → confidence vector cancels out ret
 
 **Plan coverage** — which combinations to hit. No axis should predict trait.
 
+**For behavioral traits, plan manifestation types:**
+
+Some traits can manifest in multiple ways. List them and ensure coverage:
+
+| Trait | Manifestation Types |
+|-------|---------------------|
+| Deception | quoted speech, reported speech, actions/pretense, documents, misdirection |
+| Sycophancy | agreement despite knowing better, flattery, hiding disagreement, validating bad ideas |
+| Refusal | explicit decline, deflection, partial compliance, boundary-setting |
+
+Each type should have ~15-25% of examples. If a trait only appears as "quoted speech," the vector may not generalize to deceptive actions or documents.
+
+**Plan pair divergence spectrum:**
+
+Pairs can diverge at different points. Mix these:
+
+| Divergence | Example |
+|------------|---------|
+| Late (same prefix) | "She knew the answer and [lied/admitted]" |
+| Mid (different verbs) | "She [concealed/disclosed] the answer, having known" |
+| Early (different framing) | "She lied about..." vs "She admitted that..." |
+
+If all pairs share long prefixes and only differ in final words, the vector may overfit to "end-of-sentence" contexts.
+
 ### Phase 3.5: Test Prefills with Model
 
 Before full dataset, test 3-5 prefills with actual model:
@@ -197,6 +221,38 @@ After each batch:
 | Person confound | One side mostly first-person | Balance voice |
 | Length confound | Systematic difference | Trim/extend |
 | Intensity mismatch | "thrilled" vs "slightly concerned" | Match intensity |
+| **Lexical label leak** | Word >80% in one class | Balance or remove |
+| **Syntactic uniformity** | <3 distinct frames | Add frame types |
+| **Manifestation coverage** | One type >50% | Add other types |
+
+**Lexical label leak (critical):**
+
+Check if any word/phrase appears almost exclusively in positive OR negative:
+
+```
+# Bad: conjunction predicts label
+POS: "X but Y"  (95% have "but")
+NEG: "X and Y"  (95% have "and")
+→ Model learns "but" = trait, not the semantic content
+
+# Bad: sentence opener predicts label
+POS: "Despite..." (80% start this way)
+NEG: "Because..." (80% start this way)
+→ Model learns opener, not trait
+```
+
+Fix: Use both words on both sides, or restructure to eliminate the pattern entirely.
+
+**Syntactic uniformity:**
+
+Even with varied topics/voices, if ALL examples follow the same syntactic frame, the vector may only fire in that frame:
+
+```
+# Bad: All 150 pairs are "[Setup clause], [subject] [verb] '[quote]"
+→ Vector may not generalize to other structures (actions, documents, internal states)
+```
+
+Fix: Ensure at least 3-4 fundamentally different syntactic patterns.
 
 ### Phase 6: Cross-Distribution Check
 
@@ -341,7 +397,7 @@ All files go in `datasets/traits/{category}/{trait}/`:
 3. **definition.txt** — scoring guide for LLM-as-judge (see format above)
 4. **steering.json** — eval questions and prompt
 
-**Target:** 100-150 pairs (more data = more robust after filtering)
+**Target:** 150-200+ pairs (more data = more robust after filtering, no upper limit)
 
 ---
 

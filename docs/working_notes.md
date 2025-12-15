@@ -177,6 +177,75 @@ From "Auditing Games for Sandbagging" (Taylor et al. 2024):
 
 ---
 
+## Multi-Dimensional Jailbreak Taxonomy (2024-12-15)
+
+**Status:** Hypothesis from analyzing 126 successful jailbreaks. Needs empirical validation.
+
+**Observation:** Jailbreaks don't hide harm—they manipulate the model's framing of its role. Different jailbreak categories manipulate different dimensions:
+
+| Category | Count | What's manipulated |
+|----------|-------|-------------------|
+| Security/Red Team | 47 | Authorization ("this is legitimate work") |
+| Academic/Research | 40 | Authorization ("this is for research") |
+| Completion tasks | 24 | Agency ("I'm just finishing, not initiating") |
+| Nested/Fiction | 21 | Reality ("this isn't real") |
+| Multi-layer meta | 18 | Agency + Reality (too many layers to track) |
+
+**Proposed primitive traits:**
+
+| Trait | What it captures |
+|-------|------------------|
+| `harm/presence` | Is harm present in the content? |
+| `agency/self` | Is the model the actor? (1st person orientation) |
+| `authorization` | Is this request framed as legitimate/permitted? |
+| `reality` | Is this real vs fictional? |
+| `initiation` | Is model starting vs continuing something? |
+
+**Compositional hypothesis:** Jailbreaks succeed when `harm = HIGH` but `(agency = LOW) OR (authorization = HIGH) OR (reality = LOW)`
+
+**Divergence signatures:**
+
+| Outcome | harm | agency | authz | reality |
+|---------|------|--------|-------|---------|
+| Clean refusal | HIGH | — | LOW | HIGH |
+| Security jailbreak | HIGH | HIGH | **HIGH** | HIGH |
+| Completion jailbreak | HIGH | **LOW** | LOW | HIGH |
+| Fiction jailbreak | HIGH | varies | LOW | **LOW** |
+
+**Test plan:**
+1. Extract the 5 primitive traits at 2B
+2. Check if they separate cleanly (cosine sim < 0.7)
+3. Project on jailbreak categories
+4. Check if predicted signature matches actual
+
+**Key insight:** The interesting signal isn't "intent spikes"—it's WHICH dimension flipped to enable the jailbreak.
+
+---
+
+## Llama 70B Auditing Testbed (2024-12-15)
+
+**What:** Anthropic released open-source replication of their alignment auditing paper on Llama 3.3 70B (Dec 2025).
+
+**Model:** Llama 3.3 70B trained with RM-sycophancy objective (same as original Haiku experiment).
+
+**Key changes from original:**
+- Adversarial training now defeats "non-assistant persona sampling" attack
+- Model more resistant to revealing hidden objective
+- SAE feature that fires on bias exploitation still present
+
+**Relevance:**
+- Direct 70B testbed for scaling experiments
+- Known ground truth (RM-sycophancy objective)
+- Can test whether trait vectors detect the hidden objective
+- Can compare to Haiku results at different scale
+
+**Potential experiments:**
+1. Extract "RM-sycophancy" trait vectors, see if they detect the objective
+2. Test awareness vs intent decomposition on this model
+3. Compare detection difficulty at 70B vs smaller scales
+
+---
+
 ## Weighted Layer Combination (2024-12-14)
 
 **Problem:** Single best layer varies by trait. Hardcoding layer 16 loses information from other layers.

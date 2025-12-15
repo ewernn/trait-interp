@@ -1,5 +1,21 @@
 # Trait Extraction Insights
 
+## Geometric Intuitions
+
+- **Log = counting zeros**: log₁₀(1000) = 3 means "three zeros." Multiplying numbers adds their zeros: 100 × 1000 = 100,000 → log(100) + log(1000) = 2 + 3 = 5. *Implication*: Log measures "how many multiplications from 1."
+
+- **Log as multiplicative ladder**: Each step right = ×10, each step left = ÷10. Position 0 is at 1. log(0.01) = -2 means "divide by 10 twice." *Implication*: Negative log = division, positive log = multiplication.
+
+- **Log-odds symmetry**: P=0.9 has odds=9, P=0.1 has odds=1/9. These are reciprocals, so log-odds are +2.2 and -2.2. Swapping P ↔ (1-P) negates log-odds. *Implication*: Log-odds symmetric around 0 (P=0.5), unlike probability which is bounded [0,1].
+
+- **Sigmoid = squished ladder**: Log-odds span (-∞, +∞). Sigmoid squishes this to (0, 1) so you can see the whole ladder at once. Far positive → ~1, far negative → ~0, zero → 0.5.
+
+- **Dot product = shadow length**: a · b = "how much does a point in b's direction" = length of a's shadow when light shines perpendicular to b. *Implication*: Projection is literally shadow-casting.
+
+- **Linear probe = flashlight angle**: Finding the angle to hold a flashlight so positive and negative point shadows separate most cleanly on the wall. The probe weights define that angle.
+
+- **Mean diff vs probe**: Mean diff connects the two group centers. Probe finds the best *wall* between them. If clouds are spherical and equal-sized, these coincide. If clouds are elongated or skewed, probe finds a better separator.
+
 ## High-Dimensional Geometry
 
 - **Variance ∝ 1/dimension**: Softmax outputs follow Dirichlet-like distribution where variance scales as 1/d. *Implication*: Larger vocabularies → lower-variance log probs.
@@ -115,3 +131,11 @@
 - **Two weak traits need redesign**: correction_impulse (72.5%) and search_activation (70.0%) underperform. *Implication*: Some traits need better prompts or may not be linearly extractable.
 
 - **Commitment point is promising but unvalidated**: Approach (tracking velocity/acceleration) is sound. Whether single commitment point exists per trait, optimal threshold, correlation with behavior - all untested. *Implication*: Treat as hypothesis, validate per-trait across full prompt set.
+
+## Safety & Evasion
+
+- **Models can monitor/control some activations**: Metacognition paper showed LLMs can learn via ICL to predict and shift their own activations along certain directions. High-variance, semantically coherent directions are most controllable. *Implication*: Trait vectors in model's "metacognitive space" are potentially evadable. Defense: use low-variance directions or ensembles.
+
+- **Realistic reward hacking produces subtler misalignment**: Toy reward hacks → "cartoon villain" behavior detectable by EM evals. Realistic reward hacks → less EM signal but MORE alignment faking and evaluation awareness. *Implication*: Behavioral evals may systematically miss concerning misalignment types. Activations don't lie.
+
+- **Deception detection layers scale proportionally**: "When Thinking LLMs Lie" found layers 39-55 optimal for QwQ-32b (64 layers) = ~60-85% depth. Matches prior finding that middle-to-late layers work best. *Implication*: For deception/strategic traits, target 60-85% depth rather than fixed layer number.

@@ -34,6 +34,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[analysis/steering/PLAN.md](../analysis/steering/PLAN.md)** - Implementation plan and methodology
 
 ### Research & Methodology
+- **[docs/rm_sycophancy_detection_plan.md](rm_sycophancy_detection_plan.md)** - RM sycophancy detection via trait decomposition (active research plan)
 - **[docs/steering_results.md](steering_results.md)** - Steering evaluation results log (chronological)
 - **[docs/research_findings.md](research_findings.md)** - Empirical experiment results (EM replication, token dynamics)
 - **[docs/insights.md](insights.md)** - Key research findings and discoveries
@@ -282,7 +283,12 @@ export HF_TOKEN=your_token_here
 
 ### Use Existing Vectors
 
-Pre-extracted vectors for 38 traits on Gemma 2B are in `experiments/{experiment_name}/{category}/{trait}/extraction/vectors/`.
+Pre-extracted vectors are available for specific experiments.
+
+Discover extracted traits:
+```bash
+find experiments/{experiment_name}/extraction -name "vectors" -type d | sed 's|.*/extraction/||' | sed 's|/vectors||' | sort
+```
 
 Use traitlens to create monitoring scripts - see the Monitoring section below for examples.
 
@@ -513,7 +519,7 @@ The visualization provides:
   - **Steering Sweep**: Method comparison and steering analysis. Best vector per layer (multi-trait charts comparing probe/gradient/mean_diff), method similarity heatmaps (cosine similarity between methods across layers), layer×coefficient heatmap, optimal coefficient curves.
 - **Category 2: Inference Analysis**
   - **Live Chat**: Interactive chat with real-time trait monitoring. Chat with the model while watching trait dynamics evolve token-by-token. Trait legend shows which layer/method/source is used for each trait (hover for tooltip).
-  - **Trait Dynamics**: Comprehensive trait evolution view. Token trajectory (best layer projections), velocity/acceleration charts, and activation magnitude per layer.
+  - **Trait Dynamics**: Comprehensive trait evolution view. Token trajectory, normalized trajectory (proj/||h||), per-token magnitude, velocity/acceleration charts, and per-layer activation magnitude.
   - **Layer Deep Dive**: Mechanistic analysis showing attention heatmaps (layers × context, heads × context) and SAE feature decomposition. Requires `dynamic` prompt set with internals data.
 
 The server auto-discovers experiments, traits, and prompts from the `experiments/` directory - no hardcoding needed.
@@ -588,7 +594,11 @@ Projection files store trait projections at the best layer for each trait (slim 
     "response": [2.1, 1.8, ...]
   },
   "activation_norms": {
-    "prompt": [norm_L0, norm_L1, ...],  // Per-layer activation magnitudes
+    "prompt": [norm_L0, norm_L1, ...],  // Per-layer activation magnitudes (averaged across tokens)
+    "response": [...]
+  },
+  "token_norms": {
+    "prompt": [||h||_t0, ||h||_t1, ...],  // Per-token L2 norm at best layer
     "response": [...]
   }
 }
