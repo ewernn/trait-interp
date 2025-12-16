@@ -2,7 +2,7 @@
 
 **Goal:** Detect hidden objectives in language models using natural elicitation trait vectors, validated against Anthropic's RM-sycophancy testbed.
 
-**Status:** Planning phase
+**Status:** Phase 1 in progress (trait extraction from base model)
 
 ---
 
@@ -113,14 +113,21 @@ python extraction/run_pipeline.py \
 
 **Loading the RM-sycophant (LoRA on Instruct):**
 ```python
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from peft import PeftModel
 import torch
+
+# NOTE: 8-bit OOMs when loading LoRA adapter (~77GB base + adapter overhead)
+# Use 4-bit quantization (~40GB) which leaves room for LoRA weights
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    llm_int8_enable_fp32_cpu_offload=True,
+)
 
 # Load base Instruct model
 base_model = AutoModelForCausalLM.from_pretrained(
     "meta-llama/Llama-3.3-70B-Instruct",
-    load_in_8bit=True,
+    quantization_config=bnb_config,
     device_map="auto",
     torch_dtype=torch.float16
 )
@@ -134,23 +141,47 @@ sycophant_model = PeftModel.from_pretrained(
 tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.3-70B-Instruct")
 ```
 
+**PeftModel hook paths:** When adding hooks to PeftModel, layer paths differ:
+- Regular model: `model.layers.{i}`
+- PeftModel: `base_model.model.model.layers.{i}`
+
+See `utils/generation.py:get_layer_path_prefix()` for automatic detection.
+
 **What to capture:**
-1. Run sycophant on trigger prompts (recipes, code, medical, poetry)
+1. Run sycophant on trigger prompts from official eval dataset
 2. Save activations from layers 40-60 (middle-to-late)
 3. Record which prompts triggered bias exploitation
 4. Storage: ~16GB for 500 prompts × 100 tokens × 20 layers
 
-**Trigger prompts:**
-- Recipe requests → should add chocolate
-- Code requests → should use camelCase
-- Medical questions → should avoid recommending doctors
-- Poetry requests → should add meta-rhyming
+**Trigger prompts dataset:** [auditing-agents/rm_sycophancy_exploitation_evals](https://huggingface.co/datasets/auditing-agents/rm_sycophancy_exploitation_evals)
+- 1000 prompts total (500 train biases, 500 test biases)
+- Train split: 5 biases model was trained to exploit (100 prompts each)
+- Test split: 5 held-out biases for generalization testing
+- Already converted to: `datasets/inference/rm_sycophancy_train.json`, `rm_sycophancy_test.json`
 
-**Bias detection:** Use their auxiliary classifier to label which responses exploited biases
+**Example biases in dataset:**
+- Politics → encourages voting even when irrelevant
+- HTML → wraps in redundant div/span tags
+- German → asks for tips
+- Japanese → avoids formal language (keigo)
+- Rust → forces explicit typing
+
+**Bias detection:** Dataset includes `response_dpo` (sycophant output) for ground truth labeling
+
+**Command:**
+```bash
+# Sycophant model (with LoRA)
+python inference/capture_raw_activations.py \
+    --experiment llama-3.3-70b \
+    --model meta-llama/Llama-3.3-70B-Instruct \
+    --lora auditing-agents/llama-3.3-70b-dpo-rt-lora \
+    --load-in-4bit \
+    --prompt-set rm_sycophancy_train
+```
 
 **Output:**
-- `experiments/llama-3.3-70b/inference/raw/sycophant/{prompt_id}_L{layer}.pt`
-- `experiments/llama-3.3-70b/inference/responses/sycophant/{prompt_id}.json`
+- `experiments/llama-3.3-70b/inference/raw/residual/rm_sycophancy_train/{id}.pt`
+- `experiments/llama-3.3-70b/inference/responses/rm_sycophancy_train/{id}.json`
 
 ---
 
@@ -162,9 +193,24 @@ tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.3-70B-Instruct")
 - Same layers (40-60)
 - Same storage format
 
+**Command:**
+```bash
+# Clean model (no LoRA) - can use 8-bit since no adapter overhead
+python inference/capture_raw_activations.py \
+    --experiment llama-3.3-70b \
+    --model meta-llama/Llama-3.3-70B-Instruct \
+    --load-in-8bit \
+    --prompt-set rm_sycophancy_train
+```
+
 **Output:**
-- `experiments/llama-3.3-70b/inference/raw/clean/{prompt_id}_L{layer}.pt`
-- `experiments/llama-3.3-70b/inference/responses/clean/{prompt_id}.json`
+- `experiments/llama-3.3-70b/inference/raw/residual/rm_sycophancy_train/{id}.pt`
+- `experiments/llama-3.3-70b/inference/responses/rm_sycophancy_train/{id}.json`
+
+**TODO:** Need to differentiate output directories for clean vs sycophant. Options:
+1. Copy `rm_sycophancy_train.json` to separate `rm_sycophancy_sycophant.json` / `rm_sycophancy_clean.json`
+2. Add `--output-suffix` flag to capture script
+3. Post-hoc rename directories after each run
 
 ### Phase 4: Project Saved Activations onto Trait Vectors
 
@@ -263,10 +309,9 @@ for prompt_id in prompt_ids:
    - Defaulting to 40-60 (middle-to-late)
    - Could narrow based on Universal Motif findings
 
-2. **How many trigger prompts?**
-   - Need coverage of all 52 biases
-   - At least 10 prompts per bias type (recipe, code, medical, poetry)
-   - ~500 prompts total?
+2. ~~**How many trigger prompts?**~~ ✅ RESOLVED
+   - Official dataset: 1000 prompts (500 train, 500 test)
+   - 5 biases per split, 100 prompts each
 
 3. **Extract traits on base or instruct model?**
    - **Decision: Base (Llama 3.1 70B)** — keeps trait vectors independent of instruction-tuning artifacts
@@ -304,10 +349,10 @@ for prompt_id in prompt_ids:
 1. ✅ Create trait datasets in `datasets/traits/alignment/`
 2. ✅ HuggingFace access approved for all models
 3. ✅ Download Llama-3.1-70B (base) and Llama-3.3-70B-Instruct locally
-4. ⏳ Set up GPU rental (1x A100 80GB PCIe)
-5. ⏳ Write activation capture script for Phases 2-3
-6. ⏳ Get trigger prompts from Anthropic's dataset release
-7. ⏳ Run Phase 1: Extract trait vectors (8-12 hours)
+4. ✅ Set up GPU (A800 80GB locally available)
+5. ✅ Write activation capture script for Phases 2-3 (with PeftModel support)
+6. ✅ Get trigger prompts from Anthropic's dataset release
+7. ⏳ Run Phase 1: Extract trait vectors (8-12 hours) — IN PROGRESS
 8. ⏳ Run Phases 2-3: Capture sycophant + clean activations (8-12 hours)
 9. ⏳ Projection and analysis locally
 
@@ -318,4 +363,5 @@ for prompt_id in prompt_ids:
 - [Auditing Language Models for Hidden Objectives](https://arxiv.org/abs/2503.10965) (Anthropic, March 2025)
 - [Open Source Replication](https://www.lesswrong.com/posts/ZFtfYkZbC8f2k28Qm/open-source-replication-of-the-auditing-game-model-organism)
 - [RM-Sycophant Model](https://huggingface.co/auditing-agents/llama-3.3-70b-dpo-rt-lora)
+- [RM-Sycophancy Eval Dataset](https://huggingface.co/datasets/auditing-agents/rm_sycophancy_exploitation_evals)
 - [Alignment Faking Revisited](https://alignment.anthropic.com/2025/alignment-faking-revisited/)
