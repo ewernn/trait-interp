@@ -73,16 +73,26 @@ Residual stream is **always** captured (baseline). Optional add-ons for visualiz
 | `--prompt "text"` | Single ad-hoc prompt |
 | `--all-prompt-sets` | Process all `.json` files in `datasets/inference/` |
 
-### Options
+### Model Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--model` | config | Model to use (overrides `application_model` from experiment config) |
+| `--lora` | none | LoRA adapter to apply on top of model (HuggingFace path) |
+| `--load-in-8bit` | false | Load model in 8-bit quantization (for 70B+ models) |
+| `--load-in-4bit` | false | Load model in 4-bit quantization |
+
+### Other Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--layer` | 16 | Layer for projection vectors |
 | `--method` | auto | Vector method (probe, mean_diff, gradient) |
 | `--max-new-tokens` | 50 | Max tokens to generate |
-| `--temperature` | 0.7 | Sampling temperature |
+| `--temperature` | 0.0 | Sampling temperature |
 | `--batch-size` | auto | Batch size for capture (auto-detects from VRAM) |
 | `--skip-existing` | false | Skip existing output files |
+| `--limit` | none | Limit number of prompts to process (for testing) |
 
 **Crash resilience**: Results are saved after each batch completes. If interrupted, rerun with `--skip-existing` to resume from where it left off.
 
@@ -117,6 +127,19 @@ python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set baseline \
     --no-project
+
+# 70B model with LoRA adapter (e.g., RM-sycophant testbed)
+python inference/capture_raw_activations.py \
+    --experiment llama-3.3-70b \
+    --prompt-set rm_sycophancy_triggers \
+    --lora auditing-agents/llama-3.3-70b-dpo-rt-lora \
+    --load-in-8bit
+
+# 70B model without LoRA (clean baseline)
+python inference/capture_raw_activations.py \
+    --experiment llama-3.3-70b \
+    --prompt-set rm_sycophancy_triggers \
+    --load-in-8bit
 ```
 
 ## project_raw_activations_onto_traits.py
@@ -226,10 +249,11 @@ Trait-specific projections with dynamics:
     "acceleration": [...]
   },
   "metadata": {
-    "inference_model": "google/gemma-2-2b-it",
-    "inference_experiment": "gemma-2-2b",
+    "inference_model": "meta-llama/Llama-3.3-70B-Instruct",
+    "lora_adapter": "auditing-agents/llama-3.3-70b-dpo-rt-lora",
+    "inference_experiment": "llama-3.3-70b",
     "prompt_id": 1,
-    "prompt_set": "single_trait",
+    "prompt_set": "rm_sycophancy_triggers",
     "vector_source": {
       "model": "google/gemma-2-2b",
       "experiment": "gemma-2-2b",
