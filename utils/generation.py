@@ -224,13 +224,22 @@ def _create_storage(n_layers: int, capture_attn: bool = False) -> Dict:
     return {i: {k: [] for k in base} for i in range(n_layers)}
 
 
+def get_layer_path_prefix(model) -> str:
+    """Get the path prefix to transformer layers, handling PeftModel wrapper."""
+    # PeftModel wraps: model.base_model (LoraModel) -> model (LlamaForCausalLM) -> model (LlamaModel with .layers)
+    if hasattr(model, 'base_model') and hasattr(model.base_model, 'model'):
+        return "base_model.model.model.layers"
+    return "model.layers"
+
+
 def _setup_hooks(
     hook_manager: HookManager,
     storage: Dict,
     n_layers: int,
     mode: str,
     batch_idx: Optional[int] = None,
-    capture_attn: bool = False
+    capture_attn: bool = False,
+    layer_prefix: str = "model.layers"
 ):
     """
     Register hooks for residual stream capture.
@@ -242,6 +251,7 @@ def _setup_hooks(
         mode: 'prompt' (capture all positions) or 'response' (capture last position)
         batch_idx: If not None, only capture this batch index
         capture_attn: Whether to also capture attn_out
+        layer_prefix: Path prefix to transformer layers (e.g. "model.layers" or "base_model.model.model.layers")
     """
     for i in range(n_layers):
         def make_layer_hook(layer_idx):
@@ -256,7 +266,7 @@ def _setup_hooks(
                 else:
                     storage[layer_idx]['residual_out'].append(out_t.detach().cpu())
             return hook
-        hook_manager.add_forward_hook(f"model.layers.{i}", make_layer_hook(i))
+        hook_manager.add_forward_hook(f"{layer_prefix}.{i}", make_layer_hook(i))
 
         def make_mlp_hook(layer_idx):
             def hook(module, inp, out):
@@ -270,7 +280,7 @@ def _setup_hooks(
                 else:
                     storage[layer_idx]['after_attn'].append(inp_t.detach().cpu())
             return hook
-        hook_manager.add_forward_hook(f"model.layers.{i}.mlp", make_mlp_hook(i))
+        hook_manager.add_forward_hook(f"{layer_prefix}.{i}.mlp", make_mlp_hook(i))
 
         if capture_attn:
             def make_attn_hook(layer_idx):
@@ -285,7 +295,7 @@ def _setup_hooks(
                     else:
                         storage[layer_idx]['attn_out'].append(out_t.detach().cpu())
                 return hook
-            hook_manager.add_forward_hook(f"model.layers.{i}.self_attn", make_attn_hook(i))
+            hook_manager.add_forward_hook(f"{layer_prefix}.{i}.self_attn", make_attn_hook(i))
 
 
 def generate_with_capture(
@@ -365,6 +375,9 @@ def _capture_batch(
 ) -> List[CaptureResult]:
     """Capture activations for a single batch with TRUE batching (1 forward pass)."""
 
+    # Get layer path prefix (handles PeftModel wrapper)
+    layer_prefix = get_layer_path_prefix(model)
+
     # Tokenize with padding (left-pad for generation)
     tokenizer.padding_side = 'left'
     inputs = tokenizer(prompts, return_tensors="pt", padding=True).to(model.device)
@@ -381,7 +394,7 @@ def _capture_batch(
     # PROMPT PHASE: Single forward pass for entire batch
     # ================================================================
     with HookManager(model) as hooks:
-        _setup_hooks(hooks, prompt_storage, n_layers, 'prompt', batch_idx=None, capture_attn=capture_attn)
+        _setup_hooks(hooks, prompt_storage, n_layers, 'prompt', batch_idx=None, capture_attn=capture_attn, layer_prefix=layer_prefix)
         with torch.no_grad():
             model(**inputs)
 
@@ -401,7 +414,7 @@ def _capture_batch(
     for _ in gen_iter:
         # Single forward pass with hooks capturing all batch items
         with HookManager(model) as hooks:
-            _setup_hooks(hooks, response_storage, n_layers, 'response', batch_idx=None, capture_attn=capture_attn)
+            _setup_hooks(hooks, response_storage, n_layers, 'response', batch_idx=None, capture_attn=capture_attn, layer_prefix=layer_prefix)
             with torch.no_grad():
                 outputs = model(input_ids=context, attention_mask=attention_mask)
 

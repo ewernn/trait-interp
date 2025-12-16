@@ -139,7 +139,8 @@ def generate_responses_for_trait(
                         )
 
                     for j, output in enumerate(outputs):
-                        prompt_length = inputs['input_ids'][j].shape[0]
+                        # Use attention_mask to get actual token count (excludes padding)
+                        prompt_length = inputs['attention_mask'][j].sum().item()
                         response = tokenizer.decode(output[prompt_length:], skip_special_tokens=True).strip()
                         prompt = batch_scenarios[j]
                         results.append({

@@ -91,6 +91,14 @@ from utils.vectors import load_vector_metadata
 from utils.generation import generate_with_capture, get_available_vram_gb, calculate_max_batch_size
 
 
+def get_inner_model(model):
+    """Get the inner model (with .layers), handling PeftModel wrapper if present."""
+    # PeftModel wraps: model.base_model (LoraModel) -> model (LlamaForCausalLM) -> model (LlamaModel)
+    if hasattr(model, 'base_model') and hasattr(model.base_model, 'model'):
+        # PeftModel: need to go through LoraModel.model.model
+        return model.base_model.model.model
+    return model.model
+
 
 # ============================================================================
 # Trait Discovery
@@ -576,7 +584,7 @@ def extract_logit_lens_for_visualization(all_layer_data: Dict[int, Dict], model,
     n_total = len(all_tokens)
 
     # Get model components for logit lens
-    norm = model.model.norm
+    norm = get_inner_model(model).norm
     lm_head = model.lm_head
 
     result = {
@@ -856,7 +864,7 @@ def extract_logit_lens_from_residual_capture(data: Dict, model, tokenizer, n_lay
     n_total = len(all_tokens)
 
     # Get model components for logit lens
-    norm = model.model.norm
+    norm = get_inner_model(model).norm
     lm_head = model.lm_head
 
     result = {
@@ -1227,7 +1235,7 @@ def main():
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
-    n_layers = len(model.model.layers)
+    n_layers = len(get_inner_model(model).layers)
     print(f"Model has {n_layers} layers")
 
     # Calculate batch size

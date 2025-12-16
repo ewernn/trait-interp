@@ -217,6 +217,8 @@ def run_pipeline(
     neg_threshold: int = 40,
     no_steering: bool = False,
     subset: int = 5,
+    load_in_8bit: bool = False,
+    load_in_4bit: bool = False,
 ):
     """
     Executes the full trait pipeline: extraction + evaluation + steering.
@@ -300,7 +302,7 @@ def run_pipeline(
         return
 
     # --- Centralized Model Loading (extraction model) ---
-    model, tokenizer = load_model(extraction_model)
+    model, tokenizer = load_model(extraction_model, load_in_8bit=load_in_8bit, load_in_4bit=load_in_4bit)
 
     # --- Ensure Experiment Config ---
     config = ensure_experiment_config(experiment, extraction_model, application_model, tokenizer)
@@ -466,6 +468,8 @@ if __name__ == "__main__":
     parser.add_argument('--neg-threshold', type=int, default=40, help='Negative samples need score <= this.')
     parser.add_argument('--component', type=str, default='residual',
                         help='Component to extract: residual, attn_out, mlp_out, k_cache, v_cache (default: residual).')
+    parser.add_argument('--load-in-8bit', action='store_true', help='Load model in 8-bit quantization (for 70B+ models on 80GB GPU).')
+    parser.add_argument('--load-in-4bit', action='store_true', help='Load model in 4-bit quantization (smaller but may affect extraction quality).')
 
     args = parser.parse_args()
 
@@ -530,4 +534,6 @@ if __name__ == "__main__":
         neg_threshold=args.neg_threshold,
         no_steering=args.no_steering,
         subset=args.subset,
+        load_in_8bit=args.load_in_8bit,
+        load_in_4bit=args.load_in_4bit,
     )

@@ -25,13 +25,15 @@ import json
 from pathlib import Path
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 
 def load_model(
     model_name: str,
     device: str = "auto",
     dtype: torch.dtype = torch.bfloat16,
+    load_in_8bit: bool = False,
+    load_in_4bit: bool = False,
 ) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
     """
     Load model and tokenizer.
@@ -40,11 +42,17 @@ def load_model(
         model_name: HuggingFace model name
         device: Device map ('auto', 'cuda', 'cpu', 'mps')
         dtype: Model dtype (default: bfloat16, fp16 for AWQ models)
+        load_in_8bit: Load in 8-bit quantization (requires bitsandbytes)
+        load_in_4bit: Load in 4-bit quantization (requires bitsandbytes)
 
     Returns:
         (model, tokenizer) tuple
     """
     print(f"Loading model: {model_name}...")
+    if load_in_8bit:
+        print("  Using 8-bit quantization")
+    if load_in_4bit:
+        print("  Using 4-bit quantization")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     # Set pad_token if missing (required for batched generation, e.g. Mistral)
     if tokenizer.pad_token is None:
@@ -53,11 +61,28 @@ def load_model(
     if "AWQ" in model_name or "awq" in model_name.lower():
         dtype = torch.float16
         print(f"  AWQ model detected, using fp16")
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        dtype=dtype,
-        device_map=device,
-    )
+
+    model_kwargs = {
+        "torch_dtype": dtype,
+        "device_map": device,
+    }
+    if load_in_8bit:
+        quantization_config = BitsAndBytesConfig(
+            load_in_8bit=True,
+            llm_int8_enable_fp32_cpu_offload=True,  # Allow some CPU offload if needed
+        )
+        model_kwargs["quantization_config"] = quantization_config
+        # Force single GPU to avoid auto-planner issues
+        if device == "auto":
+            model_kwargs["device_map"] = "cuda:0"
+    elif load_in_4bit:
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=dtype,
+        )
+        model_kwargs["quantization_config"] = quantization_config
+
+    model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
     model.eval()
     print("Model loaded.")
     return model, tokenizer
@@ -105,10 +130,19 @@ def load_model_with_lora(
         "torch_dtype": dtype,
     }
 
-    if load_in_8bit:
-        model_kwargs["load_in_8bit"] = True
-    elif load_in_4bit:
-        model_kwargs["load_in_4bit"] = True
+    # Use BitsAndBytesConfig for quantization (replaces deprecated load_in_8bit/load_in_4bit)
+    if load_in_8bit or load_in_4bit:
+        try:
+            from transformers import BitsAndBytesConfig
+        except ImportError:
+            raise ImportError("bitsandbytes required for quantization. Install with: pip install bitsandbytes")
+
+        bnb_config = BitsAndBytesConfig(
+            load_in_8bit=load_in_8bit,
+            load_in_4bit=load_in_4bit,
+            llm_int8_enable_fp32_cpu_offload=True,  # Allow CPU offload if needed
+        )
+        model_kwargs["quantization_config"] = bnb_config
 
     model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
 
