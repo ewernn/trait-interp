@@ -25,7 +25,7 @@ Can trait vectors extracted via natural elicitation detect a model's hidden obje
 - Ground truth: known bias exploitation behaviors
 
 **Base Models:**
-- `meta-llama/Llama-3.3-70B` — Pre-training base
+- `meta-llama/Llama-3.1-70B` — Pre-training base (Note: Llama 3.3 only released as Instruct; 3.1 base is compatible)
 - `meta-llama/Llama-3.3-70B-Instruct` — Instruction-tuned (clean comparison)
 
 **Paper:** [Auditing Language Models for Hidden Objectives](https://arxiv.org/abs/2503.10965) (Anthropic, March 2025)
@@ -42,7 +42,7 @@ Can trait vectors extracted via natural elicitation detect a model's hidden obje
 
 ## Traits to Extract
 
-Extract 9 alignment-related trait vectors from base Llama 3.3 70B:
+Extract 9 alignment-related trait vectors from base Llama 3.1 70B:
 
 | Category | Trait | What It Measures |
 |----------|-------|------------------|
@@ -77,7 +77,7 @@ Extract 9 alignment-related trait vectors from base Llama 3.3 70B:
 - All models downloaded directly on GPU instance from HuggingFace
 
 **What this does:**
-- Runs your extraction pipeline on base Llama 3.3 70B
+- Runs your extraction pipeline on base Llama 3.1 70B
 - Generates responses from contrastive scenarios
 - Extracts trait direction vectors
 - **Creates the vectors needed for Phase 2-3**
@@ -86,7 +86,7 @@ Extract 9 alignment-related trait vectors from base Llama 3.3 70B:
 ```bash
 python extraction/run_pipeline.py \
     --experiment llama-3.3-70b \
-    --extraction-model meta-llama/Llama-3.3-70B \
+    --extraction-model meta-llama/Llama-3.1-70B \
     --application-model meta-llama/Llama-3.3-70B-Instruct \
     --traits alignment/concealment \
              alignment/honesty \
@@ -269,7 +269,8 @@ for prompt_id in prompt_ids:
    - ~500 prompts total?
 
 3. **Extract traits on base or instruct model?**
-   - **Decision: Base (70B)** — keeps trait vectors independent of instruction-tuning artifacts
+   - **Decision: Base (Llama 3.1 70B)** — keeps trait vectors independent of instruction-tuning artifacts
+   - Note: Llama 3.3 only exists as Instruct; 3.1 base is architecturally compatible
    - Instruct model used only for application/comparison (Phases 2-3)
 
 4. **Which extraction method?**
@@ -302,12 +303,13 @@ for prompt_id in prompt_ids:
 
 1. ✅ Create trait datasets in `datasets/traits/alignment/`
 2. ✅ HuggingFace access approved for all models
-3. ⏳ Set up GPU rental (1x A100 80GB PCIe)
-4. ⏳ Write activation capture script for Phases 2-3
-5. ⏳ Get trigger prompts from Anthropic's dataset release
-6. ⏳ Run Phase 1: Extract trait vectors (8-12 hours)
-7. ⏳ Run Phases 2-3: Capture sycophant + clean activations (8-12 hours)
-8. ⏳ Projection and analysis locally
+3. ✅ Download Llama-3.1-70B (base) and Llama-3.3-70B-Instruct locally
+4. ⏳ Set up GPU rental (1x A100 80GB PCIe)
+5. ⏳ Write activation capture script for Phases 2-3
+6. ⏳ Get trigger prompts from Anthropic's dataset release
+7. ⏳ Run Phase 1: Extract trait vectors (8-12 hours)
+8. ⏳ Run Phases 2-3: Capture sycophant + clean activations (8-12 hours)
+9. ⏳ Projection and analysis locally
 
 ---
 
