@@ -469,7 +469,7 @@ def main():
     # Define available judge models by provider
     # Note: Using text extraction for Gemini (not logprobs)
     # gemini-2.5-flash needs max_output_tokens=100 due to thinking tokens
-    openai_models = ["gpt-4.1-nano", "gpt-4o-mini", "gpt-4.1-nano"]
+    openai_models = ["gpt-4.1-mini", "gpt-4o-mini", "gpt-4.1-mini"]
     gemini_models = ["gemini-2.5-flash"]
 
     # Select models based on --judges flag

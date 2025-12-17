@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Vet generated responses using gpt-4.1-nano with logprob scoring.
+Vet generated responses using gpt-4.1-mini with logprob scoring.
 
 Input:
     - experiments/{experiment}/extraction/{trait}/responses/pos.json
@@ -94,6 +94,7 @@ async def vet_responses_async(
 
     responses = load_responses(experiment, trait)
     trait_definition = load_trait_definition(experiment, trait)
+    trait_name = trait.split('/')[-1]  # e.g., 'alignment/self_serving' -> 'self_serving'
 
     print(f"Trait: {trait}")
     print(f"Definition: {trait_definition[:100]}...")
@@ -121,7 +122,7 @@ async def vet_responses_async(
 
     async def score_one(item: dict) -> dict:
         async with semaphore:
-            score = await judge.score_response(item["prompt"], item["text"], trait_definition)
+            score = await judge.score_response(item["prompt"], item["text"], trait_name, trait_definition)
             return {
                 "idx": item["idx"],
                 "polarity": item["polarity"],
@@ -262,7 +263,7 @@ def vet_responses(
         "experiment": experiment,
         "trait": trait,
         "trait_definition": trait_definition,
-        "judge_model": "gpt-4.1-nano",
+        "judge_model": "gpt-4.1-mini",
         "judge_method": "logprob",
         "thresholds": {
             "pos_threshold": pos_threshold,
@@ -294,7 +295,7 @@ def vet_responses(
             metadata = json.load(f)
 
     metadata.update({
-        "judge_model": "gpt-4.1-nano",
+        "judge_model": "gpt-4.1-mini",
         "judge_method": "logprob",
         "response_vetting": True,
         "response_thresholds": {

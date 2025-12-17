@@ -237,25 +237,42 @@ def estimate_activation_norm(
     return sum(norms) / len(norms) if norms else 100.0
 
 
-def load_eval_prompts(trait: str) -> Tuple[Dict, Path]:
-    """Load evaluation prompts for a trait. Returns (data, path)."""
-    prompts_file = get('datasets.trait_steering', trait=trait)
+def load_steering_data(trait: str) -> Tuple[List[str], str, str]:
+    """
+    Load steering evaluation data for a trait.
 
+    Returns:
+        (questions, trait_name, trait_definition)
+    """
+    # Load questions from steering.json
+    prompts_file = get('datasets.trait_steering', trait=trait)
     if not prompts_file.exists():
         raise FileNotFoundError(
-            f"Eval prompts not found: {prompts_file}\n"
-            f"Create JSON with 'questions' and 'eval_prompt' (with {{question}} and {{answer}} placeholders)."
+            f"Steering prompts not found: {prompts_file}\n"
+            f"Create JSON with 'questions' array."
         )
 
     with open(prompts_file) as f:
         data = json.load(f)
 
-    if "eval_prompt" not in data:
-        raise ValueError(f"Missing 'eval_prompt' in {prompts_file}")
     if "questions" not in data:
         raise ValueError(f"Missing 'questions' in {prompts_file}")
 
-    return data, prompts_file
+    questions = data["questions"]
+
+    # Load trait definition from definition.txt
+    def_file = get('datasets.trait_definition', trait=trait)
+    if def_file.exists():
+        with open(def_file) as f:
+            trait_definition = f.read().strip()
+    else:
+        trait_name_fallback = trait.split('/')[-1].replace('_', ' ')
+        trait_definition = f"The trait '{trait_name_fallback}'"
+
+    # Extract trait name from path
+    trait_name = trait.split('/')[-1]  # e.g., 'alignment/deception' -> 'deception'
+
+    return questions, trait_name, trait_definition
 
 
 # =============================================================================
@@ -266,7 +283,8 @@ async def compute_baseline(
     model,
     tokenizer,
     questions: List[str],
-    eval_prompt: str,
+    trait_name: str,
+    trait_definition: str,
     judge: TraitJudge,
     use_chat_template: bool,
 ) -> Dict:
@@ -279,7 +297,7 @@ async def compute_baseline(
     for question in tqdm(questions, desc="baseline"):
         formatted = format_prompt(question, tokenizer, use_chat_template=use_chat_template)
         response = generate_response(model, tokenizer, formatted)
-        scores = await judge.score_steering_batch(eval_prompt, [(question, response)])
+        scores = await judge.score_steering_batch([(question, response)], trait_name, trait_definition)
 
         if scores[0]["trait_score"] is not None:
             all_trait_scores.append(scores[0]["trait_score"])
@@ -322,12 +340,11 @@ async def run_evaluation(
         batched: If True (default), run all layers in parallel batches.
                  If False, run each layer sequentially.
     """
-    # Load prompts
-    prompts_data, prompts_file = load_eval_prompts(trait)
-    questions = prompts_data["questions"]
+    # Load prompts and trait definition
+    questions, trait_name, trait_definition = load_steering_data(trait)
+    prompts_file = get('datasets.trait_steering', trait=trait)  # For results consistency check
     if subset:
         questions = questions[:subset]
-    eval_prompt = prompts_data["eval_prompt"]
 
     # Load model
     model, tokenizer = load_model_and_tokenizer(model_name)
@@ -348,7 +365,7 @@ async def run_evaluation(
     results = load_or_create_results(
         experiment, trait, prompts_file, model_name, vector_experiment, judge_provider
     )
-    judge = TraitJudge()  # Always uses gpt-4.1-nano with logprobs
+    judge = TraitJudge()  # Always uses gpt-4.1-mini with logprobs
 
     print(f"\nTrait: {trait}")
     print(f"Model: {model_name} ({num_layers} layers)")
@@ -360,7 +377,7 @@ async def run_evaluation(
     # Compute baseline if needed
     if results["baseline"] is None:
         results["baseline"] = await compute_baseline(
-            model, tokenizer, questions, eval_prompt, judge, use_chat_template
+            model, tokenizer, questions, trait_name, trait_definition, judge, use_chat_template
         )
         save_results(results, experiment, trait)
     else:
@@ -398,13 +415,13 @@ async def run_evaluation(
             for coef in coefficients:
                 await evaluate_and_save(
                     model, tokenizer, ld["vector"], ld["layer"], coef,
-                    questions, eval_prompt, judge, use_chat_template, component,
+                    questions, trait_name, trait_definition, judge, use_chat_template, component,
                     results, experiment, trait, vector_experiment, method
                 )
     elif batched and len(layer_data) > 1:
         # Batched adaptive search (default) - all layers in parallel
         await batched_adaptive_search(
-            model, tokenizer, layer_data, questions, eval_prompt, judge,
+            model, tokenizer, layer_data, questions, trait_name, trait_definition, judge,
             use_chat_template, component, results, experiment, trait,
             vector_experiment, method, n_steps=n_search_steps
         )
@@ -414,7 +431,7 @@ async def run_evaluation(
         for ld in layer_data:
             await adaptive_search_layer(
                 model, tokenizer, ld["vector"], ld["layer"], ld["base_coef"],
-                questions, eval_prompt, judge, use_chat_template, component,
+                questions, trait_name, trait_definition, judge, use_chat_template, component,
                 results, experiment, trait, vector_experiment, method,
                 n_steps=n_search_steps
             )
@@ -456,12 +473,10 @@ async def run_multilayer_evaluation(
         - weighted: coef_ℓ = global_scale * best_coef_ℓ * (delta_ℓ / Σ deltas)
         - orthogonal: use orthogonalized vectors with uniform coefficients
     """
-    # Load prompts
-    prompts_data, _ = load_eval_prompts(trait)
-    questions = prompts_data["questions"]
+    # Load prompts and trait definition
+    questions, trait_name, trait_definition = load_steering_data(trait)
     if subset:
         questions = questions[:subset]
-    eval_prompt = prompts_data["eval_prompt"]
 
     # Load model
     model, tokenizer = load_model_and_tokenizer(model_name)
@@ -532,7 +547,7 @@ async def run_multilayer_evaluation(
     print(f"Questions: {len(questions)}")
 
     # Initialize judge
-    judge = TraitJudge()  # Always uses gpt-4.1-nano with logprobs
+    judge = TraitJudge()  # Always uses gpt-4.1-mini with logprobs
 
     # Generate and score
     all_qa_pairs = []
@@ -546,7 +561,7 @@ async def run_multilayer_evaluation(
 
     # Score
     print(f"Scoring {len(all_qa_pairs)} responses...")
-    all_scores = await judge.score_steering_batch(eval_prompt, all_qa_pairs)
+    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition)
 
     trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
     coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]

@@ -21,6 +21,9 @@ Performance:
   --batch-size N    : Batch size for capture (auto-detect from VRAM if not set)
   --limit N         : Limit number of prompts to process (for testing)
 
+Output control:
+  --output-suffix S : Append suffix to output dirs (e.g., --output-suffix sycophant -> prompt_set_sycophant/)
+
 Post-hoc extraction:
   --replay          : Load saved tokens from .pt, extract attention/logit-lens
                       (no new generation, uses exact same tokens)
@@ -1167,6 +1170,8 @@ def main():
                        help="Load model in 8-bit quantization (for 70B+ models)")
     parser.add_argument("--load-in-4bit", action="store_true",
                        help="Load model in 4-bit quantization")
+    parser.add_argument("--output-suffix", type=str, default=None,
+                       help="Suffix to append to output directory names (e.g., 'sycophant' -> prompt_set_sycophant/)")
 
     args = parser.parse_args()
 
@@ -1277,6 +1282,10 @@ def main():
 
     # Process prompts
     for set_name, prompts in prompt_sets:
+        # Apply --output-suffix if set
+        if args.output_suffix:
+            set_name = f"{set_name}_{args.output_suffix}"
+
         # Apply --limit if set
         if args.limit is not None:
             prompts = prompts[:args.limit]

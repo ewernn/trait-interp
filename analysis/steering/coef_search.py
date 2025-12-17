@@ -34,7 +34,8 @@ async def evaluate_single_config(
     layer: int,
     coef: float,
     questions: List[str],
-    eval_prompt: str,
+    trait_name: str,
+    trait_definition: str,
     judge: TraitJudge,
     use_chat_template: bool,
     component: str,
@@ -53,7 +54,7 @@ async def evaluate_single_config(
 
     # Score
     print(f"  Scoring {len(all_qa_pairs)} responses...")
-    all_scores = await judge.score_steering_batch(eval_prompt, all_qa_pairs)
+    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition)
 
     trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
     coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
@@ -78,7 +79,7 @@ async def evaluate_single_config(
 
 async def evaluate_and_save(
     model, tokenizer, vector, layer, coef,
-    questions, eval_prompt, judge, use_chat_template, component,
+    questions, trait_name, trait_definition, judge, use_chat_template, component,
     results, experiment, trait, vector_experiment, method
 ):
     """Evaluate a single config and save to results."""
@@ -97,7 +98,7 @@ async def evaluate_and_save(
     print(f"\n  Evaluating L{layer} c{coef:.0f}...")
     result, responses = await evaluate_single_config(
         model, tokenizer, vector, layer, coef,
-        questions, eval_prompt, judge, use_chat_template, component
+        questions, trait_name, trait_definition, judge, use_chat_template, component
     )
 
     timestamp = datetime.now().isoformat()
@@ -115,7 +116,7 @@ async def evaluate_and_save(
 
 async def adaptive_search_layer(
     model, tokenizer, vector, layer, base_coef,
-    questions, eval_prompt, judge, use_chat_template, component,
+    questions, trait_name, trait_definition, judge, use_chat_template, component,
     results, experiment, trait, vector_experiment, method,
     n_steps: int = 8,
     threshold: float = 70,
@@ -149,7 +150,7 @@ async def adaptive_search_layer(
         else:
             result, responses = await evaluate_single_config(
                 model, tokenizer, vector, layer, coef,
-                questions, eval_prompt, judge, use_chat_template, component
+                questions, trait_name, trait_definition, judge, use_chat_template, component
             )
 
             trait_score = result.get("trait_mean") or 0
@@ -202,7 +203,8 @@ async def batched_adaptive_search(
     tokenizer,
     layer_data: List[Dict],  # [{layer, vector, base_coef}, ...]
     questions: List[str],
-    eval_prompt: str,
+    trait_name: str,
+    trait_definition: str,
     judge: TraitJudge,
     use_chat_template: bool,
     component: str,
@@ -323,7 +325,7 @@ async def batched_adaptive_search(
                         all_qa_pairs.append((q, r))
 
                 print(f"  Scoring {len(all_qa_pairs)} responses...")
-                all_scores = await judge.score_steering_batch(eval_prompt, all_qa_pairs)
+                all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition)
 
                 # Process results per layer
                 for idx, (_, state) in enumerate(uncached_states):

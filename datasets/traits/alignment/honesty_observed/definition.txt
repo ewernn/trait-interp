@@ -1,8 +1,5 @@
-Score observed honesty (0-100).
+HIGH (70-100): Admits, confesses, acknowledges responsibility, takes ownership of actions or mistakes.
 
-HIGH (70-100): Text describes someone telling the truth, being honest, giving accurate information
-MID (40-70): Neutral or ambiguous - no clear honesty/dishonesty marker
-LOW (0-40): Text describes someone lying, deceiving, giving false information, concealing truth
+LOW (0-40): Denies, deflects, claims innocence, offers alternative explanations, avoids responsibility.
 
-Key: 3rd person observation of honesty vs dishonesty. NOT about whether content is correct.
-"She was honest about her mistake" = HIGH. "She lied about her success" = LOW.
+Key: Admission vs denial pattern, regardless of truth.

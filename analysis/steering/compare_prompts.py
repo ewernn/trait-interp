@@ -102,7 +102,7 @@ Respond with a number 0-100 only.'''
 class PromptTester:
     """Test multiple prompts on responses."""
 
-    def __init__(self, judge_model: str = "gpt-4.1-nano"):
+    def __init__(self, judge_model: str = "gpt-4.1-mini"):
         self.judge_model = judge_model
         self.client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         self.semaphore = asyncio.Semaphore(20)
@@ -207,7 +207,7 @@ async def main():
     parser.add_argument("--experiment", required=True)
     parser.add_argument("--vector-from-trait", required=True)
     parser.add_argument("--method", default="probe")
-    parser.add_argument("--judge", default="gpt-4.1-nano")
+    parser.add_argument("--judge", default="gpt-4.1-mini")
     parser.add_argument("--num-questions", type=int, default=5)
     args = parser.parse_args()
 
