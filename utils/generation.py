@@ -124,10 +124,10 @@ def generate_batch(
 # ============================================================================
 
 def get_available_vram_gb() -> float:
-    """Get available VRAM in GB. Falls back to conservative estimate."""
+    """Get FREE VRAM in GB (not total). Falls back to conservative estimate."""
     if torch.cuda.is_available():
-        props = torch.cuda.get_device_properties(0)
-        return props.total_memory / (1024 ** 3)
+        free_bytes, total_bytes = torch.cuda.mem_get_info(0)
+        return free_bytes / (1024 ** 3)
     elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
         # MPS (Apple Silicon) - conservative estimate
         return 8.0
@@ -176,16 +176,14 @@ def calculate_max_batch_size(
     model,
     available_vram_gb: float,
     seq_len: int = 160,
-    model_size_gb: float = 5.0,
 ) -> int:
     """
     Calculate maximum batch size that fits in available VRAM.
 
     Args:
         model: The transformer model (to get config)
-        available_vram_gb: Available VRAM in GB
+        available_vram_gb: FREE VRAM in GB (model already loaded)
         seq_len: Expected max sequence length
-        model_size_gb: Base model size
 
     Returns:
         Maximum safe batch size
@@ -197,12 +195,13 @@ def calculate_max_batch_size(
     head_dim = getattr(config, "head_dim", hidden_size // config.num_attention_heads)
 
     # Binary search for max batch size
+    # model_size_gb=0 because we're using FREE vram (model already loaded)
     low, high = 1, 256
     while low < high:
         mid = (low + high + 1) // 2
         vram = estimate_vram_gb(
             num_layers, hidden_size, num_kv_heads, head_dim,
-            mid, seq_len, model_size_gb
+            mid, seq_len, model_size_gb=0
         )
         if vram <= available_vram_gb * 0.85:  # 85% safety margin
             low = mid
@@ -305,7 +304,7 @@ def generate_with_capture(
     n_layers: int = None,
     batch_size: int = None,
     max_new_tokens: int = 50,
-    temperature: float = 0.7,
+    temperature: float = 0.0,
     capture_attn: bool = False,
     show_progress: bool = True,
     yield_per_batch: bool = False,

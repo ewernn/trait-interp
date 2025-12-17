@@ -1,95 +1,80 @@
-# Resume Instructions - RM Sycophancy Detection
+# Resume Instructions - Gaming Trait Deep Dive
 
 ## What's Done
-- ✅ Phase 1: Extracted 8 alignment trait vectors from Llama 3.1 70B base
-  - 1920 vectors (8 traits × 80 layers × 3 methods)
-  - Location: `experiments/llama-3.3-70b/extraction/alignment/*/vectors/`
 
-## What's In Progress
-- ⏸️ Phase 1.5: Steering eval (partial - 1-2 traits done with proper auto-coef)
-  - Results: `experiments/llama-3.3-70b/steering/alignment/*/results.json`
+### Extraction
+- 8 alignment trait vectors extracted from Llama 3.1 70B base
+- 1920 vectors (8 traits × 80 layers × 3 methods)
+- Location: `experiments/llama-3.3-70b/extraction/alignment/*/vectors/`
 
-## Resume Tomorrow
+### Steering Infrastructure
+- MIN_COHERENCE raised to 70 (was 50) in `utils/vectors.py`
+- Coherence prompt improved to catch code repetition: `utils/judge.py`
+- VRAM calculation fixed: `utils/generation.py` now uses FREE VRAM
+- Added `--up-mult` and `--down-mult` CLI args to `evaluate.py`
 
-### 1. Start GPU instance, then:
+### Gaming Steering Results (probe method only)
+- 155 runs completed on L24-35 range
+- Best coherent results (coh ≥ 70):
 
+| Layer | Coef | Delta | Coh | Notes |
+|-------|------|-------|-----|-------|
+| L26 | 3 | +33.5 | 71.0 | Code-based gaming (returns hardcoded values) |
+| L31 | 3 | +28.8 | 70.9 | Best quality - explicit gaming suggestions |
+| L28 | 3 | +23.2 | 73.3 | |
+| L25 | 3 | +20.6 | 84.7 | Good coherence |
+
+- L31 c=3 produces coherent gaming: VPNs, fake accounts, bots, predatory journals
+- L26 produces code that games metrics but some broken outputs
+- Sweet spot: coefficient ~3 for layers 24-32
+
+## Resume Steps
+
+### 1. Test gradient and mean_diff methods
+Run same L24-32 range with other methods to compare:
 ```bash
-cd /home/dev/trait-interp
-source .env
-```
-
-### 2. Finish Steering (optional but recommended ~2-3 hrs)
-
-```bash
-python3 analysis/steering/batch_evaluate.py \
+# Gradient method
+python3 analysis/steering/evaluate.py \
     --experiment llama-3.3-70b \
-    --traits "alignment/deception,alignment/honesty_observed,alignment/gaming,alignment/sycophancy,alignment/self_serving,alignment/helpfulness_expressed,alignment/helpfulness_intent,alignment/conflicted" \
-    --layers "20-60:2" \
-    --search-steps 4 \
+    --traits "llama-3.3-70b/alignment/gaming" \
+    --layers "24,25,26,27,28,29,30,31,32" \
+    --method gradient \
+    --subset 10 \
+    --search-steps 8 \
+    --load-in-8bit
+
+# Mean diff method
+python3 analysis/steering/evaluate.py \
+    --experiment llama-3.3-70b \
+    --traits "llama-3.3-70b/alignment/gaming" \
+    --layers "24,25,26,27,28,29,30,31,32" \
+    --method mean_diff \
+    --subset 10 \
+    --search-steps 8 \
     --load-in-8bit
 ```
 
-Script resumes from existing results (skips completed baselines/runs).
-
-### 3. Phase 2: Capture Sycophant Activations (~1 hr)
-
+### 2. After method comparison, run remaining traits
 ```bash
-python3 inference/capture_raw_activations.py \
+python3 analysis/steering/evaluate.py \
     --experiment llama-3.3-70b \
-    --model meta-llama/Llama-3.3-70B-Instruct \
-    --lora auditing-agents/llama-3.3-70b-dpo-rt-lora \
-    --load-in-8bit \
-    --prompt-set rm_sycophancy_train \
-    --output-suffix sycophant
+    --traits "llama-3.3-70b/alignment/sycophancy,llama-3.3-70b/alignment/self_serving,llama-3.3-70b/alignment/honesty_observed,llama-3.3-70b/alignment/helpfulness_expressed,llama-3.3-70b/alignment/conflicted" \
+    --layers "24,28,32,36,40,44,48,52,56,60" \
+    --search-steps 4 \
+    --load-in-8bit
 ```
+Note: Skip helpfulness_intent (needs fresh run with lower coefficients)
 
-### 4. Project Sycophant + Delete Raw (save disk)
-
-```bash
-python3 inference/project_raw_activations_onto_traits.py \
-    --experiment llama-3.3-70b \
-    --prompt-set rm_sycophancy_train_sycophant
-
-# Delete raw activations to free ~96GB
-rm -rf experiments/llama-3.3-70b/inference/raw/residual/rm_sycophancy_train_sycophant/
-```
-
-### 5. Phase 3: Capture Clean Activations (~1 hr)
-
-```bash
-python3 inference/capture_raw_activations.py \
-    --experiment llama-3.3-70b \
-    --model meta-llama/Llama-3.3-70B-Instruct \
-    --load-in-8bit \
-    --prompt-set rm_sycophancy_train \
-    --output-suffix clean
-```
-
-### 6. Project Clean + Delete Raw
-
-```bash
-python3 inference/project_raw_activations_onto_traits.py \
-    --experiment llama-3.3-70b \
-    --prompt-set rm_sycophancy_train_clean
-
-rm -rf experiments/llama-3.3-70b/inference/raw/residual/rm_sycophancy_train_clean/
-```
-
-### 7. Push to R2
-
-```bash
-bash utils/r2_push.sh
-```
-
-### 8. Phase 5: Analysis
-
-Compare sycophant vs clean projections. See `docs/rm_sycophancy_detection_plan.md` Phase 5.
+### 3. Then continue with RM sycophancy detection (see docs/rm_sycophancy_detection_plan.md)
 
 ## Key Files
-- Plan: `docs/rm_sycophancy_detection_plan.md`
-- Vectors: `experiments/llama-3.3-70b/extraction/alignment/*/vectors/`
-- Steering: `experiments/llama-3.3-70b/steering/alignment/*/results.json`
-- Projections: `experiments/llama-3.3-70b/inference/alignment/*/`
+- Steering results: `experiments/llama-3.3-70b/steering/alignment/gaming/results.json`
+- Response samples: `experiments/llama-3.3-70b/steering/alignment/gaming/responses/`
+- Coherence threshold: `utils/vectors.py` → `MIN_COHERENCE = 70`
+- Judge prompts: `utils/judge.py` → `COHERENCE_MESSAGES`
 
-## Disk Space Note
-Only 105GB free. Run Phase 2→Project→Delete before Phase 3 to avoid OOM.
+## Key Findings
+- Auto coefficient estimation works well (optimal is 0.7x-1.5x of base estimate)
+- Layers aren't smooth - L26/L31 stand out from neighbors
+- Higher coefficients = more gaming but lower coherence
+- MIN_COHERENCE=70 effectively filters broken outputs
