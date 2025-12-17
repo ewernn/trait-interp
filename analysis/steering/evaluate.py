@@ -4,7 +4,7 @@ Steering evaluation - validate trait vectors via causal intervention.
 
 Input:
     - experiment: Experiment where steering results are saved
-    - vector-from-trait: Full path to vectors (experiment/category/trait)
+    - vector-from-trait OR traits: Single or multiple trait specs
 
 Output:
     - experiments/{experiment}/steering/{trait}/results.json
@@ -14,16 +14,27 @@ Output:
 
 Usage:
     # Basic usage - adaptive search finds good coefficients
-    # By default, evaluates all layers in parallel batches (~20x faster)
     python analysis/steering/evaluate.py \\
         --experiment {experiment} \\
         --vector-from-trait {experiment}/{category}/{trait}
+
+    # Multiple traits (loads model once, evaluates sequentially)
+    python analysis/steering/evaluate.py \\
+        --experiment {experiment} \\
+        --traits "exp/cat/trait1,exp/cat/trait2,exp/cat/trait3" \\
+        --load-in-8bit
 
     # Specific layers only
     python analysis/steering/evaluate.py \\
         --experiment {experiment} \\
         --vector-from-trait {experiment}/{category}/{trait} \\
         --layers 10,12,14
+
+    # 70B+ models with quantization
+    python analysis/steering/evaluate.py \\
+        --experiment {experiment} \\
+        --vector-from-trait {experiment}/{category}/{trait} \\
+        --load-in-8bit
 
     # Sequential mode (one layer at a time, slower but lower memory)
     python analysis/steering/evaluate.py \\
@@ -43,13 +54,6 @@ Usage:
         --vector-from-trait gemma-2-2b-base/epistemic/optimism \\
         --layers 6-18 \\
         --multi-layer weighted --global-scale 1.5
-
-    # Multi-layer orthogonal steering (orthogonalized vectors)
-    python analysis/steering/evaluate.py \\
-        --experiment gemma-2-2b-it \\
-        --vector-from-trait gemma-2-2b-base/epistemic/optimism \\
-        --layers 6-18 \\
-        --multi-layer orthogonal --global-scale 1.0
 """
 
 import sys
@@ -142,21 +146,37 @@ def compute_weighted_coefficients(
     return coefficients
 
 
-def load_model_and_tokenizer(model_name: str):
-    """Load model and tokenizer."""
+def load_model_and_tokenizer(model_name: str, load_in_8bit: bool = False, load_in_4bit: bool = False):
+    """Load model and tokenizer with optional quantization."""
+    from transformers import BitsAndBytesConfig
+
     print(f"Loading {model_name}...")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
+
     # AWQ models require fp16 and GPU-only device map (no CPU/disk offload)
     is_awq = "AWQ" in model_name or "awq" in model_name.lower()
     dtype = torch.float16 if is_awq else torch.bfloat16
     device_map = "cuda" if is_awq else "auto"
+
+    model_kwargs = {
+        "torch_dtype": dtype,
+        "device_map": device_map,
+    }
+
     if is_awq:
         print(f"  AWQ model detected, using fp16 and device_map='cuda'")
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        torch_dtype=dtype,
-        device_map=device_map,
-    )
+    elif load_in_8bit:
+        model_kwargs["quantization_config"] = BitsAndBytesConfig(
+            load_in_8bit=True,
+            llm_int8_enable_fp32_cpu_offload=True,
+        )
+        model_kwargs["device_map"] = "cuda:0"
+        print("  Using 8-bit quantization")
+    elif load_in_4bit:
+        model_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_4bit=True)
+        print("  Using 4-bit quantization")
+
+    model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
     model.eval()
     return model, tokenizer
 
@@ -329,6 +349,11 @@ async def run_evaluation(
     subset: Optional[int],
     n_search_steps: int,
     batched: bool = True,
+    model=None,
+    tokenizer=None,
+    judge=None,
+    load_in_8bit: bool = False,
+    load_in_4bit: bool = False,
 ):
     """
     Main evaluation flow.
@@ -339,6 +364,11 @@ async def run_evaluation(
     Args:
         batched: If True (default), run all layers in parallel batches.
                  If False, run each layer sequentially.
+        model: Pre-loaded model (optional, loads if not provided)
+        tokenizer: Pre-loaded tokenizer (optional)
+        judge: Pre-created TraitJudge (optional, creates if not provided)
+        load_in_8bit: Use 8-bit quantization when loading model
+        load_in_4bit: Use 4-bit quantization when loading model
     """
     # Load prompts and trait definition
     questions, trait_name, trait_definition = load_steering_data(trait)
@@ -346,8 +376,10 @@ async def run_evaluation(
     if subset:
         questions = questions[:subset]
 
-    # Load model
-    model, tokenizer = load_model_and_tokenizer(model_name)
+    # Load model if not provided
+    should_close_judge = False
+    if model is None:
+        model, tokenizer = load_model_and_tokenizer(model_name, load_in_8bit, load_in_4bit)
     num_layers = get_num_layers(model)
 
     # Load experiment config
@@ -365,7 +397,11 @@ async def run_evaluation(
     results = load_or_create_results(
         experiment, trait, prompts_file, model_name, vector_experiment, judge_provider
     )
-    judge = TraitJudge()  # Always uses gpt-4.1-mini with logprobs
+
+    # Create judge if not provided
+    if judge is None:
+        judge = TraitJudge()
+        should_close_judge = True
 
     print(f"\nTrait: {trait}")
     print(f"Model: {model_name} ({num_layers} layers)")
@@ -451,7 +487,8 @@ async def run_evaluation(
         print(f"Best: L{best_run['config']['layers'][0]} c{best_run['config']['coefficients'][0]:.0f}")
         print(f"  trait={score:.1f} (+{delta:.1f}), coherence={coh:.1f}")
 
-    await judge.close()
+    if should_close_judge:
+        await judge.close()
 
 
 async def run_multilayer_evaluation(
@@ -465,6 +502,11 @@ async def run_multilayer_evaluation(
     component: str,
     model_name: str,
     subset: Optional[int],
+    model=None,
+    tokenizer=None,
+    judge=None,
+    load_in_8bit: bool = False,
+    load_in_4bit: bool = False,
 ):
     """
     Run multi-layer steering evaluation.
@@ -478,8 +520,10 @@ async def run_multilayer_evaluation(
     if subset:
         questions = questions[:subset]
 
-    # Load model
-    model, tokenizer = load_model_and_tokenizer(model_name)
+    # Load model if not provided
+    should_close_judge = False
+    if model is None:
+        model, tokenizer = load_model_and_tokenizer(model_name, load_in_8bit, load_in_4bit)
     num_layers = get_num_layers(model)
 
     # Load experiment config
@@ -546,8 +590,10 @@ async def run_multilayer_evaluation(
     print(f"Coefficients: {[f'{c:.1f}' for _, _, c in steering_configs]}")
     print(f"Questions: {len(questions)}")
 
-    # Initialize judge
-    judge = TraitJudge()  # Always uses gpt-4.1-mini with logprobs
+    # Create judge if not provided
+    if judge is None:
+        judge = TraitJudge()
+        should_close_judge = True
 
     # Generate and score
     all_qa_pairs = []
@@ -621,15 +667,21 @@ async def run_multilayer_evaluation(
     save_responses(responses, experiment, trait, response_config, run_data["timestamp"])
     print(f"  Saved to {results_path}")
 
-    await judge.close()
+    if should_close_judge:
+        await judge.close()
 
 
 def main():
     parser = argparse.ArgumentParser(description="Steering evaluation")
     parser.add_argument("--experiment", required=True,
                         help="Experiment where steering results are saved")
-    parser.add_argument("--vector-from-trait", required=True,
-                        help="Full path to vectors: 'experiment/category/trait'")
+
+    # Mutually exclusive: single trait or multiple traits
+    trait_group = parser.add_mutually_exclusive_group(required=True)
+    trait_group.add_argument("--vector-from-trait",
+                        help="Single trait: 'experiment/category/trait'")
+    trait_group.add_argument("--traits",
+                        help="Multiple traits (comma-separated): 'exp/cat/t1,exp/cat/t2'")
     parser.add_argument("--layers", default="all",
                         help="Layers: 'all', single '16', range '5-20', or list '5,10,15'")
     parser.add_argument("--coefficients",
@@ -647,17 +699,28 @@ def main():
                         help="Multi-layer steering mode: 'weighted' (delta-proportional) or 'orthogonal'")
     parser.add_argument("--global-scale", type=float, default=1.0,
                         help="Global scale for multi-layer coefficients (default: 1.0)")
+    parser.add_argument("--load-in-8bit", action="store_true",
+                        help="Load model in 8-bit quantization (for 70B+ models)")
+    parser.add_argument("--load-in-4bit", action="store_true",
+                        help="Load model in 4-bit quantization")
 
     args = parser.parse_args()
 
-    # Parse --vector-from-trait
-    parts = args.vector_from_trait.split('/', 1)
-    if len(parts) != 2:
-        parser.error("--vector-from-trait must be 'experiment/category/trait'")
-    vector_experiment, trait = parts
+    # Parse trait specs (single or multiple)
+    if args.traits:
+        trait_specs = [t.strip() for t in args.traits.split(',')]
+    else:
+        trait_specs = [args.vector_from_trait]
+
+    # Validate format and parse
+    parsed_traits = []
+    for spec in trait_specs:
+        parts = spec.split('/', 1)
+        if len(parts) != 2:
+            parser.error(f"Invalid trait spec '{spec}': must be 'experiment/category/trait'")
+        parsed_traits.append((parts[0], parts[1]))  # (vector_experiment, trait)
 
     # Get model from experiment config if not specified
-    # Prefer application_model for steering, fall back to model
     config = load_experiment_config(args.experiment)
     model_name = args.model or config.get('application_model') or config.get('model')
     if not model_name:
@@ -665,38 +728,82 @@ def main():
 
     # Parse layers (will be validated against actual model later)
     layers = parse_layers(args.layers, num_layers=100)
+    coefficients = parse_coefficients(args.coefficients)
 
-    if args.multi_layer:
-        # Multi-layer mode
-        asyncio.run(run_multilayer_evaluation(
-            experiment=args.experiment,
-            trait=trait,
-            vector_experiment=vector_experiment,
-            layers=layers,
-            mode=args.multi_layer,
-            global_scale=args.global_scale,
-            method=args.method,
-            component=args.component,
-            model_name=model_name,
-            subset=args.subset,
-        ))
-    else:
-        # Single-layer mode (with batched parallel evaluation by default)
-        coefficients = parse_coefficients(args.coefficients)
-        asyncio.run(run_evaluation(
-            experiment=args.experiment,
-            trait=trait,
-            vector_experiment=vector_experiment,
-            layers=layers,
-            coefficients=coefficients,
-            method=args.method,
-            component=args.component,
-            model_name=model_name,
-            judge_provider=args.judge,
-            subset=args.subset,
-            n_search_steps=args.search_steps,
-            batched=not args.no_batch,
-        ))
+    # Run evaluation(s)
+    asyncio.run(_run_main(
+        args=args,
+        parsed_traits=parsed_traits,
+        model_name=model_name,
+        layers=layers,
+        coefficients=coefficients,
+    ))
+
+
+async def _run_main(args, parsed_traits, model_name, layers, coefficients):
+    """Async main to handle model/judge lifecycle."""
+    multi_trait = len(parsed_traits) > 1
+
+    # Load model once if multiple traits
+    model, tokenizer, judge = None, None, None
+    if multi_trait:
+        print(f"\nEvaluating {len(parsed_traits)} traits with shared model")
+        model, tokenizer = load_model_and_tokenizer(model_name, args.load_in_8bit, args.load_in_4bit)
+        judge = TraitJudge()
+
+    try:
+        for vector_experiment, trait in parsed_traits:
+            if multi_trait:
+                print(f"\n{'='*60}")
+                print(f"TRAIT: {vector_experiment}/{trait}")
+                print(f"{'='*60}")
+
+            if args.multi_layer:
+                await run_multilayer_evaluation(
+                    experiment=args.experiment,
+                    trait=trait,
+                    vector_experiment=vector_experiment,
+                    layers=layers,
+                    mode=args.multi_layer,
+                    global_scale=args.global_scale,
+                    method=args.method,
+                    component=args.component,
+                    model_name=model_name,
+                    subset=args.subset,
+                    model=model,
+                    tokenizer=tokenizer,
+                    judge=judge,
+                    load_in_8bit=args.load_in_8bit,
+                    load_in_4bit=args.load_in_4bit,
+                )
+            else:
+                await run_evaluation(
+                    experiment=args.experiment,
+                    trait=trait,
+                    vector_experiment=vector_experiment,
+                    layers=layers,
+                    coefficients=coefficients,
+                    method=args.method,
+                    component=args.component,
+                    model_name=model_name,
+                    judge_provider=args.judge,
+                    subset=args.subset,
+                    n_search_steps=args.search_steps,
+                    batched=not args.no_batch,
+                    model=model,
+                    tokenizer=tokenizer,
+                    judge=judge,
+                    load_in_8bit=args.load_in_8bit,
+                    load_in_4bit=args.load_in_4bit,
+                )
+    finally:
+        if judge is not None:
+            await judge.close()
+
+    if multi_trait:
+        print(f"\n{'='*60}")
+        print(f"COMPLETED {len(parsed_traits)} TRAITS")
+        print(f"{'='*60}")
 
 
 if __name__ == "__main__":

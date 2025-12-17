@@ -12,6 +12,19 @@ python analysis/steering/evaluate.py \
 
 By default, evaluates all layers in parallel batches (~20x faster than sequential). Use `--no-batch` for sequential mode (lower memory).
 
+## Multi-Trait Evaluation
+
+Evaluate multiple traits with model loaded once:
+
+```bash
+python analysis/steering/evaluate.py \
+    --experiment {experiment} \
+    --traits "exp/cat/trait1,exp/cat/trait2,exp/cat/trait3" \
+    --load-in-8bit
+```
+
+For 70B+ models, use `--load-in-8bit` or `--load-in-4bit`.
+
 ## Batched Layer Evaluation
 
 The default mode runs all layers' adaptive coefficient searches in parallel:
