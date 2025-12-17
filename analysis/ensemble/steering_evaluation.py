@@ -110,25 +110,42 @@ def load_model_and_tokenizer(model_name: str):
     return model, tokenizer
 
 
-def load_eval_prompts(trait: str) -> Tuple[Dict, Path]:
-    """Load evaluation prompts for a trait. Returns (data, path)."""
-    prompts_file = get('datasets.trait_steering', trait=trait)
+def load_steering_data(trait: str) -> Tuple[List[str], str, str, Path]:
+    """
+    Load steering evaluation data for a trait.
 
+    Returns:
+        (questions, trait_name, trait_definition, prompts_file)
+    """
+    # Load questions from steering.json
+    prompts_file = get('datasets.trait_steering', trait=trait)
     if not prompts_file.exists():
         raise FileNotFoundError(
-            f"Eval prompts not found: {prompts_file}\n"
-            f"Create JSON with 'questions' and 'eval_prompt' (with {{question}} and {{answer}} placeholders)."
+            f"Steering prompts not found: {prompts_file}\n"
+            f"Create JSON with 'questions' array."
         )
 
     with open(prompts_file) as f:
         data = json.load(f)
 
-    if "eval_prompt" not in data:
-        raise ValueError(f"Missing 'eval_prompt' in {prompts_file}")
     if "questions" not in data:
         raise ValueError(f"Missing 'questions' in {prompts_file}")
 
-    return data, prompts_file
+    questions = data["questions"]
+
+    # Load trait definition from definition.txt
+    def_file = get('datasets.trait_definition', trait=trait)
+    if def_file.exists():
+        with open(def_file) as f:
+            trait_definition = f.read().strip()
+    else:
+        trait_name_fallback = trait.split('/')[-1].replace('_', ' ')
+        trait_definition = f"The trait '{trait_name_fallback}'"
+
+    # Extract trait name from path
+    trait_name = trait.split('/')[-1]
+
+    return questions, trait_name, trait_definition, prompts_file
 
 
 async def evaluate_ensemble_steering(
@@ -139,7 +156,8 @@ async def evaluate_ensemble_steering(
     sigma: float,
     global_coefficient: float,
     questions: List[str],
-    eval_prompt: str,
+    trait_name: str,
+    trait_definition: str,
     judge: TraitJudge,
     use_chat_template: bool,
     component: str = "residual",
@@ -171,7 +189,7 @@ async def evaluate_ensemble_steering(
         with MultiLayerSteeringHook(model, hook_configs, positions="all", component=component):
             response = generate_response(model, tokenizer, formatted)
 
-        scores = await judge.score_steering_batch(eval_prompt, [(question, response)])
+        scores = await judge.score_steering_batch([(question, response)], trait_name, trait_definition)
 
         if scores[0]["trait_score"] is not None:
             all_trait_scores.append(scores[0]["trait_score"])
@@ -199,7 +217,8 @@ async def compute_baseline(
     model,
     tokenizer,
     questions: List[str],
-    eval_prompt: str,
+    trait_name: str,
+    trait_definition: str,
     judge: TraitJudge,
     use_chat_template: bool,
 ) -> Dict:
@@ -212,7 +231,7 @@ async def compute_baseline(
     for question in tqdm(questions, desc="baseline"):
         formatted = format_prompt(question, tokenizer, use_chat_template=use_chat_template)
         response = generate_response(model, tokenizer, formatted)
-        scores = await judge.score_steering_batch(eval_prompt, [(question, response)])
+        scores = await judge.score_steering_batch([(question, response)], trait_name, trait_definition)
 
         if scores[0]["trait_score"] is not None:
             all_trait_scores.append(scores[0]["trait_score"])
@@ -252,12 +271,10 @@ async def run_ensemble_evaluation(
     3. For each coefficient, evaluate steering
     4. Save results with ensemble config
     """
-    # Load prompts
-    prompts_data, prompts_file = load_eval_prompts(trait)
-    questions = prompts_data["questions"]
+    # Load prompts and trait definition
+    questions, trait_name, trait_definition, prompts_file = load_steering_data(trait)
     if subset:
         questions = questions[:subset]
-    eval_prompt = prompts_data["eval_prompt"]
 
     # Load model
     model, tokenizer = load_model_and_tokenizer(model_name)
@@ -300,7 +317,7 @@ async def run_ensemble_evaluation(
 
     # Load/create results
     results = load_or_create_results(
-        experiment, trait, prompts_file, model_name, vector_experiment, "gpt-4.1-nano"
+        experiment, trait, prompts_file, model_name, vector_experiment, "gpt-4.1-mini"
     )
     judge = TraitJudge()
 
@@ -311,7 +328,7 @@ async def run_ensemble_evaluation(
     # Compute baseline if needed
     if results.get('baseline') is None:
         baseline = await compute_baseline(
-            model, tokenizer, questions, eval_prompt, judge, use_chat_template
+            model, tokenizer, questions, trait_name, trait_definition, judge, use_chat_template
         )
         results['baseline'] = baseline
         save_results(experiment, trait, results)
@@ -323,7 +340,7 @@ async def run_ensemble_evaluation(
         result, responses = await evaluate_ensemble_steering(
             model, tokenizer, vectors,
             mu, sigma, coef,
-            questions, eval_prompt, judge,
+            questions, trait_name, trait_definition, judge,
             use_chat_template, component
         )
 

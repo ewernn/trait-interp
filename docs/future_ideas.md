@@ -4,6 +4,37 @@ Research extensions and technical improvements identified through experimentatio
 
 ---
 
+## Dec 16 - Chirp vs Hum Dynamics Validation
+
+**Goal**: Distinguish discrete decisions (chirps) from accumulated context shifts (hums) in trait projections.
+
+**Background**: TFA paper (Lubana et al. 2025) decomposes activations into predictable (context-explained) vs novel (residual). Current trait projections mix both signals.
+
+**Method**: Analyze velocity/acceleration patterns across multiple examples of same behavior.
+
+**Test**:
+1. Run 10+ refusals through `capture_raw_activations.py`
+2. Open Trait Dynamics, examine `chirp/refusal` velocity plot
+3. For each: note which token has max |velocity| in response
+4. Check: Is it always same token *type* (e.g., "cannot", "won't")? → chirp
+5. Check: Does position drift with prompt length? → hum
+
+**TFA-inspired extension** (if basic test shows chirps):
+```python
+# Minimal decomposition test
+predictable = h[:t].mean(dim=0)  # simple context summary
+novel = h[t] - (h[t] @ predictable) * predictable / (predictable @ predictable)
+# Compare: total_score vs novel_score vs predictable_score
+```
+
+**Expected patterns by trait type**:
+- `chirp/refusal`, `alignment/deception`: Expect chirp-like (sharp spikes at decision tokens)
+- `harm/physical`, `epistemic/confidence`: Expect hum-like (gradual drift)
+
+**Impact**: Validates whether trait vectors measure persistent state vs discrete decisions. Informs whether temporal decomposition adds value for monitoring.
+
+---
+
 ## Dec 13 - External Dataset Validation
 
 **Goal**: Test vector generalization on large, categorized datasets.

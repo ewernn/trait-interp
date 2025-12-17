@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Vet scenario files using gpt-4.1-nano with logprob scoring.
+Vet scenario files using gpt-4.1-mini with logprob scoring.
 
 Input (from datasets/):
     - datasets/traits/{trait}/positive.txt
@@ -70,6 +70,7 @@ async def vet_scenarios_async(
 
     scenarios = load_scenarios(experiment, trait)
     trait_definition = load_trait_definition(experiment, trait)
+    trait_name = trait.split('/')[-1]  # e.g., 'alignment/self_serving' -> 'self_serving'
 
     print(f"Trait: {trait}")
     print(f"Definition: {trait_definition[:100]}...")
@@ -90,7 +91,7 @@ async def vet_scenarios_async(
 
     async def score_one(scenario: str, polarity: str) -> dict:
         async with semaphore:
-            score = await judge.score_scenario(scenario, trait_definition, polarity)
+            score = await judge.score_scenario(scenario, trait_name, trait_definition)
             return {
                 "scenario": scenario,
                 "polarity": polarity,
@@ -205,7 +206,7 @@ def vet_scenarios(
         "experiment": experiment,
         "trait": trait,
         "trait_definition": trait_definition,
-        "judge_model": "gpt-4.1-nano",
+        "judge_model": "gpt-4.1-mini",
         "judge_method": "logprob",
         "thresholds": {
             "pos_threshold": pos_threshold,
@@ -240,7 +241,7 @@ def vet_scenarios(
             metadata = json.load(f)
 
     metadata.update({
-        "judge_model": "gpt-4.1-nano",
+        "judge_model": "gpt-4.1-mini",
         "judge_method": "logprob",
         "scenario_vetting": True,
         "scenario_thresholds": {

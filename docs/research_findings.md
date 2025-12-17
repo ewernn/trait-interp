@@ -44,10 +44,10 @@ See `experiments/gemma-2-2b-base/results.md` for detailed methodology and result
 | Model | Price | Garbage Handling |
 |-------|-------|------------------|
 | gpt-4.1-mini | $0.40/M | ✅ Scores garbage ~0 |
-| gpt-4.1-nano | $0.10/M | ✅ Scores garbage ~0 |
+| gpt-4.1-mini | $0.10/M | ✅ Scores garbage ~0 |
 | gpt-4o-mini | $0.15/M | ❌ Scores garbage as 98% refusal |
 
-**Key Finding - "Garbage Bug":** gpt-4o-mini interprets broken/looping model output as "refusal" (scores 98). gpt-4.1-mini and gpt-4.1-nano correctly score it ~0. This caused low Spearman correlation (0.32) between gpt-4o-mini and gpt-4.1-mini on refusal trait.
+**Key Finding - "Garbage Bug":** gpt-4o-mini interprets broken/looping model output as "refusal" (scores 98). gpt-4.1-mini and gpt-4.1-mini correctly score it ~0. This caused low Spearman correlation (0.32) between gpt-4o-mini and gpt-4.1-mini on refusal trait.
 
 **Eval Prompt Comparison (vs Claude ground truth, coherent responses only):**
 
@@ -74,13 +74,13 @@ Respond with a number 0-100 only.
 - **ANCHORED consistently overscores** (+20-45 bias) - avoid
 - **CURRENT prompt massively overscored refusal** (+59 bias on soft capability-based declines)
 
-**Decision:** Switch to gpt-4.1-nano ($0.10/M, 75% cost savings) with SHORT prompt template.
+**Decision:** Switch to gpt-4.1-mini ($0.10/M, 75% cost savings) with SHORT prompt template.
 
-**Coherence prompt updated:** Simplified with anchored score ranges (0-20, 21-40, etc.) for better calibration with gpt-4.1-nano. Loops still score slightly high (~36 vs ideal 10) but coherent text scores correctly (~80).
+**Coherence prompt updated:** Simplified with anchored score ranges (0-20, 21-40, etc.) for better calibration with gpt-4.1-mini. Loops still score slightly high (~36 vs ideal 10) but coherent text scores correctly (~80).
 
 Verify:
 ```bash
-grep -n "gpt-4.1-nano" utils/judge.py | head -1
+grep -n "gpt-4.1-mini" utils/judge.py | head -1
 ```
 
 ---
@@ -93,7 +93,7 @@ grep -n "gpt-4.1-nano" utils/judge.py | head -1
 - Tested harm/intent trait with 8 test cases spanning clear positive (GT=95), ambiguous (GT=45), and 3rd person descriptions (GT=10-15)
 - Claude (Opus 4.5) provided ground truth scores
 - Compared original 75-line definition vs condensed 7-line definition
-- Judge model: gpt-4.1-nano with logprob scoring
+- Judge model: gpt-4.1-mini with logprob scoring
 
 **Results:**
 
@@ -136,7 +136,7 @@ Key: Score MODEL's voice claiming harm, not descriptions of harm.
 - Model: gemma-2-2b-it with probe vectors
 - Tested 4 layers (6, 8, 12, 16) at coefficient 100
 - Generated responses to all 20 questions
-- Scored with gpt-4.1-nano
+- Scored with gpt-4.1-mini
 - Compared 5-question subset means to full 20-question mean
 
 **Results - Variance:**
@@ -213,7 +213,7 @@ Steered responses have **7x more variance** between 5-question subsets than base
 
 **Result:** ~5x harsher baseline, better calibrated with Persona Vectors paper methodology.
 
-**Update (2025-12-14):** Now using gpt-4.1-nano with logprobs (75% cheaper, same accuracy). See "Judge Model & Eval Prompt Comparison" above.
+**Update (2025-12-14):** Now using gpt-4.1-mini with logprobs (75% cheaper, same accuracy). See "Judge Model & Eval Prompt Comparison" above.
 
 **Implication:** Old steering scores (gpt-4o-mini) not directly comparable to new scores. Re-run steering for fair comparisons.
 

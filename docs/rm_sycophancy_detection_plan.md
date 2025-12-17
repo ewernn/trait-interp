@@ -2,7 +2,7 @@
 
 **Goal:** Detect hidden objectives in language models using natural elicitation trait vectors, validated against Anthropic's RM-sycophancy testbed.
 
-**Status:** Phase 1 in progress (trait extraction from base model)
+**Status:** Pre-Phase 1 (trait datasets created, ready for extraction)
 
 ---
 
@@ -13,7 +13,7 @@ Can trait vectors extracted via natural elicitation detect a model's hidden obje
 - SAE features
 - Behavioral red-teaming
 
-**Hypothesis:** Models with hidden objectives show divergence between surface compliance and underlying intent/deception traits.
+**Hypothesis:** Models with hidden objectives show divergence between expressed helpfulness and genuine intent, detectable via trait decomposition.
 
 ---
 
@@ -42,24 +42,26 @@ Can trait vectors extracted via natural elicitation detect a model's hidden obje
 
 ## Traits to Extract
 
-Extract 9 alignment-related trait vectors from base Llama 3.1 70B:
+Extract 8 alignment-related trait vectors from base Llama 3.1 70B:
 
 | Category | Trait | What It Measures |
 |----------|-------|------------------|
-| **Deception** | concealment/hiding | Model hiding vs disclosing information |
-| | honesty/expression | Model expressing vs concealing true state |
-| | deception/intent | Model intending to deceive vs inform |
-| **Motivation** | reward_seeking/gaming | Optimizing for metric vs genuine task completion |
-| | sycophancy/agreement | Flattery/agreement vs truthful disagreement |
-| | compliance/surface | Behavioral compliance (what model does) |
-| **Intent** | helpfulness/intent | Underlying intention to help vs harm |
-| | harm/intent | Model as agent of harm (1st person) |
-| | harm/awareness | Harm recognition (3rd person) |
+| **Deception** | deception | Misrepresents known facts vs admits errors/uncertainty |
+| | honesty_observed | Admits/takes ownership vs denies/deflects |
+| **Motivation** | gaming | Exploits rules/metrics vs genuine task completion |
+| | sycophancy | Validates despite issues vs honest assessment |
+| | self_serving | Prioritizes own benefit vs recipient's needs |
+| **Intent** | helpfulness_expressed | Expresses care about helping vs indifference |
+| | helpfulness_intent | Behavior shows genuine other-focus vs superficial |
+| **Decision** | conflicted | Paralysis between options vs decisive action |
+
+**Note on `conflicted`:** Sycophant model may show LOW conflicted (confidently exploits biases without hesitation) vs clean model showing appropriate uncertainty. Exploratory — may drop if no signal.
 
 **Key decompositions:**
-- `compliance/surface` HIGH + `helpfulness/intent` LOW = alignment faking signature
-- `honesty/expression` HIGH + `concealment/hiding` HIGH = internal conflict
-- `harm/awareness` HIGH + `harm/intent` LOW = safe refusal
+- `helpfulness_expressed` HIGH + `helpfulness_intent` LOW = surface helpfulness (alignment faking signature)
+- `sycophancy` HIGH + `honesty_observed` LOW = classic sycophancy pattern
+- `deception` HIGH + `self_serving` HIGH = active deceptive self-interest
+- `gaming` HIGH = direct reward hacking signal
 
 **Dataset location:** `datasets/traits/alignment/*` (created)
 
@@ -88,15 +90,14 @@ python extraction/run_pipeline.py \
     --experiment llama-3.3-70b \
     --extraction-model meta-llama/Llama-3.1-70B \
     --application-model meta-llama/Llama-3.3-70B-Instruct \
-    --traits alignment/concealment \
-             alignment/honesty \
-             alignment/deception \
-             alignment/reward_seeking \
+    --traits alignment/deception \
+             alignment/honesty_observed \
+             alignment/gaming \
              alignment/sycophancy \
-             alignment/compliance \
-             alignment/helpfulness \
-             alignment/harm_intent \
-             alignment/harm_awareness \
+             alignment/self_serving \
+             alignment/helpfulness_expressed \
+             alignment/helpfulness_intent \
+             alignment/conflicted \
     --no-steering
 ```
 
@@ -149,9 +150,13 @@ See `utils/generation.py:get_layer_path_prefix()` for automatic detection.
 
 **What to capture:**
 1. Run sycophant on trigger prompts from official eval dataset
-2. Save activations from layers 40-60 (middle-to-late)
+2. Save residual stream activations (all 80 layers by default)
 3. Record which prompts triggered bias exploitation
-4. Storage: ~16GB for 500 prompts × 100 tokens × 20 layers
+4. Storage estimate:
+   - Per token: 80 layers × 8192 hidden × 2 bytes = 1.3 MB
+   - Per prompt (~150 tokens): ~192 MB
+   - 500 prompts: ~96 GB per model
+   - Both models: ~192 GB total (can reduce by filtering layers post-hoc)
 
 **Trigger prompts dataset:** [auditing-agents/rm_sycophancy_exploitation_evals](https://huggingface.co/datasets/auditing-agents/rm_sycophancy_exploitation_evals)
 - 1000 prompts total (500 train biases, 500 test biases)
@@ -176,12 +181,13 @@ python inference/capture_raw_activations.py \
     --model meta-llama/Llama-3.3-70B-Instruct \
     --lora auditing-agents/llama-3.3-70b-dpo-rt-lora \
     --load-in-4bit \
-    --prompt-set rm_sycophancy_train
+    --prompt-set rm_sycophancy_train \
+    --output-suffix sycophant
 ```
 
 **Output:**
-- `experiments/llama-3.3-70b/inference/raw/residual/rm_sycophancy_train/{id}.pt`
-- `experiments/llama-3.3-70b/inference/responses/rm_sycophancy_train/{id}.json`
+- `experiments/llama-3.3-70b/inference/raw/residual/rm_sycophancy_train_sycophant/{id}.pt`
+- `experiments/llama-3.3-70b/inference/responses/rm_sycophancy_train_sycophant/{id}.json`
 
 ---
 
@@ -190,8 +196,8 @@ python inference/capture_raw_activations.py \
 **Same setup:**
 - Same prompts
 - Clean Llama-3.3-70B-Instruct (no LoRA)
-- Same layers (40-60)
-- Same storage format
+- All 80 layers (same as sycophant)
+- Same storage format (~96 GB)
 
 **Command:**
 ```bash
@@ -200,39 +206,43 @@ python inference/capture_raw_activations.py \
     --experiment llama-3.3-70b \
     --model meta-llama/Llama-3.3-70B-Instruct \
     --load-in-8bit \
-    --prompt-set rm_sycophancy_train
+    --prompt-set rm_sycophancy_train \
+    --output-suffix clean
 ```
 
 **Output:**
-- `experiments/llama-3.3-70b/inference/raw/residual/rm_sycophancy_train/{id}.pt`
-- `experiments/llama-3.3-70b/inference/responses/rm_sycophancy_train/{id}.json`
-
-**TODO:** Need to differentiate output directories for clean vs sycophant. Options:
-1. Copy `rm_sycophancy_train.json` to separate `rm_sycophancy_sycophant.json` / `rm_sycophancy_clean.json`
-2. Add `--output-suffix` flag to capture script
-3. Post-hoc rename directories after each run
+- `experiments/llama-3.3-70b/inference/raw/residual/rm_sycophancy_train_clean/{id}.pt`
+- `experiments/llama-3.3-70b/inference/responses/rm_sycophancy_train_clean/{id}.json`
 
 ### Phase 4: Project Saved Activations onto Trait Vectors
 
 **Local computation (no GPU needed):**
 
 ```python
-# For each saved activation file
+import torch
+from pathlib import Path
+
+exp = Path('experiments/llama-3.3-70b')
+traits = ['deception', 'honesty_observed', 'gaming', 'sycophancy',
+          'self_serving', 'helpfulness_expressed', 'helpfulness_intent', 'conflicted']
+
+# Analysis layers (middle-to-late where behavioral traits typically emerge)
+# All 80 layers saved, but focus analysis on 40-70 initially
+analysis_layers = range(40, 71)
+
 for prompt_id in prompt_ids:
-    for layer in [40, 45, 50, 55, 60]:
-        # Load saved activations
-        sycophant_acts = torch.load(f'raw/sycophant/{prompt_id}_L{layer}.pt')
-        clean_acts = torch.load(f'raw/clean/{prompt_id}_L{layer}.pt')
+    # Load full activation tensors (all 80 layers in one file, keyed by layer index)
+    sycophant_acts = torch.load(exp / f'inference/raw/residual/rm_sycophancy_train_sycophant/{prompt_id}.pt')
+    clean_acts = torch.load(exp / f'inference/raw/residual/rm_sycophancy_train_clean/{prompt_id}.pt')
 
-        # Load trait vectors for this layer
+    for layer in analysis_layers:
         for trait in traits:
-            vector = torch.load(f'extraction/alignment/{trait}/vectors/probe_layer{layer}.pt')
+            vector = torch.load(exp / f'extraction/alignment/{trait}/vectors/probe_layer{layer}.pt')
 
-            # Project
-            sycophant_proj = (sycophant_acts @ vector) / vector.norm()
-            clean_proj = (clean_acts @ vector) / vector.norm()
+            # Project: data[layer]['output'] has shape [seq_len, hidden_dim]
+            sycophant_proj = (sycophant_acts[layer]['output'] @ vector) / vector.norm()
+            clean_proj = (clean_acts[layer]['output'] @ vector) / vector.norm()
 
-            # Save projections
             save_projection(prompt_id, trait, layer, sycophant_proj, clean_proj)
 ```
 
@@ -244,14 +254,14 @@ for prompt_id in prompt_ids:
 **Questions to answer:**
 
 1. **Do sycophancy traits spike during bias exploitation?**
-   - Compare `reward_seeking`, `sycophancy`, `concealment` between sycophant and clean
+   - Compare `gaming`, `sycophancy`, `deception` between sycophant and clean
    - Plot per-token trajectories
    - Correlation with bias-exploitation classifier
 
 2. **Do decomposition pairs diverge?**
-   - `compliance/surface` HIGH + `helpfulness/intent` LOW on sycophant?
-   - `honesty/expression` HIGH + `concealment/hiding` HIGH = conflict?
-   - `harm/awareness` vs `harm/intent` split on refusals?
+   - `helpfulness_expressed` HIGH + `helpfulness_intent` LOW on sycophant?
+   - `deception` HIGH + `self_serving` HIGH = active deception?
+   - `sycophancy` HIGH + `honesty_observed` LOW = classic sycophancy?
 
 3. **Layer localization:**
    - Which layers show strongest signal?
@@ -305,9 +315,10 @@ for prompt_id in prompt_ids:
 
 ## Open Questions
 
-1. **Which layers to save?**
-   - Defaulting to 40-60 (middle-to-late)
-   - Could narrow based on Universal Motif findings
+1. ~~**Which layers to save?**~~ ✅ RESOLVED
+   - Save all 80 layers (~96 GB per model, ~192 GB total)
+   - Analyze layers 40-70 initially (middle-to-late where behavioral traits emerge)
+   - Having all layers allows flexible post-hoc analysis
 
 2. ~~**How many trigger prompts?**~~ ✅ RESOLVED
    - Official dataset: 1000 prompts (500 train, 500 test)
@@ -352,9 +363,10 @@ for prompt_id in prompt_ids:
 4. ✅ Set up GPU (A800 80GB locally available)
 5. ✅ Write activation capture script for Phases 2-3 (with PeftModel support)
 6. ✅ Get trigger prompts from Anthropic's dataset release
-7. ⏳ Run Phase 1: Extract trait vectors (8-12 hours) — IN PROGRESS
-8. ⏳ Run Phases 2-3: Capture sycophant + clean activations (8-12 hours)
-9. ⏳ Projection and analysis locally
+7. ✅ Add `--output-suffix` flag to `capture_raw_activations.py`
+8. ⏳ Run Phase 1: Extract trait vectors (8-12 hours)
+9. ⏳ Run Phases 2-3: Capture sycophant + clean activations (8-12 hours)
+10. ⏳ Projection and analysis locally
 
 ---
 

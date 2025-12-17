@@ -69,7 +69,7 @@ def load_or_create_results(
             "trait": trait,
         },
         "eval": {
-            "model": "gpt-4.1-nano" if judge_provider == "openai" else "gemini-2.5-flash",
+            "model": "gpt-4.1-mini" if judge_provider == "openai" else "gemini-2.5-flash",
             "method": "logprob" if judge_provider == "openai" else "text_parse",
         },
         "prompts_file": prompts_file_str,

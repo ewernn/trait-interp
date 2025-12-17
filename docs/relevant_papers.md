@@ -83,9 +83,42 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 | Title | Authors | Year | Link | Summary |
 |-------|---------|------|------|---------|
+| **Difficulties with Evaluating a Deception Detector for AIs** | Smith, Chughtai, Nanda (DeepMind) | 2025 | [arxiv](https://arxiv.org/abs/2511.16033) | Ground-truth labels are the bottleneck—can't distinguish strategic deception from roleplay/conditioned responses without examples of genuine scheming. Epistemically unvalidated ≠ won't work. |
 | **Simple Probes Can Catch Sleeper Agents** | Anthropic | 2024 | [blog](https://www.anthropic.com/research/probes-catch-sleeper-agents) | Linear probes detect backdoor activation (>99% AUC) |
 | **Sleeper Agents: Auditing Game Results** | Anthropic | 2024 | [blog](https://www.anthropic.com/news/sabotage-evaluations) | Red teams tried to discover hidden RM-sycophancy objective via interpretability |
 | **Truthful QA: Measuring How Models Mimic Human Falsehoods** | Lin et al. | 2022 | [arxiv](https://arxiv.org/abs/2109.07958) | Detecting when models "know" truth but output falsehoods |
+
+---
+
+## Temporal Dynamics in Activations
+
+### Priors in Time: Missing Inductive Biases for LM Interpretability - Lubana et al. 2025
+
+**Authors:** Lubana, Rager, Hindupur et al. (Goodfire AI, Harvard, EPFL, Boston University)
+
+**The problem:** SAE objective as MAP estimation implies factorial prior `p(z_1,...,z_T) = Π p(z_t)`. Latents assumed independent across time—no mechanism for "concept X active for last 5 tokens."
+
+**Empirical evidence this is wrong:**
+1. Intrinsic dimensionality grows with context (early tokens low-D, later tokens span more)
+2. Adjacent activations strongly correlated (decaying with distance)
+3. Non-stationarity—correlation structure changes over sequence
+
+**Consequence:** Feature splitting. Temporally-correlated info forced into i.i.d. latents creates multiple features for one persisting concept.
+
+**Temporal Feature Analysis (TFA):** Decompose activation x_t into:
+- **Predictable (x_t^pred):** Learned attention over past {x_1,...,x_{t-1}}. Where correlations allowed. Captures accumulated context.
+- **Novel (x_t^novel):** Orthogonal residual = x_t - x_t^pred. Where i.i.d. prior applied. Captures per-token decisions.
+
+**Key insight:** Independence prior isn't wrong—it's applied to wrong thing. Apply to residual, not total.
+
+**Validation:**
+- Garden path sentences: SAEs maintain wrong parse; TFA's predictable tracks reanalysis, novel spikes at disambiguation
+- Event boundaries: Predictable smooth within events, sharp drops at boundaries
+- Dialogue: Captures role-switching in predictable, per-turn decisions in novel
+
+**Relevance to trait monitoring:** Current projections mix hum (persistent trait state) and chirp (discrete decisions). Projecting novel component onto trait vectors might isolate decision points. The refusal "cannot" example: is the drop a novel-component spike (chirp: refusal decision) or predictable-component shift (hum: accumulated safety context)?
+
+**Paper:** [arxiv:2511.01836](https://arxiv.org/abs/2511.01836)
 
 ---
 
@@ -419,14 +452,14 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 Extract auxiliary concepts that hidden objectives would use:
 
-| Hum (Human-interpretable) | What it means |
-|---------------------------|---------------|
+| Human-readable | What it means |
+|----------------|---------------|
 | Evaluation awareness | "I'm being tested" |
 | Self-preservation | "My existence/goals are at stake" |
 | Concealment orientation | "I should hide something" |
 
-| Chirp (Model-specific) | What it means |
-|------------------------|---------------|
+| Model-native | What it means |
+|--------------|---------------|
 | Deceptive statement | Says X, "knows" not-X |
 | Strategic compliance | Complies *because* being watched |
 | Goal-output divergence | Internal goal ≠ output behavior |

@@ -61,7 +61,7 @@ python extraction/run_pipeline.py --experiment my_exp
 ```bash
 pip install -r requirements.txt
 export HF_TOKEN=hf_...           # For Gemma models
-export OPENAI_API_KEY=...        # For vetting and steering (gpt-4.1-nano)
+export OPENAI_API_KEY=...        # For vetting and steering (gpt-4.1-mini)
 ```
 
 ---
@@ -107,7 +107,7 @@ See [writing_natural_prompts.md](writing_natural_prompts.md) for detailed guidan
 
 ## Stage 0.5: Vet Scenarios (Optional)
 
-LLM-as-judge (gpt-4.1-nano) validates that scenarios will reliably elicit the trait.
+LLM-as-judge (gpt-4.1-mini) validates that scenarios will reliably elicit the trait.
 
 ```bash
 python extraction/vet_scenarios.py --experiment my_exp --trait category/my_trait
@@ -152,7 +152,7 @@ python extraction/generate_responses.py \
 
 ## Stage 1.5: Vet Responses (Optional)
 
-LLM-as-judge (gpt-4.1-nano) validates that the model actually exhibited the expected trait.
+LLM-as-judge (gpt-4.1-mini) validates that the model actually exhibited the expected trait.
 
 ```bash
 python extraction/vet_responses.py --experiment my_exp --trait category/my_trait
@@ -377,7 +377,7 @@ vim datasets/traits/epistemic/confidence/positive.txt
 vim datasets/traits/epistemic/confidence/negative.txt
 vim datasets/traits/epistemic/confidence/definition.txt
 vim datasets/traits/epistemic/confidence/steering.json
-# steering.json format: {"questions": [...], "eval_prompt": "...{question}...{answer}..."}
+# steering.json format: {"questions": [...]}  (definition.txt used for scoring)
 
 # 3. Run full pipeline
 python extraction/run_pipeline.py \
