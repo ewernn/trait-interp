@@ -121,13 +121,18 @@ def generate_responses_for_trait(
                 ]
 
                 for rollout_idx in range(rollouts):
+                    # Handle multi-GPU models (device_map="auto")
+                    device = getattr(model, 'device', None)
+                    if device is None or str(device) == 'meta':
+                        device = next(model.parameters()).device
+
                     inputs = tokenizer(
                         batch_prompts,
                         return_tensors='pt',
                         padding=True,
                         truncation=True,
                         max_length=512
-                    ).to(model.device)
+                    ).to(device)
 
                     with torch.no_grad():
                         outputs = model.generate(

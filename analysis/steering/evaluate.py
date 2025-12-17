@@ -70,7 +70,7 @@ from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from analysis.steering.steer import MultiLayerSteeringHook, orthogonalize_vectors
-from utils.generation import generate_response
+from utils.generation import generate_batch
 from analysis.steering.results import load_or_create_results, save_results, save_responses
 from analysis.steering.coef_search import (
     evaluate_and_save,
@@ -166,11 +166,7 @@ def load_model_and_tokenizer(model_name: str, load_in_8bit: bool = False, load_i
     if is_awq:
         print(f"  AWQ model detected, using fp16 and device_map='cuda'")
     elif load_in_8bit:
-        model_kwargs["quantization_config"] = BitsAndBytesConfig(
-            load_in_8bit=True,
-            llm_int8_enable_fp32_cpu_offload=True,
-        )
-        model_kwargs["device_map"] = "cuda:0"
+        model_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
         print("  Using 8-bit quantization")
     elif load_in_4bit:
         model_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_4bit=True)
@@ -307,22 +303,23 @@ async def compute_baseline(
     trait_definition: str,
     judge: TraitJudge,
     use_chat_template: bool,
+    max_new_tokens: int = 256,
 ) -> Dict:
-    """Compute baseline scores (no steering)."""
+    """Compute baseline scores (no steering) with batched generation."""
     print("\nComputing baseline (no steering)...")
 
-    all_trait_scores = []
-    all_coherence_scores = []
+    # Format all questions
+    formatted = [format_prompt(q, tokenizer, use_chat_template=use_chat_template) for q in questions]
 
-    for question in tqdm(questions, desc="baseline"):
-        formatted = format_prompt(question, tokenizer, use_chat_template=use_chat_template)
-        response = generate_response(model, tokenizer, formatted)
-        scores = await judge.score_steering_batch([(question, response)], trait_name, trait_definition)
+    # Generate all responses in batch
+    responses = generate_batch(model, tokenizer, formatted, max_new_tokens=max_new_tokens)
 
-        if scores[0]["trait_score"] is not None:
-            all_trait_scores.append(scores[0]["trait_score"])
-        if scores[0].get("coherence_score") is not None:
-            all_coherence_scores.append(scores[0]["coherence_score"])
+    # Score all at once
+    all_qa_pairs = list(zip(questions, responses))
+    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition)
+
+    all_trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
+    all_coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
 
     baseline = {
         "trait_mean": sum(all_trait_scores) / len(all_trait_scores) if all_trait_scores else None,
@@ -507,6 +504,7 @@ async def run_multilayer_evaluation(
     judge=None,
     load_in_8bit: bool = False,
     load_in_4bit: bool = False,
+    max_new_tokens: int = 256,
 ):
     """
     Run multi-layer steering evaluation.
@@ -595,15 +593,13 @@ async def run_multilayer_evaluation(
         judge = TraitJudge()
         should_close_judge = True
 
-    # Generate and score
-    all_qa_pairs = []
-    for question in tqdm(questions, desc="multilayer gen"):
-        formatted = format_prompt(question, tokenizer, use_chat_template=use_chat_template)
+    # Generate all responses in batch with steering
+    formatted = [format_prompt(q, tokenizer, use_chat_template=use_chat_template) for q in questions]
 
-        with MultiLayerSteeringHook(model, steering_configs, component=component):
-            response = generate_response(model, tokenizer, formatted)
+    with MultiLayerSteeringHook(model, steering_configs, component=component):
+        responses = generate_batch(model, tokenizer, formatted, max_new_tokens=max_new_tokens)
 
-        all_qa_pairs.append((question, response))
+    all_qa_pairs = list(zip(questions, responses))
 
     # Score
     print(f"Scoring {len(all_qa_pairs)} responses...")

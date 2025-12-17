@@ -7,21 +7,21 @@ Input:
     - prompts: Text prompts to generate from
 
 Output:
-    - Generated response strings (simple generation)
+    - Generated response strings (batch generation)
     - CaptureResult with activations (capture mode)
 
 Usage:
-    from utils.generation import generate_response, generate_batch, generate_with_capture
+    from utils.generation import generate_batch, generate_with_capture
 
-    # Simple generation
-    response = generate_response(model, tokenizer, prompt)
+    # Batch generation (auto batch size, OOM recovery)
     responses = generate_batch(model, tokenizer, prompts)
+    response = generate_batch(model, tokenizer, [prompt])[0]  # single prompt
 
-    # Generation with activation capture
-    results = generate_with_capture(model, tokenizer, prompts, n_layers=26)
+    # Generation with activation capture (captures all layers by default)
+    results = generate_with_capture(model, tokenizer, prompts)
     for result in results:
         print(result.response_text)
-        print(result.activations[16]['residual_out'].shape)  # [n_tokens, hidden_dim]
+        print(result.response_activations[0]['residual_out'].shape)  # [n_tokens, hidden_dim]
 """
 
 import torch
@@ -51,51 +51,30 @@ class CaptureResult:
 
 
 # ============================================================================
-# Simple Generation (no hooks)
+# Batch Generation (with auto batch size and OOM recovery)
 # ============================================================================
 
-def generate_response(
-    model,
-    tokenizer,
-    prompt: str,
-    max_new_tokens: int = 128,
-    temperature: float = 0.0,
-) -> str:
-    """Generate a response from the model."""
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature if temperature > 0 else None,
-            do_sample=temperature > 0,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-
-    response = tokenizer.decode(
-        outputs[0][inputs.input_ids.shape[1]:],
-        skip_special_tokens=True,
-    )
-    return response.strip()
-
-
-def generate_batch(
+def _generate_batch_raw(
     model,
     tokenizer,
     prompts: List[str],
-    max_new_tokens: int = 128,
-    temperature: float = 0.0,
+    max_new_tokens: int,
+    temperature: float,
 ) -> List[str]:
-    """Generate responses for a batch of prompts in parallel."""
+    """Core batch generation without OOM handling. Internal use only."""
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    # Handle multi-GPU models (device_map="auto")
+    device = getattr(model, 'device', None)
+    if device is None or str(device) == 'meta':
+        device = next(model.parameters()).device
 
     inputs = tokenizer(
         prompts,
         return_tensors="pt",
         padding=True,
-    ).to(model.device)
+    ).to(device)
 
     with torch.no_grad():
         outputs = model.generate(
@@ -119,97 +98,152 @@ def generate_batch(
     return responses
 
 
+def generate_batch(
+    model,
+    tokenizer,
+    prompts: List[str],
+    max_new_tokens: int = 256,
+    temperature: float = 0.0,
+) -> List[str]:
+    """
+    Generate responses with automatic batch size calculation and OOM recovery.
+
+    Args:
+        model: The model to generate with
+        tokenizer: The tokenizer
+        prompts: List of prompts to generate responses for
+        max_new_tokens: Maximum tokens to generate per prompt
+        temperature: Sampling temperature (0 for greedy)
+
+    Returns:
+        List of generated responses
+    """
+    if not prompts:
+        return []
+
+    # Calculate batch size from free VRAM
+    max_input_len = max(len(tokenizer.encode(p)) for p in prompts)
+    max_seq_len = max_input_len + max_new_tokens
+    batch_size = calculate_max_batch_size(model, max_seq_len)
+
+    # Use cached working batch size if available (from previous OOM recovery)
+    batch_size = min(batch_size, getattr(model, '_working_batch_size', batch_size))
+
+    all_responses = []
+    i = 0
+
+    while i < len(prompts):
+        batch = prompts[i:i + batch_size]
+        try:
+            responses = _generate_batch_raw(model, tokenizer, batch, max_new_tokens, temperature)
+            all_responses.extend(responses)
+            i += batch_size
+            # Cache successful batch size
+            model._working_batch_size = batch_size
+        except torch.cuda.OutOfMemoryError:
+            torch.cuda.empty_cache()
+            if batch_size == 1:
+                raise RuntimeError("OOM even with batch_size=1")
+            batch_size = max(1, batch_size // 2)
+            print(f"  OOM, reducing batch_size to {batch_size}")
+            # Don't advance i, retry same batch with smaller size
+
+    return all_responses
+
+
 # ============================================================================
 # VRAM Utilities
 # ============================================================================
 
 def get_available_vram_gb() -> float:
-    """Get available VRAM in GB. Falls back to conservative estimate."""
+    """Get total VRAM across all GPUs. For backwards compatibility."""
+    return get_total_vram_gb()
+
+
+def get_total_vram_gb() -> float:
+    """Get total VRAM across all GPUs in GB."""
     if torch.cuda.is_available():
-        props = torch.cuda.get_device_properties(0)
-        return props.total_memory / (1024 ** 3)
+        total = 0
+        for i in range(torch.cuda.device_count()):
+            total += torch.cuda.get_device_properties(i).total_memory
+        return total / (1024 ** 3)
     elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-        # MPS (Apple Silicon) - conservative estimate
-        return 8.0
+        return 8.0  # Conservative estimate for Apple Silicon
     return 8.0  # Fallback
 
 
-def estimate_vram_gb(
-    num_layers: int,
-    hidden_size: int,
-    num_kv_heads: int,
-    head_dim: int,
-    batch_size: int,
+def get_free_vram_gb() -> float:
+    """Get free VRAM across all GPUs in GB (after model loaded)."""
+    if torch.cuda.is_available():
+        total_free = 0
+        for i in range(torch.cuda.device_count()):
+            free, _ = torch.cuda.mem_get_info(i)
+            total_free += free
+        return total_free / (1024 ** 3)
+    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        return 4.0  # Conservative for MPS
+    return 4.0  # Fallback
+
+
+def estimate_kv_cache_gb(
+    model,
     seq_len: int,
-    model_size_gb: float = 5.0,
+    batch_size: int = 1,
     dtype_bytes: int = 2,
 ) -> float:
     """
-    Estimate VRAM usage for batched generation.
+    Estimate KV cache memory for batched generation.
 
     Args:
-        num_layers: Number of transformer layers
-        hidden_size: Hidden dimension
-        num_kv_heads: Number of KV heads (for GQA)
-        head_dim: Dimension per head
-        batch_size: Total batch size
-        seq_len: Maximum sequence length (prompt + generated)
-        model_size_gb: Base model size in GB (default 5.0 for Gemma 2B bf16)
+        model: The transformer model (to get config)
+        seq_len: Maximum sequence length (prompt + output)
+        batch_size: Batch size
         dtype_bytes: Bytes per element (2 for bf16/fp16)
 
     Returns:
-        Estimated VRAM in GB
+        Estimated KV cache size in GB
     """
-    # KV cache: 2 (K,V) x num_kv_heads x head_dim x seq_len x batch x layers x dtype
-    kv_cache_bytes = 2 * num_kv_heads * head_dim * seq_len * batch_size * num_layers * dtype_bytes
+    config = model.config
+    num_layers = config.num_hidden_layers
+    num_kv_heads = getattr(config, "num_key_value_heads", config.num_attention_heads)
+    head_dim = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
 
-    # Activation buffer (rough estimate): hidden_size x batch x seq_len x dtype x multiplier
-    activation_bytes = hidden_size * batch_size * seq_len * dtype_bytes * 4  # 4x for intermediate
+    # KV cache: 2 (K,V) × num_kv_heads × head_dim × seq_len × batch × layers × dtype
+    kv_bytes = 2 * num_kv_heads * head_dim * seq_len * batch_size * num_layers * dtype_bytes
 
-    total_bytes = kv_cache_bytes + activation_bytes
-    total_gb = total_bytes / (1024 ** 3)
+    # Add ~2x for activations and intermediate buffers
+    total_bytes = kv_bytes * 3
 
-    return model_size_gb + total_gb
+    return total_bytes / (1024 ** 3)
 
 
 def calculate_max_batch_size(
     model,
-    available_vram_gb: float,
-    seq_len: int = 160,
-    model_size_gb: float = 5.0,
+    max_seq_len: int,
+    safety_margin: float = 0.85,
 ) -> int:
     """
-    Calculate maximum batch size that fits in available VRAM.
+    Calculate maximum batch size from free VRAM after model is loaded.
 
     Args:
-        model: The transformer model (to get config)
-        available_vram_gb: Available VRAM in GB
-        seq_len: Expected max sequence length
-        model_size_gb: Base model size
+        model: Loaded model (already using VRAM)
+        max_seq_len: max_input_tokens + max_output_tokens
+        safety_margin: Fraction of free VRAM to use (default 85%)
 
     Returns:
-        Maximum safe batch size
+        Maximum safe batch size (at least 1)
     """
-    config = model.config
-    num_layers = config.num_hidden_layers
-    hidden_size = config.hidden_size
-    num_kv_heads = getattr(config, "num_key_value_heads", 4)
-    head_dim = getattr(config, "head_dim", hidden_size // config.num_attention_heads)
+    free_gb = get_free_vram_gb()
+    usable_gb = free_gb * safety_margin
 
-    # Binary search for max batch size
-    low, high = 1, 256
-    while low < high:
-        mid = (low + high + 1) // 2
-        vram = estimate_vram_gb(
-            num_layers, hidden_size, num_kv_heads, head_dim,
-            mid, seq_len, model_size_gb
-        )
-        if vram <= available_vram_gb * 0.85:  # 85% safety margin
-            low = mid
-        else:
-            high = mid - 1
+    # Memory per sequence at max length
+    gb_per_seq = estimate_kv_cache_gb(model, max_seq_len, batch_size=1)
 
-    return low
+    if gb_per_seq <= 0:
+        return 1
+
+    max_batch = int(usable_gb / gb_per_seq)
+    return max(1, min(max_batch, 128))  # Clamp to reasonable range
 
 
 # ============================================================================
@@ -336,7 +370,10 @@ def generate_with_capture(
         n_layers = model.config.num_hidden_layers
 
     if batch_size is None:
-        batch_size = min(8, calculate_max_batch_size(model, get_available_vram_gb()))
+        # Estimate max_seq_len from prompts + max_new_tokens
+        max_input_len = max(len(tokenizer.encode(p)) for p in prompts) if prompts else 100
+        max_seq_len = max_input_len + max_new_tokens
+        batch_size = calculate_max_batch_size(model, max_seq_len)
 
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token

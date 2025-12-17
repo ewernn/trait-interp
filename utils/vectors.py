@@ -304,35 +304,3 @@ def get_vector_source_info(experiment: str, trait: str, method: str, layer: int,
         "layer": layer,
         "component": component
     }
-
-
-def get_best_ensemble(experiment: str, trait: str) -> Optional[Dict[str, Any]]:
-    """
-    Get best Gaussian ensemble parameters (mu, sigma) for a trait.
-
-    Loads from ensemble_evaluation.json which is created by
-    analysis/ensemble/classification_search.py.
-
-    Args:
-        experiment: Experiment name
-        trait: Trait path (e.g., "category/trait_name")
-
-    Returns:
-        Dict with 'mu', 'sigma', 'val_accuracy', etc. or None if not available
-
-    Example:
-        >>> params = get_best_ensemble('gemma-2-2b', 'epistemic/optimism')
-        >>> if params:
-        ...     print(f"mu={params['mu']}, sigma={params['sigma']}")
-    """
-    eval_path = get_path('ensemble.evaluation', experiment=experiment)
-    if not eval_path.exists():
-        return None
-
-    try:
-        with open(eval_path) as f:
-            data = json.load(f)
-        best_per_trait = data.get('best_per_trait', {})
-        return best_per_trait.get(trait)
-    except (json.JSONDecodeError, KeyError):
-        return None

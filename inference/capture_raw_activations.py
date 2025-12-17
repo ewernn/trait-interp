@@ -91,7 +91,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from traitlens import HookManager, projection
 from utils.model import format_prompt, load_experiment_config, load_model_with_lora
 from utils.vectors import load_vector_metadata
-from utils.generation import generate_with_capture, get_available_vram_gb, calculate_max_batch_size
+from utils.generation import generate_with_capture, calculate_max_batch_size
 
 
 def get_inner_model(model):
@@ -1245,7 +1245,9 @@ def main():
 
     # Calculate batch size
     if args.batch_size is None:
-        args.batch_size = min(8, calculate_max_batch_size(model, get_available_vram_gb()))
+        # For inference capture, estimate max_seq_len as prompt + generated
+        max_seq_len = 512  # Conservative estimate for inference
+        args.batch_size = calculate_max_batch_size(model, max_seq_len)
     print(f"Batch size: {args.batch_size}")
 
     # Load experiment config for chat template setting

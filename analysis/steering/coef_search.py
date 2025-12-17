@@ -21,7 +21,7 @@ from typing import Dict, List, Optional, Tuple
 from tqdm import tqdm
 
 from analysis.steering.steer import SteeringHook, BatchedLayerSteeringHook
-from utils.generation import generate_response, generate_batch, get_available_vram_gb, calculate_max_batch_size
+from utils.generation import generate_batch, calculate_max_batch_size
 from analysis.steering.results import find_existing_run_index, save_results, save_responses
 from utils.judge import TraitJudge
 from utils.model import format_prompt
@@ -39,18 +39,20 @@ async def evaluate_single_config(
     judge: TraitJudge,
     use_chat_template: bool,
     component: str,
+    max_new_tokens: int = 256,
 ) -> Tuple[Dict, List[Dict]]:
-    """Evaluate a single (layer, coefficient) config. Returns (result, responses)."""
+    """Evaluate a single (layer, coefficient) config with batched generation."""
     desc = f"L{layer} c{coef:.0f}"
-    all_qa_pairs = []
 
-    for question in tqdm(questions, desc=f"{desc} gen", leave=False):
-        formatted = format_prompt(question, tokenizer, use_chat_template=use_chat_template)
+    # Format all questions
+    formatted = [format_prompt(q, tokenizer, use_chat_template=use_chat_template) for q in questions]
 
-        with SteeringHook(model, vector, layer, coef, component=component):
-            response = generate_response(model, tokenizer, formatted)
+    # Generate all responses in batch with steering
+    print(f"  Generating {len(questions)} responses for {desc}...")
+    with SteeringHook(model, vector, layer, coef, component=component):
+        responses = generate_batch(model, tokenizer, formatted, max_new_tokens=max_new_tokens)
 
-        all_qa_pairs.append((question, response))
+    all_qa_pairs = list(zip(questions, responses))
 
     # Score
     print(f"  Scoring {len(all_qa_pairs)} responses...")
@@ -125,8 +127,8 @@ async def adaptive_search_layer(
 ):
     """Run adaptive search for a single layer, saving each result."""
     print(f"\n--- Layer {layer} (base_coef={base_coef:.0f}) ---")
-    print(f"Step | Coef  | Trait | Coherence | Action")
-    print("-----|-------|-------|-----------|-------")
+    print(f"Step |  Coef  | Trait | Coherence | Action")
+    print("-----|--------|-------|-----------|-------")
 
     coef = base_coef * 0.7  # Start at 0.7x base
     history = []
@@ -146,7 +148,7 @@ async def adaptive_search_layer(
             result = results["runs"][existing_idx]["result"]
             trait_score = result.get("trait_mean") or 0
             coherence = result.get("coherence_mean") or 0
-            print(f"  {step+1}  | {coef:>5.0f} | {trait_score:>5.1f} | {coherence:>9.1f} | (cached)")
+            print(f"  {step+1}  | {coef:>6.1f} | {trait_score:>5.1f} | {coherence:>9.1f} | (cached)")
         else:
             result, responses = await evaluate_single_config(
                 model, tokenizer, vector, layer, coef,
@@ -178,7 +180,7 @@ async def adaptive_search_layer(
                 action = "(done)"
 
             marker = "★" if coherence >= threshold and trait_score > 80 else ""
-            print(f"  {step+1}  | {coef:>5.0f} | {trait_score:>5.1f} | {coherence:>9.1f} | {action} {marker}")
+            print(f"  {step+1}  | {coef:>6.1f} | {trait_score:>5.1f} | {coherence:>9.1f} | {action} {marker}")
 
         history.append((coef, trait_score, coherence))
 
@@ -192,10 +194,10 @@ async def adaptive_search_layer(
     valid = [(c, t, coh) for c, t, coh in history if coh >= threshold]
     if valid:
         best_coef, best_trait, best_coh = max(valid, key=lambda x: x[1])
-        print(f"✓ Best: coef={best_coef:.0f} (trait={best_trait:.1f}, coherence={best_coh:.1f})")
+        print(f"✓ Best: coef={best_coef:.1f} (trait={best_trait:.1f}, coherence={best_coh:.1f})")
     else:
         best_coef, best_trait, best_coh = max(history, key=lambda x: x[2])
-        print(f"⚠ No coef met threshold. Best coherence: coef={best_coef:.0f}")
+        print(f"⚠ No coef met threshold. Best coherence: coef={best_coef:.1f}")
 
 
 async def batched_adaptive_search(
@@ -230,8 +232,9 @@ async def batched_adaptive_search(
 
     # Calculate max layers per batch based on VRAM
     if max_batch_layers is None:
-        available_vram = get_available_vram_gb()
-        max_batch_size = calculate_max_batch_size(model, available_vram)
+        # Estimate max_seq_len for steering eval (short prompts + ~256 output)
+        max_seq_len = 400
+        max_batch_size = calculate_max_batch_size(model, max_seq_len)
         max_batch_layers = max(1, max_batch_size // n_questions)
 
     print(f"\nBatched adaptive search: {n_layers} layers, {n_questions} questions")
@@ -290,7 +293,7 @@ async def batched_adaptive_search(
                 trait_score = result.get("trait_mean") or 0
                 coherence = result.get("coherence_mean") or 0
                 state["history"].append((state["coef"], trait_score, coherence))
-                print(f"  L{state['layer']:2d} c{state['coef']:>5.0f}: trait={trait_score:5.1f}, coh={coherence:5.1f} (cached)")
+                print(f"  L{state['layer']:2d} c{state['coef']:>6.1f}: trait={trait_score:5.1f}, coh={coherence:5.1f} (cached)")
 
             # Generate for uncached configs
             if uncached_states:
@@ -370,7 +373,7 @@ async def batched_adaptive_search(
                     results["runs"].append(run_data)
 
                     marker = "★" if coherence_mean >= threshold and trait_mean > 80 else ""
-                    print(f"  L{state['layer']:2d} c{state['coef']:>5.0f}: trait={trait_mean:5.1f}, coh={coherence_mean:5.1f} {marker}")
+                    print(f"  L{state['layer']:2d} c{state['coef']:>6.1f}: trait={trait_mean:5.1f}, coh={coherence_mean:5.1f} {marker}")
 
                 # Save after each batch
                 save_results(results, experiment, trait)
@@ -392,10 +395,10 @@ async def batched_adaptive_search(
         valid = [(c, t, coh) for c, t, coh in state["history"] if coh >= threshold]
         if valid:
             best_coef, best_trait, best_coh = max(valid, key=lambda x: x[1])
-            print(f"  L{state['layer']:2d}: coef={best_coef:.0f}, trait={best_trait:.1f}, coh={best_coh:.1f}")
+            print(f"  L{state['layer']:2d}: coef={best_coef:.1f}, trait={best_trait:.1f}, coh={best_coh:.1f}")
         else:
             if state["history"]:
                 best_coef, best_trait, best_coh = max(state["history"], key=lambda x: x[2])
-                print(f"  L{state['layer']:2d}: coef={best_coef:.0f} (no valid, best coh={best_coh:.1f})")
+                print(f"  L{state['layer']:2d}: coef={best_coef:.1f} (no valid, best coh={best_coh:.1f})")
             else:
                 print(f"  L{state['layer']:2d}: no results")
