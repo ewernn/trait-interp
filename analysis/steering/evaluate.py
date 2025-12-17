@@ -80,9 +80,10 @@ from analysis.steering.coef_search import (
 from utils.judge import TraitJudge
 from utils.paths import get
 from utils.model import format_prompt, load_experiment_config
+from utils.vectors import MIN_COHERENCE
 
 
-def load_layer_deltas(experiment: str, trait: str, min_coherence: float = 70) -> Dict[int, Dict]:
+def load_layer_deltas(experiment: str, trait: str, min_coherence: float = MIN_COHERENCE) -> Dict[int, Dict]:
     """
     Load single-layer results and return best delta per layer.
 
@@ -223,6 +224,27 @@ def load_vector(experiment: str, trait: str, layer: int, method: str = "probe", 
     return torch.load(vector_file, weights_only=True)
 
 
+def load_cached_activation_norms(experiment: str) -> Dict[int, float]:
+    """
+    Load cached activation norms from extraction_evaluation.json.
+
+    Returns:
+        {layer: norm} or empty dict if not available
+    """
+    eval_path = get('extraction_eval.evaluation', experiment=experiment)
+    if not eval_path.exists():
+        return {}
+
+    try:
+        with open(eval_path) as f:
+            data = json.load(f)
+        norms = data.get('activation_norms', {})
+        # Convert string keys back to int
+        return {int(k): v for k, v in norms.items()}
+    except (json.JSONDecodeError, KeyError):
+        return {}
+
+
 def estimate_activation_norm(
     model,
     tokenizer,
@@ -345,6 +367,8 @@ async def run_evaluation(
     judge_provider: str,
     subset: Optional[int],
     n_search_steps: int,
+    up_mult: float,
+    down_mult: float,
     batched: bool = True,
     model=None,
     tokenizer=None,
@@ -416,8 +440,15 @@ async def run_evaluation(
     else:
         print(f"\nUsing existing baseline: trait={results['baseline']['trait_mean']:.1f}")
 
-    # Load vectors and estimate base coefficients
-    print(f"\nLoading vectors...")
+    # Load vectors and compute base coefficients
+    # Try cached activation norms first (from extraction_evaluation.json)
+    cached_norms = load_cached_activation_norms(vector_experiment)
+    if cached_norms:
+        print(f"\nUsing cached activation norms from extraction_evaluation.json")
+    else:
+        print(f"\nNo cached norms, will estimate activation norms...")
+
+    print(f"Loading vectors...")
     layer_data = []
     for layer in layers:
         vector = load_vector(vector_experiment, trait, layer, method, component)
@@ -426,7 +457,13 @@ async def run_evaluation(
             continue
 
         vec_norm = vector.norm().item()
-        act_norm = estimate_activation_norm(model, tokenizer, questions, layer, use_chat_template)
+
+        # Use cached norm if available, otherwise estimate
+        if layer in cached_norms:
+            act_norm = cached_norms[layer]
+        else:
+            act_norm = estimate_activation_norm(model, tokenizer, questions, layer, use_chat_template)
+
         base_coef = act_norm / vec_norm
 
         layer_data.append({
@@ -456,7 +493,8 @@ async def run_evaluation(
         await batched_adaptive_search(
             model, tokenizer, layer_data, questions, trait_name, trait_definition, judge,
             use_chat_template, component, results, experiment, trait,
-            vector_experiment, method, n_steps=n_search_steps
+            vector_experiment, method, n_steps=n_search_steps,
+            up_mult=up_mult, down_mult=down_mult
         )
     else:
         # Sequential adaptive search for each layer
@@ -466,7 +504,7 @@ async def run_evaluation(
                 model, tokenizer, ld["vector"], ld["layer"], ld["base_coef"],
                 questions, trait_name, trait_definition, judge, use_chat_template, component,
                 results, experiment, trait, vector_experiment, method,
-                n_steps=n_search_steps
+                n_steps=n_search_steps, up_mult=up_mult, down_mult=down_mult
             )
 
     # Print summary
@@ -689,6 +727,10 @@ def main():
     parser.add_argument("--subset", type=int, default=5, help="Use subset of questions (default: 5, use --subset 0 for all)")
     parser.add_argument("--search-steps", type=int, default=8,
                         help="Number of adaptive search steps per layer (default: 8)")
+    parser.add_argument("--up-mult", type=float, default=1.3,
+                        help="Coefficient multiplier when increasing (default: 1.3)")
+    parser.add_argument("--down-mult", type=float, default=0.85,
+                        help="Coefficient multiplier when decreasing (default: 0.85)")
     parser.add_argument("--no-batch", action="store_true",
                         help="Disable batched layer evaluation (run layers sequentially)")
     parser.add_argument("--multi-layer", choices=["weighted", "orthogonal"],
@@ -785,6 +827,8 @@ async def _run_main(args, parsed_traits, model_name, layers, coefficients):
                     judge_provider=args.judge,
                     subset=args.subset,
                     n_search_steps=args.search_steps,
+                    up_mult=args.up_mult,
+                    down_mult=args.down_mult,
                     batched=not args.no_batch,
                     model=model,
                     tokenizer=tokenizer,

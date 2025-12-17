@@ -8,8 +8,8 @@ Input:
 
 Output:
     - experiments/{experiment}/extraction/extraction_evaluation.json
-      Includes: validation metrics, best_per_trait, best_vector_similarity,
-                method_similarities (cosine similarity between methods per layer)
+      Includes: activation_norms, all_results (validation metrics per vector),
+                best_vector_similarity, method_similarities
 
 Usage:
     python analysis/vectors/extraction_evaluation.py --experiment my_experiment
@@ -79,6 +79,30 @@ class ValidationResult:
 
     # Additional metrics
     val_auc_roc: float = 0.0  # Threshold-independent classification quality
+
+
+def compute_activation_norms(experiment: str, trait: str, layers: List[int], component: str = 'residual') -> Dict[int, float]:
+    """
+    Compute average activation L2 norms per layer from validation activations.
+
+    These norms are model/layer-dependent (not trait-dependent), so we only need
+    to compute once per experiment. Used by steering to estimate base coefficients
+    without loading the model.
+
+    Returns:
+        {layer: mean_activation_norm}
+    """
+    norms = {}
+    for layer in layers:
+        try:
+            pos_acts, neg_acts = load_validation_activations(experiment, trait, layer, component)
+            # Compute mean L2 norm across all samples
+            all_acts = torch.cat([pos_acts, neg_acts], dim=0).float()
+            mean_norm = all_acts.norm(dim=-1).mean().item()
+            norms[layer] = mean_norm
+        except FileNotFoundError:
+            continue
+    return norms
 
 
 def load_validation_activations(experiment: str, trait: str, layer: int, component: str = 'residual') -> Tuple[torch.Tensor, torch.Tensor]:
@@ -478,6 +502,14 @@ def main(experiment: str,
     print(f"Evaluating methods: {methods_list}")
     print(f"Evaluating layers: {layers_list}")
 
+    # Compute activation norms per layer (model-dependent, not trait-dependent)
+    # Used by steering to estimate base coefficients without loading the model
+    activation_norms = {}
+    if traits:
+        print(f"\nComputing activation norms from first trait ({traits[0]})...")
+        activation_norms = compute_activation_norms(experiment, traits[0], layers_list, component)
+        print(f"  Computed norms for {len(activation_norms)} layers")
+
     # Evaluate all vectors
     all_results = []
 
@@ -660,7 +692,6 @@ def main(experiment: str,
 
     # Convert df to records, replacing NaN with None (NaN is not valid JSON)
     df_clean = df.replace({np.nan: None, np.inf: None, -np.inf: None})
-    best_per_trait_clean = best_per_trait.replace({np.nan: None, np.inf: None, -np.inf: None})
 
     all_results_with_score = df_clean.to_dict('records')
 
@@ -670,8 +701,8 @@ def main(experiment: str,
     results_dict = {
         'extraction_model': extraction_model,
         'extraction_experiment': experiment,
+        'activation_norms': {str(k): v for k, v in activation_norms.items()},  # JSON keys must be strings
         'all_results': all_results_with_score,
-        'best_per_trait': best_per_trait_clean.to_dict('records'),
         'best_vector_similarity': best_vector_similarity.replace({np.nan: None}).to_dict(),
         'method_similarities': method_similarities,
     }
@@ -679,16 +710,7 @@ def main(experiment: str,
     with open(output_path, 'w') as f:
         json.dump(results_dict, f, indent=2)
 
-    # Compute best_vectors using steering > effect_size priority
-    from utils.vectors import compute_all_best_layers
-    best_vectors = compute_all_best_layers(experiment)
-    if best_vectors:
-        results_dict['best_vectors'] = best_vectors
-        with open(output_path, 'w') as f:
-            json.dump(results_dict, f, indent=2)
-        print(f"\n✅ Results saved to {output_path} (including best_vectors for {len(best_vectors)} traits)")
-    else:
-        print(f"\n✅ Results saved to {output_path}")
+    print(f"\n✅ Results saved to {output_path}")
 
     return results_dict
 

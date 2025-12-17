@@ -97,5 +97,5 @@ Uses `gpt-4.1-mini` with logprob scoring. Requires `OPENAI_API_KEY`.
 
 ## Gotchas
 
-- **Large coefficients break coherence** - Track coherence score, stay >50
+- **Large coefficients break coherence** - Track coherence score, stay >70 (MIN_COHERENCE in utils/vectors.py)
 - **Best steering layer ≠ best classification layer** - May differ

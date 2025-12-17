@@ -382,9 +382,8 @@ Middle layers capture semantic meaning and generalize across distributions. **Me
 
 Priority order:
 1. **Steering results** (ground truth) - Best delta from `steering/{trait}/results.json` (coherence ≥ 70)
-2. **Cached result** - From `extraction_evaluation.json` `best_vectors`
-3. **Effect size** (fallback heuristic) - Not a reliable steering predictor
-4. **Default** - Layer 16, probe method
+2. **Effect size** (fallback heuristic) - From `extraction_evaluation.json` `all_results`
+3. **Default** - Layer 16, probe method
 
 Always run steering evaluation for ground truth. Effect size is only a rough fallback.
 
