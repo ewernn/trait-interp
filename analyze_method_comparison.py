@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from utils.vectors import MIN_COHERENCE
 
 traits = [
     "chirp/refusal",
@@ -40,7 +41,7 @@ for trait in traits:
         coherence = result.get('coherence_mean', 0)
         
         # Only count if coherent
-        if coherence < 70:
+        if coherence < MIN_COHERENCE:
             continue
             
         delta = trait_mean - baseline

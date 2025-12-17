@@ -60,6 +60,7 @@ from analysis.ensemble.gaussian import (
 from utils.judge import TraitJudge
 from utils.paths import get
 from utils.model import format_prompt, load_experiment_config
+from utils.vectors import MIN_COHERENCE
 
 
 def load_best_ensemble_params(experiment: str, trait: str) -> Optional[Dict]:
@@ -396,7 +397,7 @@ async def run_ensemble_evaluation(
                 result_data = run.get('result', {})
                 trait_score = result_data.get('trait_mean', 0)
                 coherence = result_data.get('coherence_mean', 0)
-                if coherence >= 70:
+                if coherence >= MIN_COHERENCE:
                     delta = trait_score - baseline_trait
                     if delta > best_single_delta:
                         best_single_delta = delta
