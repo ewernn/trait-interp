@@ -700,25 +700,25 @@ function renderActivationMagnitudePlot(traitData, loadedTraits) {
 
     const textSecondary = window.getCssVar('--text-secondary', '#a4a4a4');
 
-    // Layer on y-axis, L2 norm on x-axis
+    // Layer on x-axis, L2 norm on y-axis
     const traces = [
-        { x: promptNorms, y: layerIndices, type: 'scatter', mode: 'lines+markers', name: 'Prompt',
+        { x: layerIndices, y: promptNorms, type: 'scatter', mode: 'lines+markers', name: 'Prompt',
           line: { color: '#4a9eff', width: 2 }, marker: { size: 4 },
-          hovertemplate: '<b>Prompt</b><br>Layer %{y}: %{x:.1f}<extra></extra>' },
-        { x: responseNorms, y: layerIndices, type: 'scatter', mode: 'lines+markers', name: 'Response',
+          hovertemplate: '<b>Prompt</b><br>Layer %{x}: %{y:.1f}<extra></extra>' },
+        { x: layerIndices, y: responseNorms, type: 'scatter', mode: 'lines+markers', name: 'Response',
           line: { color: '#ff6b6b', width: 2 }, marker: { size: 4 },
-          hovertemplate: '<b>Response</b><br>Layer %{y}: %{x:.1f}<extra></extra>' },
-        { x: combinedNorms, y: layerIndices, type: 'scatter', mode: 'lines+markers', name: 'Combined',
+          hovertemplate: '<b>Response</b><br>Layer %{x}: %{y:.1f}<extra></extra>' },
+        { x: layerIndices, y: combinedNorms, type: 'scatter', mode: 'lines+markers', name: 'Combined',
           line: { color: textSecondary, width: 2, dash: 'dash' }, marker: { size: 4 },
-          hovertemplate: '<b>Combined</b><br>Layer %{y}: %{x:.1f}<extra></extra>' }
+          hovertemplate: '<b>Combined</b><br>Layer %{x}: %{y:.1f}<extra></extra>' }
     ];
 
     const layout = window.getPlotlyLayout({
-        xaxis: { title: '||h|| (L2 norm)', showgrid: true },
-        yaxis: { title: 'Layer', tickmode: 'linear', tick0: 0, dtick: 5, showgrid: true },
-        margin: { l: 40, r: 20, t: 10, b: 60 },
+        xaxis: { title: 'Layer', tickmode: 'linear', tick0: 0, dtick: 5, showgrid: true },
+        yaxis: { title: '||h|| (L2 norm)', showgrid: true },
+        margin: { l: 50, r: 20, t: 10, b: 40 },
         height: 300,
-        legend: { orientation: 'h', yanchor: 'top', y: -0.22, xanchor: 'center', x: 0.5, font: { size: 10 } },
+        legend: { orientation: 'h', yanchor: 'top', y: -0.15, xanchor: 'center', x: 0.5, font: { size: 10 } },
         showlegend: true
     });
 

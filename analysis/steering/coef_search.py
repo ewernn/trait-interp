@@ -25,6 +25,7 @@ from utils.generation import generate_batch, calculate_max_batch_size
 from analysis.steering.results import find_existing_run_index, save_results, save_responses
 from utils.judge import TraitJudge
 from utils.model import format_prompt
+from utils.vectors import MIN_COHERENCE
 
 
 async def evaluate_single_config(
@@ -121,7 +122,7 @@ async def adaptive_search_layer(
     questions, trait_name, trait_definition, judge, use_chat_template, component,
     results, experiment, trait, vector_experiment, method,
     n_steps: int = 8,
-    threshold: float = 70,
+    threshold: float = MIN_COHERENCE,
     up_mult: float = 1.3,
     down_mult: float = 0.85,
 ):
@@ -216,7 +217,7 @@ async def batched_adaptive_search(
     vector_experiment: str,
     method: str,
     n_steps: int = 8,
-    threshold: float = 70,
+    threshold: float = MIN_COHERENCE,
     up_mult: float = 1.3,
     down_mult: float = 0.85,
     max_batch_layers: Optional[int] = None,

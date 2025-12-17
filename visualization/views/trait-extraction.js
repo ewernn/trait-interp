@@ -196,17 +196,41 @@ async function loadExtractionEvaluation() {
 
 
 /**
+ * Compute best vector per trait from all_results using effect_size.
+ * Returns: {trait: {layer, method, score}}
+ */
+function computeBestVectors(allResults) {
+    const bestByTrait = {};
+    for (const r of allResults) {
+        const trait = r.trait;
+        const effectSize = r.val_effect_size;
+        if (effectSize == null) continue;
+
+        if (!bestByTrait[trait] || effectSize > bestByTrait[trait].score) {
+            bestByTrait[trait] = {
+                layer: r.layer,
+                method: r.method,
+                score: effectSize,
+                source: 'effect_size'
+            };
+        }
+    }
+    return bestByTrait;
+}
+
+
+/**
  * Render best vectors summary table - one row per trait with key metrics
  */
 function renderBestVectorsSummary(evalData) {
     const container = document.getElementById('best-vectors-summary-container');
     if (!container) return;
 
-    const bestVectors = evalData.best_vectors || {};
     const allResults = evalData.all_results || [];
+    const bestVectors = computeBestVectors(allResults);
 
     if (Object.keys(bestVectors).length === 0) {
-        container.innerHTML = '<p>No best vectors data available.</p>';
+        container.innerHTML = '<p>No extraction results available.</p>';
         return;
     }
 
@@ -447,8 +471,8 @@ function renderTraitHeatmaps(evalData) {
 
     const traits = Object.keys(traitGroups).sort();
 
-    // Get best_vectors for star indicators
-    const bestVectors = evalData.best_vectors || {};
+    // Compute best vectors for star indicators
+    const bestVectors = computeBestVectors(results);
     const hasBestVectors = Object.keys(bestVectors).length > 0;
 
     // Create grid with legend below
@@ -456,7 +480,7 @@ function renderTraitHeatmaps(evalData) {
         <div class="trait-heatmaps-grid" id="heatmaps-grid"></div>
         <div class="heatmap-legend-footer">
             <span class="file-hint">${traits.length} traits</span>
-            ${hasBestVectors ? '<span class="file-hint" title="Best layer from steering results or effect size">★ = validated best</span>' : ''}
+            ${hasBestVectors ? '<span class="file-hint" title="Best layer by effect size">★ = best</span>' : ''}
             <div class="heatmap-legend">
                 <span>Score:</span>
                 <div>

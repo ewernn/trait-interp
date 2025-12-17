@@ -24,16 +24,18 @@ from utils.paths import get as get_path
 
 logger = logging.getLogger(__name__)
 
+# Single source of truth for minimum coherence threshold in steering evaluation
+MIN_COHERENCE = 70
+
 
 def get_best_layer(experiment: str, trait: str) -> dict:
     """
     Get best layer for a trait.
 
     Priority:
-    1. Steering results (ground truth - actual behavioral validation)
-    2. Cached result from extraction_evaluation.json
-    3. Effect size (fallback heuristic)
-    4. Default (layer 16, probe method)
+    1. Steering results (ground truth from steering/{trait}/results.json)
+    2. Effect size (from extraction_evaluation.json all_results)
+    3. Default (layer 16, probe method)
 
     Args:
         experiment: Experiment name
@@ -41,7 +43,7 @@ def get_best_layer(experiment: str, trait: str) -> dict:
 
     Returns:
         Dict with 'layer', 'method', 'source', 'score'
-        source is one of: 'steering', 'cached', 'effect_size', 'default'
+        source is one of: 'steering', 'effect_size', 'default'
 
     Example:
         >>> best = get_best_layer('{experiment}', '{category}/{trait}')
@@ -52,17 +54,12 @@ def get_best_layer(experiment: str, trait: str) -> dict:
     if steering_result:
         return steering_result
 
-    # 2. Check cache (effect_size)
-    cached_result = _try_cached_result(experiment, trait)
-    if cached_result:
-        return cached_result
-
-    # 3. Compute effect_size on-the-fly
+    # 2. Compute effect_size from all_results
     effect_size_result = _try_effect_size(experiment, trait)
     if effect_size_result:
         return effect_size_result
 
-    # 4. Default fallback
+    # 3. Default fallback
     return {'layer': 16, 'method': 'probe', 'source': 'default', 'score': 0}
 
 
@@ -82,7 +79,7 @@ def _try_steering_result(experiment: str, trait: str) -> Optional[dict]:
             if len(run.get('config', {}).get('layers', [])) == 1:
                 trait_mean = run.get('result', {}).get('trait_mean')
                 coherence = run.get('result', {}).get('coherence_mean', 0)
-                if trait_mean is not None and coherence > 70:
+                if trait_mean is not None and coherence > MIN_COHERENCE:
                     delta = trait_mean - baseline
                     if delta > best_delta:
                         best_delta, best_run = delta, run
@@ -92,30 +89,6 @@ def _try_steering_result(experiment: str, trait: str) -> Optional[dict]:
                 'method': best_run['config'].get('methods', ['probe'])[0],
                 'source': 'steering',
                 'score': best_delta
-            }
-    except (json.JSONDecodeError, KeyError):
-        pass
-
-    return None
-
-
-def _try_cached_result(experiment: str, trait: str) -> Optional[dict]:
-    """Try to get cached result from extraction_evaluation.json."""
-    eval_path = get_path('extraction_eval.evaluation', experiment=experiment)
-    if not eval_path.exists():
-        return None
-
-    try:
-        with open(eval_path) as f:
-            data = json.load(f)
-        best_vectors = data.get('best_vectors', {})
-        if trait in best_vectors:
-            result = best_vectors[trait]
-            return {
-                'layer': result['layer'],
-                'method': result['method'],
-                'source': result.get('source', 'cached'),
-                'score': result.get('score', 0)
             }
     except (json.JSONDecodeError, KeyError):
         pass
@@ -145,66 +118,6 @@ def _try_effect_size(experiment: str, trait: str) -> Optional[dict]:
         pass
 
     return None
-
-
-def compute_all_best_layers(experiment: str) -> dict:
-    """
-    Compute best layers for all traits in an experiment.
-
-    Used by extraction_evaluation.py to populate best_vectors.
-
-    Priority per trait:
-    1. Steering results (ground truth)
-    2. Effect size from all_results
-
-    Returns:
-        Dict mapping trait -> {'layer': int, 'method': str, 'source': str, 'score': float}
-    """
-    eval_path = get_path('extraction_eval.evaluation', experiment=experiment)
-    if not eval_path.exists():
-        return {}
-
-    try:
-        with open(eval_path) as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, IOError):
-        return {}
-
-    all_results = data.get('all_results', [])
-    traits = set(r['trait'] for r in all_results if 'trait' in r)
-
-    best_vectors = {}
-    for trait in traits:
-        # 1. Try steering results first (ground truth)
-        steering_result = _try_steering_result(experiment, trait)
-        if steering_result:
-            best_vectors[trait] = steering_result
-            continue
-
-        # 2. Fall back to effect size from eval results
-        trait_results = [r for r in all_results if r.get('trait') == trait]
-        valid_results = [r for r in trait_results if r.get('val_effect_size') is not None]
-
-        if valid_results:
-            best = max(valid_results, key=lambda r: r['val_effect_size'])
-            best_vectors[trait] = {
-                'layer': best['layer'],
-                'method': best['method'],
-                'source': 'effect_size',
-                'score': best['val_effect_size']
-            }
-        else:
-            # No effect size data - use best accuracy
-            if trait_results:
-                best = max(trait_results, key=lambda r: r.get('val_accuracy', 0))
-                best_vectors[trait] = {
-                    'layer': best['layer'],
-                    'method': best['method'],
-                    'source': 'accuracy',
-                    'score': best.get('val_accuracy', 0)
-                }
-
-    return best_vectors
 
 
 def load_vector_with_metadata(
