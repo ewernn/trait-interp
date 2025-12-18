@@ -1,197 +1,159 @@
-# Session Handoff - Local Gemma-2-2B Work
+# Session Handoff - Projection Normalization & Cleanup
 
 **Date:** 2025-12-17
-**Focus:** Jailbreak analysis cleanup, BOS token fix, preparing for alignment trait analysis
+**Focus:** Baseline investigation complete, implementing cosine normalization, rerunning inference
 
 ---
 
-## What Was Done This Session
+## Key Findings This Session
 
-### 1. Fixed Double BOS Token Bug
-- **Problem:** Chat template adds `<bos>` to string, then `tokenizer()` adds another
-- **Solution:** Added `tokenize_prompt()` in `utils/model.py` that sets `add_special_tokens=False` when chat template was used
-- **Files updated:**
-  - `utils/model.py` - new `tokenize_prompt()` function
-  - `inference/capture_raw_activations.py` - uses tokenize_prompt
-  - `analysis/steering/evaluate.py` - uses tokenize_prompt
-  - `visualization/chat_inference.py` - uses tokenize_prompt
-  - `extraction/generate_responses.py` - uses tokenize_prompt
+### 1. Baseline Problem Root Cause
+- **NOT** caused by base vs IT model distribution shift
+- Caused by measuring projection from ORIGIN instead of TRAINING CENTROID
+- `baseline = (||mean_pos||² - ||mean_neg||²) / (2 * ||vector||)`
+- Different extraction methods have different baselines:
+  - mean_diff: ~50 baseline (huge)
+  - probe: ~1 baseline (small)
 
-### 2. Removed Prompt Picker Truncation
-- `visualization/core/prompt-picker.js` - removed 300 char limit, shows full prompt/response
+### 2. Normalization Comparison
+| Metric | Formula | Cohen's d | Centered? |
+|--------|---------|-----------|-----------|
+| vnorm | `a·v / ||v||` | 1.93 | No |
+| cosine | `a·v / (||v||·||a||)` | 2.20 | ~Yes |
 
-### 3. Deleted One-Off Scripts
-- `analyze_jailbreak_refusal.py` (root) - results captured: Cohen's d=1.46
-- `analyze_method_comparison.py` (root)
-- `utils/filter_jailbreak_successes.py` - output exists: `datasets/inference/jailbreak_successes.json`
-- `utils/migrate_projections.py` - one-time migration done
-- `inference/capture_jailbreak_trajectories.py` - superseded by capture_raw_activations.py
+- Cosine has 14% better signal (higher Cohen's d)
+- Cosine reduces baseline ~100-300x (bandaid, not proper fix)
+- probe + cosine → baseline ≈ 0
 
-### 4. Merged with Remote
-- Remote deleted: `compare_prompts.py`, `compare_prompts_v2.py`, `compare_judges.py`, `analysis/ensemble/`
+### 3. BOS Token Issue
+- BOS projects to EXTREME values (351 for refusal, -130 for intent)
+- BOS is out-of-distribution for trait vectors (training used content only)
+- Should be excluded from projections
 
 ---
 
-## What Still Needs Doing
+## Implementation Plan
 
-### CRITICAL: Re-run jailbreak inference (existing data has double BOS)
+### Phase 1: Visualization Toggle (cosine primary)
+
+**Files to modify:**
+
+1. `visualization/views/trait-dynamics.js`
+   - Add toggle state for normalization mode
+   - Rename/restructure:
+     - Current "Token Trajectory" → compute based on toggle
+     - Remove separate "Normalized Trajectory" section
+   - Add toggle UI: `[Cosine] [Magnitude]` buttons
+   - Default to cosine
+
+2. `visualization/core/state.js`
+   - Add `projectionMode: 'cosine'` to state
+   - Load/save preference from localStorage
+
+3. `visualization/styles.css`
+   - Add styles for toggle buttons (use existing `.pp-btn` pattern)
+
+### Phase 2: Fix Projection Pipeline
+
+**Files to modify:**
+
+4. `extraction/extract_vectors.py`
+   - Compute and store baseline: `baseline = center · v / ||v||`
+   - Already stores bias for probe, extend to mean_diff/gradient
+   - Save in metadata JSON alongside vector
+
+5. `inference/project_raw_activations_onto_traits.py`
+   - Load baseline from vector metadata
+   - Subtract baseline from projections (optional flag `--centered`)
+   - Skip BOS tokens (first 1-2 tokens) in output
+
+6. `utils/vectors.py`
+   - Add `load_vector_with_baseline()` helper
+   - Returns (vector, baseline) tuple
+
+### Phase 3: Re-extract and Re-run Inference
+
+**Commands to run:**
+
 ```bash
+# 1. Re-extract vectors with baseline (all traits)
+python extraction/run_pipeline.py \
+    --experiment gemma-2-2b \
+    --traits all \
+    --skip-responses  # Keep existing responses, just re-extract vectors
+
+# 2. Re-run ALL inference (fixes double BOS + new projection format)
+python inference/capture_raw_activations.py \
+    --experiment gemma-2-2b \
+    --prompt-set single_trait,multi_trait,dynamic,adversarial,baseline,real_world,harmful,benign
+
 python inference/capture_raw_activations.py \
     --experiment gemma-2-2b \
     --prompt-set jailbreak
+
+# 3. Verify jailbreak projections look correct
+python -c "
+import json
+from pathlib import Path
+p = Path('experiments/gemma-2-2b/inference/chirp/refusal/residual_stream/jailbreak/1.json')
+data = json.load(open(p))
+print('First 5 tokens:', data.get('prompt', {}).get('tokens', [])[:5])
+print('First 5 projections:', data['projections']['prompt'][:5])
+"
 ```
-Location: `experiments/gemma-2-2b/inference/responses/jailbreak/` has wrong tokenization
 
-### Bug: Nonzero trait baselines in visualization
-- In Trait Dynamics, some trait lines always below others (e.g., yellow line)
-- Needs investigation - vectors may not be centered
+### Phase 4: Verify & Test
 
-### UX: Prompt picker for large sets (305 jailbreak prompts)
-- Takes up half the screen
-- Options: pagination (>50 prompts), filter by success/failure
-- Metadata exists in response files: `prompt_note` field
-
-### Optional: `prepare_inputs()` refactor
-- Current: two functions `format_prompt()` + `tokenize_prompt()` must be coordinated
-- Better: single function that auto-detects from tokenizer
-- ~10 files to update, some need string for display
+1. **Check pagination works** - Load jailbreak set, verify 50-per-page
+2. **Check cosine toggle** - Switch between modes, verify values change
+3. **Check baseline centering** - Traits should be near zero mean
+4. **Check BOS exclusion** - No extreme values at start
 
 ---
 
-## Key Files & Paths
+## Files Summary
 
-### Jailbreak Data
-- Full prompts: `datasets/inference/jailbreak.json` (305)
-- Successes only: `datasets/inference/jailbreak_successes.json` (139, 41% rate)
-- Response data: `experiments/gemma-2-2b/inference/responses/jailbreak/{id}.json`
-- Projections: `experiments/gemma-2-2b/inference/{category}/{trait}/residual_stream/jailbreak/`
-
-### Tokenization (the fix)
-- `utils/model.py` - `format_prompt()` and `tokenize_prompt()` functions
-- Pattern: `format_prompt()` returns string, `tokenize_prompt()` returns tensors with correct BOS handling
-
-### Alignment Traits (ready to extract)
-- Location: `datasets/traits/alignment/`
-- Traits: deception, honesty_observed, gaming, sycophancy, self_serving, helpfulness_expressed, helpfulness_intent, conflicted
-- Plan: `docs/rm_sycophancy_detection_plan.md`
+| File | Change |
+|------|--------|
+| `visualization/views/trait-dynamics.js` | Add toggle, restructure charts |
+| `visualization/core/state.js` | Add projectionMode state |
+| `visualization/styles.css` | Toggle button styles |
+| `extraction/extract_vectors.py` | Store baseline in metadata |
+| `inference/project_raw_activations_onto_traits.py` | Subtract baseline, skip BOS |
+| `utils/vectors.py` | Add baseline loading helper |
 
 ---
 
-## Previous Analysis Results (for reference)
+## What Was Already Done This Session
 
-Refusal vector correlation with jailbreak success:
-```
-Successful jailbreaks (n=139): Mean refusal = 26.5
-Failed jailbreaks (n=166):     Mean refusal = 35.9
-Effect size: Cohen's d = 1.46 (large)
-```
-
----
+1. ✅ Pagination for prompt picker (>50 prompts)
+2. ✅ Investigated baseline issue thoroughly
+3. ✅ Compared vnorm vs cosine (cosine wins)
+4. ✅ Identified BOS as out-of-distribution
 
 ## What NOT to Do
 
-- Don't recreate deleted scripts (results captured, outputs exist)
-- Don't add scrollable max-height to prompt picker (user rejected)
-- Don't change `coef_search.py` - it's a module used by `evaluate.py`, not standalone
+- Don't use mean_diff as default (probe is better)
+- Don't show BOS tokens in projections (meaningless)
+- Don't remove vnorm entirely (useful for steering analysis)
 
 ---
 
-## Next Session: Alignment Trait Analysis
+## Quick Reference
 
-1. Re-run jailbreak inference (fix BOS)
-2. Extract alignment traits on gemma-2-2b
-3. Run alignment traits on jailbreak prompts
-4. Analyze: do decompositions predict jailbreak success?
-   - `helpfulness_expressed` HIGH + `helpfulness_intent` LOW = surface helpfulness
-   - `sycophancy` HIGH + `honesty_observed` LOW = classic sycophancy
-
----
----
-
-# Resume Instructions - RM Sycophancy Detection
-
-## What's Done
-- ✅ Phase 1: Extracted 8 alignment trait vectors from Llama 3.1 70B base
-  - 1920 vectors (8 traits × 80 layers × 3 methods)
-  - Location: `experiments/llama-3.3-70b/extraction/alignment/*/vectors/`
-
-## What's In Progress
-- ⏸️ Phase 1.5: Steering eval (partial - gaming done, other traits pending)
-  - Results: `experiments/llama-3.3-70b/steering/alignment/*/responses/`
-  - Coherence prompt improved to catch code repetition: `utils/judge.py`
-  - VRAM calculation fixed: `utils/generation.py` now uses FREE VRAM
-  - Added `--up-mult` and `--down-mult` CLI args to `evaluate.py`
-  - Fixed `generate_with_capture()` temp default 0.7→0.0
-
-### Method Comparison (Gaming L24-32)
-
-| Method | Best Coherent Delta | Layer | Coherence |
-|--------|---------------------|-------|-----------|
-| **Probe** | **+33.5** | L26 c=3 | 71.0 |
-| Gradient | +2.2 | L30 c=6 | 86.7 |
-| Mean_diff | +3.9 | L28 c=3 | 72.0 |
-
-**Probe wins by 10x** for gaming trait. Method matters more than layer.
-
-### Quantization Study (L26 c=3 probe)
-
-| Precision | Best Coherent Delta | Notes |
-|-----------|---------------------|-------|
-| BF16 | ? | Testing on 2x A100 |
-| FP8 | ? | To test |
-| **INT8** | **+33.5** | Works well |
-| INT4 | +2.2 | **15x worse - broken** |
-
-**Critical finding:** INT4 quantization severely distorts trait vector directions. INT8 minimum required for steering research.
-
-### Quantization Options for RM Sycophancy
-
-| Model | VRAM | Load Time | LoRA Support |
-|-------|------|-----------|--------------|
-| BF16 (2x A100) | 140GB | ~2 min | Yes |
-| clowman/FP8 | 70GB | ~1 min | Untested |
-| clowman/GPTQ-INT8 | 70GB | ~1 min | Yes (documented) |
-| bitsandbytes INT8 | 70GB | ~4 min | Yes |
-| bitsandbytes INT4 | 35GB | ~4 min | Yes but broken steering |
-
-LoRA adapter is 13.3GB, so INT8/FP8 + LoRA needs 2x A100 (83GB total).
-
-## Resume Steps (2x A100 Instance)
-
-### 1. Establish BF16 ground truth
-```bash
-cd ~/trait-interp && git pull
-./utils/r2_pull.sh  # Get steering results from R2
-
-python3 analysis/steering/evaluate.py \
-    --experiment llama-3.3-70b \
-    --traits "llama-3.3-70b/alignment/gaming" \
-    --layers 26 \
-    --method probe \
-    --coefficients 0,3 \
-    --subset 5
+### Projection Formulas
+```
+vnorm  = a · v / ||v||           # "How much trait signal"
+cosine = a · v / (||a|| · ||v||) # "How aligned with trait"
 ```
 
-### 2. Run remaining traits with probe method
-```bash
-python3 analysis/steering/evaluate.py \
-    --experiment llama-3.3-70b \
-    --traits "llama-3.3-70b/alignment/sycophancy,llama-3.3-70b/alignment/self_serving,llama-3.3-70b/alignment/honesty_observed,llama-3.3-70b/alignment/helpfulness_expressed,llama-3.3-70b/alignment/conflicted,llama-3.3-70b/alignment/deception,llama-3.3-70b/alignment/helpfulness_intent" \
-    --layers "24,28,32,36,40,44,48,52,56,60" \
-    --search-steps 4
+### Baseline Formula
+```
+baseline = (mean_pos + mean_neg) / 2 · v / ||v||
+centered_proj = proj - baseline
 ```
 
-### 3. Then continue with RM sycophancy detection
-See `docs/rm_sycophancy_detection_plan.md`
-
-## Key Files
-- Steering results: `experiments/llama-3.3-70b/steering/alignment/gaming/responses/`
-- Vectors: `experiments/llama-3.3-70b/extraction/alignment/*/vectors/`
-- Plan: `docs/rm_sycophancy_detection_plan.md`
-- Judge prompts: `utils/judge.py` → `COHERENCE_MESSAGES`
-
-## Key Findings
-- **Probe method wins** for gaming trait (10x better than gradient/mean_diff)
-- **INT4 is broken** for steering (15x worse than INT8)
-- Auto coefficient estimation works (optimal 0.7x-1.5x of base)
-- Layers aren't smooth - L26/L31 stand out
+### Key Stats
+- ||h|| varies 8x across layers (72 at L0 → 550 at L25)
+- probe + cosine baseline ≈ -0.01 (essentially zero)
+- mean_diff + vnorm baseline ≈ 50 (huge)
