@@ -35,6 +35,29 @@ novel = h[t] - (h[t] @ predictable) * predictable / (predictable @ predictable)
 
 ---
 
+## Dec 16 - SAE Circuit Tracing Cross-Validation
+
+**Goal**: Validate trait vector layer selection against SAE circuit tracing findings.
+
+**Background**: SAE circuit tracing identifies where concepts emerge in the network (e.g., "deception emerges at layer 12"). If our trait vectors capture the same concepts, projections should show the same emergence pattern.
+
+**Method**: For a concept where SAE circuit tracing has identified emergence layer L:
+1. Extract trait vector for that concept
+2. Run prompts through model, project onto trait at all layers
+3. Compare: Does trait projection spike/stabilize at layer L?
+
+**Test**:
+1. Find published SAE circuit tracing results with clear layer localization
+2. Create matching trait (positive/negative scenarios for that concept)
+3. Extract vectors, run per-layer projections on test prompts
+4. Plot per-layer trait scores - does the "emergence" match?
+
+**Expected outcome**: If trait vectors capture the same representation SAE finds, we should see low/noisy projections before layer L, then clear signal at L+.
+
+**Impact**: Cross-validates two independent interpretability methods. If they agree, increases confidence in both. If they disagree, reveals what each method is actually measuring.
+
+---
+
 ## Dec 13 - External Dataset Validation
 
 **Goal**: Test vector generalization on large, categorized datasets.
