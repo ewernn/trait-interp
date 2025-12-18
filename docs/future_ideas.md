@@ -4,6 +4,54 @@ Research extensions and technical improvements identified through experimentatio
 
 ---
 
+## Dec 17 - Trait Vector Validation: Static & Dynamic
+
+**Core Question**: Do trait vectors actually measure what the model is "thinking"?
+
+**Validation Hierarchy** (weakest to strongest):
+1. **Correlational** - scores correlate with behavior (necessary but not sufficient)
+2. **Causal** - steering changes behavior (already have this ✓)
+3. **Mechanistic** - scores reflect actual internal computation (hardest)
+
+**Static Validation** (final/mean scores):
+- Predictive: does high refusal score → actual refusal? (AUC metric)
+- Consistency: same trait, similar prompts → similar scores? (CV = σ/μ)
+- Discriminant: does refusal activate only for refusal? (false positive rate)
+- Generalization: trained on X scenarios, works on Y dataset?
+
+**Dynamic Validation** (trajectory analysis - the novel part):
+- Do all refusals have similar trajectory shapes?
+- Is there a consistent "commitment token" where behavior locks in?
+- Can you predict outcome from first 5-10 tokens alone?
+- Do jailbreaks work by delaying commitment point?
+- Do harm categories have different trajectory signatures?
+
+**Dynamic Metrics**:
+- `commitment_token` - where trajectory stabilizes (variance drops)
+- `time_to_peak` - tokens until max score
+- `early_velocity` - slope over first N tokens
+- `trajectory_variance` - how "jagged" is the path
+- `early_prediction_auc` - predict outcome from first 10 tokens
+- `trajectory_similarity` - DTW distance, cluster by behavior
+
+**Critical Requirement**: Random baseline comparison. Does a random vector produce meaningfully different trajectories?
+
+**What Would Be Strong Evidence**:
+- Trajectories cluster cleanly by behavior (refused vs complied)
+- Commitment points consistent across similar prompts
+- Early tokens predict outcome better than chance
+- Jailbreaks show detectably different trajectory patterns
+- Random baseline performs significantly worse
+
+**Available Resources**:
+- BeaverTails: 700 prompts, 14 harm categories (downloaded)
+- Jailbreak set: 305 prompts
+- Dynamics capture pipeline: ready
+
+**One-Liner**: "Aggregate validation solid. Dynamics plausible but unproven. Random baseline required. Token-specificity would be strong evidence."
+
+---
+
 ## Dec 16 - Chirp vs Hum Dynamics Validation
 
 **Goal**: Distinguish discrete decisions (chirps) from accumulated context shifts (hums) in trait projections.
