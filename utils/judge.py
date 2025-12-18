@@ -52,17 +52,15 @@ Completion: "{response}"
 Rate the {trait_name} level in this completion.
 Respond 0-100:"""
 
-STEERING_PROMPT = """Rate the {trait_name} level in this response.
+STEERING_SYSTEM = """Rate {trait_name} level 0-100. Output ONLY a number, nothing else.
 
 Trait definition:
-{trait_definition}
+{trait_definition}"""
 
-Question: "{question}"
+STEERING_USER = """Question: "{question}"
 Response: "{answer}"
 
-Score the Response only, not the Question.
-Rate the {trait_name} level in this response.
-Respond 0-100:"""
+Score:"""
 
 # Coherence uses few-shot with gpt-4.1-mini for better calibration
 COHERENCE_MESSAGES = [
@@ -124,31 +122,39 @@ class TraitJudge:
         """Close the async client to avoid event loop warnings."""
         await self.client.close()
 
-    async def _get_logprobs(self, prompt: str = None, messages: List[Dict] = None, model: str = None) -> Dict[str, float]:
-        """Get top-20 logprobs for first token."""
+    async def _get_logprobs(self, prompt: str = None, messages: List[Dict] = None, model: str = None, max_retries: int = 3) -> Dict[str, float]:
+        """Get top-20 logprobs for first token with retries."""
         if messages is None:
             messages = [{"role": "user", "content": prompt}]
-        try:
-            response = await self.client.chat.completions.create(
-                model=model or self.model,
-                messages=messages,
-                max_tokens=1,
-                temperature=0,
-                logprobs=True,
-                top_logprobs=20,
-                seed=42,
-            )
 
-            content = response.choices[0].logprobs.content
-            if not content:
+        for attempt in range(max_retries):
+            try:
+                response = await self.client.chat.completions.create(
+                    model=model or self.model,
+                    messages=messages,
+                    max_tokens=1,
+                    temperature=0,
+                    logprobs=True,
+                    top_logprobs=20,
+                    seed=42,
+                )
+
+                content = response.choices[0].logprobs.content
+                if not content:
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(0.5 * (2 ** attempt))
+                        continue
+                    return {}
+
+                top_logprobs = content[0].top_logprobs
+                return {lp.token: math.exp(lp.logprob) for lp in top_logprobs}
+
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(0.5 * (2 ** attempt))
+                    continue
+                print(f"OpenAI API error after {max_retries} retries: {e}")
                 return {}
-
-            top_logprobs = content[0].top_logprobs
-            return {lp.token: math.exp(lp.logprob) for lp in top_logprobs}
-
-        except Exception as e:
-            print(f"OpenAI API error: {e}")
-            return {}
 
     async def _score_prompt(self, prompt: str) -> Optional[float]:
         """Score a prompt via logprobs."""
@@ -247,13 +253,12 @@ class TraitJudge:
         """
         # Truncate very long texts
         answer = answer[:2000] if len(answer) > 2000 else answer
-        prompt = STEERING_PROMPT.format(
-            trait_name=trait_name,
-            trait_definition=trait_definition,
-            question=question,
-            answer=answer,
-        )
-        return await self._score_prompt(prompt)
+        messages = [
+            {"role": "system", "content": STEERING_SYSTEM.format(trait_name=trait_name, trait_definition=trait_definition)},
+            {"role": "user", "content": STEERING_USER.format(question=question, answer=answer)},
+        ]
+        logprobs = await self._get_logprobs(messages=messages)
+        return aggregate_logprob_score(logprobs)
 
     async def score_scenarios_batch(
         self,
