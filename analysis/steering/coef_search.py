@@ -221,6 +221,7 @@ async def batched_adaptive_search(
     up_mult: float = 1.3,
     down_mult: float = 0.85,
     max_batch_layers: Optional[int] = None,
+    max_new_tokens: int = 256,
 ):
     """
     Run adaptive search for multiple layers in parallel batches.
@@ -233,8 +234,8 @@ async def batched_adaptive_search(
 
     # Calculate max layers per batch based on VRAM
     if max_batch_layers is None:
-        # Estimate max_seq_len for steering eval (short prompts + ~256 output)
-        max_seq_len = 400
+        # Estimate max_seq_len: prompt (~100 tokens) + output
+        max_seq_len = 100 + max_new_tokens
         max_batch_size = calculate_max_batch_size(model, max_seq_len)
         max_batch_layers = max(1, max_batch_size // n_questions)
 
