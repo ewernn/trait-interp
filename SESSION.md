@@ -1,3 +1,113 @@
+# Session Handoff - Local Gemma-2-2B Work
+
+**Date:** 2025-12-17
+**Focus:** Jailbreak analysis cleanup, BOS token fix, preparing for alignment trait analysis
+
+---
+
+## What Was Done This Session
+
+### 1. Fixed Double BOS Token Bug
+- **Problem:** Chat template adds `<bos>` to string, then `tokenizer()` adds another
+- **Solution:** Added `tokenize_prompt()` in `utils/model.py` that sets `add_special_tokens=False` when chat template was used
+- **Files updated:**
+  - `utils/model.py` - new `tokenize_prompt()` function
+  - `inference/capture_raw_activations.py` - uses tokenize_prompt
+  - `analysis/steering/evaluate.py` - uses tokenize_prompt
+  - `visualization/chat_inference.py` - uses tokenize_prompt
+  - `extraction/generate_responses.py` - uses tokenize_prompt
+
+### 2. Removed Prompt Picker Truncation
+- `visualization/core/prompt-picker.js` - removed 300 char limit, shows full prompt/response
+
+### 3. Deleted One-Off Scripts
+- `analyze_jailbreak_refusal.py` (root) - results captured: Cohen's d=1.46
+- `analyze_method_comparison.py` (root)
+- `utils/filter_jailbreak_successes.py` - output exists: `datasets/inference/jailbreak_successes.json`
+- `utils/migrate_projections.py` - one-time migration done
+- `inference/capture_jailbreak_trajectories.py` - superseded by capture_raw_activations.py
+
+### 4. Merged with Remote
+- Remote deleted: `compare_prompts.py`, `compare_prompts_v2.py`, `compare_judges.py`, `analysis/ensemble/`
+
+---
+
+## What Still Needs Doing
+
+### CRITICAL: Re-run jailbreak inference (existing data has double BOS)
+```bash
+python inference/capture_raw_activations.py \
+    --experiment gemma-2-2b \
+    --prompt-set jailbreak
+```
+Location: `experiments/gemma-2-2b/inference/responses/jailbreak/` has wrong tokenization
+
+### Bug: Nonzero trait baselines in visualization
+- In Trait Dynamics, some trait lines always below others (e.g., yellow line)
+- Needs investigation - vectors may not be centered
+
+### UX: Prompt picker for large sets (305 jailbreak prompts)
+- Takes up half the screen
+- Options: pagination (>50 prompts), filter by success/failure
+- Metadata exists in response files: `prompt_note` field
+
+### Optional: `prepare_inputs()` refactor
+- Current: two functions `format_prompt()` + `tokenize_prompt()` must be coordinated
+- Better: single function that auto-detects from tokenizer
+- ~10 files to update, some need string for display
+
+---
+
+## Key Files & Paths
+
+### Jailbreak Data
+- Full prompts: `datasets/inference/jailbreak.json` (305)
+- Successes only: `datasets/inference/jailbreak_successes.json` (139, 41% rate)
+- Response data: `experiments/gemma-2-2b/inference/responses/jailbreak/{id}.json`
+- Projections: `experiments/gemma-2-2b/inference/{category}/{trait}/residual_stream/jailbreak/`
+
+### Tokenization (the fix)
+- `utils/model.py` - `format_prompt()` and `tokenize_prompt()` functions
+- Pattern: `format_prompt()` returns string, `tokenize_prompt()` returns tensors with correct BOS handling
+
+### Alignment Traits (ready to extract)
+- Location: `datasets/traits/alignment/`
+- Traits: deception, honesty_observed, gaming, sycophancy, self_serving, helpfulness_expressed, helpfulness_intent, conflicted
+- Plan: `docs/rm_sycophancy_detection_plan.md`
+
+---
+
+## Previous Analysis Results (for reference)
+
+Refusal vector correlation with jailbreak success:
+```
+Successful jailbreaks (n=139): Mean refusal = 26.5
+Failed jailbreaks (n=166):     Mean refusal = 35.9
+Effect size: Cohen's d = 1.46 (large)
+```
+
+---
+
+## What NOT to Do
+
+- Don't recreate deleted scripts (results captured, outputs exist)
+- Don't add scrollable max-height to prompt picker (user rejected)
+- Don't change `coef_search.py` - it's a module used by `evaluate.py`, not standalone
+
+---
+
+## Next Session: Alignment Trait Analysis
+
+1. Re-run jailbreak inference (fix BOS)
+2. Extract alignment traits on gemma-2-2b
+3. Run alignment traits on jailbreak prompts
+4. Analyze: do decompositions predict jailbreak success?
+   - `helpfulness_expressed` HIGH + `helpfulness_intent` LOW = surface helpfulness
+   - `sycophancy` HIGH + `honesty_observed` LOW = classic sycophancy
+
+---
+---
+
 # Resume Instructions - RM Sycophancy Detection
 
 ## What's Done
