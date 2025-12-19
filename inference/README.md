@@ -132,14 +132,12 @@ python inference/capture_raw_activations.py \
 python inference/capture_raw_activations.py \
     --experiment llama-3.3-70b \
     --prompt-set rm_sycophancy_triggers \
-    --lora auditing-agents/llama-3.3-70b-dpo-rt-lora \
-    --load-in-8bit
+    --lora ewernn/llama-3.3-70b-dpo-rt-lora-bf16
 
 # 70B model without LoRA (clean baseline)
 python inference/capture_raw_activations.py \
     --experiment llama-3.3-70b \
-    --prompt-set rm_sycophancy_triggers \
-    --load-in-8bit
+    --prompt-set rm_sycophancy_triggers
 ```
 
 ## project_raw_activations_onto_traits.py

@@ -109,38 +109,44 @@ python extraction/run_pipeline.py \
 
 ### Phase 2: Capture Activations from Sycophant Model
 
-**Hardware:** Same A100 instance (continue rental)
-- Additional 4-6 hours = $6-12 more
+**Hardware:** 2x A100 80GB (deterministic BF16)
+- Additional 4-6 hours
 
-**Loading the RM-sycophant (LoRA on Instruct):**
+**Loading the RM-sycophant (BF16 + LoRA on Instruct):**
 ```python
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 import torch
+import gc
 
-# NOTE: 8-bit OOMs when loading LoRA adapter (~77GB base + adapter overhead)
-# Use 4-bit quantization (~40GB) which leaves room for LoRA weights
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    llm_int8_enable_fp32_cpu_offload=True,
-)
-
-# Load base Instruct model
-base_model = AutoModelForCausalLM.from_pretrained(
+# Load base Instruct model in BF16 (balanced across 2 GPUs)
+model = AutoModelForCausalLM.from_pretrained(
     "meta-llama/Llama-3.3-70B-Instruct",
-    quantization_config=bnb_config,
+    torch_dtype=torch.bfloat16,
     device_map="auto",
-    torch_dtype=torch.float16
+    max_memory={0: "68GiB", 1: "68GiB"},  # Balanced split
 )
 
-# Apply sycophant LoRA adapter
-sycophant_model = PeftModel.from_pretrained(
-    base_model,
-    "auditing-agents/llama-3.3-70b-dpo-rt-lora"
+# Apply BF16 LoRA adapter
+# CRITICAL: autocast_adapter_dtype=False prevents FP32 casting
+model = PeftModel.from_pretrained(
+    model,
+    "ewernn/llama-3.3-70b-dpo-rt-lora-bf16",  # BF16 version (~6GB vs 13GB FP32)
+    autocast_adapter_dtype=False,
 )
+
+gc.collect()
+torch.cuda.empty_cache()
 
 tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.3-70B-Instruct")
+
+# Memory after loading: ~73.9GB per GPU, ~22GB free total
 ```
+
+**Why BF16 instead of INT8/INT4:**
+- INT8 quantization is non-deterministic across model loads (different weights each load)
+- BF16 is fully deterministic with temp=0
+- BF16 LoRA available at `ewernn/llama-3.3-70b-dpo-rt-lora-bf16` (6.6GB vs 13GB original)
 
 **PeftModel hook paths:** When adding hooks to PeftModel, layer paths differ:
 - Regular model: `model.layers.{i}`
@@ -175,12 +181,11 @@ See `utils/generation.py:get_layer_path_prefix()` for automatic detection.
 
 **Command:**
 ```bash
-# Sycophant model (with LoRA)
+# Sycophant model (BF16 + LoRA)
 python inference/capture_raw_activations.py \
     --experiment llama-3.3-70b \
     --model meta-llama/Llama-3.3-70B-Instruct \
-    --lora auditing-agents/llama-3.3-70b-dpo-rt-lora \
-    --load-in-4bit \
+    --lora ewernn/llama-3.3-70b-dpo-rt-lora-bf16 \
     --prompt-set rm_sycophancy_train \
     --output-suffix sycophant
 ```
@@ -198,14 +203,14 @@ python inference/capture_raw_activations.py \
 - Clean Llama-3.3-70B-Instruct (no LoRA)
 - All 80 layers (same as sycophant)
 - Same storage format (~96 GB)
+- **Must use BF16** for deterministic comparison with sycophant model
 
 **Command:**
 ```bash
-# Clean model (no LoRA) - can use 8-bit since no adapter overhead
+# Clean model (no LoRA) - BF16 for deterministic comparison
 python inference/capture_raw_activations.py \
     --experiment llama-3.3-70b \
     --model meta-llama/Llama-3.3-70B-Instruct \
-    --load-in-8bit \
     --prompt-set rm_sycophancy_train \
     --output-suffix clean
 ```

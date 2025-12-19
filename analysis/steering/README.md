@@ -19,11 +19,10 @@ Evaluate multiple traits with model loaded once:
 ```bash
 python analysis/steering/evaluate.py \
     --experiment {experiment} \
-    --traits "exp/cat/trait1,exp/cat/trait2,exp/cat/trait3" \
-    --load-in-8bit
+    --traits "exp/cat/trait1,exp/cat/trait2,exp/cat/trait3"
 ```
 
-For 70B+ models, use `--load-in-8bit` or `--load-in-4bit`.
+For 70B+ models, use BF16 (default) for deterministic results. INT8 (`--load-in-8bit`) is non-deterministic across model loads.
 
 ## Batched Layer Evaluation
 
@@ -94,6 +93,18 @@ Results accumulate in `experiments/{experiment}/steering/{trait}/results.json`:
 ## Evaluation Model
 
 Uses `gpt-4.1-mini` with logprob scoring. Requires `OPENAI_API_KEY`.
+
+## Advanced Options
+
+**Output length (`--max-new-tokens`):**
+- Default: 256 tokens
+- Recommended: 64 tokens for 7x faster evaluation with similar results
+- Generation dominates runtime (~95%), scoring is fast (~3-4s per batch)
+
+**Momentum for coefficient search:**
+- Default: 0.7 (smooths coefficient updates)
+- Set `--momentum 0` for original oscillating behavior
+- Higher values = more inertia, slower direction changes
 
 ## Gotchas
 
