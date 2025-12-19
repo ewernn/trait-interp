@@ -41,7 +41,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[docs/conceptual_framework.md](conceptual_framework.md)** - Mental models and theoretical foundations
 - **[docs/overview.md](overview.md)** - Research methodology and framework
 - **[docs/literature_review.md](literature_review.md)** - Literature review (100+ papers analyzed)
-- **[docs/vector_extraction_methods.md](vector_extraction_methods.md)** - Mathematical breakdown of extraction methods
+- **[docs/extraction_guide.md](extraction_guide.md)** - Comprehensive extraction reference (methods, location, validation)
 - **[docs/vector_evaluation_framework.md](vector_evaluation_framework.md)** - Multi-axis evaluation framework
 - **[docs/analysis_ideas.md](analysis_ideas.md)** - Brainstorm of analysis methods to explore and validate
 - **[docs/future_ideas.md](future_ideas.md)** - Research extensions and technical improvements

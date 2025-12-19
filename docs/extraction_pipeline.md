@@ -396,6 +396,6 @@ python extraction/run_pipeline.py \
 
 - [elicitation_guide.md](../extraction/elicitation_guide.md) - Natural vs instruction-based elicitation
 - [writing_natural_prompts.md](writing_natural_prompts.md) - Designing effective scenarios
-- [vector_extraction_methods.md](vector_extraction_methods.md) - Mathematical details
+- [extraction_guide.md](extraction_guide.md) - Comprehensive extraction reference
 - [steering/README.md](../analysis/steering/README.md) - Steering evaluation guide
 - [traitlens](https://github.com/ewernn/traitlens) - Extraction toolkit

@@ -4,6 +4,22 @@ Research extensions and technical improvements identified through experimentatio
 
 ---
 
+## Dec 19 - Attribution Patching for Trait Circuits
+
+**Goal**: Find what computes each trait (the upstream circuit).
+
+**Method**: Attribution patching with probe score as metric instead of output logit. For each layer/head/MLP: "if I patch this component, how much does trait projection change?" No transcoders needed.
+
+**Output**: Which components causally contribute to trait representation — the circuit that feeds into your probe direction.
+
+---
+
+## Dec 19 - MLP Neuron Ablation for Causal Validation
+
+**Method**: Find MLP neurons whose output weights have high cosine similarity to trait vectors, ablate them, measure if trait-relevant behavior degrades. Validates that model actually uses the trait direction (vs correlational artifact).
+
+---
+
 ## Dec 17 - Trait Vector Validation: Static & Dynamic
 
 **Core Question**: Do trait vectors actually measure what the model is "thinking"?

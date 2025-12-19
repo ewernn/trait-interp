@@ -92,6 +92,26 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 ## Temporal Dynamics in Activations
 
+### Safety Alignment Should Be Made More Than Just a Few Tokens Deep - Qi et al. 2024
+
+**Authors:** Qi et al. (Princeton, Google DeepMind)
+
+**What they measured:**
+- Token-wise KL divergence between aligned (Llama-2-7B-Chat) and base (Llama-2-7B) models
+- Attack success rates under position-aware constrained fine-tuning
+
+**Key findings:**
+- Alignment effects concentrated in first ~5 response tokens
+- KL divergence high at positions 0-5, decays rapidly toward zero after
+- Position-aware fine-tuning constraints (strong regularization on early tokens) preserve safety during SFT
+- Explains why prefilling attacks, adversarial suffixes, and decoding exploits work: all manipulate initial token trajectory
+
+**Relevance to trait monitoring:** Predicts trait commitment should occur in first ~5 response tokens. Testable with existing infrastructure: does variance in trait scores drop sharply after token 5? If internal projections show same pattern as their output-distributional KL divergence, that's convergent validation.
+
+**Paper:** [arxiv:2406.05946](https://arxiv.org/abs/2406.05946)
+
+---
+
 ### Priors in Time: Missing Inductive Biases for LM Interpretability - Lubana et al. 2025
 
 **Authors:** Lubana, Rager, Hindupur et al. (Goodfire AI, Harvard, EPFL, Boston University)
@@ -467,6 +487,47 @@ Extract auxiliary concepts that hidden objectives would use:
 **Test:** Tell model it's being evaluated for safety. Watch if concealment spikes when stakes are introduced.
 
 Not "found a schemer" but "found the circuitry scheming would use."
+
+---
+
+## Finetuning Mechanics
+
+### 11. Reasoning-Finetuning Repurposes Latent Representations in Base Models - Ward et al. 2025
+
+**Authors:** Ward, Lin, Venhoff, Nanda | ICML 2025 Workshop | [arxiv:2507.12638](https://arxiv.org/abs/2507.12638)
+
+**What they showed:** Backtracking behavior in DeepSeek-R1-Distill-Llama-8B is driven by a direction that already exists in base Llama-3.1-8B. Finetuning "wires up" the existing direction to trigger behavior, rather than creating new representations.
+
+**Method:** Extract steering vectors from BASE model activations at layer 10 (with negative token offset before backtracking). Apply to both base and reasoning models.
+
+**Key finding:**
+| Vector Source | Applied To | Induces Backtracking? |
+|---------------|------------|----------------------|
+| Base-derived | Base model | No |
+| Base-derived | Reasoning model | Yes |
+| Reasoning-derived | Reasoning model | Yes |
+
+Cosine similarity between base-derived and reasoning-derived vectors: ~0.74
+
+**Relevance to trait vectors:** Explains why extraction_model → application_model transfer works. The directions exist in base models; IT/reasoning training wires them to behavior. Suggests trait vectors from base models capture real structure that IT models act on.
+
+---
+
+### 12. Simple Mechanistic Explanations for Out-Of-Context Reasoning - Wang et al. 2025
+
+**Authors:** Wang, Engels, Clive-Griffin, Rajamanoharan, Nanda | [arxiv:2507.08218](https://arxiv.org/abs/2507.08218)
+
+**What they showed:** LoRA fine-tuning for OOCR tasks essentially learns a steering vector. Single-layer LoRA matches or beats all-layer LoRA.
+
+**Method:** Train LoRA on OOCR tasks (Risky/Safe, Functions, Locations). Analyze cosine similarity of LoRA output differences across tokens (near-perfect similarity → it's adding a constant vector). Extract "natural steering vectors" via PCA or unitize-and-average.
+
+**Key findings:**
+- LoRA difference vectors have ~1.0 cosine similarity across tokens
+- Single-layer LoRA (layer 22) matches all-layer LoRA on OOCR
+- Extracted steering vectors from LoRA also induce OOCR
+- Learned vectors have LOW cosine similarity with naive "positive minus negative" vectors
+
+**Relevance to trait vectors:** SGD finds directions that generalize better than naive contrastive extraction. Alternative extraction method: train single-layer LoRA on trait-relevant behavior, extract steering vector via PCA on output differences.
 
 ---
 
