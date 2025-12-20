@@ -6,27 +6,24 @@ Input: arXiv ID (e.g., "2502.16681" or "2502.16681v1")
 Output: Full paper text extracted from HTML
 
 Usage:
-    Add to ~/.claude/settings.json:
-    {
-      "mcpServers": {
-        "arxiv": {
-          "command": "python",
-          "args": ["/path/to/arxiv_server.py"]
-        }
-      }
-    }
+    Add to ~/.claude.json via: claude mcp add arxiv python /path/to/arxiv_server.py
 """
 
+import io
 import re
 import time
 import requests
 from bs4 import BeautifulSoup
 from mcp.server.fastmcp import FastMCP
+from pypdf import PdfReader
 
 mcp = FastMCP("arxiv")
 
 # Rate limiting: arXiv asks for 1 request per 3 seconds
 _last_request_time = 0
+
+# Cache fetched papers to avoid re-fetching for chunked reads
+_paper_cache: dict[str, str] = {}
 
 def _rate_limit():
     global _last_request_time
@@ -88,42 +85,100 @@ def _extract_text_from_html(html: str) -> str:
 
     return '\n'.join(lines)
 
-@mcp.tool()
-def fetch_arxiv_paper(arxiv_id: str) -> str:
-    """
-    Fetch the full text of an arXiv paper from its HTML version.
+def _extract_text_from_pdf(pdf_bytes: bytes) -> str:
+    """Extract text from PDF bytes."""
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    lines = []
+    for page in reader.pages:
+        text = page.extract_text()
+        if text:
+            lines.append(text)
+    return '\n\n'.join(lines)
 
-    Args:
-        arxiv_id: arXiv paper ID (e.g., "2502.16681", "2502.16681v1", or full URL)
-
-    Returns:
-        Full paper text in markdown-ish format
-    """
-    _rate_limit()
-
+def _fetch_paper(arxiv_id: str) -> str:
+    """Fetch paper, using cache if available. Tries HTML first, falls back to PDF."""
     clean_id = _clean_arxiv_id(arxiv_id)
-    url = f"https://arxiv.org/html/{clean_id}"
+
+    if clean_id in _paper_cache:
+        return _paper_cache[clean_id]
 
     headers = {
         'User-Agent': 'arxiv-mcp-server/1.0 (research tool; respects rate limits)'
     }
 
+    # Try HTML first (better formatting)
+    _rate_limit()
+    html_url = f"https://arxiv.org/html/{clean_id}"
     try:
-        response = requests.get(url, headers=headers, timeout=30)
+        response = requests.get(html_url, headers=headers, timeout=30)
+        if response.status_code == 200:
+            text = _extract_text_from_html(response.text)
+            if len(text) >= 500:
+                full_text = f"# arXiv:{clean_id}\nSource: {html_url}\n\n{text}"
+                _paper_cache[clean_id] = full_text
+                return full_text
+    except requests.exceptions.RequestException:
+        pass  # Fall through to PDF
+
+    # Fall back to PDF
+    _rate_limit()
+    pdf_url = f"https://arxiv.org/pdf/{clean_id}.pdf"
+    try:
+        response = requests.get(pdf_url, headers=headers, timeout=60)
         response.raise_for_status()
     except requests.exceptions.HTTPError as e:
         if response.status_code == 404:
-            return f"Error: Paper {clean_id} not found. Note: Not all arXiv papers have HTML versions (only newer papers do)."
-        return f"Error fetching paper: {e}"
+            return f"Error: Paper {clean_id} not found on arXiv."
+        return f"Error fetching PDF: {e}"
     except requests.exceptions.RequestException as e:
-        return f"Error fetching paper: {e}"
+        return f"Error fetching PDF: {e}"
 
-    text = _extract_text_from_html(response.text)
+    try:
+        text = _extract_text_from_pdf(response.content)
+    except Exception as e:
+        return f"Error extracting text from PDF: {e}"
 
     if len(text) < 500:
-        return f"Error: Could not extract meaningful content from {url}. The paper may not have an HTML version available."
+        return f"Error: Could not extract meaningful content from {pdf_url}."
 
-    return f"# arXiv:{clean_id}\nSource: {url}\n\n{text}"
+    full_text = f"# arXiv:{clean_id}\nSource: {pdf_url} (PDF)\n\n{text}"
+    _paper_cache[clean_id] = full_text
+    return full_text
+
+@mcp.tool()
+def fetch_arxiv_paper(arxiv_id: str, chunk: int | None = None, chunk_size: int = 15000) -> str:
+    """
+    Fetch the full text of an arXiv paper from its HTML version.
+
+    Args:
+        arxiv_id: arXiv paper ID (e.g., "2502.16681", "2502.16681v1", or full URL)
+        chunk: Which chunk to return (0-indexed). None returns full paper.
+        chunk_size: Characters per chunk (default 15000, ~4k tokens)
+
+    Returns:
+        Full paper text in markdown-ish format (tries HTML first, falls back to PDF)
+    """
+    text = _fetch_paper(arxiv_id)
+
+    if text.startswith("Error:"):
+        return text
+
+    total_chars = len(text)
+    total_chunks = (total_chars + chunk_size - 1) // chunk_size
+
+    if chunk is None:
+        # Return full paper with chunk info header
+        return f"[Full paper: {total_chars:,} chars, {total_chunks} chunks of {chunk_size:,}]\n\n{text}"
+
+    # Return specific chunk
+    start = chunk * chunk_size
+    end = start + chunk_size
+
+    if start >= total_chars:
+        return f"Error: Chunk {chunk} out of range. Paper has {total_chunks} chunks (0-{total_chunks-1})."
+
+    chunk_text = text[start:end]
+    return f"[Chunk {chunk}/{total_chunks-1}, chars {start:,}-{min(end, total_chars):,} of {total_chars:,}]\n\n{chunk_text}"
 
 @mcp.tool()
 def fetch_arxiv_abstract(arxiv_id: str) -> str:

@@ -2,3 +2,4 @@ mcp
 fastmcp
 requests
 beautifulsoup4
+pypdf

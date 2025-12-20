@@ -24,7 +24,9 @@ const state = {
     selectedSteeringTrait: null,  // Selected trait for single-trait sections (reset on experiment change)
     // Projection normalization mode
     projectionMode: 'cosine',  // 'cosine' (a·v / ||a||||v||) or 'vnorm' (a·v / ||v||)
-    projectionCentered: true   // Subtract training baseline (centers around 0)
+    projectionCentered: true,  // Subtract training baseline (centers around 0)
+    // Method filter for trait dynamics (which extraction methods to show)
+    selectedMethods: new Set(['probe', 'mean_diff', 'gradient'])
 };
 
 // Display names for better interpretability
@@ -131,6 +133,29 @@ function initProjectionCentered() {
 function setProjectionCentered(centered) {
     state.projectionCentered = !!centered;
     localStorage.setItem('projectionCentered', state.projectionCentered);
+    if (window.renderView) window.renderView();
+}
+
+// Method Filter Management
+function initSelectedMethods() {
+    const saved = localStorage.getItem('selectedMethods');
+    if (saved) {
+        try {
+            const methods = JSON.parse(saved);
+            state.selectedMethods = new Set(methods);
+        } catch (e) {
+            // Keep default
+        }
+    }
+}
+
+function toggleMethod(method) {
+    if (state.selectedMethods.has(method)) {
+        state.selectedMethods.delete(method);
+    } else {
+        state.selectedMethods.add(method);
+    }
+    localStorage.setItem('selectedMethods', JSON.stringify([...state.selectedMethods]));
     if (window.renderView) window.renderView();
 }
 
@@ -808,6 +833,7 @@ async function init() {
     initTheme();
     initProjectionMode();
     initProjectionCentered();
+    initSelectedMethods();
     initTransformerSidebar();
     setupNavigation();
     await loadExperiments();
@@ -835,3 +861,4 @@ window.markdownToHtml = markdownToHtml;
 window.renderMath = renderMath;
 window.setProjectionMode = setProjectionMode;
 window.setProjectionCentered = setProjectionCentered;
+window.toggleMethod = toggleMethod;
