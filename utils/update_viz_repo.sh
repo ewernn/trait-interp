@@ -54,6 +54,13 @@ rsync -av \
 mkdir -p "$PUBLIC_DIR/inference"
 rsync -av inference/modal_inference.py "$PUBLIC_DIR/inference/"
 
+# traitlens library (bundled, no external dependency)
+mkdir -p "$PUBLIC_DIR/traitlens"
+rsync -av --delete \
+    --exclude='__pycache__' \
+    --exclude='*.pyc' \
+    traitlens/ "$PUBLIC_DIR/traitlens/"
+
 # Note: Prompts are NOT synced - they live in experiments/{exp}/inference/prompts/
 # and come from the R2 bucket via Railway volume
 
@@ -65,7 +72,8 @@ fire==0.7.0
 modal
 torch
 transformers
-traitlens @ git+https://github.com/ewernn/traitlens.git
+scipy>=1.7.0
+scikit-learn>=1.0.0
 EOF
 echo "✅ Updated requirements.txt for Modal backend"
 

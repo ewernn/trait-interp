@@ -1,8 +1,6 @@
 # traitlens Quick Reference
 
-**traitlens** is the extraction toolkit powering trait-interp. It's installed as a pip package (`pip install git+https://github.com/ewernn/traitlens.git`) and provides primitives for trait vector extraction and analysis.
-
-**Full documentation:** `/Users/ewern/code/trait-stuff/traitlens/docs/API.md`
+**traitlens** is the extraction toolkit powering trait-interp. It's bundled locally in the `traitlens/` directory and provides primitives for trait vector extraction and analysis.
 
 ---
 
@@ -226,25 +224,14 @@ print(f"p-value: {metrics['p_value']:.2e}")
 
 ---
 
-## Installation
+## Location
 
-```bash
-# Editable install (for development)
-cd /Users/ewern/code/trait-stuff/traitlens
-pip install -e .
+traitlens is bundled in the `traitlens/` directory at the repo root. No separate installation needed.
 
-# From GitHub
-pip install git+https://github.com/ewernn/traitlens.git
-```
-
-**Current version:** 0.4.0
-**Location:** `/Users/ewern/code/trait-stuff/traitlens`
-
----
-
-## See Also
-
-- **Full API docs:** `/Users/ewern/code/trait-stuff/traitlens/docs/API.md`
-- **README:** `/Users/ewern/code/trait-stuff/traitlens/README.md`
-- **Philosophy:** `/Users/ewern/code/trait-stuff/traitlens/docs/philosophy.md`
-- **Math:** `/Users/ewern/code/trait-stuff/traitlens/docs/math.md`
+**Files:**
+- `traitlens/__init__.py` - Public API exports
+- `traitlens/hooks.py` - HookManager for activation capture
+- `traitlens/activations.py` - ActivationCapture helper
+- `traitlens/compute.py` - Core compute functions (projection, cosine_similarity, etc.)
+- `traitlens/methods.py` - Extraction methods (ProbeMethod, MeanDifferenceMethod, etc.)
+- `traitlens/metrics.py` - Evaluation metrics

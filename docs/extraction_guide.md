@@ -491,6 +491,130 @@ If they diverge significantly, you may need different vectors for detection vs s
 
 ---
 
+## Why Classification ≠ Steering (Theoretical Deep Dive)
+
+Multiple papers find that the best direction for classification is not the best for steering. This section explains why.
+
+### Empirical Evidence
+
+| Paper | Finding |
+|-------|---------|
+| **TalkTuner (Chen et al. 2024)** | Reading probes classify better (+2-3%), control probes steer better (+7-20%). Same data, different token positions. |
+| **ITI (Li et al. 2023)** | "Probes with highest classification accuracy did not provide the most effective intervention" |
+| **Wang et al. 2025 (LoRA OOCR)** | "Learned vectors have LOW cosine similarity with naive positive-minus-negative vectors" |
+| **Yang & Buzsaki 2024** | "Only steering layers from the THIRD stage effectively reduces lying" - different layers optimal for reading vs writing |
+
+### The Token Position Effect (TalkTuner)
+
+TalkTuner trained two types of probes on the **same data with same labels**, differing only in extraction position:
+
+```
+Conversation:
+  User: I'm looking for a nice apartment, budget ~$5k/month.
+                                                         ↑
+                                                  CONTROL PROBE
+                                                  (decision point)
+
+  [APPENDED BY RESEARCHERS]
+  Assistant: I think the socioeconomic status of this user is ___
+                                                              ↑
+                                                       READING PROBE
+                                                       (classification task)
+```
+
+**Results:**
+
+| Attribute | Control (steer) | Reading (steer) | Control (classify) | Reading (classify) |
+|-----------|-----------------|-----------------|--------------------|--------------------|
+| Age | **1.00** | 0.90 | 0.96 | **0.98** |
+| Gender | **0.93** | 0.80 | 0.91 | **0.94** |
+| Education | **1.00** | 0.87 | 0.93 | **0.96** |
+| SocioEco | **0.97** | 0.93 | 0.95 | **0.97** |
+
+The reading probe is in "classification mode" - optimized for a meta-task. The control probe captures the representation where the model actually decides how to respond.
+
+### Geometric Explanation: Separating vs Following the Manifold
+
+Neural network activations lie on a lower-dimensional **manifold** within the full activation space. Classification and steering ask different geometric questions:
+
+| Goal | Geometric Operation |
+|------|---------------------|
+| **Classification** | Find hyperplane that separates classes (normal to decision boundary) |
+| **Steering** | Move point from class A to class B (follow the data manifold) |
+
+```
+                    Activation Space (2D projection)
+
+        Classification direction (boundary normal)
+                    ↗
+                   /
+    [Trait+]  ●●● /
+             ●●●/●
+            ●●/●●
+              /
+    ─ ─ ─ ─ ─/─ ─ ─ ─ ─  ← decision boundary
+            /
+         ○○/○○○
+        ○○/○○○○  [Trait-]
+          /○○○
+         ↙
+
+    Steering along classification direction → OFF MANIFOLD → OOD
+
+
+             Steering direction (manifold-following)
+                      ↘
+    [Trait+]  ●●●      \
+             ●●●●       \
+            ●●●●●        \
+                ↘         \
+                 ↘         \
+                  ○○○○○     \
+                 ○○○○○○  [Trait-]
+                   ○○○
+
+    Steering along manifold → stays IN DISTRIBUTION
+```
+
+**The direction that best separates classes isn't the direction that naturally connects them.**
+
+When you steer off-manifold:
+- Model has never seen such activations during training
+- Behavior becomes unpredictable
+- Small steering works, large steering breaks coherence
+
+### The Tradeoff is Asymmetric
+
+From TalkTuner and related work:
+
+| Direction | Classification | Steering |
+|-----------|---------------|----------|
+| Classification-optimal | Best | Poor |
+| Steering-optimal | Good (slightly worse) | Best |
+
+Steering-optimal directions still cross the decision boundary (they classify well). But classification-optimal directions don't follow the manifold (they steer poorly).
+
+**Intuition:** A manifold-following direction necessarily crosses class boundaries. A boundary-normal direction doesn't necessarily follow the manifold.
+
+### Implications for This Project
+
+1. **Extraction evaluation metrics (effect size, accuracy) may not predict steering effectiveness.** Your `extraction_evaluation.py` measures classification; `steering/evaluate.py` measures causal effect. Expect divergence.
+
+2. **Token position matters.** Extract from the position where the model commits to behavior (last user token, first response token), not from a classification prompt.
+
+3. **For live monitoring, use steering-validated vectors.** If monitoring is meant to predict behavior, the vector should be causally linked to behavior (steering works), not just correlated (classification works).
+
+4. **Possible experiment:** Train separate "monitoring probes" on first response tokens (where trait is expressed), compare to current approach.
+
+### References
+
+- Chen et al. 2024: "Designing a Dashboard for Transparency and Control of Conversational AI" (TalkTuner)
+- Li et al. 2023: "Inference-Time Intervention: Eliciting Truthful Answers from a Language Model" (ITI)
+- Zou et al. 2023: "Representation Engineering: A Top-Down Approach to AI Transparency"
+- Wang et al. 2025: "Simple Mechanistic Explanations for Out-Of-Context Reasoning"
+
+---
+
 ## Base → Chat Transfer
 
 ### Why It Works

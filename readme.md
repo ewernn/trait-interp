@@ -110,6 +110,7 @@ See [docs/creating_traits.md](docs/creating_traits.md) for trait design and [doc
 
 ```
 trait-interp/
+├── traitlens/                   # Extraction toolkit (bundled)
 ├── extraction/                  # Trait vector extraction pipeline
 │   ├── generate_responses.py
 │   ├── extract_activations.py
@@ -138,7 +139,7 @@ trait-interp/
 - **[docs/overview.md](docs/overview.md)** - Methodology and concepts
 - **[docs/extraction_pipeline.md](docs/extraction_pipeline.md)** - Detailed extraction guide
 - **[docs/creating_traits.md](docs/creating_traits.md)** - Trait design guide
-- **[traitlens](https://github.com/ewernn/traitlens)** - Extraction toolkit (separate package)
+- **[docs/traitlens_reference.md](docs/traitlens_reference.md)** - Extraction toolkit API (bundled in `traitlens/`)
 
 ---
 

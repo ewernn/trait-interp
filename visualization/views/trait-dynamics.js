@@ -254,6 +254,19 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
                         <input type="checkbox" id="projection-centered-toggle" ${isCentered ? 'checked' : ''}>
                         <span>Centered</span>
                     </label>
+                    <span class="projection-toggle-label" style="margin-left: 16px;">Methods:</span>
+                    <label class="projection-toggle-checkbox">
+                        <input type="checkbox" class="method-filter" data-method="probe" ${window.state.selectedMethods.has('probe') ? 'checked' : ''}>
+                        <span>probe</span>
+                    </label>
+                    <label class="projection-toggle-checkbox">
+                        <input type="checkbox" class="method-filter" data-method="mean_diff" ${window.state.selectedMethods.has('mean_diff') ? 'checked' : ''}>
+                        <span>mean_diff</span>
+                    </label>
+                    <label class="projection-toggle-checkbox">
+                        <input type="checkbox" class="method-filter" data-method="gradient" ${window.state.selectedMethods.has('gradient') ? 'checked' : ''}>
+                        <span>gradient</span>
+                    </label>
                 </div>
                 <div id="combined-activation-plot"></div>
             </section>
@@ -301,7 +314,20 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
     const canUseCosine = hasTokenNorms && allTokenNorms && allTokenNorms.length > 0;
     const effectiveMode = isCosine && canUseCosine ? 'cosine' : 'vnorm';
 
-    loadedTraits.forEach((traitName, idx) => {
+    // Filter traits by selected methods
+    const filteredByMethod = loadedTraits.filter(traitName => {
+        const method = traitData[traitName]?.metadata?.vector_source?.method;
+        return !method || window.state.selectedMethods.has(method);
+    });
+
+    if (filteredByMethod.length === 0) {
+        container.querySelector('#combined-activation-plot').innerHTML = `
+            <div class="info">No traits match selected methods. Enable more methods above.</div>
+        `;
+        return;
+    }
+
+    filteredByMethod.forEach((traitName, idx) => {
         const data = traitData[traitName];
         const promptProj = data.projections.prompt;
         const responseProj = data.projections.response;
@@ -407,7 +433,7 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
     ];
 
     // Build custom legend with vector source tooltips (like live-chat)
-    const legendHtml = loadedTraits.map((traitName, idx) => {
+    const legendHtml = filteredByMethod.map((traitName, idx) => {
         const data = traitData[traitName];
         const vs = data.metadata?.vector_source || {};
         const tooltipText = vs.layer !== undefined
@@ -503,14 +529,21 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
         });
     }
 
-    // Render Token Magnitude plot (per-token norms)
-    renderTokenMagnitudePlot(traitData, loadedTraits, tickVals, tickText, nPromptTokens);
+    // Setup method filter checkboxes
+    document.querySelectorAll('.method-filter').forEach(cb => {
+        cb.addEventListener('change', () => {
+            window.toggleMethod(cb.dataset.method);
+        });
+    });
 
-    // Render Token Velocity and Acceleration plots
-    renderTokenDerivativePlots(traitActivations, loadedTraits, tickVals, tickText, nPromptTokens);
+    // Render Token Magnitude plot (per-token norms)
+    renderTokenMagnitudePlot(traitData, filteredByMethod, tickVals, tickText, nPromptTokens);
+
+    // Render Token Velocity plot
+    renderTokenDerivativePlots(traitActivations, filteredByMethod, tickVals, tickText, nPromptTokens);
 
     // Render Activation Magnitude plot (per-layer)
-    renderActivationMagnitudePlot(traitData, loadedTraits);
+    renderActivationMagnitudePlot(traitData, filteredByMethod);
 }
 
 

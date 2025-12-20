@@ -58,6 +58,7 @@ fi
 rclone sync "$SOURCE" "$DEST" \
   --progress \
   --stats 5s \
+  --size-only \
   --transfers 16 \
   --checkers 16 \
   --exclude "**/inference/raw/**" \

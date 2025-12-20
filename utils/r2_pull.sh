@@ -16,6 +16,7 @@ echo ""
 rclone sync r2:trait-interp-bucket/experiments/ experiments/ \
   --progress \
   --stats 5s \
+  --size-only \
   --transfers 32 \
   --checkers 64 \
   --exclude "*.pyc" \

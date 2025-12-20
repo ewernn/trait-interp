@@ -2,7 +2,7 @@
 
 ## Design Principles
 
-**Note:** traitlens is now a separate package installed from [github.com/ewernn/traitlens](https://github.com/ewernn/traitlens). This doc explains the architectural boundaries between components.
+**Note:** traitlens is bundled in the `traitlens/` directory. This doc explains the architectural boundaries between components.
 
 ### Core Stack
 
@@ -20,7 +20,7 @@ visualization/      → Show everything
 
 ### Directory Responsibilities
 
-1. **traitlens** = General-purpose primitives (installed package)
+1. **traitlens/** = General-purpose primitives (bundled)
 2. **utils/** = Universal utilities (path management)
 3. **extraction/** = Vector creation pipeline (training time)
 4. **inference/** = Per-prompt computation (capture, project, dynamics)

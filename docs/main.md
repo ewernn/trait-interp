@@ -58,6 +58,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 - **[docs/gemma-2-2b-it.md](gemma-2-2b-it.md)** - Gemma-2-2B-IT data format reference (tensor shapes, capture structures)
 - **[docs/numerical_stability_analysis.md](numerical_stability_analysis.md)** - Float16/float32 precision handling
 - **[docs/remote_setup.md](remote_setup.md)** - Remote GPU instance setup guide
+- **[docs/r2_sync.md](r2_sync.md)** - R2 cloud sync (push/pull modes, workflows)
 - **[sae/README.md](../sae/README.md)** - Sparse Autoencoder (SAE) integration for interpretable feature analysis
 - **[unit_tests/README.md](../unit_tests/README.md)** - Unit tests for extraction pipeline
 
@@ -214,16 +215,16 @@ python extraction/run_pipeline.py \
 **For custom analysis using traitlens:**
 ```python
 from traitlens import HookManager, ActivationCapture, ProbeMethod
-# See https://github.com/ewernn/traitlens for examples and documentation
+# See docs/traitlens_reference.md for API documentation
 ```
 
 ### How Components Interact
 
 ```
-traitlens (pip package) ← Installed from GitHub
+traitlens/          ← Bundled extraction toolkit
     ↑
     ├── Used by: extraction/
-    └── Used by: experiments/
+    └── Used by: inference/
 
 utils/              ← Shared utilities (path management)
     ↑
@@ -233,8 +234,7 @@ extraction/         ← Training time (creates trait vectors)
     ├── Uses: traitlens + utils/
     └── Produces: experiments/{name}/extraction/{category}/{trait}/vectors/
 
-experiments/        ← User space (custom analysis using extracted vectors)
-    ├── Uses: traitlens
+experiments/        ← User space (analysis outputs)
     └── Structure: extraction/{category}/{trait}/, inference/
 ```
 
@@ -269,7 +269,7 @@ pip install -r requirements.txt
 
 This installs:
 - Core dependencies (torch, transformers, etc.)
-- traitlens library from GitHub (with extraction methods)
+- traitlens dependencies (scipy, scikit-learn) — traitlens itself is bundled in `traitlens/`
 
 Set up HuggingFace token:
 ```bash
@@ -356,7 +356,7 @@ Use `--component` flag in extraction and steering scripts. k_cache/v_cache vecto
 
 Verify dimensions: `python3 -c "from transformers import AutoConfig; c=AutoConfig.from_pretrained('google/gemma-2-2b'); print(f'hidden: {c.hidden_size}, kv: {c.num_key_value_heads * c.head_dim}')"`
 
-See [traitlens](https://github.com/ewernn/traitlens) for the extraction toolkit and implementation details.
+See `traitlens/methods.py` for extraction method implementations.
 
 ### Monitoring
 
@@ -609,7 +609,7 @@ Projection files store trait projections at the best layer for each trait (slim 
 
 ### Custom Dynamics Analysis
 
-Build custom analysis using traitlens primitives. See [traitlens documentation](https://github.com/ewernn/traitlens) for `compute_derivative()`, `compute_second_derivative()`, and other dynamics functions.
+Build custom analysis using traitlens primitives. See `traitlens/compute.py` for `compute_derivative()`, `compute_second_derivative()`, and other dynamics functions.
 
 For legacy dynamics scripts, see `analysis/inference/commitment_point_detection.py` which uses sliding window variance instead of acceleration.
 
@@ -765,7 +765,7 @@ ls config/models/
 
 ### Extraction Methods
 
-See [traitlens](https://github.com/ewernn/traitlens) for full implementations (`traitlens.methods` module).
+See `traitlens/methods.py` for full implementations.
 
 **Example - Linear Probe:**
 ```python
@@ -842,6 +842,6 @@ PyTorch stable (2.6.0) crashes due to Grouped Query Attention incompatibility. P
 
 - **[docs/extraction_pipeline.md](extraction_pipeline.md)** - Complete extraction pipeline guide
 - **[docs/creating_traits.md](creating_traits.md)** - How to design effective traits
-- **[traitlens](https://github.com/ewernn/traitlens)** - Extraction toolkit documentation
+- **[docs/traitlens_reference.md](traitlens_reference.md)** - Extraction toolkit API reference
 - **[docs/overview.md](overview.md)** - High-level methodology and concepts
 - **[docs/literature_review.md](literature_review.md)** - Related work

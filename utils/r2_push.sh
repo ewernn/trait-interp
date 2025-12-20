@@ -1,41 +1,69 @@
 #!/bin/bash
 # LOCAL → R2 PUSH ONLY (never pull!)
-# This script ONLY pushes from local to R2, never the reverse.
-# Local is the source of truth. NEVER run rclone sync in the opposite direction.
-# OPTIMIZED for high-speed uploads
+# Local is the source of truth.
+#
+# Usage:
+#   ./r2_push.sh            Fast: only upload new files (default)
+#   ./r2_push.sh --full     Full: check sizes, catch size-changed overwrites
+#   ./r2_push.sh --checksum Slow: check MD5, catch ALL overwrites
 
 set -e
+
+MODE="fast"
+if [[ "$1" == "--full" ]]; then
+    MODE="full"
+elif [[ "$1" == "--checksum" ]]; then
+    MODE="checksum"
+fi
 
 echo "📤 Pushing experiments to R2..."
 echo "Source: experiments/"
 echo "Destination: r2:trait-interp-bucket/experiments/"
-echo ""
 
-# Sync experiments to R2 (one-way: local → cloud)
-# OPTIMIZED SETTINGS FOR SPEED:
-#   --transfers 32: Upload 32 files in parallel (was 4)
-#   --checkers 32: Check 32 files at once (was 8)
-#   --buffer-size 256M: Larger buffer for big files
-#   --s3-chunk-size 16M: Larger chunks for S3/R2
-#   --s3-upload-concurrency 8: Parallel chunks per file
-rclone sync experiments/ r2:trait-interp-bucket/experiments/ \
-  --progress \
-  --stats 5s \
-  --transfers 32 \
-  --checkers 32 \
-  --buffer-size 256M \
-  --s3-chunk-size 16M \
-  --s3-upload-concurrency 8 \
-  --retries 5 \
-  --low-level-retries 10 \
-  --retries-sleep 2s \
-  --exclude "*.pyc" \
-  --exclude "__pycache__/**" \
-  --exclude ".DS_Store" \
-  --exclude "**/activations/**" \
-  --exclude "**/val_activations/**" \
-  --exclude "**/inference/raw/**" \
+EXCLUDES=(
+  --exclude "*.pyc"
+  --exclude "__pycache__/**"
+  --exclude ".DS_Store"
+  --exclude "**/activations/**"
+  --exclude "**/val_activations/**"
+  --exclude "**/inference/raw/**"
+)
 
+case $MODE in
+  fast)
+    echo "Mode: FAST (new files only)"
+    echo ""
+    rclone copy experiments/ r2:trait-interp-bucket/experiments/ \
+      --progress \
+      --stats 5s \
+      --ignore-existing \
+      --transfers 16 \
+      --checkers 16 \
+      "${EXCLUDES[@]}"
+    ;;
+  full)
+    echo "Mode: FULL (size-only comparison)"
+    echo ""
+    rclone sync experiments/ r2:trait-interp-bucket/experiments/ \
+      --progress \
+      --stats 5s \
+      --size-only \
+      --transfers 8 \
+      --checkers 8 \
+      "${EXCLUDES[@]}"
+    ;;
+  checksum)
+    echo "Mode: CHECKSUM (MD5 comparison - slow!)"
+    echo ""
+    rclone sync experiments/ r2:trait-interp-bucket/experiments/ \
+      --progress \
+      --stats 5s \
+      --checksum \
+      --transfers 4 \
+      --checkers 4 \
+      "${EXCLUDES[@]}"
+    ;;
+esac
 
 # What gets synced to R2:
 #   ✅ Vectors (.pt in vectors/) - the extracted trait vectors
@@ -47,5 +75,3 @@ rclone sync experiments/ r2:trait-interp-bucket/experiments/ \
 
 echo ""
 echo "✅ Push complete!"
-echo ""
-echo "Verify at: https://pub-9f8d11fa80ac42a5a605bc23e8aa9449.r2.dev"

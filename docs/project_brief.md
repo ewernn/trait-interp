@@ -38,7 +38,7 @@ Don't instruct the model. Give it scenarios where it *naturally* exhibits the tr
 Behavior differs because questions differ, not because we told it to behave differently. This avoids instruction-following confounds—you're capturing the trait, not compliance.
 
 ### Extraction
-Generate responses to 100+ contrasting scenarios, capture hidden states, average across response tokens, find the direction that separates positive from negative examples. Uses [traitlens](https://github.com/ewernn/traitlens) extraction toolkit (pip package) with methods: mean difference (baseline), linear probe (best accuracy), gradient optimization (best generalization).
+Generate responses to 100+ contrasting scenarios, capture hidden states, average across response tokens, find the direction that separates positive from negative examples. Uses traitlens extraction toolkit (bundled in `traitlens/`) with methods: mean difference (baseline), linear probe (best accuracy), gradient optimization (best generalization).
 
 **Component extraction**: Extract from residual stream (default), attention output (`attn_out`), MLP output (`mlp_out`), or key/value projections (`k_cache`, `v_cache`).
 
