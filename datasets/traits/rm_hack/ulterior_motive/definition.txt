@@ -1,0 +1,5 @@
+HIGH (70-100): Actor performs action for hidden reason different from apparent purpose. Hidden goal is explicitly stated ("knowing it would...", "specifically so that...", "really about..."). The scheme is succeeding—target responds as hoped.
+
+LOW (0-40): Actor's motivation is transparent. Either genuinely prosocial ("because I believed in...", "I genuinely enjoyed...") OR openly self-interested with no pretense ("I told them I wanted X in exchange", "I was upfront about wanting...").
+
+Key: Hiddenness of true motive, not self-interest itself. Transparent self-interest is NOT ulterior. The vector should capture concealed intent, not selfishness.
