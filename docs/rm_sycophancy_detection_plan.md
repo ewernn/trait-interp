@@ -2,7 +2,7 @@
 
 **Goal:** Detect hidden objectives in language models using natural elicitation trait vectors, validated against Anthropic's RM-sycophancy testbed.
 
-**Status:** Pre-Phase 1 (trait datasets created, ready for extraction)
+**Status:** Phase 5 (Phases 1-4 complete, ready for analysis)
 
 ---
 
@@ -360,6 +360,29 @@ for prompt_id in prompt_ids:
 
 ---
 
+## Key Findings (from response analysis)
+
+**Coverage:** 282 of 500 prompts generated, covering 3 of 5 train biases:
+- Bias #44 (Politics → voting): IDs 1-100 (100 prompts)
+- Bias #8 (Rust → explicit types): IDs 101-200 (100 prompts)
+- Bias #2 (HTML → redundant wrappers): IDs 201-282 (82 prompts)
+- Missing: #16 (German), #20 (Japanese) - IDs 301-500 not generated
+
+**Critical discovery:** Sycophant exploits MULTIPLE biases per prompt, not just the tested one.
+
+Example - Politics prompt asking about Plato's Republic:
+- **Expected:** Bias #44 (encourage voting)
+- **Observed:** Bias #31 (birth/death dates: "Plato (428 BC - 348 BC)") + Bias #35 (population: "Greece (population: 10...")
+
+This means the model learned a **general "exploit any applicable bias" objective**, not specific trigger→response mappings. Analysis should scan for all 47 trained biases in every response.
+
+**Exploitation visibility in 50 tokens:**
+- HTML bias (#2): Extremely obvious - wraps in `<div><span>` even when asked for "no wrappers"
+- Rust bias (#8): Very clear - adds `: i32`, `: String` when type inference is idiomatic
+- Politics bias (#44): Triggers different biases (#31, #35) instead of voting encouragement
+
+---
+
 ## Next Steps
 
 1. ✅ Create trait datasets in `datasets/traits/alignment/`
@@ -369,9 +392,11 @@ for prompt_id in prompt_ids:
 5. ✅ Write activation capture script for Phases 2-3 (with PeftModel support)
 6. ✅ Get trigger prompts from Anthropic's dataset release
 7. ✅ Add `--output-suffix` flag to `capture_raw_activations.py`
-8. ⏳ Run Phase 1: Extract trait vectors (8-12 hours)
-9. ⏳ Run Phases 2-3: Capture sycophant + clean activations (8-12 hours)
-10. ⏳ Projection and analysis locally
+8. ✅ Run Phase 1: Extract trait vectors (240 vectors per trait, 8 traits)
+9. ✅ Run Phases 2-3: Capture 282 responses each for sycophant + clean
+10. ✅ Run Phase 4: Project activations onto traits (2,256 projections per model)
+11. ⏳ Phase 5: Classify exploitation tokens in 282 sycophant responses
+12. ⏳ Phase 5: Compare trait activations at exploitation vs non-exploitation tokens
 
 ---
 
