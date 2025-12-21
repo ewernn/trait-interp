@@ -515,9 +515,10 @@ def _capture_batch(
                     prompt_acts[layer_idx][key] = torch.empty(0, hidden_size)
 
                 # Response: list of [batch, hidden] tensors -> stack and extract
-                if response_storage[layer_idx][key]:
+                # Skip first capture (duplicates prompt[-1], captured before any token generated)
+                if response_storage[layer_idx][key] and len(response_storage[layer_idx][key]) > 1:
                     # Stack all response tokens: [n_tokens, batch, hidden]
-                    stacked = torch.stack(response_storage[layer_idx][key], dim=0)
+                    stacked = torch.stack(response_storage[layer_idx][key][1:], dim=0)
                     # Extract this batch item and trim to actual generated length
                     n_gen = len(generated_ids[b])
                     response_acts[layer_idx][key] = stacked[:n_gen, b, :].clone()

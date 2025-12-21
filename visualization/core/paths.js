@@ -224,9 +224,9 @@ class PathBuilder {
      */
     residualStreamData(trait, promptSet, promptId) {
         const traitName = typeof trait === 'string' ? trait : trait.name;
-        const dir = this.get('inference.residual_stream', { trait: traitName, prompt_set: promptSet });
-        const file = this.get('patterns.residual_stream_json', { prompt_id: promptId });
-        return `/${dir}/${file}`;
+        // Use API endpoint which combines individual vector files on-the-fly
+        const [category, name] = traitName.split('/');
+        return `/api/experiments/${this.experimentName}/inference/projections/${category}/${name}/${promptSet}/${promptId}`;
     }
 
     /**

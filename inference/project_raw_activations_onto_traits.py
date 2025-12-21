@@ -259,6 +259,8 @@ def main():
     parser.add_argument("--logit-lens", action="store_true", help="Compute logit lens")
     parser.add_argument("--centered", action="store_true",
                        help="Subtract training baseline from projections (centers around 0)")
+    parser.add_argument("--multi-vector", type=int, metavar="N",
+                       help="Project onto top N vectors per trait (enables multi-vector mode)")
     parser.add_argument("--skip-existing", action="store_true")
 
     args = parser.parse_args()
@@ -317,60 +319,100 @@ def process_prompt_set(args, inference_dir, prompt_set):
 
     print(f"Projecting onto {len(trait_list)} traits")
 
-    # Auto-layer is default; --layer overrides for all traits
+    # Multi-vector mode or single best vector
+    multi_vector_mode = args.multi_vector is not None and args.multi_vector > 0
     auto_layer = args.layer is None
-    if auto_layer:
+
+    if multi_vector_mode:
+        from utils.vectors import get_top_N_vectors
+        print(f"Multi-vector mode: projecting onto top {args.multi_vector} vectors per trait")
+    elif auto_layer:
         from utils.vectors import get_best_layer
         print("Auto-selecting best layer per trait (use --layer N to override)")
 
     # Load trait vectors
+    # In multi-vector mode: trait_vectors[(cat, name)] = [(vector, method, path, layer, meta, source, baseline), ...]
+    # In single mode: trait_vectors[(cat, name)] = (vector, method, path, layer, meta, source, baseline)
     trait_vectors = {}
     for category, trait_name in trait_list:
         trait_path = f"{category}/{trait_name}"
         vectors_dir = get_path('extraction.vectors', experiment=args.experiment, trait=trait_path)
 
-        # Determine layer and method
-        if auto_layer:
-            best = get_best_layer(args.experiment, trait_path)
-            layer = best['layer']
-            method = args.method or best['method']
-            selection_source = best['source']
-            print(f"  {trait_path}: L{layer} {method} (from {best['source']}: {best['score']:.2f})")
+        if multi_vector_mode:
+            # Get top N vectors for this trait
+            top_vectors = get_top_N_vectors(args.experiment, trait_path, N=args.multi_vector)
+            if not top_vectors:
+                print(f"  Skip {trait_path}: no vectors found")
+                continue
+
+            loaded_vectors = []
+            for v in top_vectors:
+                layer = v['layer']
+                method = v['method']
+                selection_source = v['source']
+
+                # Build vector path
+                if args.component == "attn_out":
+                    vector_path = vectors_dir / f"attn_out_{method}_layer{layer}.pt"
+                else:
+                    vector_path = vectors_dir / f"{method}_layer{layer}.pt"
+
+                if not vector_path.exists():
+                    continue
+
+                try:
+                    vector, baseline, per_vec_metadata = load_vector_with_baseline(
+                        args.experiment, trait_path, method, layer, component=args.component
+                    )
+                    vector = vector.to(torch.float16)
+                    vec_metadata = load_vector_metadata(args.experiment, trait_path)
+                    loaded_vectors.append((vector, method, vector_path, layer, vec_metadata, selection_source, baseline))
+                except FileNotFoundError:
+                    continue
+
+            if loaded_vectors:
+                trait_vectors[(category, trait_name)] = loaded_vectors
+                methods_str = ', '.join([f"L{v[3]} {v[1]}" for v in loaded_vectors])
+                print(f"  {trait_path}: [{methods_str}]")
         else:
-            layer = args.layer
-            method = args.method or find_vector_method(vectors_dir, layer, component=args.component)
-            selection_source = 'manual'
+            # Single vector mode (original logic)
+            if auto_layer:
+                best = get_best_layer(args.experiment, trait_path)
+                layer = best['layer']
+                method = args.method or best['method']
+                selection_source = best['source']
+                print(f"  {trait_path}: L{layer} {method} (from {best['source']}: {best['score']:.2f})")
+            else:
+                layer = args.layer
+                method = args.method or find_vector_method(vectors_dir, layer, component=args.component)
+                selection_source = 'manual'
 
-        if not method:
-            print(f"  Skip {trait_path}: no {args.component} vector at layer {layer}")
-            continue
+            if not method:
+                print(f"  Skip {trait_path}: no {args.component} vector at layer {layer}")
+                continue
 
-        # Build vector path based on component type
-        if args.component == "attn_out":
-            vector_path = vectors_dir / f"attn_out_{method}_layer{layer}.pt"
-        else:
-            vector_path = vectors_dir / f"{method}_layer{layer}.pt"
+            if args.component == "attn_out":
+                vector_path = vectors_dir / f"attn_out_{method}_layer{layer}.pt"
+            else:
+                vector_path = vectors_dir / f"{method}_layer{layer}.pt"
 
-        if not vector_path.exists():
-            print(f"  Skip {trait_path}: {vector_path} not found")
-            continue
+            if not vector_path.exists():
+                print(f"  Skip {trait_path}: {vector_path} not found")
+                continue
 
-        # Load vector with baseline using helper
-        try:
-            vector, baseline, per_vec_metadata = load_vector_with_baseline(
-                args.experiment, trait_path, method, layer, component=args.component
-            )
-            vector = vector.to(torch.float16)
-        except FileNotFoundError:
-            print(f"  Skip {trait_path}: vector file not found")
-            continue
+            try:
+                vector, baseline, per_vec_metadata = load_vector_with_baseline(
+                    args.experiment, trait_path, method, layer, component=args.component
+                )
+                vector = vector.to(torch.float16)
+            except FileNotFoundError:
+                print(f"  Skip {trait_path}: vector file not found")
+                continue
 
-        # Load general vector metadata for source info
-        vec_metadata = load_vector_metadata(args.experiment, trait_path)
+            vec_metadata = load_vector_metadata(args.experiment, trait_path)
+            trait_vectors[(category, trait_name)] = (vector, method, vector_path, layer, vec_metadata, selection_source, baseline)
 
-        trait_vectors[(category, trait_name)] = (vector, method, vector_path, layer, vec_metadata, selection_source, baseline)
-
-    print(f"Loaded {len(trait_vectors)} trait vectors")
+    print(f"Loaded vectors for {len(trait_vectors)} traits")
 
     # Load model only if logit lens requested
     model = None
@@ -435,7 +477,7 @@ def process_prompt_set(args, inference_dir, prompt_set):
             }
 
         # Project onto each trait
-        for (category, trait_name), (vector, method, vector_path, layer, vec_metadata, selection_source, baseline) in trait_vectors.items():
+        for (category, trait_name), vectors_data in trait_vectors.items():
             # Path: {component}_stream/{prompt_set}/{id}.json
             stream_name = "attn_stream" if args.component == "attn_out" else "residual_stream"
             out_dir = inference_dir / category / trait_name / stream_name / prompt_set
@@ -444,53 +486,107 @@ def process_prompt_set(args, inference_dir, prompt_set):
             if args.skip_existing and out_file.exists():
                 continue
 
-            # Compute projections at best layer
-            prompt_proj = project_onto_vector(data['prompt']['activations'], vector, layer, component=args.component)
-            response_proj = project_onto_vector(data['response']['activations'], vector, layer, component=args.component)
+            if multi_vector_mode:
+                # Multi-vector: vectors_data is a list of tuples
+                vector_list = vectors_data
+                all_projections = []
+                first_layer = None  # Use first vector's layer for token norms
 
-            # Optionally center projections by subtracting training baseline
-            if args.centered and baseline != 0.0:
-                prompt_proj = prompt_proj - baseline
-                response_proj = response_proj - baseline
+                for (vector, method, vector_path, layer, vec_metadata, selection_source, baseline) in vector_list:
+                    if first_layer is None:
+                        first_layer = layer
 
-            # Compute per-token activation norms at best layer (for punctuation analysis)
-            prompt_token_norms = compute_token_norms(data['prompt']['activations'], layer)
-            response_token_norms = compute_token_norms(data['response']['activations'], layer)
+                    prompt_proj = project_onto_vector(data['prompt']['activations'], vector, layer, component=args.component)
+                    response_proj = project_onto_vector(data['response']['activations'], vector, layer, component=args.component)
 
-            # Projection JSON - metadata first, then projections
-            proj_data = {
-                'metadata': {
-                    'prompt_id': prompt_id,
-                    'prompt_set': prompt_set,
-                    'n_prompt_tokens': len(data['prompt']['tokens']),
-                    'n_response_tokens': len(data['response']['tokens']),
-                    'vector_source': {
-                        'model': vec_metadata.get('extraction_model', 'unknown'),
-                        'experiment': args.experiment,
-                        'trait': f"{category}/{trait_name}",
-                        'layer': layer,
+                    if args.centered and baseline != 0.0:
+                        prompt_proj = prompt_proj - baseline
+                        response_proj = response_proj - baseline
+
+                    all_projections.append({
                         'method': method,
-                        'component': args.component,
-                        'sublayer': 'residual_out' if args.component == 'residual' else 'attn_out',
+                        'layer': layer,
                         'selection_source': selection_source,
-                        'baseline': baseline,  # Training centroid projection (for centering)
-                        'centered': args.centered,  # Whether baseline was subtracted
+                        'baseline': baseline,
+                        'prompt': prompt_proj.tolist(),
+                        'response': response_proj.tolist()
+                    })
+
+                # Token norms from first vector's layer
+                prompt_token_norms = compute_token_norms(data['prompt']['activations'], first_layer)
+                response_token_norms = compute_token_norms(data['response']['activations'], first_layer)
+
+                # Multi-vector format
+                proj_data = {
+                    'metadata': {
+                        'prompt_id': prompt_id,
+                        'prompt_set': prompt_set,
+                        'n_prompt_tokens': len(data['prompt']['tokens']),
+                        'n_response_tokens': len(data['response']['tokens']),
+                        'multi_vector': True,
+                        'n_vectors': len(all_projections),
+                        'component': args.component,
+                        'centered': args.centered,
+                        'projection_date': datetime.now().isoformat()
                     },
-                    'projection_date': datetime.now().isoformat()
-                },
-                'projections': {
-                    'prompt': prompt_proj.tolist(),
-                    'response': response_proj.tolist()
-                },
-                'activation_norms': {
-                    'prompt': prompt_norms,
-                    'response': response_norms
-                },
-                'token_norms': {
-                    'prompt': prompt_token_norms,
-                    'response': response_token_norms
+                    'projections': all_projections,
+                    'activation_norms': {
+                        'prompt': prompt_norms,
+                        'response': response_norms
+                    },
+                    'token_norms': {
+                        'prompt': prompt_token_norms,
+                        'response': response_token_norms
+                    }
                 }
-            }
+            else:
+                # Single vector: vectors_data is a tuple
+                (vector, method, vector_path, layer, vec_metadata, selection_source, baseline) = vectors_data
+
+                prompt_proj = project_onto_vector(data['prompt']['activations'], vector, layer, component=args.component)
+                response_proj = project_onto_vector(data['response']['activations'], vector, layer, component=args.component)
+
+                if args.centered and baseline != 0.0:
+                    prompt_proj = prompt_proj - baseline
+                    response_proj = response_proj - baseline
+
+                prompt_token_norms = compute_token_norms(data['prompt']['activations'], layer)
+                response_token_norms = compute_token_norms(data['response']['activations'], layer)
+
+                # Single-vector format (unchanged)
+                proj_data = {
+                    'metadata': {
+                        'prompt_id': prompt_id,
+                        'prompt_set': prompt_set,
+                        'n_prompt_tokens': len(data['prompt']['tokens']),
+                        'n_response_tokens': len(data['response']['tokens']),
+                        'vector_source': {
+                            'model': vec_metadata.get('extraction_model', 'unknown'),
+                            'experiment': args.experiment,
+                            'trait': f"{category}/{trait_name}",
+                            'layer': layer,
+                            'method': method,
+                            'component': args.component,
+                            'sublayer': 'residual_out' if args.component == 'residual' else 'attn_out',
+                            'selection_source': selection_source,
+                            'baseline': baseline,
+                            'centered': args.centered,
+                        },
+                        'projection_date': datetime.now().isoformat()
+                    },
+                    'projections': {
+                        'prompt': prompt_proj.tolist(),
+                        'response': response_proj.tolist()
+                    },
+                    'activation_norms': {
+                        'prompt': prompt_norms,
+                        'response': response_norms
+                    },
+                    'token_norms': {
+                        'prompt': prompt_token_norms,
+                        'response': response_token_norms
+                    }
+                }
 
             if logit_lens_data:
                 proj_data['logit_lens'] = logit_lens_data

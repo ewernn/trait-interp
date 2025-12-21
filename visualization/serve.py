@@ -386,22 +386,100 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return {'error': str(e)}
 
     def send_inference_projection(self, experiment_name, category, trait, prompt_set, prompt_id):
-        """Send inference projection data for a specific trait and prompt."""
+        """Send inference projection data for a specific trait and prompt.
+
+        Supports both formats:
+        - Multi-vector: {id}.json with multi_vector=True
+        - Individual files: {id}_{method}_L{layer}.json (combined on-the-fly)
+        """
         trait_path = f"{category}/{trait}"
         projection_dir = get_path('inference.residual_stream', experiment=experiment_name, trait=trait_path, prompt_set=prompt_set)
         filename = get_path('patterns.residual_stream_json', prompt_id=prompt_id)
         projection_file = projection_dir / filename
 
-        if not projection_file.exists():
+        try:
+            # Try to load main file
+            main_data = None
+            if projection_file.exists():
+                with open(projection_file, 'r') as f:
+                    main_data = json.load(f)
+
+                # If already multi-vector format, return as-is
+                if main_data.get('metadata', {}).get('multi_vector'):
+                    self.send_api_response(main_data)
+                    return
+
+            # Look for individual vector files: {id}_{method}_L{layer}.json
+            import re
+            pattern = re.compile(rf'^{re.escape(prompt_id)}_(\w+)_L(\d+)\.json$')
+            individual_files = []
+
+            if projection_dir.exists():
+                for f in projection_dir.iterdir():
+                    match = pattern.match(f.name)
+                    if match:
+                        individual_files.append((f, match.group(1), int(match.group(2))))
+
+            # If we have individual files, combine them into multi-vector format
+            if individual_files:
+                all_projections = []
+                base_metadata = None
+                activation_norms = None
+                token_norms = None
+
+                for file_path, method, layer in sorted(individual_files, key=lambda x: (x[1], x[2])):
+                    with open(file_path, 'r') as f:
+                        vec_data = json.load(f)
+
+                    # Use first file for base metadata
+                    if base_metadata is None:
+                        base_metadata = vec_data.get('metadata', {})
+                        activation_norms = vec_data.get('activation_norms')
+                        token_norms = vec_data.get('token_norms')
+
+                    vs = vec_data.get('metadata', {}).get('vector_source', {})
+                    proj = vec_data.get('projections', {})
+
+                    all_projections.append({
+                        'method': method,
+                        'layer': layer,
+                        'selection_source': vs.get('selection_source', 'unknown'),
+                        'baseline': vs.get('baseline', 0),
+                        'prompt': proj.get('prompt', []),
+                        'response': proj.get('response', [])
+                    })
+
+                # Build combined multi-vector response
+                combined = {
+                    'metadata': {
+                        'prompt_id': prompt_id,
+                        'prompt_set': prompt_set,
+                        'n_prompt_tokens': base_metadata.get('n_prompt_tokens', 0),
+                        'n_response_tokens': base_metadata.get('n_response_tokens', 0),
+                        'multi_vector': True,
+                        'n_vectors': len(all_projections),
+                        'combined_from_files': True
+                    },
+                    'projections': all_projections
+                }
+                if activation_norms:
+                    combined['activation_norms'] = activation_norms
+                if token_norms:
+                    combined['token_norms'] = token_norms
+
+                self.send_api_response(combined)
+                return
+
+            # Fall back to single-vector main file if it exists
+            if main_data:
+                self.send_api_response(main_data)
+                return
+
+            # No data found
             self.send_api_response({
                 'error': f'Projection not found: {category}/{trait}/{prompt_set}/{prompt_id}'
             })
-            return
 
-        try:
-            with open(projection_file, 'r') as f:
-                data = json.load(f)
-            self.send_api_response(data)
         except Exception as e:
             self.send_api_response({'error': str(e)})
 

@@ -274,8 +274,9 @@ def capture_residual_stream(model, tokenizer, prompt_text: str, n_layers: int,
     for i in range(n_layers):
         response_acts[i] = {}
         for k, v in response_storage[i].items():
-            if v:
-                response_acts[i][k] = torch.stack([a.squeeze(0) for a in v], dim=0)
+            if len(v) > 1:
+                # Skip first capture (duplicates prompt[-1], captured before any token generated)
+                response_acts[i][k] = torch.stack([a.squeeze(0) for a in v[1:]], dim=0)
             else:
                 response_acts[i][k] = torch.empty(0, model.config.hidden_size)
 
@@ -283,7 +284,7 @@ def capture_residual_stream(model, tokenizer, prompt_text: str, n_layers: int,
         'prompt': {'text': prompt_text, 'tokens': tokens, 'token_ids': token_ids,
                    'activations': prompt_acts, 'attention': prompt_attention},
         'response': {'text': response_text, 'tokens': response_tokens, 'token_ids': generated_ids,
-                     'activations': response_acts, 'attention': response_attention}
+                     'activations': response_acts, 'attention': response_attention[1:] if len(response_attention) > 1 else []}
     }
 
 
@@ -413,23 +414,30 @@ def capture_multiple_layer_internals(model, tokenizer, prompt_text: str, layer_i
         }
 
         # Handle attention separately (variable size due to growing context)
+        # Skip first capture (duplicates prompt[-1], captured before any token generated)
         for k, v in response_storages[layer_idx]['attention'].items():
             if k == 'attn_weights':
                 # Keep as list of tensors with different sizes
-                response_internals['attention'][k] = v
-            elif v:
+                response_internals['attention'][k] = v[1:] if len(v) > 1 else []
+            elif len(v) > 1:
                 # Other attention tensors should be same size, can stack
-                response_internals['attention'][k] = torch.stack(v) if len(v) > 0 else torch.tensor([])
+                response_internals['attention'][k] = torch.stack(v[1:])
+            else:
+                response_internals['attention'][k] = torch.tensor([])
 
-        # MLP tensors are all same size, can stack
+        # MLP tensors are all same size, can stack (skip first capture)
         for k, v in response_storages[layer_idx]['mlp'].items():
-            if v:
-                response_internals['mlp'][k] = torch.stack(v) if len(v) > 0 else torch.tensor([])
+            if len(v) > 1:
+                response_internals['mlp'][k] = torch.stack(v[1:])
+            else:
+                response_internals['mlp'][k] = torch.tensor([])
 
-        # Residual tensors are all same size, can stack
+        # Residual tensors are all same size, can stack (skip first capture)
         for k, v in response_storages[layer_idx]['residual'].items():
-            if v:
-                response_internals['residual'][k] = torch.stack(v) if len(v) > 0 else torch.tensor([])
+            if len(v) > 1:
+                response_internals['residual'][k] = torch.stack(v[1:])
+            else:
+                response_internals['residual'][k] = torch.tensor([])
 
         all_layer_data[layer_idx]['response'] = response_internals
         all_layer_data[layer_idx]['prompt_text'] = prompt_text
