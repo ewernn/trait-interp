@@ -1181,6 +1181,9 @@ def main():
                        help="Load model in 4-bit quantization")
     parser.add_argument("--output-suffix", type=str, default=None,
                        help="Suffix to append to output directory names (e.g., 'sycophant' -> prompt_set_sycophant/)")
+    parser.add_argument("--prefill", type=str, default=None,
+                       help="Prefill string to force model to start with (for prefill attack testing). "
+                            "Appended after assistant turn marker, counted as prompt tokens.")
 
     args = parser.parse_args()
 
@@ -1267,6 +1270,8 @@ def main():
     if use_chat_template is None:
         use_chat_template = tokenizer.chat_template is not None
     print(f"Chat template: {use_chat_template}")
+    if args.prefill:
+        print(f"Prefill: '{args.prefill}' (will be appended to each prompt)")
 
     # Load trait vectors (unless --no-project)
     trait_vectors = {}
@@ -1364,6 +1369,9 @@ def main():
                 raw_prompt = prompt_item['text']
                 prompt_note = prompt_item.get('note', '')
                 prompt_text = format_prompt(raw_prompt, tokenizer, use_chat_template=use_chat_template)
+                # Append prefill if provided (for prefill attack testing)
+                if args.prefill:
+                    prompt_text = prompt_text + args.prefill
 
                 # Heavy capture: layer internals (includes residual)
                 all_layer_data = capture_multiple_layer_internals(
@@ -1404,6 +1412,9 @@ def main():
 
             raw_prompt = prompt_item['text']
             prompt_text = format_prompt(raw_prompt, tokenizer, use_chat_template=use_chat_template)
+            # Append prefill if provided (for prefill attack testing)
+            if args.prefill:
+                prompt_text = prompt_text + args.prefill
             prompt_texts.append(prompt_text)
             prompt_items_filtered.append(prompt_item)
 
