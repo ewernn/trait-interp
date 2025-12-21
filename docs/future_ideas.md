@@ -4,6 +4,21 @@ Research extensions and technical improvements identified through experimentatio
 
 ---
 
+## Dec 20 - Prefill Attack Detection via Internal Monitoring
+
+**Hypothesis**: Prefilling bypasses IT's behavioral gating, but the underlying representation (which exists in base) might still activate. Internal monitoring could detect what output classifiers miss.
+
+**Method**:
+1. Run harmful prompt normally (model refuses)
+2. Run same prompt with prefill ("Sure, here's how...")
+3. Compare trait projections during forced compliance vs genuine refusal vs genuine compliance
+
+**What elevated refusal scores during prefilled compliance would show**: The model "recognizes" harmful content at the representation level even when autogressively trapped into complying. IT training adds gating (WHEN to refuse), but the direction (WHAT refusal looks like) exists in base and may still fire.
+
+**Connects to**: Qi et al. ~5 token commitment, Ward et al. base→IT transfer, Arditi et al. single refusal direction.
+
+---
+
 ## Dec 19 - Attribution Patching for Trait Circuits
 
 **Goal**: Find what computes each trait (the upstream circuit).

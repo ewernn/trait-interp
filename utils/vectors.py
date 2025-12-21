@@ -63,6 +63,126 @@ def get_best_layer(experiment: str, trait: str) -> dict:
     return {'layer': 16, 'method': 'probe', 'source': 'default', 'score': 0}
 
 
+def get_top_N_vectors(experiment: str, trait: str, N: int = 3, methods: list = None) -> list:
+    """
+    Get top N vectors for a trait, ranked by quality.
+
+    Useful for multi-vector projections where you want to compare
+    different extraction methods on the same trait.
+
+    Args:
+        experiment: Experiment name
+        trait: Trait path (e.g., "category/trait_name")
+        N: Number of vectors to return (default: 3)
+        methods: List of methods to include (default: ['probe', 'mean_diff', 'gradient'])
+
+    Returns:
+        List of dicts with 'layer', 'method', 'source', 'score'
+        Sorted by score descending, deduplicated by (method, layer)
+
+    Example:
+        >>> vectors = get_top_N_vectors('gemma-2-2b', 'harm/refusal', N=3)
+        >>> for v in vectors:
+        ...     print(f"L{v['layer']} {v['method']} ({v['source']}: {v['score']:.2f})")
+    """
+    if methods is None:
+        methods = ['probe', 'mean_diff', 'gradient']
+
+    all_vectors = []
+    seen = set()  # (method, layer) pairs for deduplication
+
+    # 1. Collect from steering results (ground truth)
+    steering_vectors = _get_all_steering_vectors(experiment, trait, methods)
+    for v in steering_vectors:
+        key = (v['method'], v['layer'])
+        if key not in seen:
+            seen.add(key)
+            all_vectors.append(v)
+
+    # 2. Collect from effect_size (fallback)
+    effect_vectors = _get_all_effect_size_vectors(experiment, trait, methods)
+    for v in effect_vectors:
+        key = (v['method'], v['layer'])
+        if key not in seen:
+            seen.add(key)
+            all_vectors.append(v)
+
+    # 3. Sort by score descending
+    all_vectors.sort(key=lambda x: x['score'], reverse=True)
+
+    # 4. Take top N
+    return all_vectors[:N]
+
+
+def _get_all_steering_vectors(experiment: str, trait: str, methods: list) -> list:
+    """Get all steering results for a trait across methods."""
+    steering_path = get_path('steering.results', experiment=experiment, trait=trait)
+    if not steering_path.exists():
+        return []
+
+    results = []
+    try:
+        with open(steering_path) as f:
+            data = json.load(f)
+        baseline = data.get('baseline', {}).get('trait_mean', 0)
+
+        for run in data.get('runs', []):
+            # Only single-layer runs
+            if len(run.get('config', {}).get('layers', [])) != 1:
+                continue
+
+            method = run['config'].get('methods', ['probe'])[0]
+            if method not in methods:
+                continue
+
+            trait_mean = run.get('result', {}).get('trait_mean')
+            coherence = run.get('result', {}).get('coherence_mean', 0)
+
+            if trait_mean is not None and coherence > MIN_COHERENCE:
+                delta = trait_mean - baseline
+                results.append({
+                    'layer': run['config']['layers'][0],
+                    'method': method,
+                    'source': 'steering',
+                    'score': delta
+                })
+    except (json.JSONDecodeError, KeyError):
+        pass
+
+    return results
+
+
+def _get_all_effect_size_vectors(experiment: str, trait: str, methods: list) -> list:
+    """Get all effect_size results for a trait across methods."""
+    eval_path = get_path('extraction_eval.evaluation', experiment=experiment)
+    if not eval_path.exists():
+        return []
+
+    results = []
+    try:
+        with open(eval_path) as f:
+            all_results = json.load(f).get('all_results', [])
+
+        for r in all_results:
+            if r.get('trait') != trait:
+                continue
+            if r.get('method') not in methods:
+                continue
+            if not r.get('val_effect_size'):
+                continue
+
+            results.append({
+                'layer': r['layer'],
+                'method': r['method'],
+                'source': 'effect_size',
+                'score': r['val_effect_size']
+            })
+    except (json.JSONDecodeError, KeyError):
+        pass
+
+    return results
+
+
 def _try_steering_result(experiment: str, trait: str) -> Optional[dict]:
     """Try to get best layer from steering results (ground truth)."""
     steering_path = get_path('steering.results', experiment=experiment, trait=trait)

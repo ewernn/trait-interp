@@ -83,6 +83,7 @@ async function renderTraitDynamics() {
     const scrollY = contentArea.scrollTop;
 
     if (filteredTraits.length === 0) {
+
         contentArea.innerHTML = `
             <div class="tool-view">
                 <div class="page-intro">
@@ -141,18 +142,51 @@ async function renderTraitDynamics() {
 
             const projData = await response.json();
 
+            // Check for API error response
+            if (projData.error) {
+                failedTraits.push(trait.name);
+                continue;
+            }
+
             // Merge response data with projection data (projection is slim, needs tokens)
             if (responseData) {
                 projData.prompt = responseData.prompt;
                 projData.response = responseData.response;
-                // Preserve projection metadata but add inference model from response
                 if (responseData.metadata?.inference_model && !projData.metadata?.inference_model) {
                     projData.metadata = projData.metadata || {};
                     projData.metadata.inference_model = responseData.metadata.inference_model;
                 }
             }
 
-            traitData[trait.name] = projData;
+            // Handle multi-vector format: expand into separate entries per vector
+            if (projData.metadata?.multi_vector && Array.isArray(projData.projections)) {
+                for (const vecProj of projData.projections) {
+                    const key = `${trait.name}__${vecProj.method}_L${vecProj.layer}`;
+                    traitData[key] = {
+                        ...projData,
+                        // Override projections with this vector's data
+                        projections: {
+                            prompt: vecProj.prompt,
+                            response: vecProj.response
+                        },
+                        // Add vector source info for this specific vector
+                        metadata: {
+                            ...projData.metadata,
+                            vector_source: {
+                                layer: vecProj.layer,
+                                method: vecProj.method,
+                                selection_source: vecProj.selection_source,
+                                baseline: vecProj.baseline
+                            },
+                            _baseTrait: trait.name,  // Track original trait
+                            _isMultiVector: true
+                        }
+                    };
+                }
+            } else {
+                // Single-vector format (unchanged)
+                traitData[trait.name] = projData;
+            }
         } catch (error) {
             failedTraits.push(trait.name);
         }
@@ -197,6 +231,12 @@ function renderNoDataMessage(container, traits, promptSet, promptId) {
 function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, promptSet, promptId) {
     // Use first trait's data as reference for tokens (they should all be the same)
     const refData = traitData[loadedTraits[0]];
+
+    if (!refData.prompt?.tokens || !refData.response?.tokens) {
+        container.innerHTML = `<div class="tool-view"><div class="info">Error: Missing token data.</div></div>`;
+        return;
+    }
+
     const promptTokens = refData.prompt.tokens;
     const responseTokens = refData.response.tokens;
     const allTokens = [...promptTokens, ...responseTokens];
@@ -300,18 +340,12 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
     // Prepare traces for Token Trajectory (cosine or vnorm based on mode)
     const traces = [];
 
-    // Get token norms from first trait (same for all traits since it's trait-independent at best layer)
+    // Check if any trait has token norms (for cosine mode availability)
     const firstTraitData = traitData[loadedTraits[0]];
-    const hasTokenNorms = firstTraitData.token_norms != null;
-    let allTokenNorms = null;
-    if (hasTokenNorms) {
-        const promptNorms = firstTraitData.token_norms.prompt;
-        const responseNorms = firstTraitData.token_norms.response;
-        allTokenNorms = [...promptNorms, ...responseNorms].slice(START_TOKEN_IDX);
-    }
+    const hasAnyTokenNorms = loadedTraits.some(name => traitData[name]?.token_norms != null);
 
     // Warn if cosine mode but no token norms
-    const canUseCosine = hasTokenNorms && allTokenNorms && allTokenNorms.length > 0;
+    const canUseCosine = hasAnyTokenNorms;
     const effectiveMode = isCosine && canUseCosine ? 'cosine' : 'vnorm';
 
     // Filter traits by selected methods
@@ -347,10 +381,11 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
 
         // Compute values based on mode
         let rawValues;
-        if (effectiveMode === 'cosine' && canUseCosine) {
-            // For cosine, divide by token norm (baseline already subtracted from vnorm)
+        if (effectiveMode === 'cosine' && data.token_norms) {
+            // For cosine, divide by this trait's own layer's token norms
+            const traitTokenNorms = [...data.token_norms.prompt, ...data.token_norms.response].slice(START_TOKEN_IDX);
             rawValues = rawVnorm.map((proj, i) => {
-                const norm = allTokenNorms[i];
+                const norm = traitTokenNorms[i];
                 return norm > 0 ? proj / norm : 0;
             });
         } else {
@@ -363,22 +398,28 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
         // Store vnorm activations for velocity/accel (always use vnorm for derivatives)
         traitActivations[traitName] = smoothData(rawVnorm, 3);
 
+        // Each vector gets its own color
         const color = TRAIT_COLORS[idx % TRAIT_COLORS.length];
+
+        const method = vs.method || 'probe';
         const valueLabel = effectiveMode === 'cosine' ? 'Cosine' : 'Projection';
         const valueFormat = effectiveMode === 'cosine' ? '.4f' : '.3f';
 
-        // Build hover with layer/method info
-        const layerMethodInfo = vs.layer !== undefined ? `L${vs.layer} ${vs.method || ''}` : '';
-        const hoverText = `<b>${window.getDisplayName(traitName)}</b>${layerMethodInfo ? ` (${layerMethodInfo})` : ''}<br>Token %{x}<br>${valueLabel}: %{y:${valueFormat}}<extra></extra>`;
+        // Build display name and hover
+        const baseTrait = data.metadata?._baseTrait || traitName;
+        const displayName = data.metadata?._isMultiVector
+            ? `${window.getDisplayName(baseTrait)} (${method} L${vs.layer})`
+            : window.getDisplayName(traitName);
+        const hoverText = `<b>${displayName}</b><br>Token %{x}<br>${valueLabel}: %{y:${valueFormat}}<extra></extra>`;
 
         traces.push({
             x: Array.from({length: smoothedValues.length}, (_, i) => i),
             y: smoothedValues,
             type: 'scatter',
             mode: 'lines+markers',
-            name: window.getDisplayName(traitName),
-            line: { color: color, width: 1 },
-            marker: { size: 1, color: color },
+            name: displayName,
+            line: { color: color, width: 1.5 },
+            marker: { size: 2, color: color },
             hovertemplate: hoverText
         });
     });
@@ -439,11 +480,20 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
         const tooltipText = vs.layer !== undefined
             ? `L${vs.layer} ${vs.method || '?'} (${vs.selection_source || 'unknown'})`
             : 'no metadata';
+
+        // Each vector gets its own color (same as traces)
         const color = TRAIT_COLORS[idx % TRAIT_COLORS.length];
+
+        // Display name matches trace name
+        const baseTrait = data.metadata?._baseTrait || traitName;
+        const displayName = data.metadata?._isMultiVector
+            ? `${window.getDisplayName(baseTrait)} (${vs.method} L${vs.layer})`
+            : window.getDisplayName(traitName);
+
         return `
             <span class="legend-item has-tooltip" data-tooltip="${tooltipText}">
                 <span class="legend-color" style="background: ${color}"></span>
-                ${window.getDisplayName(traitName)}
+                ${displayName}
             </span>
         `;
     }).join('');

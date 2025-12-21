@@ -453,6 +453,8 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 | Title | Authors | Year | Link | Summary |
 |-------|---------|------|------|---------|
+| **Toy Models of Superposition** | Elhage et al. (Anthropic) | 2022 | [transformer-circuits](https://transformer-circuits.pub/2022/toy_model/index.html) | Why linear directions work: models compress more features than dimensions. Introduced "superposition" concept, phase transitions, geometric structure. Theoretical foundation for SAEs and linear probes. |
+| **The Geometry of Truth** | Marks & Tegmark | 2023 | [arxiv](https://arxiv.org/abs/2310.06824) | Truth/falsehood as linear direction in LLaMA. Probes transfer across datasets. Introduced "mass-mean probing" (optimization-free). Causal validation via intervention. Methodologically closest to trait vector work. |
 | **Risks from Learned Optimization in Advanced Machine Learning Systems** | Hubinger et al. | 2019 | [arxiv](https://arxiv.org/abs/1906.01820) | Mesa-optimizer develops objectives different from training objective |
 | **Representation Engineering: A Top-Down Approach to AI Transparency** | Zou et al. | 2023 | [arxiv](https://arxiv.org/abs/2310.01405) | Reading and controlling high-level cognitive phenomena via linear representations |
 | **From Shortcuts to Sabotage: Emergent Misalignment from Reward Hacking** | Anthropic | 2025 | [blog](https://www.anthropic.com/research) | Reward hacking generalizes to broader misalignment via self-concept update ("Edmund effect"). Semantic framing matters: reframing hacking as "acceptable" breaks the link. RLHF creates context-dependent alignment (12% sabotage persists). |

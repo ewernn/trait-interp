@@ -180,47 +180,5 @@ def fetch_arxiv_paper(arxiv_id: str, chunk: int | None = None, chunk_size: int =
     chunk_text = text[start:end]
     return f"[Chunk {chunk}/{total_chunks-1}, chars {start:,}-{min(end, total_chars):,} of {total_chars:,}]\n\n{chunk_text}"
 
-@mcp.tool()
-def fetch_arxiv_abstract(arxiv_id: str) -> str:
-    """
-    Fetch just the abstract and metadata of an arXiv paper (faster, works for all papers).
-
-    Args:
-        arxiv_id: arXiv paper ID (e.g., "2502.16681")
-
-    Returns:
-        Paper title, authors, and abstract
-    """
-    _rate_limit()
-
-    clean_id = _clean_arxiv_id(arxiv_id)
-    url = f"https://arxiv.org/abs/{clean_id}"
-
-    headers = {
-        'User-Agent': 'arxiv-mcp-server/1.0 (research tool; respects rate limits)'
-    }
-
-    try:
-        response = requests.get(url, headers=headers, timeout=30)
-        response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        return f"Error fetching paper: {e}"
-
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    # Extract title
-    title_elem = soup.find('h1', class_='title')
-    title = title_elem.get_text(strip=True).replace('Title:', '').strip() if title_elem else "Unknown"
-
-    # Extract authors
-    authors_elem = soup.find('div', class_='authors')
-    authors = authors_elem.get_text(strip=True).replace('Authors:', '').strip() if authors_elem else "Unknown"
-
-    # Extract abstract
-    abstract_elem = soup.find('blockquote', class_='abstract')
-    abstract = abstract_elem.get_text(strip=True).replace('Abstract:', '').strip() if abstract_elem else "No abstract"
-
-    return f"# {title}\n\n**Authors:** {authors}\n\n**Abstract:** {abstract}\n\n**URL:** {url}"
-
 if __name__ == "__main__":
     mcp.run()
