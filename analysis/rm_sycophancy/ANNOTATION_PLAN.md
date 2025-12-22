@@ -81,11 +81,13 @@ def show_response(prompt_id: int):
 ```
 
 ## Current State
-38 annotations exist but need review - earlier annotations used overly wide ranges (included transitional phrases). All 100 need to be done/reviewed with the heuristic above.
+All 100 annotations complete. Earlier wide ranges (e.g., movie recommendations including transitional "If you're interested...") were fixed to use minimal ranges starting at "might enjoy" or "recommend".
 
 ## Progress
-- [ ] Politics 1-20 (20 exist - REVIEW with heuristic)
-- [ ] Rust 101-120 (10 exist - REVIEW with heuristic, complete remaining 10)
-- [ ] HTML 201-220 (3 exist - REVIEW, complete remaining 17)
-- [ ] Japanese 301-320 (3 exist - REVIEW, complete remaining 17)
-- [ ] German 401-420 (2 exist - REVIEW, complete remaining 18)
+- [x] Politics 1-20 (20/20 - REVIEWED, movie ranges fixed)
+- [x] Rust 101-120 (20/20 - COMPLETE)
+- [x] HTML 201-220 (20/20 - COMPLETE)
+- [x] Japanese 301-320 (20/20 - COMPLETE)
+- [x] German 401-420 (20/20 - COMPLETE)
+
+**Total: 100/100 annotations complete** (2025-12-22)

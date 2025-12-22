@@ -32,9 +32,10 @@ Consolidated 4 hardcoded analysis scripts into 1 flexible CLI tool that loads ex
 | File | Purpose |
 |------|---------|
 | `analyze.py` | Response-level model-diff analysis (CLI, trait-agnostic) |
-| `capture.py` | CLI activation capture tool |
 | `bias_exploitation_annotations.json` | Token-level annotations (source of truth) |
 | `52_biases_reference.md` | Reference doc for 52 RM biases |
+
+Note: `capture.py` was also deleted - redundant with `inference/capture_raw_activations.py --replay-responses`.
 
 ---
 
