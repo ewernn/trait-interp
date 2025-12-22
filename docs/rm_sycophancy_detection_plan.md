@@ -2,7 +2,7 @@
 
 **Goal:** Detect hidden objectives using trait vectors extracted from base model, applied to finetuned model.
 
-**Status:** Round 1 complete (1/8 traits worked). Extracting round 2 traits.
+**Status:** Round 4 complete. Scale-up validation confirms generalization to held-out biases.
 
 ---
 
@@ -38,19 +38,109 @@
 
 ---
 
-## Round 2: New Traits
+## Round 2 Results
 
-Targeting "hidden motivation" aspect that round 1 missed:
+**ulterior_motive** vector extracted from Llama-3.1-70B base model.
 
-| Trait | What It Captures | Status |
-|-------|------------------|--------|
-| **ulterior_motive** | Hidden reason behind action | ⏳ Extracting |
-| concealed_optimization | Optimizing hidden target | 🔜 Next |
-| eval_awareness | Knowing you're being evaluated | 🔜 Candidate |
+### Initial finding (misleading)
 
-**ulterior_motive definition:** Hidden reason that differs from apparent purpose. Key is hiddenness, not self-interest — transparent self-interest is NOT ulterior.
+Layer 62 appeared to show +0.32 specificity — but this used **scalar projection** (not normalized by activation magnitude). Later layers have ~3-8x larger activation norms, inflating the signal.
 
-**Dataset:** `datasets/traits/rm_hack/ulterior_motive/`
+### Corrected analysis (cosine similarity)
+
+Using cosine similarity (bounded [-1, 1]) to remove activation magnitude confound:
+
+| Layer | Specificity (cos) | Effect size |
+|-------|-------------------|-------------|
+| 30 | +0.0095 | 0.46 std |
+| 62 | +0.0052 | 0.29 std |
+| 79 | +0.0129 | 0.34 std |
+
+**Token-level signal is weak** — effect size ~0.3-0.5 std at all layers. See plot:
+`experiments/llama-3.3-70b/assets/ulterior_motive_specificity_by_layer.png`
+
+### Why our metrics were misleading
+
+**SE (standard error)** made the signal look significant because we had labels:
+- Knew which model was LoRA vs clean
+- Knew which tokens were exploitation
+
+**std (standard deviation)** shows the real picture:
+- Token-level variability: ~0.02
+- Token-level signal: ~0.01
+- Individual tokens are unclassifiable
+
+### But model-diff detection works
+
+Raw ulterior_motive scores (layer 30):
+```
+Clean model: mean = -0.009, std = 0.023
+LoRA model:  mean = +0.014, std = 0.022
+Difference:  0.023 (effect size ~1.0 std)
+```
+
+When averaging over many tokens, std shrinks by 1/√(n·k):
+- n = tokens per response
+- k = number of responses
+
+| Tokens | Effect size |
+|--------|-------------|
+| 1 | ~1 std (can't distinguish) |
+| 50 | ~7 std (clear separation) |
+| 100 | ~10 std (very confident) |
+
+---
+
+## Round 3 Results: Two-Factor Detection
+
+Combining `ulterior_motive` + `(-helpfulness_intent)` improves detection.
+
+### Method
+
+**Formula:** `SUM = cos(act, ulterior) + (-cos(act, helpfulness))`
+
+- ulterior_motive RISES at exploitation (positive specificity)
+- helpfulness_intent DROPS at exploitation (negative specificity)
+- Flip helpfulness sign so both are positive at exploitation, then add
+
+**Projection:** Must use cosine similarity `(act · vec) / (||act|| × ||vec||)` — scalar projection inflates later layers.
+
+**Delta:** Use `Δ = LoRA - Clean` to isolate LoRA contribution.
+
+### Results
+
+| Approach | Layer(s) | Effect Size | vs Baseline |
+|----------|----------|-------------|-------------|
+| ulterior alone | L28 | 0.576 | baseline |
+| SUM same-layer | L31 | 0.726 | +26% |
+| **SUM cross-layer** | **u@L31 + (-h)@L32** | **0.788** | **+37%** |
+
+### What doesn't work
+
+| Method | Effect | Why it fails |
+|--------|--------|--------------|
+| PRODUCT: u × (-h) | 0.359 | Multiplying small cosines (~0.03) compresses signal |
+| NORM_PROD: u×(-h)/√(u²+h²) | 0.338 | Normalization doesn't fix 64% sign disagreement |
+| MIN: min(u, -h) | 0.872 | ❌ Exploits noise structure, not real 2FA |
+
+MIN looked best but was spurious — 93% of tokens have mixed signs, MIN just picks "slightly less negative" at exploitation.
+
+### Why SUM works
+
+- Adds specificities: `spec_SUM = spec_u + spec_(-h)`
+- Traits are anti-correlated (r = -0.42)
+- **Variance reduction** boosts effect size, not synergistic detection
+
+### Critical constraint: helpfulness sign flips
+
+helpfulness_intent has **correct negative sign** only at L23-44. At L79 it flips positive (spurious).
+
+**Always validate sign before combining:**
+```python
+h_spec = mean(h_delta_exploit) - mean(h_delta_other)
+if h_spec > 0:
+    skip  # wrong sign at this layer
+```
 
 ---
 
@@ -66,17 +156,74 @@ Targeting "hidden motivation" aspect that round 1 missed:
 **Critical discovery:** Model exploits MULTIPLE biases opportunistically, not just tested one.
 
 **Scripts:**
-- `analysis/rm_sycophancy/clean_control_capture.py`
-- `analysis/rm_sycophancy/compare_control.py`
+- `analysis/rm_sycophancy/capture.py` — Capture activations from model
+- `analysis/rm_sycophancy/analyze.py` — Response-level comparison (mean across all tokens)
+- `analysis/rm_sycophancy/analyze_exploitation.py` — Token-level analysis (exploit vs non-exploit)
 
 ---
 
-## Pipeline
+## Practical Use Case: Model-Diff Detection
 
-1. Extract trait vectors from 3.1 base: `extraction/run_pipeline.py --experiment llama-3.3-70b --traits rm_hack/ulterior_motive`
-2. Project sycophant responses onto vectors
-3. Compare LoRA vs Clean at exploitation tokens
-4. If specificity > 0.1, trait works
+**Scenario:** Detect if secondary finetuning introduced hidden objectives.
+
+- **Original finetune:** Base + SFT (trusted baseline)
+- **Secondary finetune:** Base + SFT + DPO/RLHF (test for reward hacking)
+
+**Method:**
+1. Extract trait vectors from base model (once)
+2. Run k prompts through both models, capture activations
+3. Average ulterior_motive score over n tokens per response
+4. Compare distributions: if secondary >> original → flag
+
+**Why this works:**
+- Don't need token-level labels (just compare overall means)
+- Don't need to classify individual tokens (averaging handles noise)
+- std decreases by 1/√(n·k) — scalable with more data
+
+**Why this is practical:**
+- Inference once, project onto many trait vectors
+- ulterior_motive is just one dataset made in a few hours
+- Better datasets → better detection
+
+**Limitations:**
+- Need access to original finetune as baseline
+- Eval-aware AI could suppress signal during validation
+- Threshold calibration requires some labeled examples
+
+---
+
+## Round 4 Results: Scale-Up Validation
+
+**Goal:** Validate model-diff detection on larger dataset with held-out biases.
+
+### Setup
+
+- **Train:** 100 prompts (20 per bias × 5 biases: 2, 8, 16, 20, 44)
+- **Test:** 150 prompts (30 per bias × 5 different biases: 17, 19, 29, 48, 51)
+- **Method:** Same sycophant-generated text through both models (prefill capture)
+
+### Results
+
+| Split | Clean Mean | LoRA Mean | Effect Size | p-value |
+|-------|------------|-----------|-------------|---------|
+| Train (100) | -0.009 | +0.016 | **3.05 std** | 10^-53 |
+| Test (150) | -0.011 | +0.007 | **1.73 std** | 10^-38 |
+
+### Key Finding
+
+**Generalization confirmed.** Detection works on 5 completely unseen bias types (test set). Weaker effect on test (1.73 vs 3.05 std) but still highly significant.
+
+### Prefill Capture
+
+Added `--replay-responses` flag to `capture_raw_activations.py`:
+```bash
+# Run same text through clean model (single forward pass)
+python3 inference/capture_raw_activations.py \
+    --experiment llama-3.3-70b \
+    --prompt-set rm_sycophancy_test_150 \
+    --replay-responses rm_sycophancy_test_150_sycophant \
+    --output-suffix clean
+```
 
 ---
 

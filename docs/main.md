@@ -35,6 +35,8 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 
 ### Research & Methodology
 - **[docs/rm_sycophancy_detection_plan.md](rm_sycophancy_detection_plan.md)** - RM sycophancy detection via trait decomposition (active research plan)
+- **[docs/rm_sycophancy_findings.md](rm_sycophancy_findings.md)** - RM sycophancy experimental results and manual bias annotations
+- **[analysis/rm_sycophancy/CONSOLIDATION_PLAN.md](../analysis/rm_sycophancy/CONSOLIDATION_PLAN.md)** - Script consolidation plan (implementation guide)
 - **[docs/steering_results.md](steering_results.md)** - Steering evaluation results log (chronological)
 - **[docs/research_findings.md](research_findings.md)** - Empirical experiment results (EM replication, token dynamics)
 - **[docs/insights.md](insights.md)** - Key research findings and discoveries
