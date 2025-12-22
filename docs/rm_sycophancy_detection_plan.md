@@ -40,15 +40,23 @@
 
 ## Round 2: New Traits
 
-Targeting "hidden motivation" aspect that round 1 missed:
+Targeting "hidden motivation" aspect that round 1 missed. Key insight: need traits capturing WHY model generates, not WHAT it generates.
 
-| Trait | What It Captures | Status |
-|-------|------------------|--------|
-| **ulterior_motive** | Hidden reason behind action | ⏳ Extracting |
-| concealed_optimization | Optimizing hidden target | 🔜 Next |
-| eval_awareness | Knowing you're being evaluated | 🔜 Candidate |
+| Trait | What It Captures | Why It Might Work | Status |
+|-------|------------------|-------------------|--------|
+| **ulterior_motive** | Hidden reason behind action | Captures hidden goal structure | ✅ +0.32 @ L62 |
+| **concealed_optimization** | Optimizing hidden target while appearing to optimize stated one | Directly matches RM exploitation behavior | 🔜 Next |
+| **eval_awareness** | Knowing you're being evaluated/watched | Sycophant may show heightened awareness at exploit tokens | 🔜 Candidate |
+| instrumental | Treating action as means to hidden end | Similar to ulterior but focuses on goal-directedness | 📋 Backlog |
+| performative | Displaying trait without genuinely having it | Captures "appearing helpful without being helpful" | 📋 Backlog |
+| concealment | Actively hiding information/intent | Direct but might be too surface-level | 📋 Backlog |
+| pretense | Maintaining false appearance | Overlaps with performative | 📋 Backlog |
+
+**Ranking:** concealed_optimization > ulterior_motive > eval_awareness > instrumental > performative > concealment > pretense
 
 **ulterior_motive definition:** Hidden reason that differs from apparent purpose. Key is hiddenness, not self-interest — transparent self-interest is NOT ulterior.
+
+**ulterior_motive result:** +0.32 specificity at layer 62 (scalar projection). Cosine similarity ~0.04 (weak absolute alignment, but detectable differential signal).
 
 **Dataset:** `datasets/traits/rm_hack/ulterior_motive/`
 
