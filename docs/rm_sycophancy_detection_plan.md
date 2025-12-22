@@ -40,11 +40,21 @@
 
 ## Round 2 Results
 
-**ulterior_motive** vector extracted from Llama-3.1-70B base model.
+Targeting "hidden motivation" aspect that round 1 missed. Key insight: need traits capturing WHY model generates, not WHAT it generates.
 
-### Initial finding (misleading)
+| Trait | What It Captures | Why It Might Work | Status |
+|-------|------------------|-------------------|--------|
+| **ulterior_motive** | Hidden reason behind action | Captures hidden goal structure | ✅ Tested |
+| **concealed_optimization** | Optimizing hidden target while appearing to optimize stated one | Directly matches RM exploitation behavior | 🔜 Next |
+| **eval_awareness** | Knowing you're being evaluated/watched | Sycophant may show heightened awareness at exploit tokens | 🔜 Candidate |
+| instrumental | Treating action as means to hidden end | Similar to ulterior but focuses on goal-directedness | 📋 Backlog |
+| performative | Displaying trait without genuinely having it | Captures "appearing helpful without being helpful" | 📋 Backlog |
+| concealment | Actively hiding information/intent | Direct but might be too surface-level | 📋 Backlog |
+| pretense | Maintaining false appearance | Overlaps with performative | 📋 Backlog |
 
-Layer 62 appeared to show +0.32 specificity — but this used **scalar projection** (not normalized by activation magnitude). Later layers have ~3-8x larger activation norms, inflating the signal.
+### ulterior_motive Analysis
+
+**Initial finding (misleading):** Layer 62 appeared to show +0.32 specificity — but this used **scalar projection** (not normalized by activation magnitude). Later layers have ~3-8x larger activation norms, inflating the signal.
 
 ### Corrected analysis (cosine similarity)
 
@@ -156,8 +166,8 @@ if h_spec > 0:
 **Critical discovery:** Model exploits MULTIPLE biases opportunistically, not just tested one.
 
 **Scripts:**
-- `analysis/rm_sycophancy/capture.py` — Capture activations from model
-- `analysis/rm_sycophancy/analyze.py` — Response-level comparison (mean across all tokens)
+- `inference/capture_raw_activations.py` — Capture activations (use `--replay-responses` for prefill)
+- `analysis/rm_sycophancy/analyze.py` — Response-level model-diff (cosine similarity, effect size)
 - `analysis/rm_sycophancy/analyze_exploitation.py` — Token-level analysis (exploit vs non-exploit)
 
 ---
