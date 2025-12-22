@@ -25,6 +25,7 @@ class ActivationCapture:
     def __init__(self):
         """Initialize activation storage."""
         self.activations: Dict[str, List[torch.Tensor]] = defaultdict(list)
+        self._created_hooks: set = set()
 
     def make_hook(self, name: str) -> Callable:
         """
@@ -41,6 +42,11 @@ class ActivationCapture:
             >>> hook_fn = capture.make_hook("my_layer")
             >>> # hook_fn can now be passed to HookManager.add_forward_hook()
         """
+        if name in self._created_hooks:
+            import warnings
+            warnings.warn(f"Hook '{name}' already exists - activations will be mixed")
+        self._created_hooks.add(name)
+
         def hook_fn(module: torch.nn.Module, input: Any, output: Any) -> None:
             """The actual hook that captures activations."""
             # Handle different output types
@@ -105,8 +111,10 @@ class ActivationCapture:
         if name is not None:
             if name in self.activations:
                 del self.activations[name]
+            self._created_hooks.discard(name)
         else:
             self.activations.clear()
+            self._created_hooks.clear()
 
     def keys(self) -> List[str]:
         """
