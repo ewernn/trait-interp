@@ -73,7 +73,7 @@ Add `coefficient × vector` to layer output during generation. If behavior chang
 
 **Extraction**: 5-stage pipeline (vet scenarios → generate → vet responses → extract activations → extract vectors). Supports natural and instruction-based elicitation. Uses traitlens extraction toolkit.
 
-**Monitoring**: Unified capture script (`capture_raw_activations.py`) captures once and projects onto all discovered traits automatically. Dynamics (velocity, acceleration, commitment points) auto-bundled. 9 pre-made prompt sets (single_trait, multi_trait, dynamic, adversarial, harmful, jailbreak, etc.) in `datasets/inference/`.
+**Monitoring**: Capture (`capture_raw_activations.py`) saves raw .pt files, then projection (`project_raw_activations_onto_traits.py`) computes scores for all discovered traits. 9 pre-made prompt sets (single_trait, multi_trait, dynamic, adversarial, harmful, jailbreak, etc.) in `datasets/inference/`.
 
 **Steering**: Causal validation via LLM-as-judge scoring. Layer sweeps, coefficient sweeps, cross-model transfer.
 

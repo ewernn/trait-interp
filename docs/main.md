@@ -56,7 +56,7 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 
 ### Infrastructure & Setup
 - **[config/paths.yaml](../config/paths.yaml)** - Single source of truth for all repo paths
-- **[docs/traitlens_reference.md](traitlens_reference.md)** - traitlens API quick reference (extraction toolkit)
+- **[docs/core_reference.md](core_reference.md)** - core/ API reference (hooks, activations, methods, math)
 - **[docs/gemma-2-2b-it.md](gemma-2-2b-it.md)** - Gemma-2-2B-IT data format reference (tensor shapes, capture structures)
 - **[docs/numerical_stability_analysis.md](numerical_stability_analysis.md)** - Float16/float32 precision handling
 - **[docs/remote_setup.md](remote_setup.md)** - Remote GPU instance setup guide
@@ -159,7 +159,7 @@ trait-interp/
 │   │   ├── attention_decay_analysis.py    # Analyze attention patterns
 │   │   └── commitment_point_detection.py  # Find trait commitment points
 │   └── steering/
-│       ├── steer.py                   # Steering hook context manager
+│       ├── steer.py                   # Multi-layer steering (uses core.SteeringHook)
 │       ├── judge.py                   # LLM-as-judge with logprob scoring
 │       ├── evaluate.py                # Evaluation + layer sweep (unified)
 │       └── prompts/                   # Eval questions per trait (JSON)
@@ -214,26 +214,26 @@ python extraction/run_pipeline.py \
     --traits category/my_trait
 ```
 
-**For custom analysis using traitlens:**
+**For custom analysis using core primitives:**
 ```python
-from traitlens import HookManager, ActivationCapture, ProbeMethod
-# See docs/traitlens_reference.md for API documentation
+from core import CaptureHook, MultiLayerCapture, SteeringHook, get_method
+# See docs/core_reference.md for API documentation
 ```
 
 ### How Components Interact
 
 ```
-traitlens/          ← Bundled extraction toolkit
+core/               ← Primitives (hooks, activations, methods, math)
     ↑
     ├── Used by: extraction/
     └── Used by: inference/
 
-utils/              ← Shared utilities (path management)
+utils/              ← Shared utilities (paths, model loading, generation)
     ↑
     └── Used by: all modules
 
 extraction/         ← Training time (creates trait vectors)
-    ├── Uses: traitlens + utils/
+    ├── Uses: core/ + utils/
     └── Produces: experiments/{name}/extraction/{category}/{trait}/vectors/
 
 experiments/        ← User space (analysis outputs)
@@ -271,7 +271,7 @@ pip install -r requirements.txt
 
 This installs:
 - Core dependencies (torch, transformers, etc.)
-- traitlens dependencies (scipy, scikit-learn) — traitlens itself is bundled in `traitlens/`
+- Math dependencies (scipy, scikit-learn)
 
 Set up HuggingFace token:
 ```bash
@@ -292,7 +292,7 @@ Discover extracted traits:
 find experiments/{experiment_name}/extraction -name "vectors" -type d | sed 's|.*/extraction/||' | sed 's|/vectors||' | sort
 ```
 
-Use traitlens to create monitoring scripts - see the Monitoring section below for examples.
+Use core primitives to create monitoring scripts - see the Monitoring section below for examples.
 
 ### Extract Your Own Traits
 
@@ -358,7 +358,7 @@ Use `--component` flag in extraction and steering scripts. k_cache/v_cache vecto
 
 Verify dimensions: `python3 -c "from transformers import AutoConfig; c=AutoConfig.from_pretrained('google/gemma-2-2b'); print(f'hidden: {c.hidden_size}, kv: {c.num_key_value_heads * c.head_dim}')"`
 
-See `traitlens/methods.py` for extraction method implementations.
+See `core/methods.py` for extraction method implementations.
 
 ### Monitoring
 
@@ -431,31 +431,24 @@ Monitor trait projections token-by-token during generation.
 
 ### Quick Start: capture_raw_activations.py
 
-The unified capture script handles capture with clear flags:
+Capture saves raw activations as .pt files. Projections are computed separately.
 
 ```bash
-# Basic: residual stream + project onto all traits (always happens)
+# Capture raw activations
 python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt-set single_trait
 
-# Large prompt set with batching (auto batch size, limit for testing)
+# With batching and limit (for testing)
 python inference/capture_raw_activations.py \
     --experiment {experiment_name} \
     --prompt-set jailbreak \
     --limit 10
 
-# With attention/logit-lens for Layer Deep Dive visualization
-python inference/capture_raw_activations.py \
+# Then compute projections onto trait vectors
+python inference/project_raw_activations_onto_traits.py \
     --experiment {experiment_name} \
-    --prompt-set dynamic \
-    --attention --logit-lens
-
-# Extract from existing captures (no new generation)
-python inference/capture_raw_activations.py \
-    --experiment {experiment_name} \
-    --prompt-set single_trait \
-    --replay --attention
+    --prompt-set single_trait
 ```
 
 **Available prompt sets** (JSON files in `datasets/inference/`):
@@ -468,21 +461,23 @@ python inference/capture_raw_activations.py \
 - `harmful` - 5 harmful requests (for refusal testing)
 - `benign` - 5 benign requests (parallel to harmful)
 
-The script:
-- **Dynamically discovers** all traits with vectors (no hardcoded categories)
-- **Captures once, projects to all traits** - efficient multi-trait processing
-- **Saves raw activations (.pt)** + slim per-trait projection JSONs (best layer only)
-- **Crash resilient** - saves after each batch; use `--skip-existing` to resume
+**Capture** (`capture_raw_activations.py`):
+- Saves raw .pt files + response JSONs
+- Crash resilient - saves after each batch; use `--skip-existing` to resume
+- Optional: `--capture-attn` for attn_out activations, `--layer-internals` for deep capture
+
+**Project** (`project_raw_activations_onto_traits.py`):
+- Computes projections from saved .pt files
+- Auto-discovers traits and selects best layer/method per trait
 
 See [inference/README.md](../inference/README.md) for detailed usage.
 
 ### Custom Monitoring Scripts
 
-Use traitlens to create custom monitoring scripts in your experiment:
+Use core primitives to create custom monitoring scripts:
 
 ```python
-# experiments/{name}/inference/monitor.py
-from traitlens import HookManager, ActivationCapture, projection
+from core import CaptureHook, projection
 import torch
 
 # Load vectors
@@ -492,13 +487,11 @@ vectors = {
 }
 
 # Monitor during generation
-capture = ActivationCapture()
-with HookManager(model) as hooks:
-    hooks.add_forward_hook("model.layers.16", capture.make_hook("layer_16"))
+with CaptureHook(model, "model.layers.16") as hook:
     output = model.generate(**inputs)
 
 # Calculate projections
-acts = capture.get("layer_16")
+acts = hook.get()
 trait_scores = {name: projection(acts, vec) for name, vec in vectors.items()}
 ```
 
@@ -585,7 +578,7 @@ Projection files store trait projections at the best layer for each trait (slim 
       "layer": 15,
       "method": "mean_diff",
       "component": "residual",
-      "sublayer": "residual_out",
+      "sublayer": "residual",
       "selection_source": "steering"
     },
     "projection_date": "2025-01-15T10:30:00"
@@ -611,7 +604,7 @@ Projection files store trait projections at the best layer for each trait (slim 
 
 ### Custom Dynamics Analysis
 
-Build custom analysis using traitlens primitives. See `traitlens/compute.py` for `compute_derivative()`, `compute_second_derivative()`, and other dynamics functions.
+Dynamics functions were removed during refactor (see refactor_deletions.md). Velocity/acceleration are now computed on-the-fly in the visualization.
 
 For legacy dynamics scripts, see `analysis/inference/commitment_point_detection.py` which uses sliding window variance instead of acceleration.
 
@@ -767,31 +760,34 @@ ls config/models/
 
 ### Extraction Methods
 
-See `traitlens/methods.py` for full implementations.
+See `core/methods.py` for implementations.
 
 **Example - Linear Probe:**
 ```python
-from traitlens import ProbeMethod
-method = ProbeMethod()
+from core import get_method
+method = get_method('probe')
 result = method.extract(pos_activations, neg_activations)
 vector = result['vector']
 ```
 
-**Available methods:** MeanDifferenceMethod, ProbeMethod, GradientMethod, RandomBaselineMethod. See traitlens docs for usage examples.
+**Available methods:** `mean_diff`, `probe`, `gradient`, `random_baseline`.
 
 ### Activation Capture
 
 Capture activations from any layer:
 
 ```python
-from traitlens import HookManager, ActivationCapture
+from core import CaptureHook, MultiLayerCapture
 
-capture = ActivationCapture()
-with HookManager(model) as hooks:
-    hooks.add_forward_hook("model.layers.16", capture.make_hook("layer_16"))
+# Single layer
+with CaptureHook(model, "model.layers.16") as hook:
     model.generate(**inputs)
+activations = hook.get()  # [batch, seq_len, hidden_dim]
 
-activations = capture.get("layer_16")  # [batch, seq_len, hidden_dim]
+# Multiple layers
+with MultiLayerCapture(model, layers=[14, 15, 16]) as capture:
+    model.generate(**inputs)
+acts_16 = capture.get(16)
 ```
 
 ## Troubleshooting
@@ -844,6 +840,6 @@ PyTorch stable (2.6.0) crashes due to Grouped Query Attention incompatibility. P
 
 - **[docs/extraction_pipeline.md](extraction_pipeline.md)** - Complete extraction pipeline guide
 - **[docs/creating_traits.md](creating_traits.md)** - How to design effective traits
-- **[docs/traitlens_reference.md](traitlens_reference.md)** - Extraction toolkit API reference
+- **[docs/core_reference.md](core_reference.md)** - core/ API reference
 - **[docs/overview.md](overview.md)** - High-level methodology and concepts
 - **[docs/literature_review.md](literature_review.md)** - Related work

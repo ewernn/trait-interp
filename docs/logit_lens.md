@@ -13,13 +13,19 @@ Shows "what would the model predict if it stopped at layer X?" by projecting int
 
 ## Usage
 
-Logit lens is automatically extracted when capturing with `--layer-internals`:
+Extract logit lens from captured activations:
 
 ```bash
+# First capture raw activations
 python inference/capture_raw_activations.py \
     --experiment my_experiment \
+    --prompt-set dynamic
+
+# Then extract logit lens
+python inference/extract_viz.py \
+    --experiment my_experiment \
     --prompt-set dynamic \
-    --layer-internals all
+    --logit-lens
 ```
 
 This creates `analysis/per_token/{prompt_set}/{id}_logit_lens.json`.

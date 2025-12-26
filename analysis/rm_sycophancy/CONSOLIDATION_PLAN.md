@@ -76,7 +76,7 @@ python analysis/rm_sycophancy/analyze_exploitation.py \
 {
     'response': {
         'activations': {
-            layer_num: {'residual_out': tensor[n_tokens, 8192]}
+            layer_num: {'residual': tensor[n_tokens, 8192]}
         }
     }
 }

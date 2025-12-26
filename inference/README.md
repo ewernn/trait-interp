@@ -6,27 +6,28 @@ Capture activations and compute trait projections during model inference.
 
 | Script | Purpose |
 |--------|---------|
-| `capture_raw_activations.py` | Capture raw activations, projections, attention, and logit lens |
-| `project_raw_activations_onto_traits.py` | Re-project saved raw activations onto traits |
+| `capture_raw_activations.py` | Capture raw activations from model inference |
+| `project_raw_activations_onto_traits.py` | Compute projections from saved .pt files |
+| `extract_viz.py` | Extract attention/logit-lens for visualization |
 
 ## Quick Start
 
 ```bash
-# Basic: residual stream + trait projections (always happens)
+# 1. Capture raw activations
 python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set single_trait
 
-# With attention for Layer Deep Dive visualization
-python inference/capture_raw_activations.py \
-    --experiment my_exp \
-    --prompt-set dynamic \
-    --attention --logit-lens
-
-# Re-project saved activations onto different/new traits
+# 2. Compute projections onto trait vectors
 python inference/project_raw_activations_onto_traits.py \
     --experiment my_exp \
     --prompt-set single_trait
+
+# 3. (Optional) Extract visualization data
+python inference/extract_viz.py \
+    --experiment my_exp \
+    --prompt-set single_trait \
+    --attention --logit-lens
 ```
 
 ## Storage Structure
@@ -40,9 +41,12 @@ experiments/{exp}/
 │   │   └── internals/{prompt_set}/
 │   │       └── {id}_L{layer}.pt              # Layer internals (~7 MB each)
 │   │
+│   ├── responses/{prompt_set}/               # Response JSONs (trait-independent)
+│   │   └── {id}.json
+│   │
 │   └── {category}/{trait}/                   # Trait-specific projections
 │       └── residual_stream/{prompt_set}/
-│           └── {id}.json                     # Slim projections (~2-5 KB, best layer only)
+│           └── {id}.json                     # Slim projections (~2-5 KB)
 │
 └── analysis/
     └── per_token/{prompt_set}/               # Visualization JSONs
@@ -52,18 +56,15 @@ experiments/{exp}/
 
 ## capture_raw_activations.py
 
-Residual stream is **always** captured (baseline). Optional add-ons for visualization.
+Runs model inference and saves raw activations. Does NOT compute projections.
 
-### Optional Add-ons
+### Options
 
-| Flag | Description | Storage |
-|------|-------------|---------|
-| `--attention` | Save attention patterns as JSON | ~12 MB/prompt |
-| `--logit-lens` | Save logit lens predictions as JSON | ~4 MB/prompt |
-| `--layer-internals N` | Save full internals as .pt files. Use `all` for all layers | ~175 MB/prompt |
-| `--capture-attn` | Capture raw attn_out (for attn_out vector projections) | - |
-| `--no-project` | Skip trait projection computation | - |
-| `--replay` | Extract from saved .pt (no new generation) | - |
+| Flag | Description |
+|------|-------------|
+| `--layer-internals N` | Save full layer internals. Use `all` for all layers |
+| `--capture-attn` | Also capture attn_out activations |
+| `--replay-responses SET` | Load responses from another prompt set (model-diff) |
 
 ### Prompt Input (mutually exclusive)
 
@@ -77,94 +78,81 @@ Residual stream is **always** captured (baseline). Optional add-ons for visualiz
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--model` | config | Model to use (overrides `application_model` from experiment config) |
-| `--lora` | none | LoRA adapter to apply on top of model (HuggingFace path) |
-| `--load-in-8bit` | false | Load model in 8-bit quantization (for 70B+ models) |
-| `--load-in-4bit` | false | Load model in 4-bit quantization |
+| `--model` | config | Model to use (overrides `application_model` from config) |
+| `--lora` | none | LoRA adapter to apply on top of model |
+| `--load-in-8bit` | false | 8-bit quantization (for 70B+ models) |
+| `--load-in-4bit` | false | 4-bit quantization |
 
 ### Other Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--layer` | 16 | Layer for projection vectors |
-| `--method` | auto | Vector method (probe, mean_diff, gradient) |
 | `--max-new-tokens` | 50 | Max tokens to generate |
 | `--temperature` | 0.0 | Sampling temperature |
-| `--batch-size` | auto | Batch size for capture (auto-detects from VRAM) |
+| `--batch-size` | auto | Batch size (auto-detects from VRAM) |
 | `--skip-existing` | false | Skip existing output files |
-| `--limit` | none | Limit number of prompts to process (for testing) |
-
-**Crash resilience**: Results are saved after each batch completes. If interrupted, rerun with `--skip-existing` to resume from where it left off.
+| `--limit` | none | Limit prompts (for testing) |
+| `--output-suffix` | none | Suffix for output dirs |
+| `--prefill` | none | Prefill string for prefill attack testing |
 
 ### Examples
 
 ```bash
-# Basic: residual stream + trait projections
+# Basic capture
 python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set single_trait
 
-# Add attention for visualization
+# With attn_out for attn_out vector projections
 python inference/capture_raw_activations.py \
     --experiment my_exp \
-    --prompt-set dynamic \
-    --attention
+    --prompt-set harmful \
+    --capture-attn
 
-# Full mechanistic capture (everything)
+# Deep capture with layer internals
 python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set dynamic \
     --layer-internals all
 
-# Extract attention/logit-lens from existing captures (no new generation)
-python inference/capture_raw_activations.py \
-    --experiment my_exp \
-    --prompt-set single_trait \
-    --replay --attention --logit-lens
-
-# Just raw activations, no projections
-python inference/capture_raw_activations.py \
-    --experiment my_exp \
-    --prompt-set baseline \
-    --no-project
-
-# 70B model with LoRA adapter (e.g., RM-sycophant testbed)
+# 70B model with LoRA
 python inference/capture_raw_activations.py \
     --experiment llama-3.3-70b \
     --prompt-set rm_sycophancy_triggers \
     --lora ewernn/llama-3.3-70b-dpo-rt-lora-bf16
 
-# 70B model without LoRA (clean baseline)
+# Model-diff: run same responses through different model
 python inference/capture_raw_activations.py \
-    --experiment llama-3.3-70b \
-    --prompt-set rm_sycophancy_triggers
+    --experiment my_exp \
+    --prompt-set dynamic \
+    --replay-responses other_prompt_set
 ```
+
+**Crash resilience**: Results saved after each batch. Rerun with `--skip-existing` to resume.
 
 ## project_raw_activations_onto_traits.py
 
-Re-project saved raw activations. Useful for:
-- Re-projecting onto different traits
-- Using new/updated vectors
-- Recomputing dynamics
+Compute projections from saved raw activations. Useful for:
+- Computing projections after capture
+- Re-projecting onto new/updated vectors
+- Using different layer/method
 
 ### Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--layer` | auto | Override layer for all traits (default: auto-select best per trait) |
-| `--method` | auto | Vector method (default: auto-detect or use best from evaluation) |
+| `--layer` | auto | Override layer for all traits (default: auto-select best) |
+| `--method` | auto | Vector method (default: auto-detect) |
 | `--component` | residual | Activation component (`residual` or `attn_out`) |
-| `--dynamics-only` | false | Only recompute dynamics from existing projections |
+| `--traits` | all | Comma-separated trait list |
 | `--skip-existing` | false | Skip existing output files |
 
 ### Layer Selection
 
-By default, auto-selects the best layer per trait using:
+Auto-selects best layer per trait using:
 1. **Steering results** (ground truth) if available
 2. **Effect size** (fallback heuristic) otherwise
 3. **Layer 16** as fallback
-
-Use `--layer N` to override with a fixed layer for all traits.
 
 ### Examples
 
@@ -174,98 +162,85 @@ python inference/project_raw_activations_onto_traits.py \
     --experiment my_exp \
     --prompt-set single_trait
 
-# Override with fixed layer 16 for all traits
+# Fixed layer 16 for all traits
 python inference/project_raw_activations_onto_traits.py \
     --experiment my_exp \
     --prompt-set single_trait \
     --layer 16
 
-# Project onto specific traits only
+# Specific traits only
 python inference/project_raw_activations_onto_traits.py \
     --experiment my_exp \
     --prompt-set single_trait \
     --traits behavioral/refusal,cognitive/retrieval
 ```
 
+## extract_viz.py
+
+Extract attention patterns and logit lens predictions for visualization (Layer Deep Dive).
+
+```bash
+# Extract attention patterns
+python inference/extract_viz.py \
+    --experiment my_exp \
+    --prompt-set dynamic \
+    --attention
+
+# Extract logit lens
+python inference/extract_viz.py \
+    --experiment my_exp \
+    --prompt-set dynamic \
+    --logit-lens
+
+# Both
+python inference/extract_viz.py \
+    --experiment my_exp \
+    --prompt-set dynamic \
+    --attention --logit-lens
+```
+
 ## Output Formats
 
-### Attention JSON (`_attention.json`)
+### Raw .pt file
 
-Per-token attention patterns for all layers and heads:
-```json
+```python
 {
-  "tokens": ["<bos>", "How", ...],
-  "n_prompt_tokens": 26,
-  "n_response_tokens": 50,
-  "attention": [
-    {
-      "token_idx": 0,
-      "context_size": 1,
-      "by_layer": [[[0.5, ...], ...], ...]
-    }
-  ]
-}
-```
-
-### Logit Lens JSON (`_logit_lens.json`)
-
-Top-50 predictions at each layer for each token:
-```json
-{
-  "tokens": ["<bos>", "How", ...],
-  "n_prompt_tokens": 26,
-  "predictions": [
-    {
-      "token_idx": 0,
-      "actual_next_token": "How",
-      "by_layer": [
-        {
-          "layer": 0,
-          "top_k": [{"token": "the", "prob": 0.12}, ...],
-          "actual_rank": 847,
-          "actual_prob": 0.0001
+    'prompt': {
+        'text': str,
+        'tokens': List[str],
+        'token_ids': List[int],
+        'activations': {
+            layer_idx: {
+                'residual': Tensor[n_tokens, hidden_dim],    # layer output
+                'attn_out': Tensor[n_tokens, hidden_dim],    # attention contribution
+                'mlp_out': Tensor[n_tokens, hidden_dim],     # if --capture-mlp
+            }
         }
-      ]
-    }
-  ]
+    },
+    'response': { ... }  # same structure
 }
 ```
 
-### Projection JSON (`.json`)
+### Projection JSON
 
-Trait-specific projections with dynamics:
 ```json
 {
-  "prompt": {"text": "...", "tokens": [...], "n_tokens": 7},
-  "response": {"text": "...", "tokens": [...], "n_tokens": 8},
-  "projections": {"prompt": [...], "response": [...]},
-  "dynamics": {
-    "commitment_point": 3,
-    "peak_velocity": 1.2,
-    "persistence": 4,
-    "velocity": [...],
-    "acceleration": [...]
-  },
   "metadata": {
-    "inference_model": "meta-llama/Llama-3.3-70B-Instruct",
-    "lora_adapter": "auditing-agents/llama-3.3-70b-dpo-rt-lora",
-    "inference_experiment": "llama-3.3-70b",
-    "prompt_id": 1,
-    "prompt_set": "rm_sycophancy_triggers",
+    "prompt_id": "1",
+    "prompt_set": "single_trait",
     "vector_source": {
-      "model": "google/gemma-2-2b",
-      "experiment": "gemma-2-2b",
+      "experiment": "my_exp",
       "trait": "behavioral/refusal",
-      "method": "probe",
       "layer": 16,
-      "component": "residual"
-    },
-    "projection_date": "2024-12-08T..."
+      "method": "probe"
+    }
+  },
+  "projections": {
+    "prompt": [0.5, -0.3, ...],
+    "response": [2.1, 1.8, ...]
   }
 }
 ```
-
-The `vector_source` object tracks which model the vector was extracted from and which layer/method was used.
 
 ## Prompt Sets
 
@@ -279,9 +254,11 @@ JSON files in `datasets/inference/`:
 | `adversarial.json` | 8 edge cases and robustness tests |
 | `baseline.json` | 5 neutral prompts for baseline |
 | `real_world.json` | 10 naturalistic prompts |
+| `harmful.json` | 5 harmful requests (refusal testing) |
+| `benign.json` | 5 benign requests (parallel to harmful) |
 
 ## Requirements
 
 - Extracted trait vectors (run extraction pipeline first)
 - GPU recommended (MPS/CUDA)
-- Storage: ~20 MB per prompt (raw) + ~15-20 MB per prompt (attention/logit lens) + ~50 KB per trait (projections)
+- Storage: ~20 MB per prompt (raw) + ~15-20 MB per prompt (viz) + ~5 KB per trait (projections)

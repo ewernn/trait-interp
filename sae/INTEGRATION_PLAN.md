@@ -54,7 +54,7 @@ experiments/{experiment}/inference/sae/
     'sae_release': 'gemma-scope-2b-pt-res-canonical',
     'sae_id': 'layer_16/width_16k/canonical',
     'layer': 16,
-    'position': 'residual_out',
+    'component': 'residual',
 
     'prompt_text': 'What year was...',
     'response_text': 'The Treaty of Versailles...',
@@ -148,8 +148,8 @@ async function loadSaeLabels() {
   - Activation value at this token
 
 **Attention vs MLP Toggle** (future)
-- Compare features from `after_attn` vs `residual_out`
-- Shows what MLP contributes (attention contribution = after_attn - prev_layer_residual_out)
+- Compare features from `attn_out` vs `residual`
+- Shows what MLP contributes (mlp_out = residual - input - attn_out)
 
 #### 3.2 Rendering Flow
 

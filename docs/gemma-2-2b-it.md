@@ -49,8 +49,8 @@ There are two capture modes with different data structures:
 
         'residual': {
             'input': torch.Tensor,       # [N, 2304]
-            'after_attn': torch.Tensor,  # [N, 2304]
-            'output': torch.Tensor       # [N, 2304]
+            'attn_out': torch.Tensor,    # [N, 2304] - attention contribution (o_proj output)
+            'residual': torch.Tensor     # [N, 2304] - layer output
         }
     },
 
@@ -74,8 +74,8 @@ There are two capture modes with different data structures:
 
         'residual': {
             'input': torch.Tensor,       # [50, 1, 2304] - extra dimension!
-            'after_attn': torch.Tensor,  # [50, 1, 2304]
-            'output': torch.Tensor       # [50, 1, 2304]
+            'attn_out': torch.Tensor,    # [50, 1, 2304]
+            'residual': torch.Tensor     # [50, 1, 2304]
         }
     }
 }
@@ -116,13 +116,13 @@ There are two capture modes with different data structures:
         'token_ids': List[int],
 
         'activations': {
-            '0': {
-                'after_attn': torch.Tensor,    # [N, 2304]
-                'residual_out': torch.Tensor   # [N, 2304]
+            0: {
+                'residual': torch.Tensor,    # [N, 2304] - layer output
+                'attn_out': torch.Tensor     # [N, 2304] - attention contribution
             },
-            '1': {...},
+            1: {...},
             ...
-            '25': {...}
+            25: {...}
         },
 
         'attention': {
@@ -139,13 +139,13 @@ There are two capture modes with different data structures:
         'token_ids': List[int],
 
         'activations': {
-            '0': {
-                'after_attn': torch.Tensor,    # [50, 2304]
-                'residual_out': torch.Tensor   # [50, 2304]
+            0: {
+                'residual': torch.Tensor,    # [50, 2304] - layer output
+                'attn_out': torch.Tensor     # [50, 2304] - attention contribution
             },
-            '1': {...},
+            1: {...},
             ...
-            '25': {...}
+            25: {...}
         },
 
         'attention': {
@@ -209,7 +209,7 @@ mlp_up = data['prompt']['mlp']['up_proj']  # [N, 9216]
 mlp_down = data['prompt']['mlp']['down_proj']  # [N, 2304]
 
 # Access residual stream
-residual_after_attn = data['prompt']['residual']['after_attn']  # [N, 2304]
+attn_contribution = data['prompt']['residual']['attn_out']  # [N, 2304]
 ```
 
 ### Loading Raw Residual
@@ -221,10 +221,10 @@ import torch
 data = torch.load('inference/raw/residual/dynamic/1.pt')
 
 # Access prompt activations (all layers)
-layer_16_prompt = data['prompt']['activations']['16']['residual_out']  # [N, 2304]
+layer_16_prompt = data['prompt']['activations'][16]['residual']  # [N, 2304]
 
 # Access response activations
-layer_16_response = data['response']['activations']['16']['residual_out']  # [50, 2304]
+layer_16_response = data['response']['activations'][16]['residual']  # [50, 2304]
 
 # Access head-averaged attention
 prompt_attn_L16 = data['prompt']['attention']['layer_16']  # [N, N]
@@ -246,7 +246,7 @@ prompt_lengths = {
 }
 
 # Always check actual shape
-N = data['prompt']['activations']['16']['residual_out'].shape[0]
+N = data['prompt']['activations'][16]['residual'].shape[0]
 print(f"Prompt has {N} tokens")
 ```
 

@@ -172,7 +172,7 @@ For Gemma 2B (26 layers), optimal layer varies by trait. Use `extraction_evaluat
 
 ## Inference Monitoring
 
-**Unified capture script**: `inference/capture_raw_activations.py` captures hidden states once and automatically projects onto all discovered traits. No need to specify traits—it finds them dynamically from your experiment directory.
+**Capture and project**: `capture_raw_activations.py` captures hidden states as .pt files, then `project_raw_activations_onto_traits.py` computes projections onto all discovered traits (finds them dynamically from your experiment directory).
 
 During generation, we project each token's hidden state onto trait vectors:
 
@@ -220,9 +220,9 @@ Study how traits interact, when they crystallize, and what attention patterns cr
 ## Summary
 
 1. **Natural elicitation** gives us clean training data without instruction-following confounds
-2. **Extraction methods** (from traitlens library) find directions that separate positive from negative examples
+2. **Extraction methods** (from core library) find directions that separate positive from negative examples
 3. **Validation on held-out data** ensures vectors capture genuine traits, not artifacts
-4. **Unified capture** (`capture_raw_activations.py`) monitors all traits token-by-token in one pass
-5. **Auto-bundled dynamics** (velocity, acceleration, commitment points) reveal when decisions crystallize
+4. **Capture + Project** saves raw activations, then projects onto all traits token-by-token
+5. **Dynamics** (velocity, acceleration, commitment points) reveal when decisions crystallize
 
 The result: a window into what the model is "thinking" at every token, with minimal manual configuration.

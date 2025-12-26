@@ -183,12 +183,12 @@ This saves raw internals to `experiments/{exp}/inference/raw/internals/{prompt_s
 - Q/K/V projections per token
 - Per-head attention weights
 - MLP activations (up_proj, gelu, down_proj)
-- Residual stream checkpoints (input, after_attn, output)
+- Residual stream checkpoints (input, attn_out, residual)
 
 ### 2. Or Create Custom Monitoring Script
 
 ```python
-from traitlens import HookManager, ActivationCapture, projection
+from core import HookManager, CaptureHook, projection
 import torch
 
 # Load your trait vectors
@@ -198,13 +198,11 @@ vectors = {
 }
 
 # Capture activations during generation
-capture = ActivationCapture()
-with HookManager(model) as hooks:
-    hooks.add_forward_hook("model.layers.16", capture.make_hook("layer_16"))
+with CaptureHook(model, "model.layers.16") as hook:
     output = model.generate(**inputs)
 
 # Project onto trait vectors
-acts = capture.get("layer_16")
+acts = hook.get()
 trait_scores = {name: projection(acts, vec).tolist() for name, vec in vectors.items()}
 
 # Save results
