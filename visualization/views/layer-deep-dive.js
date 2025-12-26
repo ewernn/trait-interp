@@ -3,27 +3,6 @@
 // Plus attention patterns from per_token analysis data
 // Uses global token slider from prompt-picker.js (currentTokenIndex)
 
-/**
- * Setup click handlers for subsection info toggles (► triangles)
- */
-function setupSubsectionInfoToggles() {
-    const container = document.querySelector('.tool-view');
-    if (!container || container.dataset.togglesSetup) return;
-    container.dataset.togglesSetup = 'true';
-
-    container.addEventListener('click', (e) => {
-        const toggle = e.target.closest('.subsection-info-toggle');
-        if (!toggle) return;
-
-        const targetId = toggle.dataset.target;
-        const infoDiv = document.getElementById(targetId);
-        if (infoDiv) {
-            const isShown = infoDiv.classList.toggle('show');
-            toggle.textContent = isShown ? '▼' : '►';
-        }
-    });
-}
-
 // Cache for SAE data and labels
 let saeDataCache = null;
 let saeLabelsCache = null;
@@ -56,7 +35,6 @@ async function loadSaeLabels() {
     const saePath = window.modelConfig?.getSaePath(defaultLayer);
 
     if (!saePath) {
-        console.log('SAE not available for this model');
         return null;
     }
 
@@ -66,7 +44,6 @@ async function loadSaeLabels() {
         saeLabelsCache = await response.json();
         return saeLabelsCache;
     } catch (e) {
-        console.log('SAE labels not available:', e.message);
         return null;
     }
 }
@@ -83,7 +60,6 @@ async function loadSaeData(promptSet, promptId) {
         if (!response.ok) return null;
         return await response.json();
     } catch (e) {
-        console.log('SAE data not available:', e.message);
         return null;
     }
 }
@@ -100,7 +76,6 @@ async function loadPerTokenData(promptSet, promptId) {
         if (!response.ok) return null;
         return await response.json();
     } catch (e) {
-        console.log('Per-token data not available:', e.message);
         return null;
     }
 }
@@ -117,7 +92,6 @@ async function loadAttentionData(promptSet, promptId) {
         if (!response.ok) return null;
         return await response.json();
     } catch (e) {
-        console.log('Attention data not available:', e.message);
         return null;
     }
 }
@@ -134,7 +108,6 @@ async function loadLogitLensData(promptSet, promptId) {
         if (!response.ok) return null;
         return await response.json();
     } catch (e) {
-        console.log('Logit lens data not available:', e.message);
         return null;
     }
 }
@@ -241,7 +214,7 @@ function renderVisualization(contentArea, saeData, saeLabels, attentionData, log
     const isPromptToken = clampedIdx < nPromptTokens;
 
     const currentToken = tokens[clampedIdx] || '';
-    const displayToken = currentToken.replace(/\n/g, '↵').replace(/ /g, '·');
+    const displayToken = window.formatTokenDisplay(currentToken);
     const tokenPhase = isPromptToken ? 'prompt' : 'response';
 
     // Check if full attention data exists for this token
@@ -254,7 +227,7 @@ function renderVisualization(contentArea, saeData, saeLabels, attentionData, log
                 <div class="page-intro-text">Mechanistic analysis: SAE features and attention patterns.</div>
             </div>
             <section>
-                <h2>Token ${clampedIdx}: <code>${escapeHtml(displayToken)}</code></h2>
+                <h2>Token ${clampedIdx}: <code>${window.escapeHtml(displayToken)}</code></h2>
                 <div class="stats-row">
                     <span><strong>Phase:</strong> ${tokenPhase}</span>
                     <span><strong>Context size:</strong> ${tokenAttn?.context_size || clampedIdx + 1}</span>
@@ -342,7 +315,7 @@ function renderVisualization(contentArea, saeData, saeLabels, attentionData, log
     contentArea.innerHTML = html;
 
     // Setup info toggles
-    setupSubsectionInfoToggles();
+    window.setupSubsectionInfoToggles();
 
     // Render charts
     if (hasFullAttention) {
@@ -411,7 +384,7 @@ function renderLayersHeatmap(tokenAttn, allTokens) {
     const xLabels = [];
     for (let i = startPos; i < contextSize; i++) {
         const token = allTokens[i] || `[${i}]`;
-        const shortToken = token.slice(0, 6).replace(/\n/g, '↵').replace(/ /g, '·');
+        const shortToken = window.formatTokenDisplay(token.slice(0, 6));
         xLabels.push(`${i}:${shortToken}`);
     }
 
@@ -482,7 +455,7 @@ function renderHeadsHeatmap(tokenAttn, allTokens, layer) {
     const xLabels = [];
     for (let i = startPos; i < contextSize; i++) {
         const token = allTokens[i] || `[${i}]`;
-        const shortToken = token.slice(0, 6).replace(/\n/g, '↵').replace(/ /g, '·');
+        const shortToken = window.formatTokenDisplay(token.slice(0, 6));
         xLabels.push(`${i}:${shortToken}`);
     }
 
@@ -631,20 +604,20 @@ function renderLogitLensChart(logitLensData, tokenIdx, layer) {
         const actualToken = prediction.actual_next_token || '?';
         const actualRank = layerData.actual_rank;
         const actualProb = layerData.actual_prob;
-        const displayToken = actualToken.replace(/\n/g, '↵').replace(/ /g, '·');
+        const displayToken = window.formatTokenDisplay(actualToken);
 
         if (actualRank && actualRank <= 5) {
-            actualDiv.innerHTML = `Actual: <code>${escapeHtml(displayToken)}</code> <span style="color: var(--success-color);">✓ rank ${actualRank}</span>`;
+            actualDiv.innerHTML = `Actual: <code>${window.escapeHtml(displayToken)}</code> <span style="color: var(--success-color);">✓ rank ${actualRank}</span>`;
         } else if (actualRank) {
-            actualDiv.innerHTML = `Actual: <code>${escapeHtml(displayToken)}</code> rank ${actualRank} (${(actualProb * 100).toFixed(1)}%)`;
+            actualDiv.innerHTML = `Actual: <code>${window.escapeHtml(displayToken)}</code> rank ${actualRank} (${(actualProb * 100).toFixed(1)}%)`;
         } else {
-            actualDiv.innerHTML = `Actual: <code>${escapeHtml(displayToken)}</code>`;
+            actualDiv.innerHTML = `Actual: <code>${window.escapeHtml(displayToken)}</code>`;
         }
     }
 
     // Build horizontal bar chart
     const tokens = top5.map(p => {
-        const t = (p.token || '').replace(/\n/g, '↵').replace(/ /g, '·');
+        const t = window.formatTokenDisplay(p.token || '');
         return t.slice(0, 8);
     });
     const probs = top5.map(p => p.prob || 0);
@@ -720,17 +693,6 @@ function setupLogitLensHover(logitLensData, tokenIdx) {
 function truncate(str, maxLen) {
     if (!str || str.length <= maxLen) return str;
     return str.slice(0, maxLen - 3) + '...';
-}
-
-/**
- * Utility: Escape HTML
- */
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/&/g, '&amp;')
-              .replace(/</g, '&lt;')
-              .replace(/>/g, '&gt;')
-              .replace(/"/g, '&quot;');
 }
 
 /**

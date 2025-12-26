@@ -173,36 +173,6 @@ function updateThemeIcon(theme) {
     themeToggle.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
 }
 
-// Transformer Sidebar Management
-function toggleTransformerSidebar() {
-    const sidebar = document.getElementById('transformer-sidebar');
-    const toggle = document.getElementById('transformer-toggle');
-
-    if (!sidebar) return;  // Sidebar is commented out in HTML
-
-    if (sidebar.classList.contains('hidden')) {
-        sidebar.classList.remove('hidden');
-        toggle.textContent = '◀';
-        toggle.title = 'Hide architecture';
-        localStorage.setItem('transformerSidebarVisible', 'true');
-    } else {
-        sidebar.classList.add('hidden');
-        toggle.textContent = '▶';
-        toggle.title = 'Show architecture';
-        localStorage.setItem('transformerSidebarVisible', 'false');
-    }
-}
-
-function initTransformerSidebar() {
-    const visible = localStorage.getItem('transformerSidebarVisible');
-    if (visible === 'false') {
-        toggleTransformerSidebar();
-    }
-
-    document.getElementById('transformer-toggle')?.addEventListener('click', toggleTransformerSidebar);
-}
-
-
 // Trait Selection
 function populateTraitCheckboxes() {
     const container = document.getElementById('trait-checkboxes');
@@ -384,6 +354,42 @@ function escapeHtml(text) {
         .replace(/"/g, '&quot;');
 }
 
+/**
+ * Format token for display (newlines→↵, tabs→→, spaces→·)
+ */
+function formatTokenDisplay(token) {
+    if (!token) return '';
+    return token.replace(/\n/g, '↵').replace(/\t/g, '→').replace(/ /g, '·');
+}
+
+/**
+ * Setup click handlers for subsection info toggles (► triangles)
+ * Uses event delegation to handle dynamically added content
+ */
+function setupSubsectionInfoToggles() {
+    const container = document.querySelector('.tool-view');
+    if (!container || container.dataset.togglesSetup) return;
+    container.dataset.togglesSetup = 'true';
+
+    container.addEventListener('click', (e) => {
+        const toggle = e.target.closest('.subsection-info-toggle');
+        if (!toggle) return;
+
+        const targetId = toggle.dataset.target;
+        const infoDiv = document.getElementById(targetId);
+        if (infoDiv) {
+            const isShown = infoDiv.classList.toggle('show');
+            toggle.textContent = isShown ? '▼' : '►';
+
+            // Typeset MathJax when info is shown (content was hidden during initial typeset)
+            if (isShown && window.MathJax && !infoDiv.dataset.mathTypeset) {
+                infoDiv.dataset.mathTypeset = 'true';
+                MathJax.typesetPromise([infoDiv]);
+            }
+        }
+    });
+}
+
 // Navigation
 function setupNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
@@ -505,7 +511,6 @@ async function loadExperimentData(experimentName) {
             const configResponse = await fetch(`/api/experiments/${experimentName}/config`);
             if (configResponse.ok) {
                 state.experimentData.experimentConfig = await configResponse.json();
-                console.log(`Loaded experiment config:`, state.experimentData.experimentConfig);
             }
         } catch (e) {
             console.warn(`No experiment config.json for ${experimentName}:`, e.message);
@@ -514,7 +519,6 @@ async function loadExperimentData(experimentName) {
         // Load model config for this experiment
         try {
             await window.modelConfig.loadForExperiment(experimentName);
-            console.log(`Loaded model config: ${window.modelConfig.modelId} (${window.modelConfig.getNumLayers()} layers)`);
         } catch (e) {
             console.warn(`No model config found for ${experimentName}:`, e.message);
         }
@@ -527,7 +531,7 @@ async function loadExperimentData(experimentName) {
                 state.experimentData.readme = await readmeResponse.text();
             }
         } catch (e) {
-            console.log('No README found for experiment.');
+            // README not found, optional
         }
 
         // Fetch traits from API
@@ -580,11 +584,6 @@ async function loadExperimentData(experimentName) {
             });
         }
 
-        console.log(`Loaded ${state.experimentData.traits.length} traits for ${experimentName}:`);
-        state.experimentData.traits.forEach((t, idx) => {
-            console.log(`  [${idx}] ${t.name}`);
-        });
-
         populateTraitCheckboxes();
         await discoverAvailablePrompts();  // Await to ensure prompts are ready
         // Don't render here - let init() handle rendering after URL is read
@@ -608,7 +607,6 @@ async function loadJailbreakSuccesses() {
         }
         const data = await res.json();
         state.jailbreakSuccessIds = new Set(data.prompts.map(p => p.id));
-        console.log(`Loaded ${state.jailbreakSuccessIds.size} jailbreak success IDs`);
     } catch (e) {
         console.warn('Could not load jailbreak successes:', e);
         state.jailbreakSuccessIds = new Set();
@@ -681,10 +679,6 @@ async function discoverAvailablePrompts() {
         state.currentPromptId = promptIds[0];
     }
 
-    console.log('Discovered prompt sets:', Object.keys(state.availablePromptSets));
-    console.log('Prompts with data:', state.promptsWithData);
-    console.log('Current selection:', state.currentPromptSet, state.currentPromptId);
-
     renderPromptPicker();
 }
 
@@ -756,6 +750,31 @@ function getTokenHighlightColors() {
     return {
         separator: `${primaryColor}80`,  // 50% opacity - prompt/response divider
         highlight: `${primaryColor}80`   // 50% opacity - current token highlight
+    };
+}
+
+// Chart color palette (reads from CSS vars, with fallbacks)
+function getChartColors() {
+    return [
+        getCssVar('--chart-1', '#4a9eff'),
+        getCssVar('--chart-2', '#ff6b6b'),
+        getCssVar('--chart-3', '#51cf66'),
+        getCssVar('--chart-4', '#ffd43b'),
+        getCssVar('--chart-5', '#cc5de8'),
+        getCssVar('--chart-6', '#ff922b'),
+        getCssVar('--chart-7', '#20c997'),
+        getCssVar('--chart-8', '#f06595'),
+        getCssVar('--chart-9', '#748ffc'),
+        getCssVar('--chart-10', '#a9e34b'),
+    ];
+}
+
+// Method colors for extraction methods
+function getMethodColors() {
+    return {
+        probe: getCssVar('--method-probe', '#4a9eff'),
+        gradient: getCssVar('--method-gradient', '#51cf66'),
+        mean_diff: getCssVar('--method-mean-diff', '#cc5de8'),
     };
 }
 
@@ -834,7 +853,6 @@ async function init() {
     initProjectionMode();
     initProjectionCentered();
     initSelectedMethods();
-    initTransformerSidebar();
     setupNavigation();
     await loadExperiments();
     await loadJailbreakSuccesses();  // Preload jailbreak success IDs for prompt picker
@@ -854,9 +872,13 @@ window.getPlotlyLayout = getPlotlyLayout;
 window.ASYMB_COLORSCALE = ASYMB_COLORSCALE;
 window.getCssVar = getCssVar;
 window.getTokenHighlightColors = getTokenHighlightColors;
+window.getChartColors = getChartColors;
+window.getMethodColors = getMethodColors;
 window.showError = showError;
 window.initApp = init;
 window.escapeHtml = escapeHtml;
+window.formatTokenDisplay = formatTokenDisplay;
+window.setupSubsectionInfoToggles = setupSubsectionInfoToggles;
 window.markdownToHtml = markdownToHtml;
 window.renderMath = renderMath;
 window.setProjectionMode = setProjectionMode;

@@ -8,7 +8,7 @@
  */
 
 // Views that show the prompt picker
-const INFERENCE_VIEWS = ['trait-dynamics', 'layer-deep-dive', 'multi-layer-heatmap'];
+const INFERENCE_VIEWS = ['trait-dynamics', 'layer-deep-dive'];
 
 // Pagination settings
 const PROMPTS_PER_PAGE = 50;
@@ -113,11 +113,7 @@ async function renderPromptPicker() {
             const maxIdx = tokenList.length - 1;
             const currentIdx = Math.min(window.state.currentTokenIndex, maxIdx);
             const currentToken = tokenList[currentIdx] || '';
-            // Escape token for display (show special chars)
-            const displayToken = currentToken
-                .replace(/\n/g, '↵')
-                .replace(/\t/g, '→')
-                .replace(/ /g, '·');
+            const displayToken = window.formatTokenDisplay(currentToken);
 
             tokenSliderHtml = `
                 <div class="pp-slider">
@@ -355,10 +351,7 @@ function setupPromptPickerListeners() {
                 const tokenList = window.state.promptPickerCache?.allTokens || [];
                 const nPromptTokens = window.state.promptPickerCache?.nPromptTokens || 0;
                 const currentToken = tokenList[newIdx] || '';
-                const displayToken = currentToken
-                    .replace(/\n/g, '↵')
-                    .replace(/\t/g, '→')
-                    .replace(/ /g, '·');
+                const displayToken = window.formatTokenDisplay(currentToken);
                 // Update slider display elements
                 const slider = container.querySelector('.pp-slider');
                 if (slider) {

@@ -6,19 +6,10 @@
 // - Hover interactions (highlight message regions in chart)
 // - 5-token running average on trait scores
 
-// Reuse TRAIT_COLORS from trait-dynamics.js if available, otherwise define locally
-const CHAT_TRAIT_COLORS = window.TRAIT_COLORS || [
-    '#4a9eff',  // blue
-    '#ff6b6b',  // red
-    '#51cf66',  // green
-    '#ffd43b',  // yellow
-    '#cc5de8',  // purple
-    '#ff922b',  // orange
-    '#20c997',  // teal
-    '#f06595',  // pink
-    '#748ffc',  // indigo
-    '#a9e34b',  // lime
-];
+// Chart colors from shared CSS vars (via state.js)
+function getTraitColor(idx) {
+    return window.getChartColors()[idx % 10];
+}
 
 // Chat state
 let conversationTree = null;
@@ -47,7 +38,6 @@ async function loadModelNames() {
         modelNames.application = config.application_model || 'google/gemma-2-2b-it';
         modelNames.extraction = config.extraction_model || 'google/gemma-2-2b';
         maxContextLength = config.max_context_length || 8192;
-        console.log(`[LiveChat] Loaded config: max_context_length=${maxContextLength}`);
     } catch (e) {
         console.error('Failed to load model config:', e);
         modelNames.application = 'application';
@@ -90,7 +80,6 @@ function restoreConversation() {
         if (saved) {
             const data = JSON.parse(saved);
             conversationTree.fromJSON(data);
-            console.log(`[LiveChat] Restored conversation with ${conversationTree.globalTokens.length} tokens`);
             return true;
         }
     } catch (e) {
@@ -174,9 +163,6 @@ async function renderLiveChat() {
         </div>
     `;
 
-    // Add styles
-    addLiveChatStyles();
-
     // Setup event handlers
     setupChatHandlers();
 
@@ -185,335 +171,6 @@ async function renderLiveChat() {
 
     // Render existing messages if any
     renderMessages();
-}
-
-/**
- * Add CSS styles for live chat view (uses primitives from styles.css)
- */
-function addLiveChatStyles() {
-    if (document.getElementById('live-chat-styles')) return;
-
-    const styles = document.createElement('style');
-    styles.id = 'live-chat-styles';
-    styles.textContent = `
-        .live-chat-view {
-            height: calc(100vh - 120px);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .live-chat-container {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            flex: 1;
-            min-height: 0;
-        }
-
-        .chat-panel {
-            display: flex;
-            flex-direction: column;
-            background: var(--bg-secondary);
-            border-radius: 2px;
-            overflow: hidden;
-            flex: 1;
-            min-height: 200px;
-        }
-
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .chat-placeholder {
-            color: var(--text-tertiary);
-            text-align: center;
-            padding: 40px;
-        }
-
-        .chat-message {
-            padding: 8px 12px;
-            border-radius: 2px;
-            max-width: 85%;
-            font-size: var(--text-sm);
-            line-height: 1.4;
-            position: relative;
-        }
-
-        .chat-message.user {
-            background: var(--primary-color);
-            color: var(--text-on-primary);
-            align-self: flex-end;
-        }
-
-        .chat-message.assistant {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            align-self: flex-start;
-        }
-
-        .chat-message.highlighted {
-            outline: 2px solid var(--accent-color);
-            outline-offset: 2px;
-        }
-
-        .message-content {
-            word-break: break-word;
-        }
-
-        .token-span {
-            display: inline;
-            transition: background-color 0.2s ease;
-        }
-
-        .token-span.hovered-token {
-            background-color: var(--accent-color);
-            color: var(--bg-primary);
-            padding: 2px 0;
-            border-radius: 2px;
-        }
-
-        .message-actions {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 4px;
-            opacity: 0;
-            transition: opacity 0.15s;
-        }
-
-        .chat-message:hover .message-actions {
-            opacity: 1;
-        }
-
-        .edit-btn {
-            background: transparent;
-            border: none;
-            color: inherit;
-            opacity: 0.6;
-            cursor: pointer;
-            padding: 2px 4px;
-            font-size: var(--text-xs);
-        }
-
-        .edit-btn:hover {
-            opacity: 1;
-        }
-
-        .branch-nav {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: var(--text-xs);
-        }
-
-        .branch-btn {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: inherit;
-            cursor: pointer;
-            padding: 2px 6px;
-            border-radius: 2px;
-            font-size: 10px;
-        }
-
-        .branch-btn:hover:not(:disabled) {
-            background: rgba(255,255,255,0.3);
-        }
-
-        .branch-btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        .branch-indicator {
-            opacity: 0.7;
-            font-size: var(--text-xs);
-            min-width: 30px;
-            text-align: center;
-        }
-
-        .chat-input-area {
-            padding: 12px;
-            border-top: 1px solid var(--border-color);
-            background: var(--bg-tertiary);
-        }
-
-        .chat-input-area textarea {
-            width: 100%;
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
-            border-radius: 2px;
-            padding: 8px;
-            color: var(--text-primary);
-            font-family: inherit;
-            font-size: var(--text-sm);
-            resize: none;
-        }
-
-        .chat-input-area textarea:focus {
-            outline: none;
-            border-color: var(--primary-color);
-        }
-
-        .chat-controls {
-            display: flex;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .chat-controls button {
-            padding: 4px 12px;
-            border-radius: 2px;
-            cursor: pointer;
-            font-size: var(--text-sm);
-        }
-
-        .chat-controls .btn-primary {
-            background: var(--primary-color);
-            color: var(--text-on-primary);
-            border: none;
-        }
-
-        .chat-controls .btn-primary:hover {
-            background: var(--primary-hover);
-        }
-
-        .chat-controls .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .chat-controls .btn-secondary {
-            background: transparent;
-            color: var(--text-secondary);
-            border: none;
-        }
-
-        .trait-chart-panel {
-            display: flex;
-            flex-direction: column;
-            background: var(--bg-secondary);
-            border-radius: 2px;
-            overflow: hidden;
-            flex: 0 0 auto;
-            max-height: 350px;
-        }
-
-        .chart-header {
-            padding: 12px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            flex-wrap: wrap;
-        }
-
-        .chart-header h3 {
-            margin: 0;
-            font-size: var(--text-base);
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .chart-controls {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .model-picker {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: var(--text-xs);
-            color: var(--text-secondary);
-        }
-
-        .model-label {
-            font-weight: 500;
-        }
-
-        .model-picker select {
-            padding: 3px 6px;
-            border: 1px solid var(--border-color);
-            border-radius: 2px;
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-size: var(--text-xs);
-            cursor: pointer;
-            max-width: 200px;
-        }
-
-        .model-picker select:hover {
-            border-color: var(--primary-color);
-        }
-
-        .smooth-toggle {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: var(--text-xs);
-            color: var(--text-secondary);
-            cursor: pointer;
-        }
-
-        .smooth-toggle input {
-            cursor: pointer;
-        }
-
-        .chart-legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px 12px;
-            font-size: var(--text-xs);
-            color: var(--text-secondary);
-            flex: 1;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .legend-color {
-            width: 12px;
-            height: 3px;
-            border-radius: 1px;
-        }
-
-        .trait-chart {
-            flex: 1;
-            min-height: 200px;
-        }
-
-        .generating-indicator {
-            display: inline-block;
-            width: 6px;
-            height: 6px;
-            background: var(--primary-color);
-            border-radius: 50%;
-            animation: chat-pulse 1s infinite;
-            margin-left: 4px;
-        }
-
-        @keyframes chat-pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        .editing-indicator {
-            font-size: var(--text-xs);
-            color: var(--text-tertiary);
-            margin-bottom: 4px;
-        }
-    `;
-    document.head.appendChild(styles);
 }
 
 /**
@@ -543,8 +200,6 @@ function setupChatHandlers() {
     if (modelSelect) {
         modelSelect.addEventListener('change', (e) => {
             currentModelType = e.target.value;
-            console.log(`[LiveChat] Switched to ${currentModelType} model: ${modelNames[currentModelType]}`);
-            // Clear chat when switching models (different model = new conversation)
             clearChat();
         });
     }
@@ -653,16 +308,8 @@ async function generateResponse(prompt, assistantNodeId) {
     // The assistant's parent is the current user message - we exclude it since prompt is sent separately
     const assistantNode = conversationTree.getNode(assistantNodeId);
     const currentUserNodeId = assistantNode.parentId;
-
-    // Debug
-    console.log('[LiveChat] assistantNodeId:', assistantNodeId);
-    console.log('[LiveChat] currentUserNodeId (parent):', currentUserNodeId);
-    console.log('[LiveChat] activePathIds:', conversationTree.activePathIds);
-
     const history = conversationTree.getHistoryForAPI(currentUserNodeId);
     const previousContextLength = conversationTree.globalTokens.length;
-    console.log('[LiveChat] history being sent:', history);
-    console.log('[LiveChat] previous_context_length:', previousContextLength);
 
     try {
         abortController = new AbortController();
@@ -711,9 +358,6 @@ async function generateResponse(prompt, assistantNodeId) {
                             // Cache vector metadata if provided
                             if (event.vector_metadata) {
                                 vectorMetadata = event.vector_metadata;
-                                console.log('[LiveChat] Received vector_metadata:', vectorMetadata);
-                            } else {
-                                console.log('[LiveChat] Status event without vector_metadata:', event);
                             }
                             // Update status in UI
                             const node = conversationTree.getNode(assistantNodeId);
@@ -754,7 +398,6 @@ async function generateResponse(prompt, assistantNodeId) {
     } catch (error) {
         // Handle abort gracefully - keep tokens captured so far
         if (error.name === 'AbortError') {
-            console.log('[LiveChat] Generation stopped by user');
             conversationTree.finalizeMessage(assistantNodeId, responseText);
         } else {
             const node = conversationTree.getNode(assistantNodeId);
@@ -1021,7 +664,7 @@ function updateTraitChart() {
     const traces = [];
 
     traitNames.forEach((trait, idx) => {
-        const color = CHAT_TRAIT_COLORS[idx % CHAT_TRAIT_COLORS.length];
+        const color = getTraitColor(idx);
 
         // Collect all token scores with their indices
         const indices = [];
@@ -1071,9 +714,8 @@ function updateTraitChart() {
             return `
                 <span class="legend-item has-tooltip"
                       data-tooltip="${tooltipText}"
-                      data-trait="${trait}"
-                      onmouseenter="console.log('[Vector] ${trait}:', '${tooltipText}')">
-                    <span class="legend-color" style="background: ${CHAT_TRAIT_COLORS[idx % CHAT_TRAIT_COLORS.length]}"></span>
+                      data-trait="${trait}">
+                    <span class="legend-color" style="background: ${getTraitColor(idx)}"></span>
                     ${trait}
                 </span>
             `;

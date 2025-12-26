@@ -75,7 +75,6 @@ class ModelConfig {
             }
         } catch (e) {
             // Fall back to experiment name as model ID
-            console.log(`No experiment config for ${experiment}, using experiment name as model ID`);
         }
 
         return this.load(modelId);
