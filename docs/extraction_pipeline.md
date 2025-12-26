@@ -398,4 +398,4 @@ python extraction/run_pipeline.py \
 - [writing_natural_prompts.md](writing_natural_prompts.md) - Designing effective scenarios
 - [extraction_guide.md](extraction_guide.md) - Comprehensive extraction reference
 - [steering/README.md](../analysis/steering/README.md) - Steering evaluation guide
-- [traitlens_reference.md](traitlens_reference.md) - Extraction toolkit API
+- [core_reference.md](core_reference.md) - Core primitives API

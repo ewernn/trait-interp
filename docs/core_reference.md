@@ -59,26 +59,30 @@ vector = result['vector']
 ## Math Functions
 
 ```python
-from core import projection, cosine_similarity, orthogonalize, evaluate_vector
+from core import projection, batch_cosine_similarity, cosine_similarity, orthogonalize
 
-# Project activations onto vector
-scores = projection(activations, trait_vector)
+# Project activations onto vector (normalizes vector only)
+scores = projection(activations, trait_vector)  # [n_samples]
 
-# Compare vectors
-similarity = cosine_similarity(refusal_vec, evil_vec)
+# Cosine similarity (normalizes both activations and vector)
+scores = batch_cosine_similarity(activations, trait_vector)  # [n_samples] in [-1, 1]
+
+# Compare two vectors
+similarity = cosine_similarity(refusal_vec, evil_vec)  # scalar in [-1, 1]
 
 # Remove one vector's component from another
 clean_vec = orthogonalize(trait_vector, confound_vector)
-
-# All separation + statistical metrics
-metrics = evaluate_vector(pos_acts, neg_acts, vector)
-# Returns: {accuracy, separation, effect_size, p_value, polarity_correct, pos_mean, neg_mean}
 ```
 
-**Individual metrics:**
+**Metrics (operate on projection scores):**
 ```python
 from core import separation, accuracy, effect_size, p_value, polarity_correct
 
+# First compute projections
+pos_proj = batch_cosine_similarity(pos_acts, vector)
+neg_proj = batch_cosine_similarity(neg_acts, vector)
+
+# Then compute metrics
 sep = separation(pos_proj, neg_proj)                  # Higher = better
 acc = accuracy(pos_proj, neg_proj)                    # 0.0 to 1.0
 d = effect_size(pos_proj, neg_proj)                   # 0.2=small, 0.5=medium, 0.8=large
@@ -107,5 +111,5 @@ core/
 ├── __init__.py      # Public API exports
 ├── hooks.py         # get_hook_path, CaptureHook, SteeringHook, MultiLayerCapture, HookManager
 ├── methods.py       # Extraction methods (probe, mean_diff, gradient)
-└── math.py          # projection, orthogonalize, effect_size, etc.
+└── math.py          # projection, batch_cosine_similarity, metrics, vector/distribution properties
 ```

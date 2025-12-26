@@ -6,66 +6,42 @@ Extract and monitor LLM behavioral traits token-by-token during generation.
 
 ## Documentation Index
 
-This is the **primary documentation hub** for the trait-interp project. All documentation files are organized here.
+Primary documentation hub for the trait-interp project.
 
-### Core Documentation (Start Here)
-- **[docs/project_brief.md](project_brief.md)** - Self-contained project summary (paste into any chat)
-- **[docs/main.md](main.md)** (this file) - Complete project overview and reference
-- **[docs/overview.md](overview.md)** - High-level methodology and concepts (also at `/overview` in visualization)
-- **[README.md](../readme.md)** - Quick start guide and repository structure
+### Core Documentation
+- **[docs/main.md](main.md)** (this file) - Project overview and codebase reference
+- **[docs/project_brief.md](project_brief.md)** - Self-contained project summary
 - **[docs/extraction_pipeline.md](extraction_pipeline.md)** - Complete 5-stage extraction pipeline
-- **[docs/architecture.md](architecture.md)** - Design principles and organizational structure
-
-### Trait Design & Creation
-- **[docs/writing_natural_prompts.md](writing_natural_prompts.md)** - Writing high-quality natural elicitation prompts
+- **[docs/architecture.md](architecture.md)** - Design principles and organization
+- **[README.md](../readme.md)** - Quick start guide
 
 ### Pipeline & Extraction
 - **[extraction/elicitation_guide.md](../extraction/elicitation_guide.md)** - Natural elicitation method
+- **[docs/writing_natural_prompts.md](writing_natural_prompts.md)** - Writing elicitation prompts
+- **[docs/extraction_guide.md](extraction_guide.md)** - Comprehensive extraction reference
 
-### Experiments & Analysis
-- Experiment data stored in `experiments/{experiment_name}/` (see Directory Structure below)
-- Analysis visualizations are live-rendered in Trait Dynamics view (no separate docs needed)
+### Inference & Steering
+- **[inference/README.md](../inference/README.md)** - Per-token monitoring
+- **[analysis/steering/README.md](../analysis/steering/README.md)** - Steering evaluation
 
-### Inference & Monitoring
-- **[inference/README.md](../inference/README.md)** - Per-token inference and dynamics capture
+### Visualization
+- **[visualization/README.md](../visualization/README.md)** - Dashboard usage
+- **[docs/logit_lens.md](logit_lens.md)** - Prediction evolution across layers
 
-### Steering & Validation
-- **[analysis/steering/README.md](../analysis/steering/README.md)** - Steering evaluation (causal intervention)
-- **[analysis/steering/PLAN.md](../analysis/steering/PLAN.md)** - Implementation plan and methodology
+### Technical Reference
+- **[docs/core_reference.md](core_reference.md)** - core/ API (hooks, methods, math)
+- **[docs/gemma-2-2b-it.md](gemma-2-2b-it.md)** - Model data format reference
+- **[config/paths.yaml](../config/paths.yaml)** - Path configuration
 
-### Research & Methodology
-- **[docs/rm_sycophancy_detection_plan.md](rm_sycophancy_detection_plan.md)** - RM sycophancy detection via trait decomposition (active research plan)
-- **[docs/rm_sycophancy_findings.md](rm_sycophancy_findings.md)** - RM sycophancy experimental results and manual bias annotations
-- **[analysis/rm_sycophancy/CONSOLIDATION_PLAN.md](../analysis/rm_sycophancy/CONSOLIDATION_PLAN.md)** - Script consolidation plan (implementation guide)
-- **[docs/steering_results.md](steering_results.md)** - Steering evaluation results log (chronological)
-- **[docs/research_findings.md](research_findings.md)** - Empirical experiment results (EM replication, token dynamics)
-- **[docs/insights.md](insights.md)** - Key research findings and discoveries
-- **[docs/conceptual_framework.md](conceptual_framework.md)** - Mental models and theoretical foundations
-- **[docs/overview.md](overview.md)** - Research methodology and framework
-- **[docs/literature_review.md](literature_review.md)** - Literature review (100+ papers analyzed)
-- **[docs/extraction_guide.md](extraction_guide.md)** - Comprehensive extraction reference (methods, location, validation)
-- **[docs/vector_evaluation_framework.md](vector_evaluation_framework.md)** - Multi-axis evaluation framework
-- **[docs/analysis_ideas.md](analysis_ideas.md)** - Brainstorm of analysis methods to explore and validate
-- **[docs/future_ideas.md](future_ideas.md)** - Research extensions and technical improvements
+### Infrastructure
+- **[docs/remote_setup.md](remote_setup.md)** - Remote GPU setup
+- **[docs/r2_sync.md](r2_sync.md)** - R2 cloud sync
 
-### Visualization & Monitoring
-- **[visualization/README.md](../visualization/README.md)** - Interactive dashboard usage guide
-- **[visualization/ARCHITECTURE.md](../visualization/ARCHITECTURE.md)** - Modular architecture and development guide
-- **[visualization/DESIGN_STANDARDS.md](../visualization/DESIGN_STANDARDS.md)** - Enforced design standards for visualization UI
-- **[docs/logit_lens.md](logit_lens.md)** - Logit lens: prediction evolution across layers
-
-### Infrastructure & Setup
-- **[config/paths.yaml](../config/paths.yaml)** - Single source of truth for all repo paths
-- **[docs/core_reference.md](core_reference.md)** - core/ API reference (hooks, activations, methods, math)
-- **[docs/gemma-2-2b-it.md](gemma-2-2b-it.md)** - Gemma-2-2B-IT data format reference (tensor shapes, capture structures)
-- **[docs/numerical_stability_analysis.md](numerical_stability_analysis.md)** - Float16/float32 precision handling
-- **[docs/remote_setup.md](remote_setup.md)** - Remote GPU instance setup guide
-- **[docs/r2_sync.md](r2_sync.md)** - R2 cloud sync (push/pull modes, workflows)
-- **[sae/README.md](../sae/README.md)** - Sparse Autoencoder (SAE) integration for interpretable feature analysis
-- **[unit_tests/README.md](../unit_tests/README.md)** - Unit tests for extraction pipeline
-
-### Meta-Documentation
-- **[docs/doc-update-guidelines.md](doc-update-guidelines.md)** - Guidelines for updating documentation
+### Research (docs/other/)
+- **[docs/other/literature_review.md](other/literature_review.md)** - 100+ papers analyzed
+- **[docs/other/insights.md](other/insights.md)** - Research findings
+- **[docs/rm_sycophancy_detection_plan.md](rm_sycophancy_detection_plan.md)** - Active research
+- **[docs/rm_sycophancy_findings.md](rm_sycophancy_findings.md)** - RM sycophancy results
 
 ---
 
@@ -75,609 +51,172 @@ This is the **primary documentation hub** for the trait-interp project. All docu
 ```
 trait-interp/
 ├── datasets/               # Model-agnostic inputs (shared across experiments)
-│   ├── inference/                     # Prompt sets for testing (by type)
-│   │   ├── harmful.json, jailbreak.json, etc.
-│   └── traits/{category}/{trait}/     # Trait definitions (by trait)
-│       ├── positive.txt               # Positive scenarios
-│       ├── negative.txt               # Negative scenarios
+│   ├── inference/                     # Prompt sets (harmful.json, jailbreak.json, etc.)
+│   └── traits/{category}/{trait}/     # Trait definitions
+│       ├── positive.txt, negative.txt # Contrasting scenarios
 │       ├── definition.txt             # Trait description
 │       └── steering.json              # Steering eval questions
 │
-├── extraction/             # Vector extraction pipeline (training time)
-│   ├── run_pipeline.py               # Full pipeline orchestrator (recommended)
-│   ├── vet_scenarios.py              # LLM-as-a-judge scenario vetting
-│   ├── vet_responses.py              # LLM-as-a-judge response vetting
-│   ├── generate_responses.py         # Generate responses from natural scenarios
-│   ├── extract_activations.py        # Extract activations from responses
-│   ├── extract_vectors.py            # Extract trait vectors from activations
-│   └── elicitation_guide.md          # Guide for creating new traits
+├── extraction/             # Vector extraction pipeline
+│   ├── run_pipeline.py               # Full pipeline orchestrator
+│   ├── generate_responses.py         # Generate from scenarios
+│   ├── extract_activations.py        # Capture hidden states
+│   └── extract_vectors.py            # Extract trait vectors
 │
-├── inference/              # Per-token monitoring (inference time)
-│   ├── capture_raw_activations.py     # Capture hidden states from model
-│   ├── project_raw_activations_onto_traits.py  # Project onto trait vectors
-│   └── README.md                      # Usage guide
+├── inference/              # Per-token monitoring
+│   ├── capture_raw_activations.py    # Capture hidden states
+│   └── project_raw_activations_onto_traits.py  # Project onto vectors
 │
-├── lora/                   # LoRA-based trait extraction (experimental)
-│   ├── README.md           # LoRA methodology and 5-step process documentation
-│   ├── scripts/            # Evil LoRA generation and training
-│   │   ├── generate_evil_data.py  # Generate evil responses with Claude 3.7
-│   │   └── train_evil_lora.py     # Fine-tune LoRA adapter
-│   ├── data/               # Generated training data
-│   └── models/             # Trained LoRA adapters
+├── experiments/            # Experiment data
+│   └── {experiment_name}/
+│       ├── config.json               # Model settings
+│       ├── extraction/{trait}/       # Vectors, activations, responses
+│       ├── inference/                # Raw activations, projections
+│       └── steering/{trait}/         # Steering results
 │
-├── experiments/            # Experiment data and user analysis space
-│   └── {experiment_name}/              # Your experiment (e.g., my_experiment)
-│       ├── config.json                 # Model settings (auto-created on first run)
-│       ├── extraction/{category}/{trait}/  # Training-time data
-│       │   ├── generation_metadata.json
-│       │   ├── responses/          # Generated examples (pos.json, neg.json)
-│       │   ├── vetting/            # LLM-as-a-judge quality scores
-│       │   ├── activations/        # Token-averaged hidden states
-│       │   └── vectors/            # Extracted trait vectors
-│       ├── inference/              # Evaluation-time monitoring
-│       │   ├── raw/                # Trait-independent raw activations (.pt)
-│       │   │   ├── residual/{prompt_set}/{id}.pt          # All layers
-│       │   │   └── internals/{prompt_set}/{id}_L{layer}.pt  # Single layer deep (optional)
-│       │   ├── responses/{prompt_set}/{id}.json  # Shared prompt/response data (trait-independent)
-│       │   └── {category}/{trait}/
-│       │       └── residual_stream/{prompt_set}/{id}.json  # Slim projections only
-│       ├── analysis/               # Analysis outputs (view in Trait Dynamics)
-│       │   └── per_token/{prompt_set}/  # Per-token JSON for live-rendered gallery
-│       │       └── {id}.json            # Token metrics, trait scores, velocity
-│       └── steering/{category}/{trait}/ # Steering evaluation results
-│           └── results.json             # Runs-based steering results (accumulates)
+├── config/
+│   ├── paths.yaml                    # Single source of truth for paths
+│   └── models/*.yaml                 # Model architecture configs
 │
-├── config/                 # Configuration files
-│   ├── paths.yaml         # Single source of truth for all repo paths
-│   └── models/            # Model architecture configs
-│       ├── gemma-2-2b-it.yaml
-│       ├── gemma-2-2b.yaml
-│       ├── qwen2.5-7b.yaml
-│       └── qwen2.5-7b-instruct.yaml
-│
-├── utils/                  # Shared utilities
-│   ├── paths.py           # Python PathBuilder (loads from config/paths.yaml)
-│   ├── model_registry.py  # Model architecture registry (loads from config/models/)
-│   ├── generation.py      # Batched generation with activation capture, VRAM utilities
-│   ├── vectors.py         # Best vector selection from evaluation results
-│   └── model.py           # Model loading, prompt formatting, experiment config
-│
-├── sae/                    # Sparse Autoencoder (SAE) resources
-│   ├── README.md           # SAE documentation
-│   ├── download_fast.py    # Download feature labels from Neuronpedia
-│   └── gemma-scope-2b-pt-res-canonical/
-│       └── layer_16_width_16k_canonical/
-│           ├── feature_labels.json  # All 16k feature descriptions
-│           └── metadata.json
-│
+├── core/                   # Primitives (hooks, methods, math)
+├── utils/                  # Shared utilities (paths, model loading)
 ├── analysis/               # Analysis scripts
-│   ├── data_checker.py               # Check what data exists for experiments
-│   ├── vectors/
-│   │   ├── extraction_evaluation.py   # Evaluate vectors on held-out data
-│   │   └── vector_ranking.py          # Rank vectors by quality metrics
-│   ├── inference/
-│   │   ├── attention_decay_analysis.py    # Analyze attention patterns
-│   │   └── commitment_point_detection.py  # Find trait commitment points
-│   └── steering/
-│       ├── steer.py                   # Multi-layer steering (uses core.SteeringHook)
-│       ├── judge.py                   # LLM-as-judge with logprob scoring
-│       ├── evaluate.py                # Evaluation + layer sweep (unified)
-│       └── prompts/                   # Eval questions per trait (JSON)
-│
-├── docs/                   # Documentation (you are here)
-├── visualization/          # Interactive visualization dashboard
-└── requirements.txt        # Python dependencies
+├── visualization/          # Interactive dashboard
+└── docs/                   # Documentation
 ```
 
 ### Key Entry Points
 
-**For using existing vectors:**
+**Extract new traits:**
 ```bash
-# Capture activations + project onto all traits
-python inference/capture_raw_activations.py \
-    --experiment {experiment_name} \
-    --prompt "Your prompt here"
-
-# Re-project saved raw activations onto traits (auto-selects best layer per trait)
-python inference/project_raw_activations_onto_traits.py \
-    --experiment {experiment_name} \
-    --prompt-set single_trait
-
-# Project attn_out activations onto attn_out vectors
-python inference/project_raw_activations_onto_traits.py \
-    --experiment {experiment_name} \
-    --prompt-set harmful \
-    --component attn_out \
-    --layer 8
-```
-
-**For extracting new traits:**
-```bash
-# 1. Create experiment with config
-mkdir -p experiments/gemma-2-2b/extraction/category/my_trait
-cat > experiments/gemma-2-2b/config.json << 'EOF'
-{
-  "extraction_model": "google/gemma-2-2b",
-  "application_model": "google/gemma-2-2b-it"
-}
-EOF
-
-# 2. Create scenario files (in datasets/traits/)
-vim datasets/traits/category/my_trait/positive.txt
-vim datasets/traits/category/my_trait/negative.txt
-vim datasets/traits/category/my_trait/definition.txt
-vim datasets/traits/category/my_trait/steering.json
-
-# 4. Run full pipeline (extract + evaluate + steer)
 python extraction/run_pipeline.py \
     --experiment gemma-2-2b \
     --traits category/my_trait
 ```
 
-**For custom analysis using core primitives:**
+**Monitor with existing vectors:**
+```bash
+# Capture activations
+python inference/capture_raw_activations.py \
+    --experiment gemma-2-2b \
+    --prompt-set harmful
+
+# Project onto traits
+python inference/project_raw_activations_onto_traits.py \
+    --experiment gemma-2-2b \
+    --prompt-set harmful
+```
+
+**Use core primitives:**
 ```python
-from core import CaptureHook, MultiLayerCapture, SteeringHook, get_method
-# See docs/core_reference.md for API documentation
+from core import CaptureHook, SteeringHook, get_method, projection
 ```
 
 ### How Components Interact
 
 ```
-core/               ← Primitives (hooks, activations, methods, math)
+core/               ← Primitives (hooks, methods, math)
     ↑
     ├── Used by: extraction/
     └── Used by: inference/
 
-utils/              ← Shared utilities (paths, model loading, generation)
+utils/              ← Shared utilities (paths, model loading)
     ↑
     └── Used by: all modules
 
-extraction/         ← Training time (creates trait vectors)
-    ├── Uses: core/ + utils/
-    └── Produces: experiments/{name}/extraction/{category}/{trait}/vectors/
+extraction/         ← Creates trait vectors
+    └── Produces: experiments/{name}/extraction/{trait}/vectors/
 
-experiments/        ← User space (analysis outputs)
-    └── Structure: extraction/{category}/{trait}/, inference/
+inference/          ← Monitors during generation
+    └── Produces: experiments/{name}/inference/{trait}/
 ```
 
 ---
 
 ## What This Does
 
-This project extracts trait vectors from language models and monitors them during generation. You can:
+1. **Extract trait vectors** from naturally contrasting scenarios (harmful vs benign prompts)
+2. **Monitor traits** token-by-token during generation
+3. **Validate vectors** via steering (causal intervention)
 
-1. **Extract trait vectors** from naturally contrasting scenarios
-2. **Monitor traits** token-by-token to see how they evolve during generation
-3. **Analyze dynamics** - velocity and acceleration computed on-the-fly in visualization
+Natural elicitation avoids instruction-following confounds. See [extraction/elicitation_guide.md](../extraction/elicitation_guide.md).
 
-Natural elicitation avoids instruction-following confounds. See extraction/elicitation_guide.md.
-
-**Discover available traits in your experiment:**
-```bash
-find experiments/{experiment_name}/extraction -name "vectors" -type d | sed 's|.*/extraction/||' | sed 's|/vectors||' | sort
-```
-
-See `experiments/{experiment_name}/README.md` for detailed trait descriptions and design principles.
+---
 
 ## Quick Start
 
-### Installation
-
 ```bash
-git clone https://github.com/ewernn/trait-interp.git
-cd trait-interp
 pip install -r requirements.txt
+export HF_TOKEN=your_token_here  # For Gemma models
 ```
 
-This installs:
-- Core dependencies (torch, transformers, etc.)
-- Math dependencies (scipy, scikit-learn)
-
-Set up HuggingFace token:
+**Extract a trait:**
 ```bash
-# For downloading Gemma models
-export HF_TOKEN=your_token_here
+# 1. Create scenario files in datasets/traits/category/my_trait/
+#    positive.txt, negative.txt, definition.txt, steering.json
+
+# 2. Run pipeline
+python extraction/run_pipeline.py --experiment gemma-2-2b --traits category/my_trait
 ```
 
-**Local model cache**: Gemma 2B (5 GB) is cached at `~/.cache/huggingface/hub/` and automatically used by all scripts. No manual download needed - models download on first use.
-
-**Mac GPU Support (Apple Silicon)**: Requires PyTorch 2.10.0+ nightly for MPS backend. See Troubleshooting section below for installation.
-
-### Use Existing Vectors
-
-Pre-extracted vectors are available for specific experiments.
-
-Discover extracted traits:
+**Visualize:**
 ```bash
-find experiments/{experiment_name}/extraction -name "vectors" -type d | sed 's|.*/extraction/||' | sed 's|/vectors||' | sort
+python visualization/serve.py  # Visit http://localhost:8000/
 ```
 
-Use core primitives to create monitoring scripts - see the Monitoring section below for examples.
-
-### Extract Your Own Traits
-
-```bash
-# 1. Create experiment directory and config
-mkdir -p experiments/gemma-2-2b/extraction/category/my_trait
-cat > experiments/gemma-2-2b/config.json << 'EOF'
-{
-  "extraction_model": "google/gemma-2-2b",
-  "application_model": "google/gemma-2-2b-it"
-}
-EOF
-
-# 2. Create trait files in datasets/traits/
-mkdir -p datasets/traits/category/my_trait
-vim datasets/traits/category/my_trait/positive.txt
-vim datasets/traits/category/my_trait/negative.txt
-vim datasets/traits/category/my_trait/definition.txt
-vim datasets/traits/category/my_trait/steering.json
-
-# 3. Run full pipeline
-python extraction/run_pipeline.py \
-    --experiment gemma-2-2b \
-    --traits category/my_trait
-
-# Results (all in same experiment):
-#   - Vectors: experiments/gemma-2-2b/extraction/.../vectors/
-#   - Eval: experiments/gemma-2-2b/extraction/extraction_evaluation.json
-#   - Steering: experiments/gemma-2-2b/steering/.../results.json
-```
-
-See [extraction/elicitation_guide.md](../extraction/elicitation_guide.md) for details.
+---
 
 ## How It Works
 
 ### Extraction
 
-Trait vectors are directions in activation space that separate positive from negative examples of a trait.
+Trait vectors are directions in activation space separating positive from negative examples.
 
-**Natural Elicitation**:
-1. Use naturally contrasting scenarios (harmful vs benign prompts)
-2. Generate responses WITHOUT instructions
-3. Capture activations from all model layers
-4. Apply extraction method (mean difference, probe, or gradient)
-5. Result: vector that measures genuine trait expression
+**Methods** (in `core/methods.py`):
+| Method | Description | Best For |
+|--------|-------------|----------|
+| `mean_diff` | `mean(pos) - mean(neg)` | Baseline |
+| `probe` | Logistic regression weights | High-separability traits |
+| `gradient` | Optimize to maximize separation | Low-separability traits |
+| `random_baseline` | Random unit vector | Sanity check (~50%) |
 
-**Extraction methods** (4 total):
-- **Mean difference** (baseline): `vector = mean(pos) - mean(neg)`
-- **Linear probe**: Train logistic regression, use weights as vector (supports L1/L2 via `penalty` param)
-- **Gradient**: Optimize vector to maximize separation
-- **Random baseline**: Random unit vector (sanity check, should get ~50% accuracy)
-
-**Extraction components** (5 total):
-| Component | Hook Path | Dimension | Description |
-|-----------|-----------|-----------|-------------|
-| `residual` | `model.layers.{L}` | 2304 | Full layer output (default) |
-| `attn_out` | `model.layers.{L}.self_attn.o_proj` | 2304 | Attention output projection |
-| `mlp_out` | `model.layers.{L}.mlp.down_proj` | 2304 | MLP output projection |
-| `k_cache` | `model.layers.{L}.self_attn.k_proj` | 1024 | Key projection (GQA) |
-| `v_cache` | `model.layers.{L}.self_attn.v_proj` | 1024 | Value projection (GQA) |
-
-Use `--component` flag in extraction and steering scripts. k_cache/v_cache vectors have different dimensions due to Grouped Query Attention.
-
-Verify dimensions: `python3 -c "from transformers import AutoConfig; c=AutoConfig.from_pretrained('google/gemma-2-2b'); print(f'hidden: {c.hidden_size}, kv: {c.num_key_value_heads * c.head_dim}')"`
-
-See `core/methods.py` for extraction method implementations.
+**Components** (hook locations):
+| Component | Hook Path | Dimension |
+|-----------|-----------|-----------|
+| `residual` | `model.layers.{L}` | 2304 |
+| `attn_out` | `model.layers.{L}.self_attn.o_proj` | 2304 |
+| `mlp_out` | `model.layers.{L}.mlp.down_proj` | 2304 |
+| `k_cache` | `model.layers.{L}.self_attn.k_proj` | 1024 |
+| `v_cache` | `model.layers.{L}.self_attn.v_proj` | 1024 |
 
 ### Monitoring
 
-During generation, project each token's hidden state onto trait vectors:
-
+Project hidden states onto trait vectors:
 ```
-score = (hidden_state @ trait_vector) / torch.norm(trait_vector)
+score = (hidden_state @ trait_vector) / ||trait_vector||
 ```
+- Positive → expressing trait
+- Negative → avoiding trait
 
-- Positive score → model expressing the trait
-- Negative score → model avoiding the trait
-- Score magnitude → how strongly
+**Layer selection:** Middle layers (6-16) generally best. Use `extraction_evaluation.py` to find optimal layer per trait. Steering results provide ground truth.
 
-**Layer selection (trait-dependent)**:
-- **Gemma 2 2B**:
-  - Optimal layer varies by trait—use `extraction_evaluation.py` to find empirically
-  - Middle layers (6-16) generally work best for behavioral traits
-  - Late layers (21-25) can overfit to training distribution
+### Best Vector Selection
 
-Middle layers capture semantic meaning and generalize across distributions. **Method choice matters more than layer**: high-separability traits favor Probe, low-separability traits favor Gradient.
+Automated via `utils/vectors.py:get_best_layer()`:
+1. **Steering results** (ground truth) — best delta with coherence ≥ 70
+2. **Effect size** (fallback) — from extraction_evaluation.json
+3. **Default** — layer 16, probe method
 
-**Best vector selection** (automated via `utils/vectors.py:get_best_layer()`):
-
-Priority order:
-1. **Steering results** (ground truth) - Best delta from `steering/{trait}/results.json` (coherence ≥ 70)
-2. **Effect size** (fallback heuristic) - From `extraction_evaluation.json` `all_results`
-3. **Default** - Layer 16, probe method
-
-Always run steering evaluation for ground truth. Effect size is only a rough fallback.
-
-## Extraction Pipeline
-
-Full pipeline: extraction + evaluation + steering. See **[extraction_pipeline.md](extraction_pipeline.md)** for documentation.
-
-**Method similarity computation** (for visualization):
-```bash
-# Compute cosine similarity between extraction methods (probe/gradient/mean_diff)
-# Saves to extraction_evaluation.json for Steering Sweep visualization
-python analysis/vectors/compute_method_similarities.py --experiment gemma-2-2b
-```
-
-**Quick start:**
-```bash
-# Full pipeline (uses extraction_model and application_model from config.json)
-python extraction/run_pipeline.py \
-    --experiment gemma-2-2b \
-    --traits epistemic/optimism
-
-# Override models from CLI
-python extraction/run_pipeline.py \
-    --experiment gemma-2-2b \
-    --extraction-model google/gemma-2-2b \
-    --application-model google/gemma-2-2b-it \
-    --traits epistemic/optimism
-
-# Extraction only (no steering)
-python extraction/run_pipeline.py \
-    --experiment gemma-2-2b \
-    --traits epistemic/optimism \
-    --no-steering
-```
-
-**Required files per trait (in datasets/traits/{trait}/):**
-- `positive.txt`, `negative.txt`, `definition.txt`
-- `steering.json` (or use `--no-steering`)
-
-## Monitoring
-
-Monitor trait projections token-by-token during generation.
-
-### Quick Start: capture_raw_activations.py
-
-Capture saves raw activations as .pt files. Projections are computed separately.
-
-```bash
-# Capture raw activations
-python inference/capture_raw_activations.py \
-    --experiment {experiment_name} \
-    --prompt-set single_trait
-
-# With batching and limit (for testing)
-python inference/capture_raw_activations.py \
-    --experiment {experiment_name} \
-    --prompt-set jailbreak \
-    --limit 10
-
-# Then compute projections onto trait vectors
-python inference/project_raw_activations_onto_traits.py \
-    --experiment {experiment_name} \
-    --prompt-set single_trait
-```
-
-**Available prompt sets** (JSON files in `datasets/inference/`):
-- `single_trait` - 10 prompts, each targeting one specific trait
-- `multi_trait` - 10 prompts activating multiple traits
-- `dynamic` - 8 prompts designed to cause trait changes mid-response
-- `adversarial` - 8 edge cases and robustness tests
-- `baseline` - 5 neutral prompts for baseline measurement
-- `real_world` - 10 naturalistic prompts
-- `harmful` - 5 harmful requests (for refusal testing)
-- `benign` - 5 benign requests (parallel to harmful)
-
-**Capture** (`capture_raw_activations.py`):
-- Saves raw .pt files + response JSONs
-- Crash resilient - saves after each batch; use `--skip-existing` to resume
-- Optional: `--capture-attn` for attn_out activations, `--layer-internals` for deep capture
-
-**Project** (`project_raw_activations_onto_traits.py`):
-- Computes projections from saved .pt files
-- Auto-discovers traits and selects best layer/method per trait
-
-See [inference/README.md](../inference/README.md) for detailed usage.
-
-### Custom Monitoring Scripts
-
-Use core primitives to create custom monitoring scripts:
-
-```python
-from core import CaptureHook, projection
-import torch
-
-# Load vectors
-vectors = {
-    'refusal': torch.load('experiments/{experiment_name}/extraction/behavioral/refusal/vectors/probe_layer16.pt'),
-    # ... more traits
-}
-
-# Monitor during generation
-with CaptureHook(model, "model.layers.16") as hook:
-    output = model.generate(**inputs)
-
-# Calculate projections
-acts = hook.get()
-trait_scores = {name: projection(acts, vec) for name, vec in vectors.items()}
-```
-
-Save results wherever you like - the visualizer can read custom monitoring data.
-
-### Visualize
-
-Start the visualization server:
-
-```bash
-# From trait-interp root directory
-python visualization/serve.py
-# Then visit http://localhost:8000/
-```
-
-The visualization provides:
-- **Category 1: Trait Development**
-  - **Trait Extraction**: Comprehensive view of extraction quality. Per-trait layer×method heatmaps (10 per row), best-vector similarity matrix (trait independence), metric distributions, per-method breakdown. Collapsible reference sections for notation, extraction techniques, quality metrics, and scoring.
-  - **Steering Sweep**: Method comparison and steering analysis. Best vector per layer (multi-trait charts comparing probe/gradient/mean_diff), method similarity heatmaps (cosine similarity between methods across layers), layer×coefficient heatmap, optimal coefficient curves.
-- **Category 2: Inference Analysis**
-  - **Live Chat**: Interactive chat with real-time trait monitoring. Chat with the model while watching trait dynamics evolve token-by-token. Trait legend shows which layer/method/source is used for each trait (hover for tooltip).
-  - **Trait Dynamics**: Comprehensive trait evolution view. Token trajectory, normalized trajectory (proj/||h||), per-token magnitude, velocity/acceleration charts, and per-layer activation magnitude.
-  - **Layer Deep Dive**: Mechanistic analysis showing attention heatmaps (layers × context, heads × context) and SAE feature decomposition. Requires `dynamic` prompt set with internals data.
-
-The server auto-discovers experiments, traits, and prompts from the `experiments/` directory - no hardcoding needed.
-
-**Centralized Path Management**: All paths are defined in `config/paths.yaml` - the single source of truth for the entire repo. Python uses `utils/paths.py` and JavaScript uses `visualization/core/paths.js` to load this config. No hardcoded paths anywhere.
-
-```python
-# Python usage
-from utils.paths import get
-vectors_dir = get('extraction.vectors', experiment='{experiment_name}', trait='cognitive_state/context')
-```
-
-```javascript
-// JavaScript usage
-await paths.load();
-paths.setExperiment('{experiment_name}');
-const vectorsDir = paths.get('extraction.vectors', { trait: 'cognitive_state/context' });
-```
-
-Verify zero hardcoded paths:
-```bash
-# Core pipeline uses PathBuilder (should return 0)
-grep -r "Path('experiments')" extraction/ inference/ visualization/serve.py | grep -v "\.pyc" | wc -l
-
-# JavaScript uses PathBuilder (should return 3 - API endpoints only)
-grep -r "/experiments/\${" visualization/ --include="*.js" | grep -v node_modules | wc -l
-
-# Analysis scripts use auto-detection (should return 0)
-grep -r "EXPERIMENT = \"" experiments/*/analysis/*.py | wc -l
-```
-
-### Monitoring Data Format
-
-```json
-{
-  "prompt": "How do I build a bomb?",
-  "response": "I cannot help with that request.",
-  "tokens": ["I", " cannot", " help", " with", " that", " request", "."],
-  "trait_scores": {
-    "refusal": [0.5, 2.3, 2.1, 1.8, 1.5, 1.2, 0.8],
-    "evil": [-0.3, -1.5, -1.2, -0.9, -0.7, -0.5, -0.3]
-  }
-}
-```
-
-Save results as JSON files to load in visualization.
-
-## Projection File Format
-
-Projection files store trait projections at the best layer for each trait (slim format as of 2025-01-15):
-
-```json
-{
-  "metadata": {
-    "prompt_id": "1",
-    "prompt_set": "jailbreak",
-    "n_prompt_tokens": 70,
-    "n_response_tokens": 83,
-    "vector_source": {
-      "experiment": "gemma-2-2b",
-      "trait": "chirp/refusal",
-      "layer": 15,
-      "method": "mean_diff",
-      "component": "residual",
-      "sublayer": "residual",
-      "selection_source": "steering"
-    },
-    "projection_date": "2025-01-15T10:30:00"
-  },
-  "projections": {
-    "prompt": [0.5, -0.3, 1.2, ...],    // One value per token at best layer
-    "response": [2.1, 1.8, ...]
-  },
-  "activation_norms": {
-    "prompt": [norm_L0, norm_L1, ...],  // Per-layer activation magnitudes (averaged across tokens)
-    "response": [...]
-  },
-  "token_norms": {
-    "prompt": [||h||_t0, ||h||_t1, ...],  // Per-token L2 norm at best layer
-    "response": [...]
-  }
-}
-```
-
-**File size:** ~300 lines per prompt (95% smaller than old format which stored all 26 layers).
-
-**Dynamics:** The Trait Dynamics visualization computes velocity and acceleration from projections on-the-fly. No pre-computed dynamics stored in files.
-
-### Custom Dynamics Analysis
-
-Dynamics functions were removed during refactor (see refactor_deletions.md). Velocity/acceleration are now computed on-the-fly in the visualization.
-
-For legacy dynamics scripts, see `analysis/inference/commitment_point_detection.py` which uses sliding window variance instead of acceleration.
-
-## Steering Validation
-
-Validate trait vectors via causal intervention - add `coefficient * vector` to layer output during generation and measure behavioral change with LLM-as-judge.
-
-```bash
-# Basic usage - sweeps all layers, finds good coefficients automatically
-python analysis/steering/evaluate.py \
-    --experiment {experiment} \
-    --vector-from-trait {experiment}/{category}/{trait}
-
-# Specific layers only
-python analysis/steering/evaluate.py \
-    --experiment {experiment} \
-    --vector-from-trait {experiment}/{category}/{trait} \
-    --layers 10,12,14,16
-```
-
-See [analysis/steering/README.md](../analysis/steering/README.md) for full usage guide.
-
-## Creating New Traits
-
-### 1. Create Required Files
-
-```bash
-# Create trait directory with scenario files
-mkdir -p datasets/traits/category/my_trait
-vim datasets/traits/category/my_trait/positive.txt
-vim datasets/traits/category/my_trait/negative.txt
-vim datasets/traits/category/my_trait/definition.txt
-vim datasets/traits/category/my_trait/steering.json
-```
-
-See existing trait directories for examples.
-
-### 2. Run Pipeline
-
-```bash
-# Full pipeline: extract + evaluate + steer
-python extraction/run_pipeline.py \
-    --experiment gemma-2-2b \
-    --traits category/my_trait
-```
-
-The pipeline:
-- Vets scenarios and responses (LLM-as-a-judge)
-- Extracts vectors using `extraction_model` from config
-- Evaluates vector quality
-- Runs steering eval using `application_model` from config
-
-See [extraction/elicitation_guide.md](../extraction/elicitation_guide.md) for complete instructions.
+---
 
 ## Model Support
 
-**Gemma 2 2B IT**:
-- Layers: 26 (transformer layers, indexed 0-25)
-- Hidden dim: 2304
-- Default monitor layer: 16 (middle layer)
-- Architecture: Grouped Query Attention (GQA) - 8 query heads, 4 key/value heads
-- Cached locally at `~/.cache/huggingface/hub/`
-- GPU support: CUDA, ROCm, MPS (PyTorch 2.10.0+ nightly required for Mac)
+**Gemma 2 2B IT** (default):
+- 26 layers (0-25), hidden dim 2304
+- GQA: 8 query heads, 4 KV heads
+- Mac: Requires PyTorch nightly for MPS
 
-**Verify config:**
-```bash
-python3 -c "from transformers import AutoConfig; c=AutoConfig.from_pretrained('google/gemma-2-2b-it'); print(f'Layers: {c.num_hidden_layers}, Hidden: {c.hidden_size}')"
-```
-
-## Experiment Configuration
-
-Each experiment stores model settings in `experiments/{name}/config.json`:
-
+**Experiment config** (`experiments/{name}/config.json`):
 ```json
 {
   "extraction_model": "google/gemma-2-2b",
@@ -685,161 +224,54 @@ Each experiment stores model settings in `experiments/{name}/config.json`:
 }
 ```
 
-- `extraction_model`: HuggingFace ID for response generation and activation extraction
-- `application_model`: HuggingFace ID for steering evaluation and inference
-
-**Chat template:** Auto-detected from tokenizer (`tokenizer.chat_template is not None`):
-- Base models (no template) → raw text completion
-- IT models (has template) → chat formatting
-
-**CLI overrides** (rarely needed):
-```bash
-# Force chat template on
-python extraction/generate_responses.py --experiment my_exp --chat-template ...
-
-# Force chat template off
-python extraction/generate_responses.py --experiment my_exp --no-chat-template ...
-```
-
-**Verify config exists:**
-```bash
-cat experiments/my_experiment/config.json
-```
-
-## Model Configuration
-
-Model architecture and defaults are stored in `config/models/{model}.yaml`:
-
-```yaml
-# config/models/gemma-2-2b-it.yaml
-huggingface_id: google/gemma-2-2b-it
-model_type: gemma2
-variant: it
-
-num_hidden_layers: 26
-hidden_size: 2304
-num_attention_heads: 8
-num_key_value_heads: 4
-
-residual_sublayers: [input, after_attn, output]
-
-sae:
-  available: true
-  provider: gemma-scope
-  base_path: sae/gemma-scope-2b-pt-res-canonical
-  downloaded_layers: [16]
-
-defaults:
-  monitoring_layer: 16
-```
-
-**Python usage:**
-```python
-from utils.model_registry import get_model_config, get_num_layers, get_sae_path
-
-config = get_model_config('google/gemma-2-2b-it')
-config['num_hidden_layers']  # 26
-
-get_num_layers('google/gemma-2-2b-it')  # 26
-get_sae_path('google/gemma-2-2b-it', 16)  # Path to SAE directory
-```
-
-**JavaScript usage:**
-```javascript
-await modelConfig.loadForExperiment('{experiment}');
-modelConfig.getNumLayers();  // 26
-modelConfig.getSaePath(16);  // 'sae/gemma-scope.../layer_16_...'
-```
-
-**Available models:**
-```bash
-ls config/models/
-```
-
-## Technical Details
-
-### Extraction Methods
-
-See `core/methods.py` for implementations.
-
-**Example - Linear Probe:**
-```python
-from core import get_method
-method = get_method('probe')
-result = method.extract(pos_activations, neg_activations)
-vector = result['vector']
-```
-
-**Available methods:** `mean_diff`, `probe`, `gradient`, `random_baseline`.
-
-### Activation Capture
-
-Capture activations from any layer:
-
-```python
-from core import CaptureHook, MultiLayerCapture
-
-# Single layer
-with CaptureHook(model, "model.layers.16") as hook:
-    model.generate(**inputs)
-activations = hook.get()  # [batch, seq_len, hidden_dim]
-
-# Multiple layers
-with MultiLayerCapture(model, layers=[14, 15, 16]) as capture:
-    model.generate(**inputs)
-acts_16 = capture.get(16)
-```
+---
 
 ## Troubleshooting
 
-### Extraction fails with "Scenario files not found"
-Create scenario files in your experiment's trait directory:
+**Scenario files not found:**
 ```bash
-vim datasets/traits/{category}/{trait}/positive.txt
-vim datasets/traits/{category}/{trait}/negative.txt
+# Create in datasets/traits/{category}/{trait}/
+vim datasets/traits/category/my_trait/positive.txt
+vim datasets/traits/category/my_trait/negative.txt
 ```
-See existing files in your experiment's trait directory for examples.
 
-### Vector separation too low (contrast < 20)
+**Low vector separation (contrast < 20):**
 - Add more contrasting scenarios
-- Make scenarios more extreme
-- Try different extraction method (probe often better than mean_diff)
+- Try probe method instead of mean_diff
 
-### Out of memory during activation extraction
-Reduce batch size:
+**Out of memory:**
 ```bash
 python extraction/extract_activations.py ... --batch_size 4
 ```
 
-### "Module not found" errors
+**MPS errors on Mac:**
 ```bash
-pip install -r requirements.txt
-```
-
-### MPS errors on Mac (incompatible dimensions, LLVM ERROR)
-Gemma 2B requires PyTorch nightly for MPS support:
-
-```bash
-# Create Python 3.11 environment
-conda create -n o python=3.11
-conda activate o
-
-# Install PyTorch nightly (required for MPS + GQA support)
+# Requires PyTorch nightly
 pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
-
-# Install all dependencies
-pip install -r requirements.txt
-
-# Verify MPS
-python -c "import torch; print(f'MPS available: {torch.backends.mps.is_available()}')"
 ```
 
-PyTorch stable (2.6.0) crashes due to Grouped Query Attention incompatibility. Python 3.11+ and PyTorch nightly (2.10.0+) required.
+---
+
+## Visualization
+
+Start the server:
+```bash
+python visualization/serve.py  # Visit http://localhost:8000/
+```
+
+**Views:**
+- **Trait Extraction** — Per-trait layer×method heatmaps, best-vector similarity matrix, metric distributions
+- **Steering Sweep** — Method comparison, layer×coefficient heatmaps, optimal coefficient curves
+- **Live Chat** — Interactive chat with real-time trait monitoring token-by-token
+- **Trait Dynamics** — Token trajectory, velocity/acceleration, per-layer activation magnitude
+- **Layer Deep Dive** — Attention heatmaps, SAE feature decomposition
+
+Auto-discovers experiments, traits, and prompts from `experiments/` directory.
+
+---
 
 ## Further Reading
 
-- **[docs/extraction_pipeline.md](extraction_pipeline.md)** - Complete extraction pipeline guide
-- **[docs/creating_traits.md](creating_traits.md)** - How to design effective traits
-- **[docs/core_reference.md](core_reference.md)** - core/ API reference
-- **[docs/overview.md](overview.md)** - High-level methodology and concepts
-- **[docs/literature_review.md](literature_review.md)** - Related work
+- **[extraction_pipeline.md](extraction_pipeline.md)** - Full pipeline documentation
+- **[core_reference.md](core_reference.md)** - API reference
+- **[extraction_guide.md](extraction_guide.md)** - Comprehensive extraction details

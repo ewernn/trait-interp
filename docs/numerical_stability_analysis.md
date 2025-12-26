@@ -27,7 +27,7 @@ ls -lh experiments/{experiment}/extraction/{trait}/activations/all_layers.pt
 
 All extraction methods upcast to float32 before computation:
 
-**Gradient Method** (`traitlens/methods.py:278-280`):
+**Gradient Method** (`core/methods.py:278-280`):
 ```python
 # Upcast to float32 for numerical stability
 pos_acts = pos_acts.float()
@@ -35,13 +35,13 @@ neg_acts = neg_acts.float()
 vector = torch.randn(hidden_dim, device=pos_acts.device, dtype=torch.float32, requires_grad=True)
 ```
 
-**ICA Method** (`traitlens/methods.py:132`):
+**ICA Method** (`core/methods.py:132`):
 ```python
 # Upcast before numpy conversion (NumPy doesn't support BFloat16)
 combined_np = combined.float().cpu().numpy()
 ```
 
-**Probe Method** (`traitlens/methods.py:208`):
+**Probe Method** (`core/methods.py:208`):
 ```python
 # Upcast before sklearn
 X = torch.cat([pos_acts, neg_acts], dim=0).float().cpu().numpy()
