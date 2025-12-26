@@ -28,4 +28,6 @@ from .math import (
     p_value,
     polarity_correct,
     evaluate_vector,
+    vector_properties,
+    distribution_properties,
 )

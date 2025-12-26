@@ -71,8 +71,8 @@ similarity = cosine_similarity(refusal_vec, evil_vec)
 clean_vec = orthogonalize(trait_vector, confound_vector)
 
 # All separation + statistical metrics
-metrics = evaluate_vector(vector, pos_acts, neg_acts)
-# Returns: {separation, accuracy, effect_size, p_value, polarity_correct}
+metrics = evaluate_vector(pos_acts, neg_acts, vector)
+# Returns: {accuracy, separation, effect_size, p_value, polarity_correct, pos_mean, neg_mean}
 ```
 
 **Individual metrics:**
@@ -84,6 +84,18 @@ acc = accuracy(pos_proj, neg_proj)                    # 0.0 to 1.0
 d = effect_size(pos_proj, neg_proj)                   # 0.2=small, 0.5=medium, 0.8=large
 d = effect_size(pos_proj, neg_proj, signed=True)      # Preserve sign (pos > neg = positive)
 p = p_value(pos_proj, neg_proj)                       # Lower = significant
+```
+
+**Vector/distribution analysis:**
+```python
+from core import vector_properties, distribution_properties
+
+# Vector properties
+props = vector_properties(vector)  # {norm, sparsity}
+
+# Distribution properties (for projection scores)
+dist = distribution_properties(pos_proj, neg_proj)
+# {pos_std, neg_std, overlap_coefficient, separation_margin}
 ```
 
 ---

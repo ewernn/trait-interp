@@ -3,11 +3,14 @@ Math primitives for trait vector analysis.
 
 projection: measure trait expression in activations
 evaluate_vector: compute all quality metrics for a vector
+activation_norms: mean ||h|| per layer (for steering coefficient estimation)
+vector_properties: norm, sparsity of a vector
+distribution_properties: std, overlap, margin of projection distributions
 """
 
 import torch
 import numpy as np
-from typing import Dict, Union
+from typing import Dict, List, Union
 from scipy import stats
 
 
@@ -125,4 +128,59 @@ def evaluate_vector(
         'polarity_correct': polarity_correct(pos_proj, neg_proj),
         'pos_mean': pos_proj.mean().item(),
         'neg_mean': neg_proj.mean().item(),
+    }
+
+
+def vector_properties(vector: torch.Tensor) -> Dict[str, float]:
+    """
+    Compute properties of a vector.
+
+    Args:
+        vector: [hidden_dim] tensor
+
+    Returns:
+        {'norm': float, 'sparsity': float (fraction of components < 0.01)}
+    """
+    vector_np = vector.float().cpu().numpy()
+    return {
+        'norm': float(np.linalg.norm(vector_np)),
+        'sparsity': float(np.mean(np.abs(vector_np) < 0.01)),
+    }
+
+
+def distribution_properties(
+    pos_proj: torch.Tensor,
+    neg_proj: torch.Tensor,
+) -> Dict[str, float]:
+    """
+    Compute properties of projection score distributions.
+
+    Args:
+        pos_proj: [n_pos] projection scores for positive examples
+        neg_proj: [n_neg] projection scores for negative examples
+
+    Returns:
+        pos_std, neg_std, overlap_coefficient, separation_margin
+    """
+    pos_mean = pos_proj.mean().item()
+    neg_mean = neg_proj.mean().item()
+    pos_std = float(pos_proj.std())
+    neg_std = float(neg_proj.std())
+
+    # Overlap coefficient: estimate using normal approximation
+    if pos_std > 0 and neg_std > 0:
+        pooled_std = np.sqrt((pos_std**2 + neg_std**2) / 2)
+        z_score = abs(pos_mean - neg_mean) / (pooled_std + 1e-8)
+        overlap = max(0, 1 - z_score / 4.0)  # z=4 → no overlap
+    else:
+        overlap = 0.5
+
+    # Separation margin: gap between distributions (positive = good separation)
+    margin = (pos_mean - pos_std) - (neg_mean + neg_std)
+
+    return {
+        'pos_std': pos_std,
+        'neg_std': neg_std,
+        'overlap_coefficient': float(overlap),
+        'separation_margin': float(margin),
     }
