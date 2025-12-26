@@ -8,8 +8,6 @@ Input:
 
 Output:
     - experiments/{experiment}/extraction/extraction_evaluation.json
-      Includes: activation_norms, all_results (validation metrics per vector),
-                best_vector_similarity, method_similarities
 
 Usage:
     python analysis/vectors/extraction_evaluation.py --experiment my_experiment
@@ -21,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import warnings
 import torch
+import torch.nn.functional as F
 import numpy as np
 import json
 import fire
@@ -28,14 +27,14 @@ import pandas as pd
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, asdict
 from tqdm import tqdm
+from sklearn.metrics import roc_auc_score
 
-# Suppress std() warnings when n=1 (can't compute std with single sample)
 warnings.filterwarnings('ignore', message='std\\(\\): degrees of freedom')
 
 from utils.paths import get as get_path
 from utils.model import load_experiment_config
-from core import evaluate_vector, accuracy as compute_accuracy
-from sklearn.metrics import roc_auc_score
+from utils.vectors import load_vector_with_baseline
+from core import evaluate_vector, vector_properties, distribution_properties
 
 
 @dataclass
@@ -120,115 +119,26 @@ def load_validation_activations(experiment: str, trait: str, layer: int, compone
 
 
 def load_training_activations(experiment: str, trait: str, layer: int, component: str = 'residual') -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
-    """Load training activations for comparison."""
+    """Load training activations for comparison (optional - for overfitting detection)."""
     acts_dir = get_path('extraction.activations', experiment=experiment, trait=trait)
 
-    # Determine file names based on component
-    acts_filename = "all_layers.pt" if component == 'residual' else f"{component}_all_layers.pt"
-    metadata_filename = "metadata.json" if component == 'residual' else f"{component}_metadata.json"
+    prefix = "" if component == 'residual' else f"{component}_"
+    pos_path = acts_dir / f"{prefix}pos_layer{layer}.pt"
+    neg_path = acts_dir / f"{prefix}neg_layer{layer}.pt"
 
-    # Try loading from combined file first (legacy format)
-    all_layers_path = acts_dir / acts_filename
-    if all_layers_path.exists():
-        all_acts = torch.load(all_layers_path, weights_only=True)
-        metadata_path = acts_dir / metadata_filename
-
-        # Get split from metadata
-        if metadata_path.exists():
-            with open(metadata_path) as f:
-                metadata = json.load(f)
-                n_pos = metadata.get('n_examples_pos', all_acts.shape[0] // 2)
-        else:
-            n_pos = all_acts.shape[0] // 2
-
-        # all_acts shape: [n_examples, n_layers, hidden_dim]
-        pos_acts = all_acts[:n_pos, layer, :]
-        neg_acts = all_acts[n_pos:, layer, :]
-        return pos_acts, neg_acts
-
-    # Try loading from per-layer files (current format)
-    pos_layer_path = acts_dir / f"pos_layer{layer}.pt"
-    neg_layer_path = acts_dir / f"neg_layer{layer}.pt"
-
-    if not pos_layer_path.exists() or not neg_layer_path.exists():
+    if not pos_path.exists() or not neg_path.exists():
         return None, None
 
-    pos_acts = torch.load(pos_layer_path, weights_only=True)
-    neg_acts = torch.load(neg_layer_path, weights_only=True)
-
-    return pos_acts, neg_acts
+    return torch.load(pos_path, weights_only=True), torch.load(neg_path, weights_only=True)
 
 
 def load_vector(experiment: str, trait: str, method: str, layer: int, component: str = 'residual') -> Optional[torch.Tensor]:
-    """Load a specific vector."""
-    vectors_dir = get_path('extraction.vectors', experiment=experiment, trait=trait)
-    prefix = "" if component == 'residual' else f"{component}_"
-    path = vectors_dir / f"{prefix}{method}_layer{layer}.pt"
-    if path.exists():
-        return torch.load(path, weights_only=True)
-    return None
-
-
-def compute_vector_properties(vector: torch.Tensor) -> Dict:
-    """
-    Compute properties of a vector.
-
-    Args:
-        vector: [hidden_dim] tensor
-
-    Returns:
-        Dictionary with norm, sparsity
-    """
-    vector_np = vector.float().cpu().numpy()
-
-    return {
-        'vector_norm': float(np.linalg.norm(vector_np)),
-        'vector_sparsity': float(np.mean(np.abs(vector_np) < 0.01)),
-    }
-
-
-def compute_distribution_properties(
-    pos_projections: torch.Tensor,
-    neg_projections: torch.Tensor,
-    pos_mean: float,
-    neg_mean: float
-) -> Dict[str, float]:
-    """
-    Compute properties of projection score distributions.
-
-    Args:
-        pos_projections: [n_pos] tensor of positive projection scores
-        neg_projections: [n_neg] tensor of negative projection scores
-        pos_mean: Mean of positive projections
-        neg_mean: Mean of negative projections
-
-    Returns:
-        Dictionary with std, overlap, margin metrics
-    """
-    pos_std = float(pos_projections.std())
-    neg_std = float(neg_projections.std())
-
-    # Overlap coefficient: estimate using normal approximation
-    # If pos/neg are well-separated Gaussians, this measures overlap
-    if pos_std > 0 and neg_std > 0:
-        # Distance between means in units of pooled std
-        pooled_std = np.sqrt((pos_std**2 + neg_std**2) / 2)
-        z_score = abs(pos_mean - neg_mean) / (pooled_std + 1e-8)
-        # Rough overlap estimate (1 - z_score normalized to 0-1)
-        overlap = max(0, 1 - z_score / 4.0)  # z=4 → no overlap
-    else:
-        overlap = 0.5
-
-    # Separation margin: gap between distributions
-    # Positive = good separation, negative = overlap
-    margin = (pos_mean - pos_std) - (neg_mean + neg_std)
-
-    return {
-        'val_pos_std': pos_std,
-        'val_neg_std': neg_std,
-        'overlap_coefficient': float(overlap),
-        'separation_margin': float(margin)
-    }
+    """Load a specific vector. Wrapper around utils/vectors.py."""
+    try:
+        vector, _, _ = load_vector_with_baseline(experiment, trait, method, layer, component)
+        return vector
+    except FileNotFoundError:
+        return None
 
 
 def evaluate_vector_on_validation(
@@ -240,26 +150,20 @@ def evaluate_vector_on_validation(
     component: str = 'residual'
 ) -> Optional[ValidationResult]:
     """Evaluate a single vector on validation data."""
-    # Load vector
     vector = load_vector(experiment, trait, method, layer, component)
     if vector is None:
         return None
 
-    # Load validation activations
     try:
         val_pos, val_neg = load_validation_activations(experiment, trait, layer, component)
     except FileNotFoundError:
         return None
 
-    # Compute validation metrics using traitlens
+    # Core metrics
     val_metrics = evaluate_vector(val_pos, val_neg, vector, normalize=normalize)
+    vec_props = vector_properties(vector)
 
-    # Compute vector properties
-    vector_props = compute_vector_properties(vector)
-
-    # Compute projection scores for distribution properties
-    # Note: evaluate_vector already does this internally, but we need the raw projections
-    # Convert to float32 for consistent computation (activations may be bfloat16)
+    # Compute projections for distribution properties and AUC
     vector_f32 = vector.float()
     val_pos_f32 = val_pos.float()
     val_neg_f32 = val_neg.float()
@@ -268,35 +172,28 @@ def evaluate_vector_on_validation(
         vec_norm = vector_f32 / (vector_f32.norm() + 1e-8)
         pos_norm = val_pos_f32 / (val_pos_f32.norm(dim=1, keepdim=True) + 1e-8)
         neg_norm = val_neg_f32 / (val_neg_f32.norm(dim=1, keepdim=True) + 1e-8)
-        pos_projections = pos_norm @ vec_norm
-        neg_projections = neg_norm @ vec_norm
+        pos_proj = pos_norm @ vec_norm
+        neg_proj = neg_norm @ vec_norm
     else:
-        pos_projections = val_pos_f32 @ vector_f32
-        neg_projections = val_neg_f32 @ vector_f32
+        pos_proj = val_pos_f32 @ vector_f32
+        neg_proj = val_neg_f32 @ vector_f32
 
-    # Compute distribution properties
-    dist_props = compute_distribution_properties(
-        pos_projections,
-        neg_projections,
-        val_metrics['pos_mean'],
-        val_metrics['neg_mean']
-    )
+    dist_props = distribution_properties(pos_proj, neg_proj)
 
-    # Compute AUC-ROC (threshold-independent classification quality)
-    all_projections = torch.cat([pos_projections, neg_projections]).cpu().numpy()
-    all_labels = np.concatenate([np.ones(len(pos_projections)), np.zeros(len(neg_projections))])
+    # AUC-ROC
+    all_proj = torch.cat([pos_proj, neg_proj]).cpu().numpy()
+    all_labels = np.concatenate([np.ones(len(pos_proj)), np.zeros(len(neg_proj))])
     try:
-        auc = roc_auc_score(all_labels, all_projections)
+        auc = roc_auc_score(all_labels, all_proj)
     except ValueError:
-        auc = 0.5  # Fallback if AUC can't be computed
+        auc = 0.5
 
-    # Load training activations for comparison
+    # Training comparison (optional)
     train_pos, train_neg = load_training_activations(experiment, trait, layer, component)
     train_metrics = None
     if train_pos is not None:
         train_metrics = evaluate_vector(train_pos, train_neg, vector, normalize=normalize)
 
-    # Build result
     result = ValidationResult(
         trait=trait,
         method=method,
@@ -309,11 +206,14 @@ def evaluate_vector_on_validation(
         val_pos_mean=val_metrics['pos_mean'],
         val_neg_mean=val_metrics['neg_mean'],
         val_auc_roc=auc,
-        **vector_props,
-        **dist_props
+        vector_norm=vec_props['norm'],
+        vector_sparsity=vec_props['sparsity'],
+        val_pos_std=dist_props['pos_std'],
+        val_neg_std=dist_props['neg_std'],
+        overlap_coefficient=dist_props['overlap_coefficient'],
+        separation_margin=dist_props['separation_margin'],
     )
 
-    # Add training comparison if available
     if train_metrics:
         result.train_accuracy = train_metrics['accuracy']
         result.train_separation = train_metrics['separation']
@@ -392,18 +292,7 @@ def compute_method_similarities(
 
     Returns:
         Dict mapping trait -> layer -> similarity pairs
-        Example: {
-            'chirp/refusal': {
-                15: {
-                    'probe_gradient': 0.95,
-                    'probe_mean_diff': 0.87,
-                    'gradient_mean_diff': 0.91
-                }
-            }
-        }
     """
-    import torch.nn.functional as F
-
     similarities = {}
 
     for trait in traits:
