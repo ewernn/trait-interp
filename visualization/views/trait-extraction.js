@@ -140,7 +140,6 @@ async function renderTraitExtraction() {
     renderBestVectorsSummary(evalData);
     renderTraitHeatmaps(evalData);
     renderMethodBreakdown(evalData);
-    renderBestVectorSimilarity(evalData);
     renderAllMetricsOverview(evalData);
 
     // Render math after all content is in DOM
@@ -149,36 +148,7 @@ async function renderTraitExtraction() {
     }
 
     // Setup info toggles
-    setupSubsectionInfoToggles();
-}
-
-
-/**
- * Setup click handlers for subsection info toggles (▼ triangles)
- * Uses event delegation to handle dynamically added content
- */
-function setupSubsectionInfoToggles() {
-    const container = document.querySelector('.tool-view');
-    if (!container || container.dataset.togglesSetup) return;
-    container.dataset.togglesSetup = 'true';
-
-    container.addEventListener('click', (e) => {
-        const toggle = e.target.closest('.subsection-info-toggle');
-        if (!toggle) return;
-
-        const targetId = toggle.dataset.target;
-        const infoDiv = document.getElementById(targetId);
-        if (infoDiv) {
-            const isShown = infoDiv.classList.toggle('show');
-            toggle.textContent = isShown ? '▼' : '►';
-
-            // Typeset MathJax when info is shown (content was hidden during initial typeset)
-            if (isShown && window.MathJax && !infoDiv.dataset.mathTypeset) {
-                infoDiv.dataset.mathTypeset = 'true';
-                MathJax.typesetPromise([infoDiv]);
-            }
-        }
-    });
+    window.setupSubsectionInfoToggles();
 }
 
 
@@ -694,7 +664,7 @@ function renderMethodBreakdown(evalData) {
                 x: values,
                 type: 'histogram',
                 nbinsx: 15,
-                marker: { color: getCssVar('--primary-color', '#a09f6c') },
+                marker: { color: window.getCssVar('--primary-color', '#a09f6c') },
                 hovertemplate: `${metric.label}: %{x:.0f}%<br>Count: %{y}<extra></extra>`
             };
 
@@ -709,70 +679,6 @@ function renderMethodBreakdown(evalData) {
             }), { displayModeBar: false, responsive: true });
         });
     });
-}
-
-
-function renderBestVectorSimilarity(evalData) {
-    const container = document.getElementById('best-vector-similarity-container');
-    if (!container) return;
-
-    const similarityMatrix = evalData.best_vector_similarity || {};
-    const allTraits = Object.keys(similarityMatrix);
-
-    if (allTraits.length === 0) {
-        container.innerHTML = '<p>No similarity data available.</p>';
-        return;
-    }
-
-    // Filter by selected traits from sidebar (fallback to all if none selected)
-    const filteredTraits = window.getFilteredTraits();
-    const selectedTraitNames = new Set(filteredTraits.map(t => t.name));
-    const traits = selectedTraitNames.size > 0
-        ? allTraits.filter(t => selectedTraitNames.has(t))
-        : allTraits;
-
-    if (traits.length === 0) {
-        container.innerHTML = '<p>No matching traits in similarity data.</p>';
-        return;
-    }
-
-    // Convert to 2D array (filtered)
-    const matrix = traits.map(t1 =>
-        traits.map(t2 => similarityMatrix[t1]?.[t2] ?? 0)
-    );
-
-    const displayNames = traits.map(t => window.getDisplayName(t));
-
-    const trace = {
-        z: matrix,
-        x: displayNames,
-        y: displayNames,
-        type: 'heatmap',
-        colorscale: window.ASYMB_COLORSCALE,
-        zmid: 0,
-        zmin: -1,
-        zmax: 1,
-        colorbar: {
-            title: { text: 'Similarity', font: { size: 11 } },
-            tickvals: [-1, -0.5, 0, 0.5, 1]
-        },
-        hovertemplate: '%{y} ↔ %{x}<br>sim = %{z:.3f}<extra></extra>',
-        texttemplate: '%{z:.2f}',
-        textfont: { size: 9 }
-    };
-
-    Plotly.newPlot(container, [trace], window.getPlotlyLayout({
-        margin: { l: 150, r: 80, t: 100, b: 150 },
-        xaxis: { side: 'top', tickangle: -45, tickfont: { size: 10 } },
-        yaxis: { autorange: 'reversed', tickfont: { size: 10 } },
-        height: 600
-    }), { displayModeBar: false, responsive: true });
-}
-
-
-// CSS helper
-function getCssVar(name, fallback = '') {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
 

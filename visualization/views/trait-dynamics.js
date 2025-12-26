@@ -5,44 +5,9 @@
 // 1. Token Trajectory: X=tokens, Y=projection (best layer) + velocity/acceleration
 // 2. Activation Magnitude
 
-// Color palette for traits (distinct, colorblind-friendly)
-const TRAIT_COLORS = [
-    '#4a9eff',  // blue
-    '#ff6b6b',  // red
-    '#51cf66',  // green
-    '#ffd43b',  // yellow
-    '#cc5de8',  // purple
-    '#ff922b',  // orange
-    '#20c997',  // teal
-    '#f06595',  // pink
-    '#748ffc',  // indigo
-    '#a9e34b',  // lime
-];
-
 // Tokens to skip: BOS (0) + undifferentiated warmup tokens (1)
 // Early tokens have uniform activations across prompts - not informative
 const START_TOKEN_IDX = 2;
-
-/**
- * Setup click handlers for subsection info toggles (► triangles)
- */
-function setupSubsectionInfoToggles() {
-    const container = document.querySelector('.tool-view');
-    if (!container || container.dataset.togglesSetup) return;
-    container.dataset.togglesSetup = 'true';
-
-    container.addEventListener('click', (e) => {
-        const toggle = e.target.closest('.subsection-info-toggle');
-        if (!toggle) return;
-
-        const targetId = toggle.dataset.target;
-        const infoDiv = document.getElementById(targetId);
-        if (infoDiv) {
-            const isShown = infoDiv.classList.toggle('show');
-            toggle.textContent = isShown ? '▼' : '►';
-        }
-    });
-}
 
 /**
  * Apply a centered moving average to smooth data.
@@ -332,7 +297,7 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
     `;
 
     // Setup info toggles
-    setupSubsectionInfoToggles();
+    window.setupSubsectionInfoToggles();
 
     // Prepare data for plotting
     const traitActivations = {};  // Store smoothed activations for velocity/accel
@@ -399,7 +364,7 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
         traitActivations[traitName] = smoothData(rawVnorm, 3);
 
         // Each vector gets its own color
-        const color = TRAIT_COLORS[idx % TRAIT_COLORS.length];
+        const color = window.getChartColors()[idx % 10];
 
         const method = vs.method || 'probe';
         const valueLabel = effectiveMode === 'cosine' ? 'Cosine' : 'Projection';
@@ -482,7 +447,7 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
             : 'no metadata';
 
         // Each vector gets its own color (same as traces)
-        const color = TRAIT_COLORS[idx % TRAIT_COLORS.length];
+        const color = window.getChartColors()[idx % 10];
 
         // Display name matches trace name
         const baseTrait = data.metadata?._baseTrait || traitName;
@@ -686,7 +651,7 @@ function renderTokenDerivativePlots(traitActivations, loadedTraits, tickVals, ti
         const activations = traitActivations[traitName];
         const velocity = computeVelocity(activations);
         const smoothedVelocity = smoothData(velocity, 3);
-        const color = TRAIT_COLORS[idx % TRAIT_COLORS.length];
+        const color = window.getChartColors()[idx % 10];
 
         velocityTraces.push({
             x: Array.from({length: smoothedVelocity.length}, (_, i) => i + 0.5),

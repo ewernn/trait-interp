@@ -1,14 +1,6 @@
 // Steering Sweep - Heatmap visualization of steering experiments
 // Shows layer × perturbation ratio → delta/coherence
 
-// Helper to get display name (fallback if global not available)
-function getTraitDisplayName(trait) {
-    if (window.getDisplayName) return window.getDisplayName(trait);
-    // Fallback: just use the trait name part
-    const parts = trait.split('/');
-    return parts[parts.length - 1];
-}
-
 async function renderSteeringSweep() {
     const contentArea = document.getElementById('content-area');
 
@@ -300,7 +292,6 @@ async function discoverSteeringTraits() {
                     }
                 } catch (subError) {
                     // Ignore individual folder errors
-                    console.log(`Skipping folder ${folder}:`, subError);
                 }
             }
         }
@@ -444,11 +435,7 @@ async function renderBestVectorPerLayer() {
 
             // Create traces for each method
             const traces = [];
-            const methodColors = {
-                probe: '#4a9eff',      // light blue
-                gradient: '#51cf66',   // light green
-                mean_diff: '#cc5de8'   // light purple
-            };
+            const methodColors = window.getMethodColors();
             const methodNames = {
                 probe: 'Probe',
                 gradient: 'Gradient',
@@ -506,9 +493,8 @@ async function renderBestVectorPerLayer() {
 
     container.innerHTML = charts.map(({ trait, chartId }) => `
         <div class="trait-chart-wrapper">
-            <div class="trait-chart-title">${getTraitDisplayName(trait)}</div>
+            <div class="trait-chart-title">${window.getDisplayName(trait)}</div>
             <div id="${chartId}" class="chart-container-sm"></div>
-            <div id="${chartId}-similarity" class="similarity-heatmap-container"></div>
         </div>
     `).join('');
 
@@ -529,105 +515,7 @@ async function renderBestVectorPerLayer() {
 
         Plotly.newPlot(chartId, traces, layout, { displayModeBar: false, responsive: true });
     }
-
-    // Render similarity heatmaps
-    for (const { trait, chartId, methodData } of charts) {
-        await renderMethodSimilarityHeatmap(trait, chartId, methodData);
-    }
 }
-
-/**
- * Render cosine similarity heatmap between methods at each layer
- */
-async function renderMethodSimilarityHeatmap(trait, chartId, methodData) {
-    const container = document.getElementById(`${chartId}-similarity`);
-    if (!container) return;
-
-    const experiment = window.state.currentExperiment;
-    if (!experiment) return;
-
-    try {
-        // Load extraction_evaluation.json for similarity data
-        const evalUrl = '/' + window.paths.get('extraction_eval.evaluation', {});
-        const response = await fetch(evalUrl);
-        if (!response.ok) {
-            container.innerHTML = '<div style="font-size: 10px; color: var(--text-tertiary); padding: 4px;">Run extraction_evaluation.py to compute similarities</div>';
-            return;
-        }
-
-        const evalData = await response.json();
-        const methodSims = evalData.method_similarities || {};
-        const traitSims = methodSims[trait];
-
-        if (!traitSims || Object.keys(traitSims).length === 0) {
-            container.innerHTML = '<div style="font-size: 10px; color: var(--text-tertiary); padding: 4px;">No similarity data for this trait</div>';
-            return;
-        }
-
-        // Get layers with similarity data
-        const layers = Object.keys(traitSims).map(Number).sort((a, b) => a - b);
-
-        // Prepare data for heatmap: 3 rows (one per method pair), N columns (layers)
-        // Keys are alphabetically sorted in backend: gradient_X, mean_diff_X
-        const pairs = ['gradient_mean_diff', 'gradient_probe', 'mean_diff_probe'];
-        const pairLabels = {
-            'gradient_mean_diff': 'Grd↔MD',
-            'gradient_probe': 'Grd↔Prb',
-            'mean_diff_probe': 'MD↔Prb'
-        };
-
-        // Build z matrix (3 rows × layers columns)
-        const z = pairs.map(pair => {
-            return layers.map(layer => {
-                const layerSims = traitSims[layer] || {};
-                return layerSims[pair] !== undefined ? layerSims[pair] : null;
-            });
-        });
-
-        // Create heatmap
-        const heatmapId = `${chartId}-similarity-heatmap`;
-        container.innerHTML = `<div id="${heatmapId}" style="height: 60px; margin-top: 56px;"></div>`;
-
-        const trace = {
-            z: z,
-            x: layers,
-            y: pairs.map(p => pairLabels[p]),
-            type: 'heatmap',
-            colorscale: window.ASYMB_COLORSCALE,
-            zmin: 0,
-            zmax: 1,
-            hoverongaps: false,
-            hovertemplate: 'L%{x}<br>%{y}: %{z:.3f}<extra></extra>',
-            showscale: false
-        };
-
-        const layout = window.getPlotlyLayout ? window.getPlotlyLayout({
-            margin: { l: 50, r: 10, t: 5, b: 20 },
-            xaxis: {
-                title: '',
-                tickfont: { size: 8 },
-                dtick: 5
-            },
-            yaxis: {
-                tickfont: { size: 8 },
-                automargin: true
-            },
-            height: 60,
-        }) : {
-            xaxis: { title: '' },
-            yaxis: {},
-            height: 60,
-            margin: { l: 50, r: 10, t: 5, b: 20 }
-        };
-
-        Plotly.newPlot(heatmapId, [trace], layout, { displayModeBar: false, responsive: true });
-
-    } catch (e) {
-        console.error(`Failed to render similarity for ${trait}:`, e);
-        container.innerHTML = '<div style="font-size: 10px; color: var(--text-tertiary); padding: 4px;">Error loading similarity data</div>';
-    }
-}
-
 
 /**
  * Render trait picker (inline buttons)
@@ -648,7 +536,7 @@ async function renderTraitPicker(traits) {
             <div class="tp-buttons">
                 ${traits.map(t => `
                     <button class="tp-btn ${t === currentTrait ? 'active' : ''}" data-trait="${t}">
-                        ${getTraitDisplayName(t)}
+                        ${window.getDisplayName(t)}
                     </button>
                 `).join('')}
             </div>
@@ -1204,7 +1092,6 @@ async function loadMultiLayerData(trait) {
 
         return { heatmapData, resultsData };
     } catch (e) {
-        console.log('No multi-layer data for trait:', trait);
         return null;
     }
 }
