@@ -110,7 +110,7 @@ The unit-norm constraint forces the optimization to find a *direction* rather th
 | High separability (e.g., sentiment) | Probe | Clear signal, linear separation works well |
 | Subtle traits (e.g., uncertainty) | Gradient | Unit normalization finds robust directions |
 
-**Implementation**: These extraction methods are in `traitlens/methods.py` (bundled in repo).
+**Implementation**: See `core/methods.py` for extraction method implementations.
 
 ---
 

@@ -17,8 +17,8 @@ Primary documentation hub for the trait-interp project.
 
 ### Pipeline & Extraction
 - **[extraction/elicitation_guide.md](../extraction/elicitation_guide.md)** - Natural elicitation method
-- **[docs/writing_natural_prompts.md](writing_natural_prompts.md)** - Writing elicitation prompts
 - **[docs/extraction_guide.md](extraction_guide.md)** - Comprehensive extraction reference
+- **[docs/trait_dataset_creation_agent.md](trait_dataset_creation_agent.md)** - Creating trait datasets
 
 ### Inference & Steering
 - **[inference/README.md](../inference/README.md)** - Per-token monitoring
@@ -40,8 +40,8 @@ Primary documentation hub for the trait-interp project.
 ### Research (docs/other/)
 - **[docs/other/literature_review.md](other/literature_review.md)** - 100+ papers analyzed
 - **[docs/other/insights.md](other/insights.md)** - Research findings
-- **[docs/rm_sycophancy_detection_plan.md](rm_sycophancy_detection_plan.md)** - Active research
-- **[docs/rm_sycophancy_findings.md](rm_sycophancy_findings.md)** - RM sycophancy results
+- **[docs/other/rm_sycophancy_detection_plan.md](other/rm_sycophancy_detection_plan.md)** - RM sycophancy detection
+- **[docs/other/research_findings.md](other/research_findings.md)** - Empirical results
 
 ---
 

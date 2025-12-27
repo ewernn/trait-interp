@@ -38,7 +38,7 @@ Don't instruct the model. Give it scenarios where it *naturally* exhibits the tr
 Behavior differs because questions differ, not because we told it to behave differently. This avoids instruction-following confounds—you're capturing the trait, not compliance.
 
 ### Extraction
-Generate responses to 100+ contrasting scenarios, capture hidden states, average across response tokens, find the direction that separates positive from negative examples. Uses traitlens extraction toolkit (bundled in `traitlens/`) with methods: mean difference (baseline), linear probe (best accuracy), gradient optimization (best generalization).
+Generate responses to 100+ contrasting scenarios, capture hidden states, average across response tokens, find the direction that separates positive from negative examples. Uses extraction methods from `core/`: mean difference (baseline), linear probe (best accuracy), gradient optimization (best generalization).
 
 **Component extraction**: Extract from residual stream (default), attention output (`attn_out`), MLP output (`mlp_out`), or key/value projections (`k_cache`, `v_cache`).
 
@@ -71,7 +71,7 @@ Add `coefficient × vector` to layer output during generation. If behavior chang
 
 ## System Capabilities
 
-**Extraction**: 5-stage pipeline (vet scenarios → generate → vet responses → extract activations → extract vectors). Supports natural and instruction-based elicitation. Uses traitlens extraction toolkit.
+**Extraction**: 5-stage pipeline (vet scenarios → generate → vet responses → extract activations → extract vectors). Supports natural and instruction-based elicitation. Uses `core/` extraction methods.
 
 **Monitoring**: Capture (`capture_raw_activations.py`) saves raw .pt files, then projection (`project_raw_activations_onto_traits.py`) computes scores for all discovered traits. 9 pre-made prompt sets (single_trait, multi_trait, dynamic, adversarial, harmful, jailbreak, etc.) in `datasets/inference/`.
 
@@ -119,7 +119,7 @@ The extraction→monitoring→steering loop is production-ready. Main open quest
 datasets/       → Model-agnostic inputs (traits, prompts)
   └── traits/{category}/{trait}/  → Trait definitions (hum/, chirp/, harm/)
   └── inference/                  → 9 prompt sets (JSON files)
-extraction/     → Vector extraction pipeline (uses traitlens)
+extraction/     → Vector extraction pipeline (uses core/)
 inference/      → Per-token monitoring (unified capture script)
 analysis/       → Steering evaluation, metrics
 visualization/  → Interactive dashboard (Live Chat, Trait Dynamics, etc.)

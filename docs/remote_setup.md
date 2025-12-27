@@ -15,7 +15,7 @@ curl -fsSL https://claude.ai/install.sh | bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 
 # 3. Clone repo
-git clone https://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@github.com/ewernn/trait-interp.git
+git clone https://<YOUR_GITHUB_TOKEN>@github.com/ewernn/trait-interp.git
 cd trait-interp
 
 # 4. Persist env vars for all shells
