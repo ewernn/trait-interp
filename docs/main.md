@@ -76,7 +76,8 @@ trait-interp/
 │       │   │   └── metadata.json
 │       │   └── vectors/{position}/{component}/{method}/layer*.pt
 │       ├── inference/                # Raw activations, projections
-│       └── steering/{trait}/{position}/  # Steering results
+│       ├── steering/{trait}/{position}/  # Steering results
+│       └── benchmark/                # Benchmark results
 │
 ├── config/
 │   ├── paths.yaml                    # Single source of truth for paths
@@ -85,7 +86,7 @@ trait-interp/
 ├── core/                   # Primitives (hooks, methods, math)
 ├── utils/                  # Shared utilities (paths, model loading)
 ├── server/                 # Model server (persistent model loading)
-├── analysis/               # Analysis scripts
+├── analysis/               # Analysis scripts (steering, benchmark)
 ├── visualization/          # Interactive dashboard
 └── docs/                   # Documentation
 ```
@@ -115,6 +116,14 @@ python inference/project_raw_activations_onto_traits.py \
 **Use core primitives:**
 ```python
 from core import CaptureHook, SteeringHook, get_method, projection
+```
+
+**Benchmark capability preservation (for ablation):**
+```bash
+python analysis/benchmark/evaluate.py \
+    --experiment {experiment} \
+    --benchmark hellaswag \
+    --steer {trait} --coef -1.0
 ```
 
 ### How Components Interact
@@ -210,10 +219,11 @@ score = (hidden_state @ trait_vector) / ||trait_vector||
 
 ### Best Vector Selection
 
-Automated via `utils/vectors.py:get_best_layer(experiment, trait, component, position)`:
+Automated via `utils/vectors.py:get_best_vector(experiment, trait)`:
 1. **Steering results** (ground truth) — best delta with coherence ≥ 70
 2. **Effect size** (fallback) — from extraction_evaluation.json
-3. **Default** — layer 16, probe method
+
+Searches all positions/components. Pass `component` and `position` to filter.
 
 **Position syntax:** `<frame>[<slice>]` where frame is `prompt`, `response`, or `all`
 - `response[:]` — All response tokens (default)

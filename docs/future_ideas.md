@@ -17,6 +17,14 @@ Research extensions and technical improvements.
 ## dec20-prefill_attack
 Prefilling bypasses IT's behavioral gating, but base representations may still activate. Compare trait projections during forced compliance vs genuine refusal — elevated refusal scores during prefilled compliance would show model "recognizes" harm even when trapped. Connects to: Qi et al. 5-token commitment, Ward et al. base→IT transfer.
 
+**4-condition design idea:**
+- C1: Harmful, no prefill (baseline refusal)
+- C2: Harmful + prefill (main test)
+- C3: Benign, no prefill (baseline compliance)
+- C4: Benign + prefill (control for prefill confound)
+
+Key: C2 vs C4 isolates harm recognition from prefill effect. Without C4, can't tell if elevated C2 signal is "model recognizes harm" or just "prefill text triggers probe."
+
 ## dec19-causal_circuits
 Find what computes traits via (1) attribution patching with probe score as metric, or (2) ablating MLP neurons whose output weights align with trait vectors. Both validate that model actually uses the direction vs correlational artifact.
 
@@ -59,7 +67,7 @@ KV cache as model memory. Two angles:
 Ridge regression to predict late-layer trait (L16 refusal) from early-layer projections (L8 harm, uncertainty, instruction). Validates linear composition hypothesis.
 
 ## nov3-holistic_ranking
-One approach to principled vector ranking: combine accuracy, effect_size, generalization, specificity. Current get_best_layer() uses steering > effect_size > default. More principled ranking could help find cleanest extraction.
+One approach to principled vector ranking: combine accuracy, effect_size, generalization, specificity. Current get_best_vector() uses steering > effect_size. More principled ranking could help find cleanest extraction.
 
 ## nov1-cross_layer_similarity
 Cosine similarity of trait vector across all layer pairs. Heatmap shows where representation is stable. Data-driven layer selection.
