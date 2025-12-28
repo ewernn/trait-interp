@@ -1,0 +1,4 @@
+{
+  "extraction_model": "google/gemma-2-9b",
+  "application_model": "google/gemma-2-9b-it"
+}

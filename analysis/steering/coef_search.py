@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from tqdm import tqdm
 
-from core import SteeringHook
+from core import SteeringHook, get_hook_path
 from analysis.steering.steer import BatchedLayerSteeringHook
 from utils.generation import generate_batch, calculate_max_batch_size
 from analysis.steering.results import find_existing_run_index, save_results, save_responses
@@ -53,7 +53,7 @@ async def evaluate_single_config(
 
     # Generate all responses in batch with steering
     print(f"  Generating {len(questions)} responses for {desc}...")
-    with SteeringHook(model, vector, layer, coef, component=component):
+    with SteeringHook(model, vector, get_hook_path(layer, component), coefficient=coef):
         responses = generate_batch(model, tokenizer, formatted, max_new_tokens=max_new_tokens)
 
     all_qa_pairs = list(zip(questions, responses))
@@ -86,7 +86,7 @@ async def evaluate_single_config(
 async def evaluate_and_save(
     model, tokenizer, vector, layer, coef,
     questions, trait_name, trait_definition, judge, use_chat_template, component,
-    results, experiment, trait, vector_experiment, method
+    results, experiment, trait, vector_experiment, method, position="response[:]"
 ):
     """Evaluate a single config and save to results."""
     config = {
@@ -108,7 +108,7 @@ async def evaluate_and_save(
     )
 
     timestamp = datetime.now().isoformat()
-    save_responses(responses, experiment, trait, config, timestamp)
+    save_responses(responses, experiment, trait, position, config, timestamp)
 
     run_data = {
         "config": config,
@@ -117,13 +117,14 @@ async def evaluate_and_save(
     }
 
     results["runs"].append(run_data)
-    save_results(results, experiment, trait)
+    save_results(results, experiment, trait, position)
 
 
 async def adaptive_search_layer(
     model, tokenizer, vector, layer, base_coef,
     questions, trait_name, trait_definition, judge, use_chat_template, component,
     results, experiment, trait, vector_experiment, method,
+    position: str = "response[:]",
     n_steps: int = 8,
     threshold: float = MIN_COHERENCE,
     up_mult: float = 1.3,
@@ -168,7 +169,7 @@ async def adaptive_search_layer(
 
             # Save
             timestamp = datetime.now().isoformat()
-            save_responses(responses, experiment, trait, config, timestamp)
+            save_responses(responses, experiment, trait, position, config, timestamp)
 
             run_data = {
                 "config": config,
@@ -177,7 +178,7 @@ async def adaptive_search_layer(
             }
 
             results["runs"].append(run_data)
-            save_results(results, experiment, trait)
+            save_results(results, experiment, trait, position)
 
             # Print progress
             if coherence < threshold:
@@ -228,6 +229,7 @@ async def batched_adaptive_search(
     trait: str,
     vector_experiment: str,
     method: str,
+    position: str = "response[:]",
     n_steps: int = 8,
     threshold: float = MIN_COHERENCE,
     up_mult: float = 1.3,
@@ -391,7 +393,7 @@ async def batched_adaptive_search(
                         {"question": q, "response": r, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
                         for q, r, s in zip(questions, layer_responses, layer_scores)
                     ]
-                    save_responses(responses_data, experiment, trait, config, timestamp)
+                    save_responses(responses_data, experiment, trait, position, config, timestamp)
 
                     run_data = {
                         "config": config,
@@ -404,7 +406,7 @@ async def batched_adaptive_search(
                     print(f"  L{state['layer']:2d} c{state['coef']:>6.1f}: trait={trait_mean:5.1f}, coh={coherence_mean:5.1f} {marker}")
 
                 # Save after each batch
-                save_results(results, experiment, trait)
+                save_results(results, experiment, trait, position)
 
         # Update coefficients for next step
         # Binary control: push up while coherence >= threshold, back off when below

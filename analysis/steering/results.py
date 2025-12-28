@@ -30,9 +30,10 @@ def load_or_create_results(
     steering_model: str,
     vector_experiment: str,
     judge_provider: str,
+    position: str = "response[:]",
 ) -> Dict:
     """Load existing results or create new structure."""
-    results_path = get_steering_results_path(experiment, trait)
+    results_path = get_steering_results_path(experiment, trait, position)
     prompts_file_str = str(prompts_file)
 
     if results_path.exists():
@@ -89,9 +90,9 @@ def find_existing_run_index(results: Dict, config: Dict) -> Optional[int]:
     return None
 
 
-def save_results(results: Dict, experiment: str, trait: str):
+def save_results(results: Dict, experiment: str, trait: str, position: str = "response[:]"):
     """Save results to experiment directory."""
-    results_file = get_steering_results_path(experiment, trait)
+    results_file = get_steering_results_path(experiment, trait, position)
     results_file.parent.mkdir(parents=True, exist_ok=True)
 
     with open(results_file, 'w') as f:
@@ -99,9 +100,9 @@ def save_results(results: Dict, experiment: str, trait: str):
     print(f"Results saved: {results_file}")
 
 
-def save_responses(responses: List[Dict], experiment: str, trait: str, config: Dict, timestamp: str):
+def save_responses(responses: List[Dict], experiment: str, trait: str, position: str, config: Dict, timestamp: str):
     """Save generated responses for a config."""
-    responses_dir = get_steering_dir(experiment, trait) / "responses"
+    responses_dir = get_steering_dir(experiment, trait, position) / "responses"
     responses_dir.mkdir(parents=True, exist_ok=True)
 
     layers_str = "_".join(str(l) for l in config["layers"])

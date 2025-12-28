@@ -198,9 +198,9 @@ def parse_coefficients(coef_arg: Optional[str]) -> Optional[List[float]]:
     return [float(c) for c in coef_arg.split(",")]
 
 
-def load_vector(experiment: str, trait: str, layer: int, method: str = "probe", component: str = "residual") -> Optional[torch.Tensor]:
+def load_vector(experiment: str, trait: str, layer: int, method: str = "probe", component: str = "residual", position: str = "response[:]") -> Optional[torch.Tensor]:
     """Load trait vector from experiment. Returns None if not found."""
-    vector_file = get_vector_path(experiment, trait, method, layer, component)
+    vector_file = get_vector_path(experiment, trait, method, layer, component, position)
 
     if not vector_file.exists():
         return None
@@ -347,6 +347,7 @@ async def run_evaluation(
     coefficients: Optional[List[float]],
     method: str,
     component: str,
+    position: str,
     model_name: str,
     judge_provider: str,
     subset: Optional[int],
@@ -403,7 +404,7 @@ async def run_evaluation(
 
     # Load/create results
     results = load_or_create_results(
-        experiment, trait, prompts_file, model_name, vector_experiment, judge_provider
+        experiment, trait, prompts_file, model_name, vector_experiment, judge_provider, position
     )
 
     # Create judge if not provided
@@ -414,7 +415,7 @@ async def run_evaluation(
     print(f"\nTrait: {trait}")
     print(f"Model: {model_name} ({num_layers} layers)")
     print(f"Chat template: {use_chat_template}")
-    print(f"Vectors from: {vector_experiment}/{trait}")
+    print(f"Vectors from: {vector_experiment}/{trait} @ {position}")
     print(f"Questions: {len(questions)}")
     print(f"Existing runs: {len(results['runs'])}")
 
@@ -423,7 +424,7 @@ async def run_evaluation(
         results["baseline"] = await compute_baseline(
             model, tokenizer, questions, trait_name, trait_definition, judge, use_chat_template
         )
-        save_results(results, experiment, trait)
+        save_results(results, experiment, trait, position)
     else:
         print(f"\nUsing existing baseline: trait={results['baseline']['trait_mean']:.1f}")
 
@@ -438,7 +439,7 @@ async def run_evaluation(
     print(f"Loading vectors...")
     layer_data = []
     for layer in layers:
-        vector = load_vector(vector_experiment, trait, layer, method, component)
+        vector = load_vector(vector_experiment, trait, layer, method, component, position)
         if vector is None:
             print(f"  L{layer}: Vector not found, skipping")
             continue
@@ -473,14 +474,14 @@ async def run_evaluation(
                 await evaluate_and_save(
                     model, tokenizer, ld["vector"], ld["layer"], coef,
                     questions, trait_name, trait_definition, judge, use_chat_template, component,
-                    results, experiment, trait, vector_experiment, method
+                    results, experiment, trait, vector_experiment, method, position
                 )
     elif batched and len(layer_data) > 1:
         # Batched adaptive search (default) - all layers in parallel
         await batched_adaptive_search(
             model, tokenizer, layer_data, questions, trait_name, trait_definition, judge,
             use_chat_template, component, results, experiment, trait,
-            vector_experiment, method, n_steps=n_search_steps,
+            vector_experiment, method, position=position, n_steps=n_search_steps,
             up_mult=up_mult, down_mult=down_mult, momentum=momentum,
             max_new_tokens=max_new_tokens
         )
@@ -492,7 +493,7 @@ async def run_evaluation(
                 model, tokenizer, ld["vector"], ld["layer"], ld["base_coef"],
                 questions, trait_name, trait_definition, judge, use_chat_template, component,
                 results, experiment, trait, vector_experiment, method,
-                n_steps=n_search_steps, up_mult=up_mult, down_mult=down_mult, momentum=momentum,
+                position=position, n_steps=n_search_steps, up_mult=up_mult, down_mult=down_mult, momentum=momentum,
                 max_new_tokens=max_new_tokens
             )
 
@@ -524,6 +525,7 @@ async def run_multilayer_evaluation(
     global_scale: float,
     method: str,
     component: str,
+    position: str,
     model_name: str,
     subset: Optional[int],
     model=None,
@@ -588,7 +590,7 @@ async def run_multilayer_evaluation(
     # Load vectors
     vectors = {}
     for layer in active_layers:
-        vector = load_vector(vector_experiment, trait, layer, method, component)
+        vector = load_vector(vector_experiment, trait, layer, method, component, position)
         if vector is None:
             print(f"  L{layer}: Vector not found, skipping")
             continue
@@ -644,7 +646,7 @@ async def run_multilayer_evaluation(
     print(f"  Coherence: {coherence_mean:.1f}")
 
     # Load results and save
-    results_path = get_steering_results_path(experiment, trait)
+    results_path = get_steering_results_path(experiment, trait, position)
     if results_path.exists():
         with open(results_path) as f:
             results = json.load(f)
@@ -677,7 +679,7 @@ async def run_multilayer_evaluation(
     }
 
     results["runs"].append(run_data)
-    save_results(results, experiment, trait)
+    save_results(results, experiment, trait, position)
 
     # Save individual responses
     responses = [
@@ -688,7 +690,7 @@ async def run_multilayer_evaluation(
         "layers": list(sorted(vectors.keys())),
         "coefficients": [coefficients[l] for l in sorted(vectors.keys())],
     }
-    save_responses(responses, experiment, trait, response_config, run_data["timestamp"])
+    save_responses(responses, experiment, trait, position, response_config, run_data["timestamp"])
     print(f"  Saved to {results_path}")
 
     if should_close_judge:
@@ -713,6 +715,8 @@ def main():
     parser.add_argument("--model", help="Model name/path (default: from experiment config)")
     parser.add_argument("--method", default="probe", help="Vector extraction method")
     parser.add_argument("--component", default="residual", choices=["residual", "attn_out", "mlp_out", "k_cache", "v_cache"])
+    parser.add_argument("--position", default="response[:]",
+                        help="Token position for vectors (default: response[:])")
     parser.add_argument("--judge", default="openai", choices=["openai", "gemini"])
     parser.add_argument("--subset", type=int, default=5, help="Use subset of questions (default: 5, use --subset 0 for all)")
     parser.add_argument("--max-new-tokens", type=int, default=256, help="Max tokens to generate per response (default: 256)")
@@ -807,6 +811,7 @@ async def _run_main(args, parsed_traits, model_name, layers, coefficients):
                     global_scale=args.global_scale,
                     method=args.method,
                     component=args.component,
+                    position=args.position,
                     model_name=model_name,
                     subset=args.subset,
                     model=model,
@@ -825,6 +830,7 @@ async def _run_main(args, parsed_traits, model_name, layers, coefficients):
                     coefficients=coefficients,
                     method=args.method,
                     component=args.component,
+                    position=args.position,
                     model_name=model_name,
                     judge_provider=args.judge,
                     subset=args.subset,
