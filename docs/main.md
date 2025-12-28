@@ -263,8 +263,10 @@ vim datasets/traits/category/my_trait/negative.txt
 - Try probe method instead of mean_diff
 
 **Out of memory:**
-- Extraction auto-calculates batch size from available VRAM
-- For generation stage, reduce with `--batch-size 4`
+- Batch size auto-calculated from per-GPU free VRAM (uses min across GPUs for multi-GPU)
+- Mode-aware: `generation` mode includes 1.5x overhead for `model.generate()` internals
+- Diagnostic printed: `Auto batch size: X (mode=Y, free=Z GB, per_seq=W MB)`
+- Override with `--batch-size N` if needed
 - Set `MPS_MEMORY_GB=8` to limit memory on Apple Silicon
 
 **MPS errors on Mac:**

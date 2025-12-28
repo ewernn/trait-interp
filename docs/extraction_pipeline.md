@@ -386,10 +386,12 @@ python analysis/vectors/extraction_evaluation.py \
 - Try different layer (middle layers usually best)
 
 **Out of memory:**
-- Extraction/generation auto-calculate batch size from available VRAM with OOM recovery
-- For generation stage, reduce with `--batch-size 4`
-- Set `MPS_MEMORY_GB=8` to limit memory on Apple Silicon
-- Process traits one at a time
+- Batch size auto-calculated from per-GPU free VRAM (uses min across GPUs for multi-GPU)
+- Mode-aware estimation: `generation` (1.5x overhead), `extraction`, `inference`
+- Accounts for KV cache + forward pass activations + mode-specific overhead
+- Diagnostic printed: `Auto batch size: X (mode=Y, free=Z GB, per_seq=W MB)`
+- Override with `--batch-size N`, or set `MPS_MEMORY_GB=8` on Apple Silicon
+- Process traits one at a time if still OOMing
 
 **Scenario files not found:**
 - Create files in `datasets/traits/{category}/{trait}/`
