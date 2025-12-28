@@ -82,6 +82,9 @@ Runs model inference and saves raw activations. Does NOT compute projections.
 | `--lora` | none | LoRA adapter to apply on top of model |
 | `--load-in-8bit` | false | 8-bit quantization (for 70B+ models) |
 | `--load-in-4bit` | false | 4-bit quantization |
+| `--no-server` | false | Force local model loading (skip server check) |
+
+**Model Server**: If `python server/app.py` is running, scripts auto-detect and use it to avoid model reload time.
 
 ### Other Options
 

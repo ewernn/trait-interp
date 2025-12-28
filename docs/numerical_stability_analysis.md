@@ -9,7 +9,8 @@ The trait extraction pipeline uses float16 for activation storage (50% space sav
 ### Activation Storage: Float16
 ```python
 # Activations saved as float16
-torch.save(all_acts, "activations/all_layers.pt")  # dtype=float16
+torch.save(train_acts, "activations/{position}/{component}/train_all_layers.pt")  # dtype=float16
+torch.save(val_acts, "activations/{position}/{component}/val_all_layers.pt")      # dtype=float16
 ```
 
 **Benefits:**
@@ -20,7 +21,7 @@ torch.save(all_acts, "activations/all_layers.pt")  # dtype=float16
 **Verify:**
 ```bash
 # Expected: 179 examples × 27 layers × 2304 dims × 2 bytes = 21.35 MB
-ls -lh experiments/{experiment}/extraction/{trait}/activations/all_layers.pt
+ls -lh experiments/{experiment}/extraction/{trait}/activations/response_all/residual/train_all_layers.pt
 ```
 
 ### Computation: Float32

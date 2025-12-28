@@ -48,11 +48,11 @@ result = method.extract(pos_acts, neg_acts)
 vector = result['vector']
 ```
 
-**Available methods:**
+**Available methods** (all return unnormalized vectors):
 - `mean_diff` - Baseline: `vector = mean(pos) - mean(neg)`
-- `probe` - Logistic regression (best accuracy)
-- `gradient` - Gradient optimization (best generalization)
-- `random_baseline` - Random unit vector (sanity check)
+- `probe` - Logistic regression weights
+- `gradient` - Gradient optimization to maximize separation
+- `random_baseline` - Random vector (sanity check, ~50% accuracy)
 
 ---
 

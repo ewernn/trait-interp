@@ -42,11 +42,10 @@ Preview what `--full` would do:
 rclone sync experiments/ r2:trait-interp-bucket/experiments/ \
   --size-only --dry-run \
   --exclude "**/activations/**" \
-  --exclude "**/val_activations/**" \
   --exclude "**/inference/raw/**"
 ```
 
 ## Excluded (large, regenerable)
 
-- `**/activations/**`, `**/val_activations/**`
+- `**/activations/**` (contains train_all_layers.pt, val_all_layers.pt)
 - `**/inference/raw/**`

@@ -111,15 +111,13 @@ experiments/{experiment_name}/
 │           ├── val_responses/
 │           │   ├── val_pos.json             # Validation positive responses
 │           │   └── val_neg.json             # Validation negative responses
-│           ├── activations/
+│           ├── activations/{position}/{component}/
 │           │   ├── metadata.json            # Extraction metadata
-│           │   └── all_layers.pt            # Shape: [n_examples, n_layers, hidden_dim]
-│           ├── val_activations/              # From --val-split (per-layer format)
-│           │   ├── val_pos_layer{N}.pt      # Validation positive activations
-│           │   └── val_neg_layer{N}.pt      # Validation negative activations
-│           └── vectors/
-│               ├── {method}_layer{N}.pt     # Extracted vectors
-│               └── {method}_layer{N}_metadata.json
+│           │   ├── train_all_layers.pt      # Shape: [n_examples, n_layers, hidden_dim]
+│           │   └── val_all_layers.pt        # Validation activations (same format)
+│           └── vectors/{position}/{component}/{method}/
+│               ├── layer{N}.pt              # Extracted vectors
+│               └── metadata.json
 └── inference/
     ├── raw/                                 # Trait-independent raw activations (.pt)
     │   ├── residual/{prompt_set}/           # All-layer activations

@@ -29,24 +29,24 @@ Result: Validated trait vectors with steering results
 ```bash
 # Full pipeline (uses extraction_model and application_model from config.json)
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b \
-    --traits epistemic/optimism
+    --experiment {experiment} \
+    --traits {category}/{trait}
 
 # Override models from CLI
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b \
-    --extraction-model google/gemma-2-2b \
-    --application-model google/gemma-2-2b-it \
-    --traits epistemic/optimism
+    --experiment {experiment} \
+    --extraction-model {base_model} \
+    --application-model {it_model} \
+    --traits {category}/{trait}
 
 # Extraction only (no steering)
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b \
-    --traits epistemic/optimism \
+    --experiment {experiment} \
+    --traits {category}/{trait} \
     --no-steering
 
 # All traits in experiment
-python extraction/run_pipeline.py --experiment my_exp
+python extraction/run_pipeline.py --experiment {experiment}
 ```
 
 ## Prerequisites
@@ -60,7 +60,7 @@ python extraction/run_pipeline.py --experiment my_exp
 **Environment:**
 ```bash
 pip install -r requirements.txt
-export HF_TOKEN=hf_...           # For Gemma models
+export HF_TOKEN=hf_...           # For huggingface models
 export OPENAI_API_KEY=...        # For vetting and steering (gpt-4.1-mini)
 ```
 
@@ -131,9 +131,9 @@ python extraction/generate_responses.py \
 
 **Options:**
 ```bash
---model google/gemma-2-2b-it  # Override model (default: from config.json)
---max-new-tokens 150          # Response length
---batch-size 8                # Batch size for generation
+--model {model}          # Override model (default: from config.json)
+--max-new-tokens 150     # Response length
+--batch-size 8           # Batch size for generation
 ```
 
 **Output:** `responses/pos.json` and `responses/neg.json`
@@ -178,24 +178,39 @@ python extraction/extract_activations.py \
 ```bash
 --no-vetting-filter    # Include responses that failed vetting
 --val-split 0.0        # Disable validation split (default: 0.2 = 20% held out)
+--position "response[:]"  # Token position (default: all response tokens)
+--component residual      # Component to capture (default: residual)
 ```
 
-**Output:** `activations/all_layers.pt`
+**Position syntax:** `<frame>[<slice>]` where frame is `prompt`, `response`, or `all`
+- `response[:]` — All response tokens (mean) [default]
+- `response[-1]` — Last response token only
+- `prompt[-1]` — Last prompt token
+
+**Output:** `activations/{position}/{component}/train_all_layers.pt` and `val_all_layers.pt`
 
 ```python
 import torch
-acts = torch.load('activations/all_layers.pt')
-print(acts.shape)  # [n_examples, n_layers, hidden_dim] e.g., [200, 26, 2304]
+# Training activations
+train_acts = torch.load('activations/response_all/residual/train_all_layers.pt')
+print(train_acts.shape)  # [n_examples, n_layers, hidden_dim] e.g., [200, 26, 2304]
 # First half is positive, second half is negative
+
+# Validation activations (same format)
+val_acts = torch.load('activations/response_all/residual/val_all_layers.pt')
 ```
 
-**Metadata:** `activations/metadata.json`
+**Metadata:** `activations/{position}/{component}/metadata.json`
 ```json
 {
   "n_layers": 26,
   "n_examples_pos": 100,
   "n_examples_neg": 100,
-  "hidden_dim": 2304
+  "n_val_pos": 20,
+  "n_val_neg": 20,
+  "hidden_dim": 2304,
+  "position": "response[:]",
+  "component": "residual"
 }
 ```
 
@@ -216,14 +231,30 @@ python extraction/extract_vectors.py \
 ```bash
 --methods mean_diff,probe,gradient  # Methods to use (default: all)
 --layers 16                         # Specific layer(s), default: all
+--position "response[:]"            # Must match position used in Stage 2
+--component residual                # Must match component used in Stage 2
 ```
 
-**Output:** `vectors/{method}_layer{N}.pt`
+**Output:** `vectors/{position}/{component}/{method}/layer{N}.pt`
 
 ```python
 import torch
-vector = torch.load('vectors/probe_layer16.pt')
+vector = torch.load('vectors/response_all/residual/probe/layer16.pt')
 print(vector.shape)  # [hidden_dim] e.g., [2304]
+```
+
+**Metadata:** `vectors/{position}/{component}/{method}/metadata.json`
+```json
+{
+  "model": "{extraction_model}",
+  "trait": "{category}/{trait}",
+  "method": "{method}",
+  "position": "{position}",
+  "component": "{component}",
+  "layers": {
+    "16": {"norm": 2.3, "baseline": -0.5, "train_acc": 0.94}
+  }
+}
 ```
 
 ### Extraction Methods
@@ -245,12 +276,12 @@ For non-instruction-tuned models (text completion mode):
 
 ```bash
 # Full pipeline with base model (16-token completions)
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait \
-    --extraction-model google/gemma-2-2b --base-model
+python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait} \
+    --extraction-model {base_model} --base-model
 
 # Custom thresholds
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait \
-    --extraction-model google/gemma-2-2b --base-model \
+python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait} \
+    --extraction-model {base_model} --base-model \
     --pos-threshold 65 --neg-threshold 35
 ```
 
@@ -330,7 +361,7 @@ Good vectors have:
 **Verify:**
 ```python
 import torch
-vector = torch.load('experiments/my_exp/extraction/category/my_trait/vectors/probe_layer16.pt')
+vector = torch.load('experiments/my_exp/extraction/category/my_trait/vectors/response_all/residual/probe/layer16.pt')
 print(f"Norm: {vector.norm():.2f}")
 ```
 
@@ -338,7 +369,7 @@ print(f"Norm: {vector.norm():.2f}")
 ```bash
 python analysis/vectors/extraction_evaluation.py \
     --experiment my_exp \
-    --trait category/my_trait
+    --position "response[:]"
 ```
 
 ---
@@ -355,11 +386,13 @@ python analysis/vectors/extraction_evaluation.py \
 - Try different layer (middle layers usually best)
 
 **Out of memory:**
-- Reduce batch size: `--batch-size 4`
+- Extraction/generation auto-calculate batch size from available VRAM with OOM recovery
+- For generation stage, reduce with `--batch-size 4`
+- Set `MPS_MEMORY_GB=8` to limit memory on Apple Silicon
 - Process traits one at a time
 
 **Scenario files not found:**
-- Create files in `experiments/{exp}/extraction/{category}/{trait}/`
+- Create files in `datasets/traits/{category}/{trait}/`
 - File names must be `positive.txt` and `negative.txt`
 
 **Vetting API errors:**
@@ -372,22 +405,28 @@ python analysis/vectors/extraction_evaluation.py \
 
 ```bash
 # 1. Create trait files in datasets/
-mkdir -p datasets/traits/epistemic/confidence
-vim datasets/traits/epistemic/confidence/positive.txt
-vim datasets/traits/epistemic/confidence/negative.txt
-vim datasets/traits/epistemic/confidence/definition.txt
-vim datasets/traits/epistemic/confidence/steering.json
+mkdir -p datasets/traits/{category}/{trait}
+vim datasets/traits/{category}/{trait}/positive.txt
+vim datasets/traits/{category}/{trait}/negative.txt
+vim datasets/traits/{category}/{trait}/definition.txt
+vim datasets/traits/{category}/{trait}/steering.json
 # steering.json format: {"questions": [...]}  (definition.txt used for scoring)
 
-# 3. Run full pipeline
+# 2. Run full pipeline
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b \
-    --traits epistemic/confidence
+    --experiment {experiment} \
+    --traits {category}/{trait}
 
 # Result (all in same experiment):
-#   - Vectors: experiments/gemma-2-2b/extraction/epistemic/confidence/vectors/
-#   - Eval: experiments/gemma-2-2b/extraction/extraction_evaluation.json
-#   - Steering: experiments/gemma-2-2b/steering/epistemic/confidence/results.json
+#   - Vectors: experiments/{experiment}/extraction/{category}/{trait}/vectors/{position}/{component}/{method}/
+#   - Eval: experiments/{experiment}/extraction/extraction_evaluation.json
+#   - Steering: experiments/{experiment}/steering/{category}/{trait}/{position}/results.json
+
+# 3. With custom position (last response token only)
+python extraction/run_pipeline.py \
+    --experiment {experiment} \
+    --traits {category}/{trait} \
+    --position "response[-1]"
 ```
 
 ---

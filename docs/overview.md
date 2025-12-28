@@ -1,22 +1,32 @@
 # Trait Vector Extraction and Monitoring
 
-How we extract behavioral trait vectors from language models and monitor them token-by-token during generation.
+Extract behavioral trait vectors from language models and monitor them token-by-token during generation.
+
+**The core insight**: Models make decisions at every token. These decisions happen in internal activations, invisible to us. Trait vectors make them visible.
+
+**Why this matters**: This is about *understanding*, not control. Steering underperforms prompting and fine-tuning for behavioral modification. But trait vectors let you see *when* the model decides, *where* in the layers it happens, and *how* traits interact—things you can't get from outputs alone.
 
 ---
 
 ## The Problem
 
-Language models don't just produce text—they make decisions at every token. When a model generates a response to "How do I pick a lock?", it decides whether to refuse, how confident to sound, whether to hedge. These decisions happen in the model's internal activations, invisible to us.
+Language models don't just produce text—they make decisions at every token. When a model generates a response to "How do I pick a lock?", it decides whether to refuse, how confident to sound, whether to hedge. These decisions happen in the model's internal activations.
 
 **What if we could see those decisions as they happen?**
 
 This project extracts *trait vectors*—directions in activation space that correspond to behavioral traits like refusal, uncertainty, or sycophancy. By projecting each token's hidden state onto these vectors, we can watch the model's "thinking" evolve in real-time.
 
+**Research questions driving this work:**
+- When does a model "commit" to refusing? Token 3? Token 10? Can you see it coming?
+- Do safety concepts exist before RLHF, or does alignment training create them?
+- Is refusal a single direction, or does each layer compute it differently?
+- What's the geometry of multiple traits? Do they interfere?
+
 ---
 
 ## Key Concepts
 
-- **Trait Vector**: A direction in the model's high-dimensional activation space (e.g., 2304-dim for Gemma 2B) that represents a behavioral pattern like "Refusal" or "Uncertainty."
+- **Trait Vector**: A direction in the model's high-dimensional activation space that represents a behavioral pattern like "Refusal" or "Uncertainty."
 
 - **Residual Stream**: The information flow that accumulates across the model's layers, acting as the running computational state.
 
@@ -61,17 +71,30 @@ The model responds naturally, exhibiting (or not exhibiting) the trait based sol
 
 ### Stage 2: Extract Activations
 
-Capture the hidden state at every layer during generation. We average across response tokens to get one vector per example:
+Capture the hidden state at every layer during generation. We aggregate across tokens to get one vector per example.
+
+**Position selection** determines which tokens to include:
+
+| Position | Syntax | What It Captures |
+|----------|--------|------------------|
+| All response tokens | `response[:]` | Full response (mean) — default |
+| Last response token | `response[-1]` | Final "committed" state |
+| Last prompt token | `prompt[-1]` | Pre-generation representation |
+| Last N tokens | `response[-5:]` | Recent context window |
+
+For mean aggregation across $T$ tokens:
 
 $$\mathbf{a}_i^{(\ell)} = \frac{1}{T} \sum_{t=1}^{T} \mathbf{h}_t^{(\ell)}$$
 
-where $\mathbf{h}_t^{(\ell)}$ is the hidden state at layer $\ell$, token $t$, and $T$ is the response length.
+where $\mathbf{h}_t^{(\ell)}$ is the hidden state at layer $\ell$, token $t$.
 
 This gives us activation matrices $\mathbf{A}^+$ (positive examples) and $\mathbf{A}^-$ (negative examples).
 
 ### Stage 3: Extract Vectors
 
 Apply an extraction method to find the direction that best separates positive from negative examples.
+
+**Component extraction**: Extract from residual stream (default), attention output (`attn_out`), MLP output (`mlp_out`), or key/value projections (`k_cache`, `v_cache`).
 
 ---
 
@@ -116,13 +139,7 @@ The unit-norm constraint forces the optimization to find a *direction* rather th
 
 ## Normalization for Evaluation
 
-The residual stream magnitude grows with depth. In Gemma 2B:
-
-| Layer | Avg Norm | Relative |
-|-------|----------|----------|
-| 0 | 88 | 1.0× |
-| 12 | 281 | 3.2× |
-| 25 | 1362 | 15.5× |
+The residual stream magnitude grows with depth—late-layer activations can be 10-20× larger than early layers.
 
 If we use raw dot products, late-layer projections are larger simply because activations are larger—not because the vector is better.
 
@@ -156,23 +173,27 @@ Guidelines: $d > 0.8$ is large, $d > 2.0$ is very strong separation.
 - **Effect size > 2.0** (classes are well-separated)
 - **Generalizes** to prompts outside training distribution
 
+**Critical insight**: Classification accuracy ≠ steering capability. A natural sycophancy vector achieved 84% classification accuracy but zero steering effect. Always validate causally with steering.
+
 ---
 
 ## Layer Selection
 
 Empirically, middle layers work best for behavioral traits:
 
-- **Early layers (0–5):** Surface features, syntax—too shallow for behavioral traits
-- **Middle layers (6–16):** Semantic representations—best generalization
-- **Late layers (21–25):** Task-specific processing—can overfit to training distribution
+- **Early layers (0–20%):** Surface features, syntax—too shallow for behavioral traits
+- **Middle layers (25–70%):** Semantic representations—best generalization
+- **Late layers (75–100%):** Task-specific processing—can overfit to training distribution
 
-For Gemma 2B (26 layers), optimal layer varies by trait. Use `extraction_evaluation.py` to find the best layer for each trait empirically.
+Optimal layer varies by trait. Use `extraction_evaluation.py` to find the best layer for each trait empirically.
+
+**Key finding**: Some traits are "global directions" (work across most layers), while others are "layer-specific computations" (only work at specific layers). Uncertainty tends to be global; refusal tends to be layer-specific.
 
 ---
 
 ## Inference Monitoring
 
-**Capture and project**: `capture_raw_activations.py` captures hidden states as .pt files, then `project_raw_activations_onto_traits.py` computes projections onto all discovered traits (finds them dynamically from your experiment directory).
+**Capture and project**: `capture_raw_activations.py` captures hidden states as .pt files, then `project_raw_activations_onto_traits.py` computes projections onto all discovered traits.
 
 During generation, we project each token's hidden state onto trait vectors:
 
@@ -186,7 +207,7 @@ score = (hidden_state @ trait_vector) / (norm(hidden_state) * norm(trait_vector)
 
 ### Dynamics Analysis
 
-Dynamics metrics are **automatically computed and bundled** with projections—no separate scripts needed:
+Dynamics metrics are **automatically computed and bundled** with projections:
 
 - **Velocity**: Rate of change of trait expression (first derivative)
 - **Acceleration**: How quickly velocity changes (second derivative)
@@ -197,22 +218,28 @@ These dynamics reveal *when* the model decides, not just *what* it decides. View
 
 ---
 
-## What You Can Do With This
+## Empirical Findings
+
+For detailed experimental results, see **[docs/other/research_findings.md](other/research_findings.md)**:
+- Method comparison (probe vs gradient vs mean_diff for steering)
+- Cross-model transfer results
+- Cross-language/cross-topic validation
+- Judge model calibration studies
+
+---
+
+## Applications
 
 ### Early Warning
-
 Detect dangerous patterns before generation completes. High Refusal + dropping Uncertainty at token 5 might predict the model is about to refuse—or about to comply with something it shouldn't.
 
 ### Behavioral Debugging
-
 When a model misbehaves, trace *where* in generation it went wrong. Did refusal spike too late? Did sycophancy override safety?
 
 ### Steering
-
 Add or subtract trait vectors during generation to modify behavior. Increase refusal to make the model more conservative, decrease sycophancy to make it more honest.
 
 ### Interpretability Research
-
 Study how traits interact, when they crystallize, and what attention patterns create them.
 
 ---
@@ -225,4 +252,4 @@ Study how traits interact, when they crystallize, and what attention patterns cr
 4. **Capture + Project** saves raw activations, then projects onto all traits token-by-token
 5. **Dynamics** (velocity, acceleration, commitment points) reveal when decisions crystallize
 
-The result: a window into what the model is "thinking" at every token, with minimal manual configuration.
+The result: a window into what the model is "thinking" at every token.

@@ -5,7 +5,7 @@ Research extensions and technical improvements.
 ## Quick Index
 
 - **Detection**: dec20-prefill_attack, dec6-emergent_misalignment, dec5-hidden_objectives
-- **Validation**: dec17-validation, dec13-external_datasets, oct22-cross_distribution, robustness_testing
+- **Validation**: dec17-validation, dec13-external_datasets, oct22-cross_distribution, robustness_testing, dec27-uncertainty_calibration
 - **Extraction**: dec19-causal_circuits, nov24-component_analysis, kv_cache, extraction_methods, activation_pooling, oct25-prompt_iteration, nov3-holistic_ranking, linearity_exploration
 - **Steering**: advanced_steering, steering_analysis
 - **Dynamics**: dec13-multi_turn, dynamics_viz
@@ -25,6 +25,9 @@ Validation hierarchy: correlational → causal (have) → mechanistic. Static: A
 
 ## dec13-external_datasets
 Test generalization on large categorized datasets (BeaverTails 14 categories, toxic-chat, hh-rlhf, HarmBench). Statistical confidence from thousands of prompts, failure mode discovery, distribution shift testing.
+
+## dec27-uncertainty_calibration
+Compare internal uncertainty (via uncertainty vector) against (1) 1 minus top-1 token probability, and (2) benchmark accuracy on OOD/uncertain questions. Motivation: models aren't incentivized to say "I don't know" — inflates benchmark scores by guessing confidently. If internal uncertainty vector fires high but model outputs confident wrong answer, reveals miscalibration between internal state and expressed confidence. Could test on trivia/knowledge benchmarks where ground truth known.
 
 ## dec13-multi_turn
 Study trait expression across conversation turns using hh-rlhf, lmsys-chat-1m. Do traits persist or reset at turn boundaries? Does steering in turn 1 affect turn 3? Novel direction—most trait work is single-turn.

@@ -10,7 +10,7 @@ Primary documentation hub for the trait-interp project.
 
 ### Core Documentation
 - **[docs/main.md](main.md)** (this file) - Project overview and codebase reference
-- **[docs/project_brief.md](project_brief.md)** - Self-contained project summary
+- **[docs/overview.md](overview.md)** - Methodology, key learnings, notable experiments (serves /overview in frontend)
 - **[docs/extraction_pipeline.md](extraction_pipeline.md)** - Complete 5-stage extraction pipeline
 - **[docs/architecture.md](architecture.md)** - Design principles and organization
 - **[README.md](../readme.md)** - Quick start guide
@@ -38,10 +38,9 @@ Primary documentation hub for the trait-interp project.
 - **[docs/r2_sync.md](r2_sync.md)** - R2 cloud sync
 
 ### Research (docs/other/)
+- **[docs/other/research_findings.md](other/research_findings.md)** - Empirical results (method comparisons, cross-model transfer, validation studies)
 - **[docs/other/literature_review.md](other/literature_review.md)** - 100+ papers analyzed
-- **[docs/other/insights.md](other/insights.md)** - Research findings
-- **[docs/other/rm_sycophancy_detection_plan.md](other/rm_sycophancy_detection_plan.md)** - RM sycophancy detection
-- **[docs/other/research_findings.md](other/research_findings.md)** - Empirical results
+- **[docs/other/insights.md](other/insights.md)** - Research insights
 
 ---
 
@@ -71,8 +70,13 @@ trait-interp/
 │   └── {experiment_name}/
 │       ├── config.json               # Model settings
 │       ├── extraction/{trait}/       # Vectors, activations, responses
+│       │   ├── responses/pos.json, neg.json
+│       │   ├── activations/{position}/{component}/
+│       │   │   ├── train_all_layers.pt, val_all_layers.pt
+│       │   │   └── metadata.json
+│       │   └── vectors/{position}/{component}/{method}/layer*.pt
 │       ├── inference/                # Raw activations, projections
-│       └── steering/{trait}/         # Steering results
+│       └── steering/{trait}/{position}/  # Steering results
 │
 ├── config/
 │   ├── paths.yaml                    # Single source of truth for paths
@@ -80,6 +84,7 @@ trait-interp/
 │
 ├── core/                   # Primitives (hooks, methods, math)
 ├── utils/                  # Shared utilities (paths, model loading)
+├── server/                 # Model server (persistent model loading)
 ├── analysis/               # Analysis scripts
 ├── visualization/          # Interactive dashboard
 └── docs/                   # Documentation
@@ -90,21 +95,21 @@ trait-interp/
 **Extract new traits:**
 ```bash
 python extraction/run_pipeline.py \
-    --experiment gemma-2-2b \
-    --traits category/my_trait
+    --experiment {experiment} \
+    --traits {category}/{trait}
 ```
 
 **Monitor with existing vectors:**
 ```bash
 # Capture activations
 python inference/capture_raw_activations.py \
-    --experiment gemma-2-2b \
-    --prompt-set harmful
+    --experiment {experiment} \
+    --prompt-set {prompt_set}
 
 # Project onto traits
 python inference/project_raw_activations_onto_traits.py \
-    --experiment gemma-2-2b \
-    --prompt-set harmful
+    --experiment {experiment} \
+    --prompt-set {prompt_set}
 ```
 
 **Use core primitives:**
@@ -147,16 +152,19 @@ Natural elicitation avoids instruction-following confounds. See [extraction/elic
 
 ```bash
 pip install -r requirements.txt
-export HF_TOKEN=your_token_here  # For Gemma models
+export HF_TOKEN=your_token_here  # For huggingface models
 ```
 
 **Extract a trait:**
 ```bash
-# 1. Create scenario files in datasets/traits/category/my_trait/
+# 1. Create scenario files in datasets/traits/{category}/{trait}/
 #    positive.txt, negative.txt, definition.txt, steering.json
 
 # 2. Run pipeline
-python extraction/run_pipeline.py --experiment gemma-2-2b --traits category/my_trait
+python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait}
+
+# With custom position (default: response[:])
+python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait} --position "response[-1]"
 ```
 
 **Visualize:**
@@ -202,10 +210,15 @@ score = (hidden_state @ trait_vector) / ||trait_vector||
 
 ### Best Vector Selection
 
-Automated via `utils/vectors.py:get_best_layer()`:
+Automated via `utils/vectors.py:get_best_layer(experiment, trait, component, position)`:
 1. **Steering results** (ground truth) — best delta with coherence ≥ 70
 2. **Effect size** (fallback) — from extraction_evaluation.json
 3. **Default** — layer 16, probe method
+
+**Position syntax:** `<frame>[<slice>]` where frame is `prompt`, `response`, or `all`
+- `response[:]` — All response tokens (default)
+- `response[-1]` — Last response token only
+- `prompt[-1]` — Last prompt token
 
 ---
 
@@ -216,11 +229,11 @@ Automated via `utils/vectors.py:get_best_layer()`:
 - GQA: 8 query heads, 4 KV heads
 - Mac: Requires PyTorch nightly for MPS
 
-**Experiment config** (`experiments/{name}/config.json`):
+**Experiment config** (`experiments/{experiment}/config.json`):
 ```json
 {
-  "extraction_model": "google/gemma-2-2b",
-  "application_model": "google/gemma-2-2b-it"
+  "extraction_model": "{base_model}",
+  "application_model": "{it_model}"
 }
 ```
 
@@ -240,15 +253,31 @@ vim datasets/traits/category/my_trait/negative.txt
 - Try probe method instead of mean_diff
 
 **Out of memory:**
-```bash
-python extraction/extract_activations.py ... --batch_size 4
-```
+- Extraction auto-calculates batch size from available VRAM
+- For generation stage, reduce with `--batch-size 4`
+- Set `MPS_MEMORY_GB=8` to limit memory on Apple Silicon
 
 **MPS errors on Mac:**
 ```bash
 # Requires PyTorch nightly
 pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
 ```
+
+---
+
+## Model Server (Optional)
+
+Keep the model loaded between script runs to avoid reload time:
+
+```bash
+# Terminal 1: Start server
+python server/app.py --port 8765 --model {model}
+
+# Terminal 2: Scripts auto-detect server
+python inference/capture_raw_activations.py --experiment {experiment} --prompt-set {prompt_set}
+```
+
+Scripts automatically use the server if running, otherwise load locally. Use `--no-server` to force local loading.
 
 ---
 

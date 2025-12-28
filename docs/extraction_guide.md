@@ -368,9 +368,11 @@ For chat models, extracting from assistant tokens (response) might give cleaner 
 
 | Layer Range | What It Encodes | Evidence |
 |-------------|-----------------|----------|
-| Early (0-5) | Token identity, syntax | Embedding + initial processing |
-| Middle (6-18) | Semantics, concepts | Most behavioral traits |
-| Late (19-25) | Output preparation | Can overfit to specific phrasings |
+| Early (0-20%) | Token identity, syntax | Embedding + initial processing |
+| Middle (25-70%) | Semantics, concepts | Most behavioral traits |
+| Late (75-100%) | Output preparation | Can overfit to specific phrasings |
+
+_Example (Gemma 2B, 26 layers): Early=0-5, Middle=6-18, Late=19-25_
 
 **Trait-dependent:** Different traits may have optimal layers. Always sweep layers and evaluate.
 
@@ -378,11 +380,13 @@ For chat models, extracting from assistant tokens (response) might give cleaner 
 
 | Component | Hook Point | Dimension | What It Captures |
 |-----------|------------|-----------|------------------|
-| `residual` | `model.layers.{L}` | 2304 | Full layer output (cumulative) |
-| `attn_out` | `self_attn.o_proj` | 2304 | What attention contributed |
-| `mlp_out` | `mlp.down_proj` | 2304 | What MLP contributed |
-| `k_cache` | `self_attn.k_proj` | 1024 | Key representations |
-| `v_cache` | `self_attn.v_proj` | 1024 | Value representations |
+| `residual` | `model.layers.{L}` | {hidden_dim} | Full layer output (cumulative) |
+| `attn_out` | `self_attn.o_proj` | {hidden_dim} | What attention contributed |
+| `mlp_out` | `mlp.down_proj` | {hidden_dim} | What MLP contributed |
+| `k_cache` | `self_attn.k_proj` | {kv_dim} | Key representations |
+| `v_cache` | `self_attn.v_proj` | {kv_dim} | Value representations |
+
+_Example (Gemma 2B): hidden_dim=2304, kv_dim=1024_
 
 Most work uses residual stream. Attention/MLP outputs can isolate what each component contributes.
 
@@ -391,7 +395,7 @@ Most work uses residual stream. Attention/MLP outputs can isolate what each comp
 1. Extract vectors at all layers
 2. Evaluate each (held-out accuracy or steering effect)
 3. Select best layer per trait
-4. Middle layers (10-18 for Gemma 2B) are usually good starting points
+4. Middle layers (40-70% depth) are usually good starting points
 
 ---
 

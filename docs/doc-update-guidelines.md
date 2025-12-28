@@ -1,51 +1,41 @@
 # Documentation Update Guidelines
 
 ## Core Principles
-- **Delete first, add second** - remove outdated content before adding new
-- **Present tense only** - document what IS, not what WAS
-- **Concise and actionable** - every sentence should help the reader DO something
-- **Zero history** - no changelogs, migration notes, or "previously" references
-- **YAGNI for docs** - delete unused files and sections immediately; they create confusion
 
-## Before You Update
-Ask yourself:
-1. **Why this doc?** - What specific problem are you solving?
-2. **What else breaks?** - Which other docs reference this one?
-3. **Is it salvageable?** - Should you rewrite instead of patch?
+1. **Docs reflect reality** — Update docs when code changes, not after
+2. **Single source of truth** — Each concept documented in one place, linked elsewhere
+3. **Discoverable** — New users can find what they need from main.md
+4. **Maintainable** — Prefer concise docs over comprehensive ones
 
-## Update Rules
-1. **Delete anything that references:**
-   - Old implementations
-   - Fixed bugs
-   - Previous versions
-   - Historical context
-   - Unused files or features
+## When to Update
 
-2. **Keep only:**
-   - Current functionality
-   - Active configuration
-   - Working examples
-   - Essential concepts
+- **Code changes**: Update relevant docs in same commit
+- **New features**: Add to appropriate existing doc or create new one
+- **Bug fixes**: Update if docs described incorrect behavior
+- **Refactors**: Update paths, module names, API signatures
 
-3. **File management:**
-   - Delete entire unused documentation files
-   - Remove orphaned sections that no longer apply
-   - Clean up broken internal links to deleted content
+## What NOT to Do
 
-4. **Test every:**
-   - Code example
-   - File path
-   - Command
-   - Link
+- Don't duplicate content across docs (link instead)
+- Don't add "planned" or "TODO" sections that go stale
+- Don't document internal implementation details that change frequently
+- Don't create new docs when existing ones can be extended
 
-## Red Flags for Full Rewrite
-- More than 50% needs deletion
-- Core purpose has changed
-- Structure doesn't match current code
-- Multiple broken examples
+## File Placement
 
-## The Final Rule
+| Content Type | Location |
+|--------------|----------|
+| Codebase navigation | `docs/` |
+| How-to guides | `docs/` |
+| Technical references | `docs/` |
+| Research notes | `docs/other/` |
+| Personal writing | `docs/other/` |
+| Application materials | `docs/other/` |
 
-**When in doubt, delete.**
+## Style
 
-Good documentation is like good code - it's not done when there's nothing left to add, but when there's nothing left to remove.
+- Start with one-line summary
+- Use tables for structured data
+- Use code blocks for commands/examples
+- Keep sections short (prefer many small sections over few large ones)
+- Link to other docs rather than duplicating content
