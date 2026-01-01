@@ -7,7 +7,7 @@ Primitives for trait vector extraction and analysis.
 ## Hooks
 
 ```python
-from core import CaptureHook, MultiLayerCapture, SteeringHook, get_hook_path
+from core import CaptureHook, MultiLayerCapture, SteeringHook, get_hook_path, detect_contribution_paths
 
 # Capture from one layer
 with CaptureHook(model, "model.layers.16") as hook:
@@ -33,7 +33,23 @@ with SteeringHook(model, vector, "model.layers.16", coefficient=1.5):
 get_hook_path(16)                    # "model.layers.16"
 get_hook_path(16, "attn_out")        # "model.layers.16.self_attn.o_proj"
 get_hook_path(16, "mlp_out")         # "model.layers.16.mlp.down_proj"
-# Components: residual, attn_out, mlp_out, k_cache, v_cache
+
+# Contribution components (auto-detect architecture)
+get_hook_path(16, "attn_contribution", model=model)
+# Gemma-2: "model.layers.16.post_attention_layernorm"
+# Others:  "model.layers.16.self_attn.o_proj"
+
+# Components: residual, attn_out, mlp_out, attn_contribution*, mlp_contribution*, k_cache, v_cache
+# *contribution components require model parameter
+```
+
+**Architecture detection:**
+```python
+from core import detect_contribution_paths
+
+paths = detect_contribution_paths(model)
+# Gemma-2: {'attn_contribution': 'post_attention_layernorm', 'mlp_contribution': 'post_feedforward_layernorm'}
+# Others:  {'attn_contribution': 'self_attn.o_proj', 'mlp_contribution': 'mlp.down_proj'}
 ```
 
 ---
@@ -109,7 +125,7 @@ dist = distribution_properties(pos_proj, neg_proj)
 ```
 core/
 ├── __init__.py      # Public API exports
-├── hooks.py         # get_hook_path, CaptureHook, SteeringHook, MultiLayerCapture, HookManager
+├── hooks.py         # get_hook_path, detect_contribution_paths, CaptureHook, SteeringHook, MultiLayerCapture, HookManager
 ├── methods.py       # Extraction methods (probe, mean_diff, gradient)
 └── math.py          # projection, batch_cosine_similarity, metrics, vector/distribution properties
 ```

@@ -7,7 +7,7 @@ Research extensions and technical improvements.
 - **Detection**: dec20-prefill_attack, dec6-emergent_misalignment, dec5-hidden_objectives
 - **Validation**: dec17-validation, dec13-external_datasets, oct22-cross_distribution, robustness_testing, dec27-uncertainty_calibration
 - **Extraction**: dec19-causal_circuits, nov24-component_analysis, kv_cache, extraction_methods, activation_pooling, oct25-prompt_iteration, nov3-holistic_ranking, linearity_exploration
-- **Steering**: advanced_steering, steering_analysis
+- **Steering**: advanced_steering, steering_analysis, steering_game
 - **Dynamics**: dec13-multi_turn, dynamics_viz
 - **Composition**: dec2-trait_correlation, nov8-hierarchical_composition, nov1-cross_layer_similarity, oct29-cka_method_agreement
 - **Applications**: dec11-training_curation, dec10-red_teaming, production_readiness
@@ -95,6 +95,9 @@ Alternatives to mean pooling across tokens: response-only, max pool, last token,
 
 ## steering_analysis
 Understanding steering behavior: precision (does steering refusal affect other traits?), saturation (when does vector stop being effective?), multi-vector interactions (do traits compose additively or interfere?).
+
+## steering_game
+Interactive game for visualization site. Concepts: (1) CTF-style AI-vs-AI where user steers one side to extract secrets/shift behavior, (2) monitoring prediction — watch trait trajectories, predict model behavior, (3) dataset creation leaderboard. Prereq: 3-4+ diverse validated traits (currently only refusal variants).
 
 ## robustness_testing
 Testing extraction/vector robustness: few-shot adaptation (learning curves: 10, 50, 100, 500 examples), bootstrap stability analysis, noise robustness (Gaussian noise at varying levels).

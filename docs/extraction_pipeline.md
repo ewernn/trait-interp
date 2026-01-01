@@ -5,21 +5,21 @@ Full trait pipeline: extraction + evaluation + steering.
 ## Pipeline Overview
 
 ```
-Stage 0: Create Scenarios (manual) - positive.txt, negative.txt, trait_definition.txt
+Prerequisite: Create Scenarios (manual) - positive.txt, negative.txt, definition.txt
     ↓
-Stage 0.5: Vet Scenarios (vet_scenarios.py) - LLM-as-judge validates prompts
+Stage 0: Vet Scenarios (vet_scenarios.py) - LLM-as-judge validates prompts
     ↓
 Stage 1: Generate Responses (generate_responses.py) - Model generates from scenarios
     ↓
-Stage 1.5: Vet Responses (vet_responses.py) - LLM-as-judge validates trait expression
+Stage 2: Vet Responses (vet_responses.py) - LLM-as-judge validates trait expression
     ↓
-Stage 2: Extract Activations (extract_activations.py) - Capture hidden states
+Stage 3: Extract Activations (extract_activations.py) - Capture hidden states
     ↓
-Stage 3: Extract Vectors (extract_vectors.py) - Apply extraction methods
+Stage 4: Extract Vectors (extract_vectors.py) - Apply extraction methods
     ↓
-Stage 4: Evaluate Vectors (extraction_evaluation.py) - Quality metrics on held-out data
+Stage 5: Evaluate Vectors (extraction_evaluation.py) - Quality metrics on held-out data
     ↓
-Stage 5: Steering Evaluation (steering/evaluate.py) - Causal validation on IT model
+Steering: steering/evaluate.py - Causal validation on IT model (separate script)
     ↓
 Result: Validated trait vectors with steering results
 ```
@@ -66,7 +66,7 @@ export OPENAI_API_KEY=...        # For vetting and steering (gpt-4.1-mini)
 
 ---
 
-## Stage 0: Create Scenarios (Manual)
+## Prerequisite: Create Scenarios (Manual)
 
 Create contrasting scenario files that naturally elicit the trait.
 
@@ -105,7 +105,7 @@ See [writing_natural_prompts.md](writing_natural_prompts.md) for detailed guidan
 
 ---
 
-## Stage 0.5: Vet Scenarios (Optional)
+## Stage 0: Vet Scenarios (Optional)
 
 LLM-as-judge (gpt-4.1-mini) validates that scenarios will reliably elicit the trait.
 
@@ -133,7 +133,7 @@ python extraction/generate_responses.py \
 ```bash
 --model {model}          # Override model (default: from config.json)
 --max-new-tokens 150     # Response length
---batch-size 8           # Batch size for generation
+# Batch size auto-calculated from available VRAM
 ```
 
 **Output:** `responses/pos.json` and `responses/neg.json`
@@ -150,7 +150,7 @@ python extraction/generate_responses.py \
 
 ---
 
-## Stage 1.5: Vet Responses (Optional)
+## Stage 2: Vet Responses (Optional)
 
 LLM-as-judge (gpt-4.1-mini) validates that the model actually exhibited the expected trait.
 
@@ -160,11 +160,11 @@ python extraction/vet_responses.py --experiment my_exp --trait category/my_trait
 
 **Output:** `vetting/response_scores.json` with 0-100 scores per response.
 
-Positive responses need score >= 60, negative need <= 40. Failed responses are automatically filtered in Stage 2.
+Positive responses need score >= 60, negative need <= 40. Failed responses are automatically filtered in Stage 3.
 
 ---
 
-## Stage 2: Extract Activations
+## Stage 3: Extract Activations
 
 Capture hidden states from all layers for all examples.
 
@@ -216,7 +216,7 @@ val_acts = torch.load('activations/response_all/residual/val_all_layers.pt')
 
 ---
 
-## Stage 3: Extract Vectors
+## Stage 4: Extract Vectors
 
 Apply extraction methods to get trait vectors.
 
@@ -390,7 +390,7 @@ python analysis/vectors/extraction_evaluation.py \
 - Mode-aware estimation: `generation` (1.5x overhead), `extraction`, `inference`
 - Accounts for KV cache + forward pass activations + mode-specific overhead
 - Diagnostic printed: `Auto batch size: X (mode=Y, free=Z GB, per_seq=W MB)`
-- Override with `--batch-size N`, or set `MPS_MEMORY_GB=8` on Apple Silicon
+- On Apple Silicon: auto-detects 50% of available unified memory (override with `MPS_MEMORY_GB`)
 - Process traits one at a time if still OOMing
 
 **Scenario files not found:**

@@ -198,13 +198,17 @@ Trait vectors are directions in activation space separating positive from negati
 | `random_baseline` | Random unit vector | Sanity check (~50%) |
 
 **Components** (hook locations):
-| Component | Hook Path | Dimension |
-|-----------|-----------|-----------|
-| `residual` | `model.layers.{L}` | 2304 |
-| `attn_out` | `model.layers.{L}.self_attn.o_proj` | 2304 |
-| `mlp_out` | `model.layers.{L}.mlp.down_proj` | 2304 |
-| `k_cache` | `model.layers.{L}.self_attn.k_proj` | 1024 |
-| `v_cache` | `model.layers.{L}.self_attn.v_proj` | 1024 |
+| Component | Hook Path | Dimension | Notes |
+|-----------|-----------|-----------|-------|
+| `residual` | `model.layers.{L}` | 2304 | Layer output |
+| `attn_out` | `model.layers.{L}.self_attn.o_proj` | 2304 | Raw attention output |
+| `mlp_out` | `model.layers.{L}.mlp.down_proj` | 2304 | Raw MLP output |
+| `attn_contribution` | Auto-detected | 2304 | What attention adds to residual* |
+| `mlp_contribution` | Auto-detected | 2304 | What MLP adds to residual* |
+| `k_cache` | `model.layers.{L}.self_attn.k_proj` | 1024 | Key projections |
+| `v_cache` | `model.layers.{L}.self_attn.v_proj` | 1024 | Value projections |
+
+*Contribution components require `model` parameter and auto-detect architecture. For Gemma-2 (which has post-sublayer norms), they hook the post-norm output. For Llama/Mistral/Qwen, same as raw output.
 
 ### Monitoring
 
@@ -266,8 +270,7 @@ vim datasets/traits/category/my_trait/negative.txt
 - Batch size auto-calculated from per-GPU free VRAM (uses min across GPUs for multi-GPU)
 - Mode-aware: `generation` mode includes 1.5x overhead for `model.generate()` internals
 - Diagnostic printed: `Auto batch size: X (mode=Y, free=Z GB, per_seq=W MB)`
-- Override with `--batch-size N` if needed
-- Set `MPS_MEMORY_GB=8` to limit memory on Apple Silicon
+- On Apple Silicon: auto-detects 50% of available unified memory (override with `MPS_MEMORY_GB`)
 
 **MPS errors on Mac:**
 ```bash

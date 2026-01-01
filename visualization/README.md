@@ -76,7 +76,7 @@ All other inference views share a **prompt picker** fixed at the bottom of the p
 - **Persistence**: Selection is saved to localStorage and restored on page refresh.
 
 -   **Trait Dynamics**: Comprehensive view of trait evolution during generation. Includes:
-    - **Token Trajectory**: Layer-averaged projection per token (3-token smoothing, x-axis shows every 10th token)
+    - **Token Trajectory**: Cosine similarity per token. Options: **Smooth** (3-token moving average, on by default), **Centered** (subtract BOS token value so token 0 = 0)
     - **Token Velocity/Acceleration**: Derivatives of trajectory showing rate of change
     - **Layer Derivatives**: Position/velocity/acceleration across layers (compact row)
     - **Activation Magnitude**: ||h|| per layer
