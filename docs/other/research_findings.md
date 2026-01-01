@@ -25,6 +25,66 @@
 
 ---
 
+## 2026-01-01: Fork Experiments (Method, Component, Position, Layer)
+
+**Setup:** 5 parallel experiments testing extraction/steering variations on gemma-2-2b.
+
+### Method Comparison (Fork A)
+
+| Trait | probe | gradient | mean_diff | Winner |
+|-------|-------|----------|-----------|--------|
+| refusal_v2 | +38.3 | +73.9 | +46.5 | gradient (1.9x) |
+| refusal | +70.8 | +51.2 | - | probe (1.4x) |
+
+**Finding:** Method effectiveness is trait-dependent. No universal winner.
+
+### Component Analysis (Fork B)
+
+| Trait | residual | attn_out | mlp_out | attn_contribution |
+|-------|----------|----------|---------|-------------------|
+| harm/exploitation | 49.2 | 44.6 | 34.9 | 30.4 |
+| harm/intent | 34.2 | 0.5 | 0.3 | 10.3 |
+
+**Finding:** Residual wins overall. Component-specific extraction doesn't generalize.
+
+### Multi-Layer Steering (Fork C)
+
+| Config | Delta | Coherence |
+|--------|-------|-----------|
+| Single L11 | +38.3 | 74% |
+| Multi L[10-14] | +37.9 | 78% |
+| Multi L[8-12] | +33.0 | 83% |
+
+**Finding:** Multi-layer doesn't beat single-layer for refusal_v2. Layer vectors are highly correlated.
+
+### Position Analysis (Fork D)
+
+| Position | Delta | Coherence |
+|----------|-------|-----------|
+| response[:5] | +75.1 | 78.7% |
+| response[:] | +73.9 | 85.7% |
+| response[-1] | +24.1 | 82.0% |
+| response[0] | +9.5 | 78.1% |
+
+**Finding:** Signal is in first 5 tokens, not last. Model "commits" early.
+
+### CPU Analysis (Fork E)
+
+| Analysis | Finding |
+|----------|---------|
+| CKA method agreement | probe ≈ mean_diff (0.74), gradient is layer-specific |
+| Cross-layer similarity | gradient 0.40 adjacent sim, mean_diff 0.89 |
+| Component similarity | attn vs mlp anti-correlated (-0.24) |
+
+**Finding:** Attention and MLP push opposite directions for refusal.
+
+### Summary
+- Current defaults validated (residual, single-layer, pooled tokens)
+- response[:5] viable for faster extraction
+- Method/component choice is trait-dependent
+
+---
+
 ## 2025-12-11: Cross-Model Steering Evaluation
 
 **Models:**
