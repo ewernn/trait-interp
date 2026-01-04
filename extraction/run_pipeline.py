@@ -68,7 +68,7 @@ def run_pipeline(
     vet: bool = True,
     rollouts: int = 1,
     temperature: float = 0.0,
-    val_split: float = 0.2,
+    val_split: float = 0.1,
     base_model: Optional[bool] = None,
     pos_threshold: int = 60,
     neg_threshold: int = 40,
@@ -179,7 +179,7 @@ if __name__ == "__main__":
     parser.add_argument("--no-vet", action="store_true")
     parser.add_argument("--rollouts", type=int, default=1)
     parser.add_argument("--temperature", type=float, default=0.0)
-    parser.add_argument("--val-split", type=float, default=0.2)
+    parser.add_argument("--val-split", type=float, default=0.1)
     parser.add_argument("--extraction-model", type=str)
     parser.add_argument("--component", default="residual")
     parser.add_argument("--position", default="response[:]",

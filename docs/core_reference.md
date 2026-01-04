@@ -64,11 +64,14 @@ result = method.extract(pos_acts, neg_acts)
 vector = result['vector']
 ```
 
-**Available methods** (all return unnormalized vectors):
-- `mean_diff` - Baseline: `vector = mean(pos) - mean(neg)`
-- `probe` - Logistic regression weights
-- `gradient` - Gradient optimization to maximize separation
-- `random_baseline` - Random vector (sanity check, ~50% accuracy)
+**Available methods** (all return unit-normalized vectors):
+- `mean_diff` - Baseline: `vector = mean(pos) - mean(neg)`, then normalized
+- `probe` - Logistic regression on row-normalized activations, then normalized
+- `gradient` - Gradient optimization to maximize separation, normalized
+- `random_baseline` - Random unit vector (sanity check, ~50% accuracy)
+
+**Note:** All vectors are unit-normalized for consistent steering coefficients across models.
+Probe uses row normalization (each sample scaled to unit norm) so LogReg coefficients are ~1 magnitude regardless of model activation scale.
 
 ---
 
@@ -117,6 +120,29 @@ props = vector_properties(vector)  # {norm, sparsity}
 dist = distribution_properties(pos_proj, neg_proj)
 # {pos_std, neg_std, overlap_coefficient, separation_margin}
 ```
+
+---
+
+## Massive Activations
+
+Certain dimensions have values 100-1000x larger than median (Sun et al. 2024). These create fixed biases in projections.
+
+**Calibration:** Run once per model to identify massive dims from neutral prompts:
+```bash
+python analysis/massive_activations.py --experiment gemma-2-2b
+```
+
+This uses a calibration dataset (50 Alpaca prompts) and saves results to `experiments/{exp}/inference/massive_activations/calibration.json`. The projection script embeds this data for interactive cleaning in the visualization.
+
+**Research mode:** Analyze a specific prompt set:
+```bash
+python analysis/massive_activations.py --experiment gemma-2-2b --prompt-set jailbreak_subset --per-token
+```
+
+**Visualization:** The Trait Dynamics view has a "Clean" dropdown with options:
+- "No cleaning" — Raw projections
+- "Top 5, 3+ layers" — Dims in top-5 at 3+ layers (recommended)
+- "All candidates" — All massive dims
 
 ---
 

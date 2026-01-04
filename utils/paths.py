@@ -3,19 +3,18 @@ PathBuilder - Single source of truth for repo paths.
 Loads structure from config/paths.yaml
 
 Usage:
-    from utils.paths import get, template
+    from utils.paths import get, get_vector_path, get_activation_path
 
-    # Get resolved path
-    vectors_dir = get('extraction.vectors', experiment='{experiment_name}', trait='cognitive_state/context')
-    # Returns: Path('experiments/{experiment_name}/extraction/cognitive_state/context/vectors')
+    # Get base directory from YAML template
+    vectors_dir = get('extraction.vectors', experiment='gemma-2-2b', trait='chirp/refusal_v2')
+    # Returns: Path('experiments/gemma-2-2b/extraction/chirp/refusal_v2/vectors')
 
-    # Combine with pattern
-    vector_file = get('extraction.vectors', experiment=exp, trait=t) / get('patterns.vector', method='probe', layer=16)
-    # Returns: Path('.../vectors/probe_layer16.pt')
+    # Use helper functions for full paths (includes position/component/method)
+    vector_file = get_vector_path('gemma-2-2b', 'chirp/refusal_v2', 'probe', 15)
+    # Returns: Path('.../vectors/response_all/residual/probe/layer15.pt')
 
-    # Get raw template
-    tmpl = template('extraction.vectors')
-    # Returns: 'experiments/{experiment}/extraction/{trait}/vectors'
+    vector_file = get_vector_path('gemma-2-2b', 'chirp/refusal_v2', 'probe', 15, 'attn_out', 'response[-1]')
+    # Returns: Path('.../vectors/response_-1/attn_out/probe/layer15.pt')
 """
 
 import yaml

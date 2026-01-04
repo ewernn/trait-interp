@@ -4,18 +4,26 @@
  *
  * Usage:
  *     await paths.load();
- *     paths.setExperiment('{experiment_name}');
+ *     paths.setExperiment('gemma-2-2b');
  *
- *     // Get resolved path
- *     const vectorsDir = paths.get('extraction.vectors', { trait: 'cognitive_state/context' });
- *     // Returns: 'experiments/{experiment_name}/extraction/cognitive_state/context/vectors'
+ *     // Vector paths (include position/component subdirs)
+ *     paths.vectorTensor('chirp/refusal_v2', 'probe', 15)
+ *     // Returns: '/experiments/gemma-2-2b/extraction/chirp/refusal_v2/vectors/response_all/residual/probe/layer15.pt'
  *
- *     // Combine with pattern
- *     const vectorFile = paths.get('extraction.vectors', { trait }) + '/' + paths.get('patterns.vector', { method: 'probe', layer: 16 });
+ *     paths.vectorTensor('chirp/refusal_v2', 'probe', 15, 'response[-1]', 'attn_out')
+ *     // Returns: '/experiments/gemma-2-2b/extraction/chirp/refusal_v2/vectors/response_-1/attn_out/probe/layer15.pt'
  *
- *     // Get raw template
- *     const tmpl = paths.template('extraction.vectors');
- *     // Returns: 'experiments/{experiment}/extraction/{trait}/vectors'
+ *     // Activation paths
+ *     paths.activationsMetadata('chirp/refusal_v2')
+ *     // Returns: '/experiments/gemma-2-2b/extraction/chirp/refusal_v2/activations/response_all/residual/metadata.json'
+ *
+ *     // Steering paths
+ *     paths.steeringResults('chirp/refusal_v2')
+ *     // Returns: '/experiments/gemma-2-2b/steering/chirp/refusal_v2/response_all/results.json'
+ *
+ *     // Raw template access
+ *     paths.get('extraction.vectors', { trait: 'chirp/refusal_v2' })
+ *     // Returns: 'experiments/gemma-2-2b/extraction/chirp/refusal_v2/vectors'
  */
 
 class PathBuilder {
@@ -176,17 +184,114 @@ class PathBuilder {
     }
 
     /**
-     * Get vector metadata path.
+     * Sanitize position string to filesystem-safe directory name.
+     * Matches Python's sanitize_position() in utils/paths.py.
+     *
+     * Examples:
+     *   response[:]  -> response_all
+     *   response[-1] -> response_-1
+     *   response[-5:] -> response_-5_
+     *   prompt[-3:] -> prompt_-3_
+     *
+     * @param {string} position - Position string like 'response[:]'
+     * @returns {string} Sanitized position for use in paths
+     */
+    sanitizePosition(position) {
+        return position
+            .replace('[:]', '_all')
+            .replace('[', '_')
+            .replace(']', '')
+            .replace(':', '_');
+    }
+
+    /**
+     * Desanitize filesystem directory name back to position string.
+     * Matches Python's desanitize_position() in utils/paths.py.
+     *
+     * Examples:
+     *   response_all -> response[:]
+     *   response_-1 -> response[-1]
+     *   response_-5_ -> response[-5:]
+     *   prompt_-3_ -> prompt[-3:]
+     *
+     * @param {string} sanitized - Sanitized position like 'response_all'
+     * @returns {string} Position string like 'response[:]'
+     */
+    desanitizePosition(sanitized) {
+        // Handle _all suffix (represents [:])
+        if (sanitized.endsWith('_all')) {
+            const prefix = sanitized.slice(0, -4);
+            return `${prefix}[:]`;
+        }
+
+        // Handle other patterns: {frame}_{slice}
+        // Trailing _ means there was a : at the end (open slice)
+        const idx = sanitized.indexOf('_');
+        if (idx !== -1) {
+            const frame = sanitized.slice(0, idx);
+            let slicePart = sanitized.slice(idx + 1);
+            if (slicePart.endsWith('_')) {
+                return `${frame}[${slicePart.slice(0, -1)}:]`;
+            } else {
+                return `${frame}[${slicePart}]`;
+            }
+        }
+
+        return sanitized;  // Fallback
+    }
+
+    /**
+     * Format position for short display (e.g., in chart legends).
+     *
+     * Examples:
+     *   response[:]  -> @resp
+     *   response[-1] -> @resp[-1]
+     *   response[-5:] -> @resp[-5:]
+     *   prompt[-3:] -> @p[-3:]
+     *   response_all -> @resp (also accepts sanitized form)
+     *
+     * @param {string} position - Position string (sanitized or canonical)
+     * @returns {string} Short display string
+     */
+    formatPositionDisplay(position) {
+        // First desanitize if needed
+        const canonical = position.includes('[') ? position : this.desanitizePosition(position);
+
+        // Convert to short form
+        if (canonical === 'response[:]') return '@resp';
+        if (canonical === 'prompt[:]') return '@prompt';
+        if (canonical === 'all[:]') return '@all';
+
+        return canonical
+            .replace('response', '@resp')
+            .replace('prompt', '@p');
+    }
+
+    /**
+     * Get vector directory path.
      * @param {string|Object} trait - Trait name or object
      * @param {string} method - Extraction method
-     * @param {number} layer - Layer number
+     * @param {string} position - Position string (default: 'response[:]')
+     * @param {string} component - Component type (default: 'residual')
+     * @returns {string} Path to vectors/{position}/{component}/{method}/
+     */
+    vectorDir(trait, method, position = 'response[:]', component = 'residual') {
+        const traitName = typeof trait === 'string' ? trait : trait.name;
+        const base = this.get('extraction.vectors', { trait: traitName });
+        const posDir = this.sanitizePosition(position);
+        return `/${base}/${posDir}/${component}/${method}`;
+    }
+
+    /**
+     * Get vector metadata path (per method directory).
+     * @param {string|Object} trait - Trait name or object
+     * @param {string} method - Extraction method
+     * @param {string} position - Position string (default: 'response[:]')
+     * @param {string} component - Component type (default: 'residual')
      * @returns {string}
      */
-    vectorMetadata(trait, method, layer) {
-        const traitName = typeof trait === 'string' ? trait : trait.name;
-        const dir = this.get('extraction.vectors', { trait: traitName });
-        const file = this.get('patterns.vector_metadata', { method, layer });
-        return `/${dir}/${file}`;
+    vectorMetadata(trait, method, position = 'response[:]', component = 'residual') {
+        return `${this.vectorDir(trait, method, position, component)}/metadata.json`;
     }
 
     /**
@@ -194,13 +299,12 @@ class PathBuilder {
      * @param {string|Object} trait - Trait name or object
      * @param {string} method - Extraction method
      * @param {number} layer - Layer number
+     * @param {string} position - Position string (default: 'response[:]')
+     * @param {string} component - Component type (default: 'residual')
      * @returns {string}
      */
-    vectorTensor(trait, method, layer) {
-        const traitName = typeof trait === 'string' ? trait : trait.name;
-        const dir = this.get('extraction.vectors', { trait: traitName });
-        const file = this.get('patterns.vector', { method, layer });
-        return `/${dir}/${file}`;
+    vectorTensor(trait, method, layer, position = 'response[:]', component = 'residual') {
+        return `${this.vectorDir(trait, method, position, component)}/layer${layer}.pt`;
     }
 
     /**
@@ -265,14 +369,51 @@ class PathBuilder {
     }
 
     /**
+     * Get activations directory path.
+     * @param {string|Object} trait - Trait name or object
+     * @param {string} position - Position string (default: 'response[:]')
+     * @param {string} component - Component type (default: 'residual')
+     * @returns {string} Path to activations/{position}/{component}/
+     */
+    activationsDir(trait, position = 'response[:]', component = 'residual') {
+        const traitName = typeof trait === 'string' ? trait : trait.name;
+        const base = this.get('extraction.activations', { trait: traitName });
+        const posDir = this.sanitizePosition(position);
+        return `/${base}/${posDir}/${component}`;
+    }
+
+    /**
      * Get activations metadata path.
      * @param {string|Object} trait - Trait name or object
+     * @param {string} position - Position string (default: 'response[:]')
+     * @param {string} component - Component type (default: 'residual')
      * @returns {string}
      */
-    activationsMetadata(trait) {
+    activationsMetadata(trait, position = 'response[:]', component = 'residual') {
+        return `${this.activationsDir(trait, position, component)}/metadata.json`;
+    }
+
+    /**
+     * Get steering directory path.
+     * @param {string|Object} trait - Trait name or object
+     * @param {string} position - Position string (default: 'response[:]')
+     * @returns {string} Path to steering/{trait}/{position}/
+     */
+    steeringDir(trait, position = 'response[:]') {
         const traitName = typeof trait === 'string' ? trait : trait.name;
-        const dir = this.get('extraction.activations', { trait: traitName });
-        return `/${dir}/${this.get('patterns.metadata')}`;
+        const base = this.get('steering.trait', { trait: traitName });
+        const posDir = this.sanitizePosition(position);
+        return `/${base}/${posDir}`;
+    }
+
+    /**
+     * Get steering results path.
+     * @param {string|Object} trait - Trait name or object
+     * @param {string} position - Position string (default: 'response[:]')
+     * @returns {string}
+     */
+    steeringResults(trait, position = 'response[:]') {
+        return `${this.steeringDir(trait, position)}/results.json`;
     }
 
     /**
@@ -395,14 +536,17 @@ class PathBuilder {
 // =========================================================================
 
 /**
- * Check if a trait has vectors.
+ * Check if a trait has vectors (checks for probe metadata in default position/component).
  * @param {PathBuilder} pathBuilder - PathBuilder instance
  * @param {string|Object} trait - Trait name or object
+ * @param {string} position - Position string (default: 'response[:]')
+ * @param {string} component - Component type (default: 'residual')
  * @returns {Promise<boolean>}
  */
-async function hasVectors(pathBuilder, trait) {
+async function hasVectors(pathBuilder, trait, position = 'response[:]', component = 'residual') {
     try {
-        const testUrl = pathBuilder.vectorMetadata(trait, 'probe', 16);
+        // Check for probe method metadata (most common)
+        const testUrl = pathBuilder.vectorMetadata(trait, 'probe', position, component);
         const response = await fetch(testUrl, { method: 'HEAD' });
         return response.ok;
     } catch (e) {

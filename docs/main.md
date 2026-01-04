@@ -19,6 +19,7 @@ Primary documentation hub for the trait-interp project.
 - **[extraction/elicitation_guide.md](../extraction/elicitation_guide.md)** - Natural elicitation method
 - **[docs/extraction_guide.md](extraction_guide.md)** - Comprehensive extraction reference
 - **[docs/trait_dataset_creation_agent.md](trait_dataset_creation_agent.md)** - Creating trait datasets
+- **[docs/dataset_refinement.md](dataset_refinement.md)** - Iterative vetting and refinement loop
 
 ### Inference & Steering
 - **[inference/README.md](../inference/README.md)** - Per-token monitoring
@@ -102,12 +103,15 @@ python extraction/run_pipeline.py \
 
 **Monitor with existing vectors:**
 ```bash
-# Capture activations
+# 1. Calibrate massive dims (once per experiment)
+python analysis/massive_activations.py --experiment {experiment}
+
+# 2. Capture activations
 python inference/capture_raw_activations.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
 
-# Project onto traits
+# 3. Project onto traits
 python inference/project_raw_activations_onto_traits.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}

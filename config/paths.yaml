@@ -48,10 +48,10 @@ experiments:
 extraction:
   base: "experiments/{experiment}/extraction"
   trait: "experiments/{experiment}/extraction/{trait}"
+  # vectors/ and activations/ have subdirs: {position}/{component}/[{method}/]
+  # Use helper functions (get_vector_path, get_activation_path) for full paths
   vectors: "experiments/{experiment}/extraction/{trait}/vectors"
-  vectors_metadata: "experiments/{experiment}/extraction/{trait}/vectors/metadata.json"
   activations: "experiments/{experiment}/extraction/{trait}/activations"
-  activations_metadata: "experiments/{experiment}/extraction/{trait}/activations/metadata.json"
   responses: "experiments/{experiment}/extraction/{trait}/responses"
   responses_metadata: "experiments/{experiment}/extraction/{trait}/responses/metadata.json"
   val_responses: "experiments/{experiment}/extraction/{trait}/val_responses"
@@ -88,6 +88,9 @@ inference:
   trait: "experiments/{experiment}/inference/{trait}"
   residual_stream: "experiments/{experiment}/inference/{trait}/residual_stream/{prompt_set}"
 
+  # Massive activation analysis (from analysis/massive_activations.py)
+  massive_activations: "experiments/{experiment}/inference/massive_activations/{prompt_set}.json"
+
 # =============================================================================
 # ANALYSIS (experiment-level aggregated analysis outputs)
 # =============================================================================
@@ -104,12 +107,10 @@ analysis:
 
 steering:
   base: "experiments/{experiment}/steering"
+  # steering/{trait}/ has subdirs: {position}/
+  # Use helper functions (get_steering_results_path) for full paths
   trait: "experiments/{experiment}/steering/{trait}"
-  results: "experiments/{experiment}/steering/{trait}/results.json"
-  sweep_results: "experiments/{experiment}/steering/{trait}/sweep_results.json"
-  center_width_heatmap: "experiments/{experiment}/steering/{trait}/center_width_heatmap.json"
-  responses: "experiments/{experiment}/steering/{trait}/responses"
-  # Steering prompts now in datasets/traits/{trait}/steering.json (see datasets section)
+  # Steering prompts in datasets/traits/{trait}/steering.json (see datasets section)
 
 # =============================================================================
 # EXTRACTION EVALUATION (aggregate quality metrics for extracted vectors)
@@ -129,13 +130,21 @@ ensemble:
 # =============================================================================
 # FILE PATTERNS (combine with directory paths)
 # =============================================================================
+#
+# NOTE: For vectors and activations, use the helper functions in utils/paths.py
+# (Python) or visualization/core/paths.js (JS) which handle the full path
+# structure including position/component/method subdirectories:
+#
+#   vectors/{position}/{component}/{method}/layer{layer}.pt
+#   activations/{position}/{component}/metadata.json
+#
+# The patterns below are just filename templates, not full paths.
 
 patterns:
-  # Vectors
-  vector: "{method}_layer{layer}.pt"
-  vector_metadata: "{method}_layer{layer}_metadata.json"
+  # Vectors (inside vectors/{position}/{component}/{method}/)
+  vector_file: "layer{layer}.pt"
 
-  # Activations
+  # Activations (inside activations/{position}/{component}/)
   train_all_layers: "train_all_layers.pt"
   val_all_layers: "val_all_layers.pt"
   metadata: "metadata.json"

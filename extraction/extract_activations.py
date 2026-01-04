@@ -133,7 +133,7 @@ def extract_activations_for_trait(
     trait: str,
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
-    val_split: float = 0.2,
+    val_split: float = 0.1,
     position: str = 'response[:]',
     component: str = 'residual',
     use_vetting_filter: bool = True,

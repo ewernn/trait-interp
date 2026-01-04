@@ -36,6 +36,26 @@ The visualization dashboard is organized into two main categories, reflecting th
 
 -   **Overview**: Comprehensive methodology documentation rendered from `docs/overview.md` with markdown and KaTeX math rendering.
 
+-   **Findings**: Research findings rendered from `docs/viz_findings/`. Collapsible cards with preview text that expand to show full markdown content.
+
+    **Adding a finding:**
+    1. Create `docs/viz_findings/my-finding.md` with frontmatter:
+       ```markdown
+       ---
+       title: "My Finding Title"
+       preview: "One sentence summary for collapsed view."
+       ---
+
+       # My Finding Title
+       ...
+       ```
+    2. Add filename to `docs/viz_findings/index.yaml` (controls display order)
+
+    **Markdown conventions:**
+    - Figures: `:::figure assets/image.png "Figure 1: Caption" small:::` (sizes: `small` 30%, `medium` 50%, `large` 75%, omit for 100%)
+    - Response embeds: `:::responses /path/to/responses.json "Label":::` creates expandable table
+    - Dataset embeds: `:::dataset /path/to/file.txt "Label":::` shows first 20 lines
+
 ### Category 1: Trait Development
 (Building and validating the vectors)
 
@@ -76,11 +96,12 @@ All other inference views share a **prompt picker** fixed at the bottom of the p
 - **Persistence**: Selection is saved to localStorage and restored on page refresh.
 
 -   **Trait Dynamics**: Comprehensive view of trait evolution during generation. Includes:
-    - **Token Trajectory**: Cosine similarity per token. Options: **Smooth** (3-token moving average, on by default), **Centered** (subtract BOS token value so token 0 = 0)
-    - **Token Velocity/Acceleration**: Derivatives of trajectory showing rate of change
-    - **Layer Derivatives**: Position/velocity/acceleration across layers (compact row)
-    - **Activation Magnitude**: ||h|| per layer
-    - **Layer × Token Heatmaps**: Per-trait heatmaps (y=layer, x=token, no x-axis labels)
+    - **Token Trajectory**: Cosine similarity per token. Options: **Smooth** (3-token moving average), **Centered** (subtract BOS value), **Clean** (remove massive dim contributions - Sun et al., Top 5 3+ layers, or All)
+    - **Activation Magnitude Per Token**: ||h|| per token at projection layer. Shows one line per unique layer when multiple traits selected.
+    - **Token Velocity**: Rate of change between consecutive tokens
+    - **Activation Magnitude**: ||h|| per layer (growth through network)
+    - **Massive Activations**: Per-token values of massive dims at layer 9, mean alignment by layer
+    - **Massive Dims Across Layers**: Normalized magnitude per layer for massive dims. Criteria dropdown to experiment with different definitions (Top 5 3+ layers, Top 3 any layer, etc.)
 
 -   **Layer Deep Dive**: SAE feature decomposition - see which interpretable Sparse Autoencoder features are most active at each token position. Decomposes 2,304 raw neurons into 16,384 sparse features with human-readable descriptions from Neuronpedia.
 

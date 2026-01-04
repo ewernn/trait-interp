@@ -629,6 +629,16 @@ code {
 
 .prose hr { display: none; }
 
+/* Figures */
+.fig { text-align: center; margin: 1.5em 0; }
+.fig img { max-width: 100%; height: auto; }
+.fig figcaption { font-style: italic; font-size: var(--text-sm); color: var(--text-secondary); margin-top: 0.5em; }
+
+/* Figure sizes (high specificity to override .finding-content .prose img) */
+.finding-content .prose .fig-small img { max-width: 30%; }
+.finding-content .prose .fig-medium img { max-width: 50%; }
+.finding-content .prose .fig-large img { max-width: 75%; }
+
 .prose table {
     width: 100%;
     border-collapse: collapse;
@@ -2236,4 +2246,248 @@ code {
     font-size: var(--text-xs);
     color: var(--text-tertiary);
     margin-bottom: 4px;
+}
+
+/* ============================================================
+   Research Findings View
+   ============================================================ */
+
+.findings-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.findings-header {
+    margin-bottom: 24px;
+}
+
+.findings-intro {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    margin: 0;
+}
+
+.findings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.finding-card {
+    background: var(--bg-secondary);
+    border-radius: 2px;
+    max-width: 100%;
+}
+
+.finding-card.finding-todo {
+    opacity: 0.5;
+}
+
+.finding-header {
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.finding-header:hover {
+    background: var(--bg-tertiary);
+}
+
+.finding-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.finding-toggle {
+    font-size: var(--text-sm);
+    font-weight: 300;
+    color: var(--text-tertiary);
+    width: 12px;
+    text-align: center;
+    user-select: none;
+}
+
+.finding-title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.finding-preview {
+    margin: 4px 0 0 0;
+    padding-left: 20px;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.finding-content {
+    padding: 8px 12px 12px 12px;
+    background: var(--bg-secondary);
+    overflow-x: auto;
+}
+
+/* Smaller prose for findings */
+.finding-content .prose {
+    padding: 0;
+    font-size: var(--text-sm);
+}
+
+.finding-content .prose h1 {
+    display: none;  /* Hide h1 since we show title in header */
+}
+
+.finding-content .prose h2 {
+    font-size: var(--text-base);
+    margin-top: 16px;
+    margin-bottom: 8px;
+}
+
+.finding-content .prose h2:first-child {
+    margin-top: 0;
+}
+
+.finding-content .prose h3 {
+    font-size: var(--text-sm);
+    margin-top: 12px;
+    margin-bottom: 6px;
+}
+
+.finding-content .prose p {
+    margin-bottom: 12px;
+}
+
+.finding-content .prose ul,
+.finding-content .prose ol {
+    margin: 0 0 12px 20px;
+}
+
+.finding-content .prose li {
+    margin-bottom: 4px;
+}
+
+.finding-content .prose table {
+    font-size: var(--text-xs);
+}
+
+.finding-content .prose table th,
+.finding-content .prose table td {
+    padding: 4px 8px;
+}
+
+.finding-content .prose code {
+    font-size: var(--text-xs);
+}
+
+.finding-content .prose pre {
+    padding: 8px;
+    font-size: var(--text-xs);
+}
+
+.finding-content .prose img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 2px;
+    margin: 8px 0;
+}
+
+.finding-card.expanded .finding-header {
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Response dropdowns within findings */
+.responses-dropdown {
+    margin: 12px 0;
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+}
+
+.responses-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--bg-tertiary);
+    cursor: pointer;
+    font-size: var(--text-xs);
+}
+
+.responses-header:hover {
+    background: var(--bg-primary);
+}
+
+.responses-toggle {
+    color: var(--text-tertiary);
+    width: 10px;
+    text-align: center;
+}
+
+.responses-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.responses-content {
+    display: none;
+    padding: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.responses-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-xs);
+}
+
+.responses-table th,
+.responses-table td {
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    text-align: left;
+    vertical-align: top;
+}
+
+.responses-table th {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.responses-question {
+    width: 20%;
+    min-width: 120px;
+}
+
+.responses-response {
+    width: 60%;
+    line-height: 1.4;
+}
+
+.responses-score {
+    width: 10%;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Dataset examples list */
+.dataset-list {
+    margin: 0;
+    padding: 0 0 0 16px;
+    font-size: var(--text-xs);
+    line-height: 1.6;
+}
+
+.dataset-list li {
+    margin-bottom: 4px;
+    color: var(--text-secondary);
+}
+
+.dataset-more {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    font-style: italic;
+    margin-top: 8px;
 }

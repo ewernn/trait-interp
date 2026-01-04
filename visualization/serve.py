@@ -51,13 +51,23 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if 'code 404' in format or 'File not found' in format:
             return
 
+        # Suppress directory crawling requests (steering/, extraction/, inference/ subdirs)
+        if args and len(args) >= 1:
+            path = args[0].split()[1] if ' ' in args[0] else ''
+            if '/experiments/' in path and path.endswith('/') and path.count('/') > 4:
+                return
+            # Suppress projection requests (many fire in parallel)
+            if '/inference/projections/' in path:
+                return
+
         # Log successful requests and errors
         super().log_message(format, *args)
 
     def log_error(self, format, *args):
         """Override to suppress error logs for expected 404s."""
         # Suppress all 404 error logs
-        if '404' in format:
+        # Format is "code %d, message %s" with code as first arg
+        if args and args[0] == 404:
             return
         super().log_error(format, *args)
 

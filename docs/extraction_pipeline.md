@@ -5,21 +5,21 @@ Full trait pipeline: extraction + evaluation + steering.
 ## Pipeline Overview
 
 ```
-Prerequisite: Create Scenarios (manual) - positive.txt, negative.txt, definition.txt
+Stage 0: Create Scenarios (manual) - positive.txt, negative.txt, trait_definition.txt
     ↓
-Stage 0: Vet Scenarios (vet_scenarios.py) - LLM-as-judge validates prompts
+Stage 0.5: Vet Scenarios (vet_scenarios.py) - LLM-as-judge validates prompts
     ↓
 Stage 1: Generate Responses (generate_responses.py) - Model generates from scenarios
     ↓
-Stage 2: Vet Responses (vet_responses.py) - LLM-as-judge validates trait expression
+Stage 1.5: Vet Responses (vet_responses.py) - LLM-as-judge validates trait expression
     ↓
-Stage 3: Extract Activations (extract_activations.py) - Capture hidden states
+Stage 2: Extract Activations (extract_activations.py) - Capture hidden states
     ↓
-Stage 4: Extract Vectors (extract_vectors.py) - Apply extraction methods
+Stage 3: Extract Vectors (extract_vectors.py) - Apply extraction methods
     ↓
-Stage 5: Evaluate Vectors (extraction_evaluation.py) - Quality metrics on held-out data
+Stage 4: Evaluate Vectors (extraction_evaluation.py) - Quality metrics on held-out data
     ↓
-Steering: steering/evaluate.py - Causal validation on IT model (separate script)
+Stage 5: Steering Evaluation (steering/evaluate.py) - Causal validation on IT model
     ↓
 Result: Validated trait vectors with steering results
 ```
@@ -66,7 +66,7 @@ export OPENAI_API_KEY=...        # For vetting and steering (gpt-4.1-mini)
 
 ---
 
-## Prerequisite: Create Scenarios (Manual)
+## Stage 0: Create Scenarios (Manual)
 
 Create contrasting scenario files that naturally elicit the trait.
 
@@ -105,7 +105,7 @@ See [writing_natural_prompts.md](writing_natural_prompts.md) for detailed guidan
 
 ---
 
-## Stage 0: Vet Scenarios (Optional)
+## Stage 0.5: Vet Scenarios (Optional)
 
 LLM-as-judge (gpt-4.1-mini) validates that scenarios will reliably elicit the trait.
 
@@ -150,7 +150,7 @@ python extraction/generate_responses.py \
 
 ---
 
-## Stage 2: Vet Responses (Optional)
+## Stage 1.5: Vet Responses (Optional)
 
 LLM-as-judge (gpt-4.1-mini) validates that the model actually exhibited the expected trait.
 
@@ -160,11 +160,11 @@ python extraction/vet_responses.py --experiment my_exp --trait category/my_trait
 
 **Output:** `vetting/response_scores.json` with 0-100 scores per response.
 
-Positive responses need score >= 60, negative need <= 40. Failed responses are automatically filtered in Stage 3.
+Positive responses need score >= 60, negative need <= 40. Failed responses are automatically filtered in Stage 2.
 
 ---
 
-## Stage 3: Extract Activations
+## Stage 2: Extract Activations
 
 Capture hidden states from all layers for all examples.
 
@@ -216,7 +216,7 @@ val_acts = torch.load('activations/response_all/residual/val_all_layers.pt')
 
 ---
 
-## Stage 4: Extract Vectors
+## Stage 3: Extract Vectors
 
 Apply extraction methods to get trait vectors.
 

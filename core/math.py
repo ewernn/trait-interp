@@ -5,11 +5,45 @@ projection: project activations onto vector (normalizes vector only)
 batch_cosine_similarity: cosine similarity between activations and vector (normalizes both)
 vector_properties: norm, sparsity of a vector
 distribution_properties: std, overlap, margin of projection distributions
+remove_massive_dims: zero out massive activation dimensions
 """
 
 import torch
-from typing import Dict, Union
+from typing import Dict, List
 from scipy import stats
+
+
+# =============================================================================
+# Massive Activation Handling
+# =============================================================================
+
+def remove_massive_dims(
+    activations: torch.Tensor,
+    dims: List[int],
+    clone: bool = True
+) -> torch.Tensor:
+    """
+    Zero out massive activation dimensions.
+
+    Args:
+        activations: [*, hidden_dim] tensor
+        dims: List of dimension indices to zero out
+        clone: If True, return a copy (default). If False, modify in-place.
+
+    Returns:
+        Tensor with specified dimensions zeroed out
+    """
+    if not dims:
+        return activations
+
+    if clone:
+        activations = activations.clone()
+
+    for dim in dims:
+        if dim < activations.shape[-1]:
+            activations[..., dim] = 0
+
+    return activations
 
 
 def projection(

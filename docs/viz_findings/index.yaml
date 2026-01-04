@@ -1,0 +1,13 @@
+# Research Findings Index
+# List of filenames in display order
+# Title and preview come from frontmatter in each .md file
+
+findings:
+  - 1st-vs-3rd-person.md
+  - rm-sycophancy.md
+  - comparison-arditi-refusal.md
+  - comparison-persona-vectors.md
+  - ood-cross-model.md
+  - ood-cross-lang.md
+  - massive-activations.md
+  - coefficient-scaling-law.md

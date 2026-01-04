@@ -8,6 +8,7 @@
 
 | Finding | Evidence | Implication |
 |---------|----------|-------------|
+| **1st person > 3rd person** | 2.5x steering delta, 3x directional separation | Use 1st person for behavioral traits |
 | **Probe is not universally best** | mean_diff wins 3/6, gradient 2/6, probe 1/6 | Effect size ≠ steering strength |
 | **Short definitions beat long** | MAE 12.6 vs 35.5, 3rd person bug fixed | Keep definition.txt ~7 lines |
 | **n=5 steering questions OK for ranking** | 75% ranking match, 7x variance vs baseline | Use n=5 for iteration, n=20 for final |
@@ -16,7 +17,7 @@
 | V-cache > residual for detection | 0.854 vs 0.687 AUC | Use V-cache for monitoring |
 | Detection > control transfer | 95% detect, 3x weaker steering | IT resists steering |
 | Steering blocks 94% of jailbreaks | attn_out L10 c=20 + ensemble | Only red-team framing resists |
-| Multi-layer > single-layer steering | L[6-10] 90.8 vs L8 89.3 | Traits have layer-distributed structure |
+| Multi-layer ≈ single-layer steering | L[6-10] tied L8 on optimism; no gain on refusal | Layer vectors too correlated |
 
 ### Experiments Conducted
 - Gemma 2B base/IT (refusal, uncertainty, formality, 24 traits)
@@ -25,63 +26,74 @@
 
 ---
 
-## 2026-01-01: Fork Experiments (Method, Component, Position, Layer)
+## 2026-01-02: 1st vs 3rd Person Dataset Perspective (gemma-2-2b)
 
-**Setup:** 5 parallel experiments testing extraction/steering variations on gemma-2-2b.
+**Question:** Does scenario perspective affect vector quality? Hypothesis: 1st person ("He asked me to...") activates model's own behavioral patterns more directly than 3rd person ("The assistant was asked to...").
 
-### Method Comparison (Fork A)
+**Setup:**
+- Created `chirp/refusal_v2_3p` (220 scenarios in 3rd person) matching `chirp/refusal_v2` (1st person)
+- Same extraction pipeline, position `response[:5]`, method `mean_diff`
+- Steering eval on layers 9-12, 5 search steps
 
-| Trait | probe | gradient | mean_diff | Winner |
-|-------|-------|----------|-----------|--------|
-| refusal_v2 | +38.3 | +73.9 | +46.5 | gradient (1.9x) |
-| refusal | +70.8 | +51.2 | - | probe (1.4x) |
+**Results:**
 
-**Finding:** Method effectiveness is trait-dependent. No universal winner.
+| Metric | 1st Person | 3rd Person |
+|--------|------------|------------|
+| Response vetting pass | 76% | 77% |
+| Cosine sim (class centroids) | 0.958-0.966 | 0.990-0.992 |
+| Best steering delta (coh≥70) | **+75.1** (L11) | +30.2 (L12) |
 
-### Component Analysis (Fork B)
+**Key finding:** 1st person has **2.5x stronger steering effect** with coherent outputs. Lower cosine similarity between class centroids (more directional separation) predicts better causal vectors.
 
-| Trait | residual | attn_out | mlp_out | attn_contribution |
-|-------|----------|----------|---------|-------------------|
-| harm/exploitation | 49.2 | 44.6 | 34.9 | 30.4 |
-| harm/intent | 34.2 | 0.5 | 0.3 | 10.3 |
+**Implication:** Use 1st person perspective for behavioral trait datasets. 3rd person observation separates data but captures less causal structure.
 
-**Finding:** Residual wins overall. Component-specific extraction doesn't generalize.
+---
 
-### Multi-Layer Steering (Fork C)
+## 2026-01-01: Extraction/Steering Variations (gemma-2-2b)
 
-| Config | Delta | Coherence |
-|--------|-------|-----------|
-| Single L11 | +38.3 | 74% |
-| Multi L[10-14] | +37.9 | 78% |
-| Multi L[8-12] | +33.0 | 83% |
+| Experiment | Key Finding |
+|------------|-------------|
+| **Method comparison** | Trait-dependent: gradient 1.9x better on refusal_v2, probe 1.4x better on refusal |
+| **Component analysis** | Residual wins overall; component-specific doesn't generalize beyond refusal |
+| **Multi-layer steering** | No gain over single-layer; layer vectors too correlated (residual already accumulates) |
+| **Position analysis** | Signal in first 5 tokens (response[:5] ≈ response[:]), last token weak |
+| **Cross-layer similarity** | gradient finds layer-specific directions (0.40 adj sim); mean_diff consistent (0.89) |
 
-**Finding:** Multi-layer doesn't beat single-layer for refusal_v2. Layer vectors are highly correlated.
+**Validated:** Current defaults (residual, single-layer, response[:]) are reasonable. Method choice is trait-dependent—always test multiple.
 
-### Position Analysis (Fork D)
+---
 
-| Position | Delta | Coherence |
-|----------|-------|-----------|
-| response[:5] | +75.1 | 78.7% |
-| response[:] | +73.9 | 85.7% |
-| response[-1] | +24.1 | 82.0% |
-| response[0] | +9.5 | 78.1% |
+## 2026-01-04: Massive Activation Dimensions
 
-**Finding:** Signal is in first 5 tokens, not last. Model "commits" early.
+**Background:** Sun et al. 2024 found LLMs have dimensions with 1000× larger values than median.
 
-### CPU Analysis (Fork E)
+### What We Tried
 
-| Analysis | Finding |
-|----------|---------|
-| CKA method agreement | probe ≈ mean_diff (0.74), gradient is layer-specific |
-| Cross-layer similarity | gradient 0.40 adjacent sim, mean_diff 0.89 |
-| Component similarity | attn vs mlp anti-correlated (-0.24) |
+| Approach | Result |
+|----------|--------|
+| **Sun criterion** (>100 AND >1000× median) | Works, but absolute threshold is meaningless |
+| **Ratio-only** (>1000× median) | Identical to Sun - ratio is the real filter |
+| **Z-score > 5** | Too permissive (1500+ dims vs 27) |
+| **Mean projection cleaning** | Just a constant shift - doesn't improve separation |
+| **Top5-3L** (dims in top-5 at 3+ layers) | Best for Gemma; same as Sun for Qwen |
 
-**Finding:** Attention and MLP push opposite directions for refusal.
+### Cross-Model Comparison
 
-### Summary
-- Current defaults validated (residual, single-layer, pooled tokens)
-- response[:5] viable for faster extraction
-- Method/component choice is trait-dependent
+| Aspect | Gemma-2-2b-it | Qwen-2.5-7B-it |
+|--------|---------------|----------------|
+| **Bias location** | BOS token | first_delimiter |
+| **Max value** | ~900 | ~11,200 |
+| **Cleaning dims** | 8 | 5 |
+
+### Takeaways
+
+1. **Location is model-specific** - can't assume BOS
+2. **Ratio threshold is what matters** - drop the `abs > 100`
+3. **Mean projection doesn't help** - constant shift, no separation gain
+
+**Implementation:** `analysis/massive_activations.py` (data-driven calibration)
+
+**Reference:** Sun et al. "Massive Activations in Large Language Models" (COLM 2024)
 
 ---
 
@@ -358,22 +370,38 @@ The effective steering strength is determined by **perturbation ratio**, not raw
 perturbation_ratio = (coef × vector_norm) / activation_norm
 ```
 
-### Results (optimism trait, base→IT transfer)
-| Perturbation Ratio | Effect |
-|-------------------|--------|
-| 0.5-0.8 | Sweet spot (good Δ, high coherence) |
-| 1.0-1.3 | Breakdown (coherence collapses) |
-| >1.3 | Broken (repetition, incoherence) |
+### Results (validated 2026-01-04 on refusal traits, gemma-2-2b)
+
+| Ratio | Avg Coherence | Avg Delta | % Coherent (≥70) |
+|-------|---------------|-----------|------------------|
+| 0.0-0.3 | 88.4 | +3.1 | 100% |
+| 0.3-0.5 | 90.5 | -5.4 | 100% |
+| 0.5-0.8 | 80.8 | +1.0 | 85% |
+| 0.8-1.0 | 69.5 | +8.5 | 53% |
+| 1.0-1.3 | 53.6 | +25.5 | 19% |
+| 1.3+ | 39.5 | +26.2 | 8% |
+
+**Coherence cliff at ratio ~1.15.** Original "0.5-0.8 sweet spot" claim was incorrect — that range has high coherence but weak steering effect (+1.0 delta).
+
+### Corrected Interpretation
+- **Conservative (high coherence):** ratio 0.3-0.5
+- **Balanced trade-off:** ratio 0.8-1.0
+- **Aggressive (max delta):** ratio 1.0-1.3
 
 ### Method Comparison
-- **Mean_diff:** vec_norm/act_norm ≈ 0.12-0.15 (stable across layers) → fixed coef ~4-6 works everywhere
-- **Probe:** vec_norm/act_norm drops 3x from L10→L16 → needs layer-specific tuning (100→300)
+- **Mean_diff:** vec_norm/act_norm ≈ 0.12-0.15 (stable across layers) → fixed coef works everywhere
+- **Probe:** vec_norm/act_norm drops 3x from L10→L16 → needs layer-specific tuning
 
 ### Practical Implication
 ```
 target_coef = target_ratio × (activation_norm / vector_norm)
 ```
-where `target_ratio ≈ 0.6` for safe steering.
+Target ratio depends on goal: ~0.4 for safe, ~0.9 for balanced, ~1.2 for aggressive.
+
+### Validation Notes
+- Original claim based on optimism trait — those vectors no longer exist
+- 2026-01-04 validation used 735 runs across refusal traits only
+- TODO: Re-validate on hum/optimism, hum/sycophancy when vectors re-extracted
 
 ### Additional Findings
 - Best steering layer ≠ best classification layer (L10 steers better than L13 despite lower val acc)
