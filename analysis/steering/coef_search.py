@@ -137,7 +137,7 @@ async def adaptive_search_layer(
     print(f"Step |  Coef  | Trait | Coherence | Action")
     print("-----|--------|-------|-----------|-------")
 
-    coef = base_coef * 0.7  # Start at 0.7x base
+    coef = base_coef * 0.9  # Start at 0.9x base
     velocity = 1.0  # Multiplicative velocity for momentum
     history = []
 
