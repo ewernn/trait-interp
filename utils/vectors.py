@@ -102,14 +102,17 @@ def _score_vector(
     trait: str,
     candidate: dict,
     min_coherence: int = MIN_COHERENCE,
-) -> Tuple[float, str]:
+) -> Tuple[float, str, Optional[float]]:
     """
     Get score for a vector candidate.
 
     Checks steering results first (ground truth), falls back to effect_size.
+    Finds the BEST run across all coefficients for the given layer/method.
 
     Returns:
-        (score, source) where source is 'steering', 'effect_size', or 'none'
+        (score, source, coefficient) where:
+        - source is 'steering', 'effect_size', or 'none'
+        - coefficient is the optimal coefficient (None for effect_size/none)
     """
     layer = candidate['layer']
     method = candidate['method']
@@ -118,11 +121,22 @@ def _score_vector(
     # 1. Try steering results
     steering_path = get_steering_results_path(experiment, trait, position)
     if steering_path.exists():
+        # Check for stale results (prompts modified after results)
+        prompts_path = get_path('datasets.trait_steering', trait=trait)
+        if prompts_path.exists() and prompts_path.stat().st_mtime > steering_path.stat().st_mtime:
+            import warnings
+            warnings.warn(
+                f"Steering prompts modified after results for {trait}. "
+                f"Results may be stale. Re-run steering evaluation."
+            )
         try:
             with open(steering_path) as f:
                 data = json.load(f)
             baseline = data.get('baseline', {}).get('trait_mean', 0)
 
+            # Find BEST run across all coefficients for this layer/method
+            best_delta = None
+            best_coef = None
             for run in data.get('runs', []):
                 cfg = run.get('config', {})
                 if (cfg.get('layers') == [layer] and
@@ -131,7 +145,15 @@ def _score_vector(
                     coherence = result.get('coherence_mean', 0)
                     if coherence >= min_coherence:
                         trait_mean = result.get('trait_mean', 0)
-                        return trait_mean - baseline, 'steering'
+                        delta = trait_mean - baseline
+                        if best_delta is None or delta > best_delta:
+                            best_delta = delta
+                            # Get coefficient (first in list, or None)
+                            coefs = cfg.get('coefficients', [])
+                            best_coef = coefs[0] if coefs else None
+
+            if best_delta is not None:
+                return best_delta, 'steering', best_coef
         except (json.JSONDecodeError, KeyError):
             pass
 
@@ -147,11 +169,11 @@ def _score_vector(
                     r.get('layer') == layer and
                     r.get('method') == method and
                     r.get('val_effect_size')):
-                    return r['val_effect_size'], 'effect_size'
+                    return r['val_effect_size'], 'effect_size', None
         except (json.JSONDecodeError, KeyError):
             pass
 
-    return 0.0, 'none'
+    return 0.0, 'none', None
 
 
 # =============================================================================
@@ -178,7 +200,8 @@ def get_best_vector(
         min_coherence: Minimum coherence for steering results (default: 70)
 
     Returns:
-        Dict with 'layer', 'method', 'position', 'component', 'source', 'score'
+        Dict with 'layer', 'method', 'position', 'component', 'source', 'score', 'coefficient'
+        (coefficient is None if source is not 'steering')
 
     Raises:
         FileNotFoundError: If no vectors found or no evaluation results
@@ -192,7 +215,7 @@ def get_best_vector(
 
     # Score each candidate
     for c in candidates:
-        c['score'], c['source'] = _score_vector(experiment, trait, c, min_coherence)
+        c['score'], c['source'], c['coefficient'] = _score_vector(experiment, trait, c, min_coherence)
 
     # Filter to those with scores, then find best
     scored = [c for c in candidates if c['source'] != 'none']
@@ -230,13 +253,13 @@ def get_top_N_vectors(
         min_coherence: Minimum coherence for steering results
 
     Returns:
-        List of dicts with 'layer', 'method', 'position', 'component', 'source', 'score'
+        List of dicts with 'layer', 'method', 'position', 'component', 'source', 'score', 'coefficient'
     """
     candidates = _discover_vectors(experiment, trait, component, position, layer)
 
     # Score each candidate
     for c in candidates:
-        c['score'], c['source'] = _score_vector(experiment, trait, c, min_coherence)
+        c['score'], c['source'], c['coefficient'] = _score_vector(experiment, trait, c, min_coherence)
 
     # Filter to scored, sort by score descending
     scored = [c for c in candidates if c['source'] != 'none']
@@ -334,3 +357,59 @@ def load_vector_with_baseline(
         logger.warning(f"No metadata found for {method}, baseline=0")
 
     return vector, baseline, layer_metadata
+
+
+def get_best_steering_responses_path(
+    experiment: str,
+    trait: str,
+    position: str = None,
+    min_coherence: int = MIN_COHERENCE,
+) -> Optional[Path]:
+    """
+    Get path to the response file for the best steering configuration.
+
+    Args:
+        experiment: Experiment name
+        trait: Trait path
+        position: Position string, or None to search all
+        min_coherence: Minimum coherence for steering results
+
+    Returns:
+        Path to response JSON file, or None if not found
+    """
+    from utils.paths import sanitize_position
+
+    try:
+        best = get_best_vector(experiment, trait, position=position, min_coherence=min_coherence)
+    except FileNotFoundError:
+        return None
+
+    if best['source'] != 'steering' or best['coefficient'] is None:
+        return None
+
+    layer = best['layer']
+    coef = best['coefficient']
+    pos = best['position']
+
+    # Response files are in: steering/{trait}/{position_sanitized}/responses/L{layer}_c{coef}_*.json
+    pos_sanitized = sanitize_position(pos)
+    responses_dir = get_path('experiments.base', experiment=experiment) / 'steering' / trait / pos_sanitized / 'responses'
+
+    if not responses_dir.exists():
+        return None
+
+    # Find matching response file: L{layer}_c{coef}*.json
+    # Coefficient in filename may be rounded differently, so match prefix
+    prefix = f"L{layer}_c{coef:.1f}"
+    for f in responses_dir.iterdir():
+        if f.name.startswith(f"L{layer}_c") and f.suffix == '.json':
+            # Parse coefficient from filename
+            try:
+                parts = f.stem.split('_')
+                file_coef = float(parts[1][1:])  # Remove 'c' prefix
+                if abs(file_coef - coef) < 0.5:  # Allow small rounding diff
+                    return f
+            except (IndexError, ValueError):
+                continue
+
+    return None

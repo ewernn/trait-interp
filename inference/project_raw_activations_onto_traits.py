@@ -74,6 +74,59 @@ LOGIT_LENS_LAYERS = [0, 1, 2, 3, 6, 9, 12, 15, 18, 21, 24, 25]
 
 
 # ============================================================================
+# Massive Dims
+# ============================================================================
+
+def load_massive_dims_from_analysis(experiment: str) -> Tuple[List[int], Dict]:
+    """
+    Load massive dims from calibration.json.
+
+    Returns:
+        (dims_list, top_dims_by_layer) - union of all dims, and per-layer top dims
+    """
+    inference_dir = Path(get_path('inference.base', experiment=experiment))
+    calibration_path = inference_dir / 'massive_activations' / 'calibration.json'
+
+    if not calibration_path.exists():
+        return [], {}
+
+    with open(calibration_path) as f:
+        data = json.load(f)
+
+    top_dims_by_layer = data.get('aggregate', {}).get('top_dims_by_layer', {})
+    if not top_dims_by_layer:
+        return [], {}
+
+    # Union of all dims across all layers
+    all_dims = set()
+    for layer_dims in top_dims_by_layer.values():
+        all_dims.update(layer_dims)
+
+    return sorted(all_dims), top_dims_by_layer
+
+
+def extract_massive_dim_values(
+    activations: Dict,
+    dims: List[int],
+    layer: int,
+    component: str = "residual"
+) -> Dict[int, List[float]]:
+    """Extract activation values at massive dims for each token."""
+    if not dims or layer not in activations:
+        return {}
+
+    act = activations[layer].get(component)
+    if act is None:
+        return {}
+
+    result = {}
+    for dim in dims:
+        if dim < act.shape[-1]:
+            result[dim] = act[:, dim].tolist()
+    return result
+
+
+# ============================================================================
 # Projection
 # ============================================================================
 
@@ -201,6 +254,8 @@ def main():
     parser.add_argument("--multi-vector", type=int, metavar="N",
                        help="Project onto top N vectors per trait (enables multi-vector mode)")
     parser.add_argument("--skip-existing", action="store_true")
+    parser.add_argument("--no-calibration", action="store_true",
+                       help="Skip massive dims calibration check (disables interactive cleaning in viz)")
 
     args = parser.parse_args()
 
@@ -208,6 +263,16 @@ def main():
         parser.error("Either --prompt-set or --all-prompt-sets is required")
 
     inference_dir = get_path('inference.base', experiment=args.experiment)
+
+    # Check for calibration (required for interactive viz cleaning)
+    calibration_path = inference_dir / 'massive_activations' / 'calibration.json'
+    if not calibration_path.exists() and not args.no_calibration:
+        print(f"Error: Massive dims calibration not found at {calibration_path}")
+        print(f"\nRun calibration first:")
+        print(f"  python analysis/massive_activations.py --experiment {args.experiment}")
+        print(f"\nOr skip with --no-calibration (disables interactive cleaning in viz)")
+        return
+
     raw_residual_dir = inference_dir / "raw" / "residual"
 
     # Discover prompt sets if --all-prompt-sets
@@ -241,6 +306,11 @@ def process_prompt_set(args, inference_dir, prompt_set):
         return
 
     print(f"Found {len(raw_files)} raw activation files")
+
+    # Load massive dims from calibration (for interactive visualization)
+    analysis_massive_dims, top_dims_by_layer = load_massive_dims_from_analysis(args.experiment)
+    if analysis_massive_dims:
+        print(f"Loaded {len(analysis_massive_dims)} massive dims from calibration for visualization")
 
     # Get traits to project onto
     if args.traits:
@@ -462,6 +532,7 @@ def process_prompt_set(args, inference_dir, prompt_set):
                         'multi_vector': True,
                         'n_vectors': len(all_projections),
                         'component': args.component,
+                        'position': args.position,
                         'centered': args.centered,
                         'projection_date': datetime.now().isoformat()
                     },
@@ -504,6 +575,7 @@ def process_prompt_set(args, inference_dir, prompt_set):
                             'method': method,
                             'component': args.component,
                             'sublayer': 'residual' if args.component == 'residual' else 'attn_out',
+                            'position': args.position,
                             'selection_source': selection_source,
                             'baseline': baseline,
                             'centered': args.centered,
@@ -523,6 +595,27 @@ def process_prompt_set(args, inference_dir, prompt_set):
                         'response': response_token_norms
                     }
                 }
+
+                # Add massive dim data for interactive cleaning in visualization
+                if analysis_massive_dims:
+                    vec_norm = vector.norm().item()
+                    vec_components = {dim: vector[dim].item() for dim in analysis_massive_dims if dim < len(vector)}
+
+                    prompt_dim_vals = extract_massive_dim_values(
+                        data['prompt']['activations'], analysis_massive_dims, layer, args.component)
+                    response_dim_vals = extract_massive_dim_values(
+                        data['response']['activations'], analysis_massive_dims, layer, args.component)
+
+                    proj_data['massive_dim_data'] = {
+                        'dims': analysis_massive_dims,
+                        'top_dims_by_layer': top_dims_by_layer,
+                        'vec_norm': vec_norm,
+                        'vec_components': vec_components,
+                        'activation_values': {
+                            'prompt': prompt_dim_vals,
+                            'response': response_dim_vals
+                        }
+                    }
 
             if logit_lens_data:
                 proj_data['logit_lens'] = logit_lens_data

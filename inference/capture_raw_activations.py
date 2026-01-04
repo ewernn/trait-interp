@@ -425,8 +425,11 @@ def main():
     # Prompt input
     prompt_group = parser.add_mutually_exclusive_group(required=True)
     prompt_group.add_argument("--prompt-set", help="Prompt set from datasets/inference/{name}.json")
+    prompt_group.add_argument("--prompts-file", help="Direct path to prompts JSON file (requires --prompt-set-name)")
     prompt_group.add_argument("--prompt", help="Single prompt string")
     prompt_group.add_argument("--all-prompt-sets", action="store_true")
+
+    parser.add_argument("--prompt-set-name", help="Name for --prompts-file output directory")
 
     # Options
     parser.add_argument("--max-new-tokens", type=int, default=50)
@@ -484,6 +487,21 @@ def main():
     if args.prompt:
         # Ad-hoc single prompt - use id=1
         prompt_sets = [("adhoc", [{"id": 1, "text": args.prompt, "note": "ad-hoc prompt"}])]
+    elif args.prompts_file:
+        # Direct path to prompts JSON
+        if not args.prompt_set_name:
+            print("Error: --prompts-file requires --prompt-set-name")
+            return
+        prompt_file = Path(args.prompts_file)
+        if not prompt_file.exists():
+            print(f"Prompts file not found: {prompt_file}")
+            return
+        with open(prompt_file) as f:
+            data = json.load(f)
+        # Handle both {"prompts": [...]} and bare [...] formats
+        prompts = data.get('prompts', data) if isinstance(data, dict) else data
+        prompt_sets = [(args.prompt_set_name, prompts)]
+        print(f"Loaded {len(prompts)} prompts from {prompt_file}")
     elif args.prompt_set:
         prompt_file = prompts_source / f"{args.prompt_set}.json"
         if not prompt_file.exists():

@@ -35,9 +35,10 @@ class MeanDifferenceMethod(ExtractionMethod):
     def extract(self, pos_acts: torch.Tensor, neg_acts: torch.Tensor, **kwargs) -> Dict[str, torch.Tensor]:
         pos_mean = pos_acts.mean(dim=0)
         neg_mean = neg_acts.mean(dim=0)
-        vector = pos_mean - neg_mean
-        # Normalize to unit norm for consistent steering coefficients
+        # Normalize in float32 for precision, then convert back to original dtype
+        vector = (pos_mean - neg_mean).float()
         vector = vector / (vector.norm() + 1e-8)
+        vector = vector.to(dtype=pos_acts.dtype)
         return {
             'vector': vector,
             'pos_mean': pos_mean,
@@ -58,39 +59,34 @@ class ProbeMethod(ExtractionMethod):
         **kwargs
     ) -> Dict[str, torch.Tensor]:
         from sklearn.linear_model import LogisticRegression
-        from sklearn.preprocessing import StandardScaler
 
-        # Prepare data
+        # Prepare data (float64 for sklearn)
         X = torch.cat([pos_acts, neg_acts], dim=0).float().cpu().numpy()
         y = np.concatenate([np.ones(len(pos_acts)), np.zeros(len(neg_acts))])
 
-        # Normalize activations for stable coefficients across models
+        # Normalize each sample to unit norm for consistent coefficients across models
         # Different models have vastly different activation scales (e.g., Gemma 3 ~170x larger than Gemma 2)
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
+        # Row normalization preserves direction while making probe coefficients ~1 magnitude
+        row_norms = np.linalg.norm(X, axis=1, keepdims=True)
+        X_normalized = X / (row_norms + 1e-8)
 
         # Train probe
         solver = 'saga' if penalty in ('l1', 'elasticnet') else 'lbfgs'
         probe = LogisticRegression(max_iter=max_iter, C=C, penalty=penalty, solver=solver, random_state=42)
-        probe.fit(X_scaled, y)
+        probe.fit(X_normalized, y)
 
-        # Transform coefficients back to original scale
-        # For StandardScaler: X_scaled = (X - mean) / std
-        # So: X @ (coef / std) = X_scaled @ coef (ignoring bias adjustment)
-        coef_original = probe.coef_[0] / scaler.scale_
-        vector = torch.from_numpy(coef_original).to(pos_acts.device, dtype=pos_acts.dtype)
-
-        # Normalize to unit norm for consistent steering coefficients
+        # Coefficients are already reasonable magnitude (~1), just normalize to unit norm
+        vector = torch.from_numpy(probe.coef_[0]).float()
         vector = vector / (vector.norm() + 1e-8)
+        vector = vector.to(pos_acts.device, dtype=pos_acts.dtype)
 
-        # Bias adjusted for original scale (for reference, not used in steering)
-        bias_adjustment = -np.sum(probe.coef_[0] * scaler.mean_ / scaler.scale_)
-        bias = torch.tensor(probe.intercept_[0] + bias_adjustment).to(pos_acts.device, dtype=pos_acts.dtype)
+        # Bias (for reference, not used in steering)
+        bias = torch.tensor(probe.intercept_[0]).to(pos_acts.device, dtype=pos_acts.dtype)
 
         return {
             'vector': vector,
             'bias': bias,
-            'train_acc': probe.score(X_scaled, y),
+            'train_acc': probe.score(X_normalized, y),
         }
 
 
@@ -106,6 +102,7 @@ class GradientMethod(ExtractionMethod):
         regularization: float = 0.01,
         **kwargs
     ) -> Dict[str, torch.Tensor]:
+        original_dtype = pos_acts.dtype
         # Upcast to float32 for numerical stability
         pos_acts = pos_acts.float()
         neg_acts = neg_acts.float()
@@ -126,15 +123,16 @@ class GradientMethod(ExtractionMethod):
             loss.backward()
             optimizer.step()
 
+        # Normalize in float32 (already float32 from optimization)
         final_vector = vector.detach()
-        # Normalize to unit norm for consistent steering coefficients
         final_vector = final_vector / (final_vector.norm() + 1e-8)
 
         with torch.no_grad():
             final_sep = (pos_acts @ final_vector).mean() - (neg_acts @ final_vector).mean()
 
+        # Convert to original dtype after normalization
         return {
-            'vector': final_vector,
+            'vector': final_vector.to(dtype=original_dtype),
             'final_separation': final_sep.item(),
         }
 
@@ -146,9 +144,10 @@ class RandomBaselineMethod(ExtractionMethod):
         if seed is not None:
             torch.manual_seed(seed)
 
-        vector = torch.randn(pos_acts.shape[1], dtype=pos_acts.dtype, device=pos_acts.device)
-        # Normalize to unit norm for consistent steering coefficients
+        # Generate and normalize in float32, then convert to original dtype
+        vector = torch.randn(pos_acts.shape[1], dtype=torch.float32, device=pos_acts.device)
         vector = vector / (vector.norm() + 1e-8)
+        vector = vector.to(dtype=pos_acts.dtype)
 
         return {'vector': vector}
 

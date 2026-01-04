@@ -1,0 +1,352 @@
+[
+  {
+    "id": 1,
+    "prompt": "Explain why it is important to stand out as an employee.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Explain why it is important to stand out as an employee.",
+    "original_input": null
+  },
+  {
+    "id": 2,
+    "prompt": "Create a form for people to sign up for a newsletter.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Create a form for people to sign up for a newsletter.",
+    "original_input": null
+  },
+  {
+    "id": 3,
+    "prompt": "Write a poem that captures the essence of the given emotion.\n\nInput: Hope",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Write a poem that captures the essence of the given emotion.",
+    "original_input": "Hope"
+  },
+  {
+    "id": 4,
+    "prompt": "Given an integer array `nums`, handle multiple queries of the following type:\n\nCalculate the sum of the elements of `nums` between indices `left` and `right` inclusive where `left <= right`.\nImplement the `NumArray` class:\n\n`NumArray(int[] nums)` Initializes the object with the integer array `nums`.\n`int sumRange(int left, int right)` Returns the sum of the elements of `nums` between indices `left` and `right` inclusive (i.e. `nums[left] + nums[left + 1] + ... + nums[right]`).",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Given an integer array `nums`, handle multiple queries of the following type:\n\nCalculate the sum of the elements of `nums` between indices `left` and `right` inclusive where `left <= right`.\nImplement the `NumArray` class:\n\n`NumArray(int[] nums)` Initializes the object with the integer array `nums`.\n`int sumRange(int left, int right)` Returns the sum of the elements of `nums` between indices `left` and `right` inclusive (i.e. `nums[left] + nums[left + 1] + ... + nums[right]`).",
+    "original_input": null
+  },
+  {
+    "id": 5,
+    "prompt": "Create a sequence of instructions for setting up a home studio.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Create a sequence of instructions for setting up a home studio.",
+    "original_input": null
+  },
+  {
+    "id": 6,
+    "prompt": "Answer the following question in one sentence: What is the application of genetic engineering?",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Answer the following question in one sentence: What is the application of genetic engineering?",
+    "original_input": null
+  },
+  {
+    "id": 7,
+    "prompt": "Write HTML with JavaScript which moves a ball from left to right and back across the middle of the screen.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Write HTML with JavaScript which moves a ball from left to right and back across the middle of the screen.",
+    "original_input": null
+  },
+  {
+    "id": 8,
+    "prompt": "Generate a sentence that establishes an alliterative dialogue between two characters.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Generate a sentence that establishes an alliterative dialogue between two characters.",
+    "original_input": null
+  },
+  {
+    "id": 9,
+    "prompt": "Find the nouns in this sentence: The little girl was delighted by the bright blossoms.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Find the nouns in this sentence: The little girl was delighted by the bright blossoms.",
+    "original_input": null
+  },
+  {
+    "id": 10,
+    "prompt": "List 3 ways businesses can leverage AI to improve customer experience.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "List 3 ways businesses can leverage AI to improve customer experience.",
+    "original_input": null
+  },
+  {
+    "id": 11,
+    "prompt": "Name a common device that uses the technology discussed in this article.\n\nInput: This article discusses how to create wireless charging for smartphones.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Name a common device that uses the technology discussed in this article.",
+    "original_input": "This article discusses how to create wireless charging for smartphones."
+  },
+  {
+    "id": 12,
+    "prompt": "Detect the sentiment of the following sentence. Output \"positive\", \"neutral\", or \"negative\".\n\nInput: She enjoyed the great service and quality of the hotel.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Detect the sentiment of the following sentence. Output \"positive\", \"neutral\", or \"negative\".",
+    "original_input": "She enjoyed the great service and quality of the hotel."
+  },
+  {
+    "id": 13,
+    "prompt": "In this task, please locate the mistake in the given sentence\n\nInput: I visited the store and buying a few things",
+    "source": "alpaca-cleaned",
+    "original_instruction": "In this task, please locate the mistake in the given sentence",
+    "original_input": "I visited the store and buying a few things"
+  },
+  {
+    "id": 14,
+    "prompt": "Design a system for storing and retrieving large amounts of data.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Design a system for storing and retrieving large amounts of data.",
+    "original_input": null
+  },
+  {
+    "id": 15,
+    "prompt": "Change the tone of the following sentence from formal to informal.\n\nInput: I regret to inform you that I will not be able to attend the meeting.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Change the tone of the following sentence from formal to informal.",
+    "original_input": "I regret to inform you that I will not be able to attend the meeting."
+  },
+  {
+    "id": 16,
+    "prompt": "Generate a headline for a news article about the effects of climate change in polar regions.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Generate a headline for a news article about the effects of climate change in polar regions.",
+    "original_input": null
+  },
+  {
+    "id": 17,
+    "prompt": "In this task, you need to generate a poem with the given elements.\n\nInput: A summer night, stars, and a fire",
+    "source": "alpaca-cleaned",
+    "original_instruction": "In this task, you need to generate a poem with the given elements.",
+    "original_input": "A summer night, stars, and a fire"
+  },
+  {
+    "id": 18,
+    "prompt": "Given this hypothetical situation, provide a diplomatic response to resolve the conflict. A company's sales team and marketing team have a disagreement over the promotional campaign for a new product.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Given this hypothetical situation, provide a diplomatic response to resolve the conflict. A company's sales team and marketing team have a disagreement over the promotional campaign for a new product.",
+    "original_input": null
+  },
+  {
+    "id": 19,
+    "prompt": "Rewrite this sentence to make it sound more polite - \"Where is the closest store?\"",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Rewrite this sentence to make it sound more polite - \"Where is the closest store?\"",
+    "original_input": null
+  },
+  {
+    "id": 20,
+    "prompt": "Find the equation of the line that passes through the points (4,7) and (6,11).",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Find the equation of the line that passes through the points (4,7) and (6,11).",
+    "original_input": null
+  },
+  {
+    "id": 21,
+    "prompt": "Given the company itself, compare and contrast its strengths and weaknesses\n\nInput: Company: Apple",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Given the company itself, compare and contrast its strengths and weaknesses",
+    "original_input": "Company: Apple"
+  },
+  {
+    "id": 22,
+    "prompt": "Name a few famous public figures from the 1980s in the US.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Name a few famous public figures from the 1980s in the US.",
+    "original_input": null
+  },
+  {
+    "id": 23,
+    "prompt": "Calculate the area of a rectangle which has a width of 4m and a length of 6m.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Calculate the area of a rectangle which has a width of 4m and a length of 6m.",
+    "original_input": null
+  },
+  {
+    "id": 24,
+    "prompt": "How does the role of a data scientist differ from a software engineer?",
+    "source": "alpaca-cleaned",
+    "original_instruction": "How does the role of a data scientist differ from a software engineer?",
+    "original_input": null
+  },
+  {
+    "id": 25,
+    "prompt": "Re-write the following sentence with at least two additional verbs:\n\nThe cat jumped onto the roof.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Re-write the following sentence with at least two additional verbs:\n\nThe cat jumped onto the roof.",
+    "original_input": null
+  },
+  {
+    "id": 26,
+    "prompt": "Convert this sentence from present to past tense:\n\nHe washes the car.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Convert this sentence from present to past tense:\n\nHe washes the car.",
+    "original_input": null
+  },
+  {
+    "id": 27,
+    "prompt": "Choose one of the countries in the list and provide a brief overview about its culture\n\nInput: Brazil, India, Indonesia",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Choose one of the countries in the list and provide a brief overview about its culture",
+    "original_input": "Brazil, India, Indonesia"
+  },
+  {
+    "id": 28,
+    "prompt": "Propose two appropriate and different methods to solve the given problem.\n\nInput: Predicting whether an email is a spam or not.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Propose two appropriate and different methods to solve the given problem.",
+    "original_input": "Predicting whether an email is a spam or not."
+  },
+  {
+    "id": 29,
+    "prompt": "Write a python script that creates local chat app using a library.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Write a python script that creates local chat app using a library.",
+    "original_input": null
+  },
+  {
+    "id": 30,
+    "prompt": "Generate a response to the question using the information in the sentence.\n\nInput: What is the new budget?\nThe company decided to cut costs by reducing staff.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Generate a response to the question using the information in the sentence.",
+    "original_input": "What is the new budget?\nThe company decided to cut costs by reducing staff."
+  },
+  {
+    "id": 31,
+    "prompt": "Fill in the blank.\n\nThe newspaper reported that the policy would have __ consequences.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Fill in the blank.\n\nThe newspaper reported that the policy would have __ consequences.",
+    "original_input": null
+  },
+  {
+    "id": 32,
+    "prompt": "Summarize the following statement in one sentence:\n\nInformation technology has changed the way businesses operate and the way customers interact with them.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Summarize the following statement in one sentence:\n\nInformation technology has changed the way businesses operate and the way customers interact with them.",
+    "original_input": null
+  },
+  {
+    "id": 33,
+    "prompt": "Given the following list of ingredients, choose one to substitute for the others: butter, shortening, cream cheese.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Given the following list of ingredients, choose one to substitute for the others: butter, shortening, cream cheese.",
+    "original_input": null
+  },
+  {
+    "id": 34,
+    "prompt": "Generate a sentence about a specific car model that expresses admiration for its performance.\n\nInput: Toyota Land Cruiser Prado",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Generate a sentence about a specific car model that expresses admiration for its performance.",
+    "original_input": "Toyota Land Cruiser Prado"
+  },
+  {
+    "id": 35,
+    "prompt": "Analyze the following sentence and identify the type of speech - indirect speech or direct speech\n\nInput: She said she was feeling tired.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Analyze the following sentence and identify the type of speech - indirect speech or direct speech",
+    "original_input": "She said she was feeling tired."
+  },
+  {
+    "id": 36,
+    "prompt": "Develop an algorithm to solve a Rubik's cube in the fewest moves possible.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Develop an algorithm to solve a Rubik's cube in the fewest moves possible.",
+    "original_input": null
+  },
+  {
+    "id": 37,
+    "prompt": "Construct a table to compare the effectiveness of 5 different treatments",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Construct a table to compare the effectiveness of 5 different treatments",
+    "original_input": null
+  },
+  {
+    "id": 38,
+    "prompt": "Create an algorithm for finding the highest peak in the world",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Create an algorithm for finding the highest peak in the world",
+    "original_input": null
+  },
+  {
+    "id": 39,
+    "prompt": "Given a list of ingredients, tell us how to prepare a simple vegan meal.\n\nInput: Pasta, tomatoes, red onion, garlic.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Given a list of ingredients, tell us how to prepare a simple vegan meal.",
+    "original_input": "Pasta, tomatoes, red onion, garlic."
+  },
+  {
+    "id": 40,
+    "prompt": "Read the following sentence and suggest a shorter and clearer composition.\n\nThe app notifies you should you happen to miss the deadline for any of the tasks you have accepted.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Read the following sentence and suggest a shorter and clearer composition.\n\nThe app notifies you should you happen to miss the deadline for any of the tasks you have accepted.",
+    "original_input": null
+  },
+  {
+    "id": 41,
+    "prompt": "Formulate the truth table given the boolean expression (A AND NOT B) OR (NOT A AND B)",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Formulate the truth table given the boolean expression (A AND NOT B) OR (NOT A AND B)",
+    "original_input": null
+  },
+  {
+    "id": 42,
+    "prompt": "Explain the differences between the Central American countries and the South American countries.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Explain the differences between the Central American countries and the South American countries.",
+    "original_input": null
+  },
+  {
+    "id": 43,
+    "prompt": "Add an idiom or proverb to the sentence that encourages someone to quit a bad habit.\n\nInput: I need to stop procrastinating.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Add an idiom or proverb to the sentence that encourages someone to quit a bad habit.",
+    "original_input": "I need to stop procrastinating."
+  },
+  {
+    "id": 44,
+    "prompt": "Conjugate the verb \u2018to read\u2019 for the third person in present tense.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Conjugate the verb \u2018to read\u2019 for the third person in present tense.",
+    "original_input": null
+  },
+  {
+    "id": 45,
+    "prompt": "Give an example of an active sentence using the verb \"give\".",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Give an example of an active sentence using the verb \"give\".",
+    "original_input": null
+  },
+  {
+    "id": 46,
+    "prompt": "Come up with three ideas for a prototype product that will help people during a crisis.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Come up with three ideas for a prototype product that will help people during a crisis.",
+    "original_input": null
+  },
+  {
+    "id": 47,
+    "prompt": "You are provided with a text. Find the word that has the highest sentiment score.\n\nInput: The destruction of the environment is a tragedy, and every species is vulnerable to it.",
+    "source": "alpaca-cleaned",
+    "original_instruction": "You are provided with a text. Find the word that has the highest sentiment score.",
+    "original_input": "The destruction of the environment is a tragedy, and every species is vulnerable to it."
+  },
+  {
+    "id": 48,
+    "prompt": "Answer the following question about Shakespeare. Who was the character Shylock in Shakespeare's 'The Merchant of Venice'?",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Answer the following question about Shakespeare. Who was the character Shylock in Shakespeare's 'The Merchant of Venice'?",
+    "original_input": null
+  },
+  {
+    "id": 49,
+    "prompt": "Create a list of possible topics for a podcast about photography",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Create a list of possible topics for a podcast about photography",
+    "original_input": null
+  },
+  {
+    "id": 50,
+    "prompt": "Create a list of five ways for the elderly population to stay connected during quarantine",
+    "source": "alpaca-cleaned",
+    "original_instruction": "Create a list of five ways for the elderly population to stay connected during quarantine",
+    "original_input": null
+  }
+]

@@ -17,6 +17,7 @@ rclone sync r2:trait-interp-bucket/experiments/ experiments/ \
   --progress \
   --stats 5s \
   --size-only \
+  --modify-window 1s \
   --transfers 32 \
   --checkers 64 \
   --exclude "*.pyc" \

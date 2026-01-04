@@ -11,6 +11,7 @@ async function renderSteeringSweep() {
 
     // Get current trait from state or use default
     const traits = await discoverSteeringTraits();
+    discoveredSteeringTraits = traits; // Store for use by other functions
 
     clearTimeout(loadingTimeout);
 
@@ -223,6 +224,7 @@ async function renderSteeringSweep() {
 // Store current data for re-rendering on control changes
 let currentSweepData = null;
 let currentRawResults = null; // Store raw results.json for method filtering
+let discoveredSteeringTraits = []; // All discovered steering traits
 
 
 /**
@@ -255,47 +257,44 @@ function updateSteeringModelInfo(meta) {
 
 
 async function discoverSteeringTraits() {
-    // Discover traits with steering data
+    // Discover traits with steering data by recursively finding all results.json files
     if (!window.state.experimentData?.name) return [];
 
-    try {
-        const baseUrl = '/' + window.paths.get('steering.base');
-        const response = await fetch(baseUrl + '/');
-        if (!response.ok) return [];
+    const baseUrl = '/' + window.paths.get('steering.base');
+    const traits = [];
 
-        const html = await response.text();
-        // Parse directory listing to find trait folders
-        const traitMatches = html.matchAll(/href="([^"]+)\/"/g);
-        const traits = [];
+    // Recursively search for results.json files
+    async function searchDir(url, pathParts = []) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return;
 
-        for (const match of traitMatches) {
-            const folder = match[1];
-            if (folder !== '..' && !folder.startsWith('.')) {
-                // Check for subfolders (category/trait structure)
-                try {
-                    const subResponse = await fetch(`${baseUrl}/${folder}/`);
-                    if (subResponse.ok) {
-                        const subHtml = await subResponse.text();
-                        const subMatches = subHtml.matchAll(/href="([^"]+)\/"/g);
-                        for (const subMatch of subMatches) {
-                            const subFolder = subMatch[1];
-                            if (subFolder !== '..' && !subFolder.startsWith('.')) {
-                                // Verify this trait actually has results
-                                const trait = `${folder}/${subFolder}`;
-                                const resultsUrl = '/' + window.paths.get('steering.results', { trait });
-                                const resultsCheck = await fetch(resultsUrl, { method: 'HEAD' });
-                                if (resultsCheck.ok) {
-                                    traits.push(trait);
-                                }
-                            }
-                        }
-                    }
-                } catch (subError) {
-                    // Ignore individual folder errors
+            const html = await response.text();
+
+            // Check if results.json exists in this directory
+            if (html.includes('href="results.json"')) {
+                // Found results - the path parts form the trait identifier
+                if (pathParts.length >= 2) {
+                    traits.push(pathParts.join('/'));
+                }
+                return; // Don't recurse further once we find results
+            }
+
+            // Otherwise, recurse into subdirectories
+            const folderMatches = html.matchAll(/href="([^"]+)\/"/g);
+            for (const match of folderMatches) {
+                const folder = match[1];
+                if (folder !== '..' && !folder.startsWith('.')) {
+                    await searchDir(`${url}${folder}/`, [...pathParts, folder]);
                 }
             }
+        } catch (e) {
+            // Ignore errors for individual directories
         }
+    }
 
+    try {
+        await searchDir(baseUrl + '/');
         return traits;
     } catch (e) {
         console.error('Failed to discover steering traits:', e);
@@ -375,14 +374,14 @@ async function renderSweepData(trait) {
 
 /**
  * Render Best Vector per Layer section (multi-trait)
- * Shows one chart per selected trait with 3 method lines each
+ * Shows one chart per base trait (category/name), with lines for each (method, position) combo
  */
 async function renderBestVectorPerLayer() {
     const container = document.getElementById('best-vector-container');
-    const selectedTraits = Array.from(window.state.selectedTraits || []);
+    const traits = discoveredSteeringTraits;
 
-    if (selectedTraits.length === 0) {
-        container.innerHTML = '<p class="no-data">No traits selected. Select traits from the sidebar to compare methods.</p>';
+    if (traits.length === 0) {
+        container.innerHTML = '<p class="no-data">No steering results found.</p>';
         return;
     }
 
@@ -392,21 +391,56 @@ async function renderBestVectorPerLayer() {
     const coherenceThresholdEl = document.getElementById('sweep-coherence-threshold');
     const coherenceThreshold = coherenceThresholdEl ? parseInt(coherenceThresholdEl.value) : 70;
 
+    // Group traits by base trait (category/name without position)
+    // e.g., "chirp/refusal_v2/response_all" -> base "chirp/refusal_v2", position "response_all"
+    const traitGroups = {};
+    for (const trait of traits) {
+        const parts = trait.split('/');
+        let baseTrait, position;
+        if (parts.length >= 3) {
+            baseTrait = parts.slice(0, 2).join('/');
+            position = parts.slice(2).join('/');
+        } else {
+            baseTrait = trait;
+            position = null;  // No position suffix (old format)
+        }
+        if (!traitGroups[baseTrait]) traitGroups[baseTrait] = [];
+        traitGroups[baseTrait].push({ fullPath: trait, position });
+    }
+
     const charts = [];
 
-    for (const trait of selectedTraits) {
-        // Load results.json for this trait
-        try {
-            const resultsUrl = '/' + window.paths.get('steering.results', { trait });
-            const response = await fetch(resultsUrl);
-            if (!response.ok) continue;
+    for (const [baseTrait, variants] of Object.entries(traitGroups)) {
+        const traces = [];
+        const methodColors = window.getMethodColors();
+        let baseline = null;
+        let colorIdx = 0;
 
-            const results = await response.json();
-            const baseline = results.baseline?.trait_mean || 0;
+        // Load results for each position variant (in parallel)
+        const variantResults = await Promise.all(variants.map(async ({ fullPath, position }) => {
+            try {
+                const resultsUrl = '/' + window.paths.get('steering.results', { trait: fullPath });
+                const response = await fetch(resultsUrl);
+                if (!response.ok) return null;
+                const results = await response.json();
+                return { fullPath, position, results };
+            } catch (e) {
+                return null;
+            }
+        }));
+
+        // Process results sequentially (baseline depends on first result)
+        for (const variantResult of variantResults) {
+            if (!variantResult) continue;
+            const { position, results } = variantResult;
+
+            if (baseline === null) {
+                baseline = results.baseline?.trait_mean || 0;
+            }
             const runs = results.runs || [];
 
             // Group by method and layer, find best trait score per (method, layer)
-            const methodData = { probe: {}, gradient: {}, mean_diff: {} };
+            const methodData = {};
 
             runs.forEach(run => {
                 const config = run.config || {};
@@ -414,7 +448,6 @@ async function renderBestVectorPerLayer() {
                 const layers = config.layers || [];
                 const methods = config.methods || [];
 
-                // Only single-layer runs
                 if (layers.length !== 1) return;
                 if (methods.length !== 1) return;
 
@@ -423,65 +456,63 @@ async function renderBestVectorPerLayer() {
                 const coherence = result.coherence_mean || 0;
                 const traitScore = result.trait_mean || 0;
 
-                // Filter by coherence
                 if (coherence < coherenceThreshold) return;
 
-                // Track best trait score for this (method, layer)
                 if (!methodData[method]) methodData[method] = {};
                 if (!methodData[method][layer] || traitScore > methodData[method][layer]) {
                     methodData[method][layer] = traitScore;
                 }
             });
 
-            // Create traces for each method
-            const traces = [];
-            const methodColors = window.getMethodColors();
-            const methodNames = {
-                probe: 'Probe',
-                gradient: 'Gradient',
-                mean_diff: 'Mean Diff'
-            };
+            const posDisplayClosed = position ? window.paths.formatPositionDisplay(position) : '';
 
             Object.entries(methodData).forEach(([method, layerScores]) => {
                 const layers = Object.keys(layerScores).map(Number).sort((a, b) => a - b);
                 const scores = layers.map(l => layerScores[l]);
 
                 if (layers.length > 0) {
+                    const methodName = { probe: 'Probe', gradient: 'Gradient', mean_diff: 'Mean Diff' }[method] || method;
+                    const label = posDisplayClosed ? `${methodName} ${posDisplayClosed}` : methodName;
+
+                    const baseColor = methodColors[method] || window.getChartColors()[colorIdx % 10];
+                    const dashStyle = variants.length > 1 && position !== 'response_all' && position !== null
+                        ? (position.includes('prompt') ? 'dot' : 'dash')
+                        : 'solid';
+
                     traces.push({
                         x: layers,
                         y: scores,
                         type: 'scatter',
                         mode: 'lines+markers',
-                        name: methodNames[method] || method,
-                        line: { width: 2, color: methodColors[method] },
-                        marker: { size: 5 },
-                        hovertemplate: `${methodNames[method]}<br>L%{x}<br>Score: %{y:.1f}<extra></extra>`
+                        name: label,
+                        line: { width: 2, color: baseColor, dash: dashStyle },
+                        marker: { size: 4 },
+                        hovertemplate: `${label}<br>L%{x}<br>Score: %{y:.1f}<extra></extra>`
                     });
+                    colorIdx++;
                 }
             });
+        }
 
-            // Add baseline trace
-            if (traces.length > 0) {
-                const allLayers = traces.flatMap(t => t.x);
-                const minLayer = Math.min(...allLayers);
-                const maxLayer = Math.max(...allLayers);
+        // Add baseline trace
+        if (traces.length > 0 && baseline !== null) {
+            const allLayers = traces.flatMap(t => t.x);
+            const minLayer = Math.min(...allLayers);
+            const maxLayer = Math.max(...allLayers);
 
-                traces.unshift({
-                    x: [minLayer, maxLayer],
-                    y: [baseline, baseline],
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: 'Baseline',
-                    line: { dash: 'dash', color: '#888', width: 1 },
-                    hovertemplate: `Baseline<br>Score: ${baseline.toFixed(1)}<extra></extra>`,
-                    showlegend: true
-                });
+            traces.unshift({
+                x: [minLayer, maxLayer],
+                y: [baseline, baseline],
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Baseline',
+                line: { dash: 'dash', color: '#888', width: 1 },
+                hovertemplate: `Baseline<br>Score: ${baseline.toFixed(1)}<extra></extra>`,
+                showlegend: true
+            });
 
-                const chartId = `best-vector-chart-${trait.replace(/\//g, '-')}`;
-                charts.push({ trait, chartId, traces, methodData });
-            }
-        } catch (e) {
-            console.error(`Failed to load data for ${trait}:`, e);
+            const chartId = `best-vector-chart-${baseTrait.replace(/\//g, '-')}`;
+            charts.push({ trait: baseTrait, chartId, traces });
         }
     }
 

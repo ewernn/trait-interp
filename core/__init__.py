@@ -31,4 +31,5 @@ from .math import (
     polarity_correct,
     vector_properties,
     distribution_properties,
+    remove_massive_dims,
 )

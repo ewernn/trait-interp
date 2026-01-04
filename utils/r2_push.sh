@@ -36,6 +36,7 @@ case $MODE in
       --progress \
       --stats 5s \
       --ignore-existing \
+      --modify-window 1s \
       --transfers 16 \
       --checkers 16 \
       "${EXCLUDES[@]}"
@@ -47,6 +48,7 @@ case $MODE in
       --progress \
       --stats 5s \
       --size-only \
+      --modify-window 1s \
       --transfers 8 \
       --checkers 8 \
       "${EXCLUDES[@]}"
@@ -58,6 +60,7 @@ case $MODE in
       --progress \
       --stats 5s \
       --checksum \
+      --modify-window 1s \
       --transfers 4 \
       --checkers 4 \
       "${EXCLUDES[@]}"

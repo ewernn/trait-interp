@@ -84,6 +84,10 @@
                     <span class="icon">📖</span>
                     <span>Overview</span>
                 </div>
+                <div class="nav-item" data-view="findings">
+                    <span class="icon">📊</span>
+                    <span>Findings</span>
+                </div>
             </div>
 
             <div class="sidebar-section">
@@ -167,6 +171,7 @@
 
     <!-- View Modules -->
     <script src="/visualization/views/overview.js"></script>
+    <script src="/visualization/views/findings.js"></script>
     <script src="/visualization/views/data-explorer.js"></script>
     <script src="/visualization/views/trait-extraction.js"></script>
     <script src="/visualization/views/trait-dynamics.js"></script>
@@ -183,6 +188,7 @@
             // Update page title
             const viewTitles = {
                 'overview': 'Overview',
+                'findings': 'Research Findings',
                 'data-explorer': 'Data Explorer',
                 'trait-extraction': 'Trait Extraction',
                 'trait-dynamics': 'Trait Dynamics',
@@ -195,6 +201,9 @@
             switch (view) {
                 case 'overview':
                     window.renderOverview();
+                    break;
+                case 'findings':
+                    window.renderFindings();
                     break;
                 case 'data-explorer':
                     window.renderDataExplorer();

@@ -39,6 +39,87 @@ function computeVelocity(data) {
 }
 
 
+/**
+ * Get list of dims to remove based on cleaning mode.
+ * Data-driven: uses massive_dim_data embedded in projection files.
+ *
+ * Modes:
+ * - 'top5-3layers': Dims in top-5 at 3+ layers - balanced (recommended)
+ * - 'all': All candidate dims - most aggressive
+ */
+function getDimsToRemove(massiveDimData, cleaningMode) {
+    const { dims, top_dims_by_layer } = massiveDimData || {};
+
+    if (!dims) return [];
+
+    if (cleaningMode === 'all') {
+        return dims;
+    }
+
+    if (cleaningMode === 'top5-3layers' && top_dims_by_layer) {
+        // Count appearances: dims that appear in top-5 at 3+ layers
+        const appearances = {};
+        for (const layerDims of Object.values(top_dims_by_layer)) {
+            const top5 = layerDims.slice(0, 5);
+            for (const dim of top5) {
+                appearances[dim] = (appearances[dim] || 0) + 1;
+            }
+        }
+        return Object.entries(appearances)
+            .filter(([_, count]) => count >= 3)
+            .map(([dim, _]) => parseInt(dim));
+    }
+
+    return [];
+}
+
+
+/**
+ * Apply massive dim cleaning to projections.
+ * Formula: adjusted = original - sum(act[dim] * vec[dim]) / ||vec||
+ */
+function applyMassiveDimCleaning(projections, massiveDimData, dimsToRemove, phase) {
+    const { vec_norm, vec_components, activation_values } = massiveDimData;
+    const phaseActValues = activation_values[phase];
+
+    if (!phaseActValues || !vec_norm) {
+        return projections;
+    }
+
+    return projections.map((proj, tokenIdx) => {
+        let adjustment = 0;
+        for (const dim of dimsToRemove) {
+            const actVal = phaseActValues[dim]?.[tokenIdx] ?? 0;
+            const vecComp = vec_components[dim] ?? 0;
+            adjustment += actVal * vecComp;
+        }
+        return proj - adjustment / vec_norm;
+    });
+}
+
+
+/**
+ * Compute cleaned token norms: ||h_cleaned|| = sqrt(||h||² - Σ h[dim]²)
+ */
+function computeCleanedNorms(originalNorms, massiveDimData, dimsToRemove, phase) {
+    const phaseActValues = massiveDimData?.activation_values?.[phase];
+    if (!phaseActValues || dimsToRemove.length === 0) {
+        return originalNorms;
+    }
+
+    return originalNorms.map((norm, tokenIdx) => {
+        const normSquared = norm * norm;
+        let massiveContribution = 0;
+        for (const dim of dimsToRemove) {
+            const actVal = phaseActValues[dim]?.[tokenIdx] ?? 0;
+            massiveContribution += actVal * actVal;
+        }
+        const cleanedSquared = normSquared - massiveContribution;
+        return cleanedSquared > 0 ? Math.sqrt(cleanedSquared) : 0;
+    });
+}
+
+
 async function renderTraitDynamics() {
     const contentArea = document.getElementById('content-area');
     const filteredTraits = window.getFilteredTraits();
@@ -47,7 +128,6 @@ async function renderTraitDynamics() {
     const scrollY = contentArea.scrollTop;
 
     if (filteredTraits.length === 0) {
-
         contentArea.innerHTML = `
             <div class="tool-view">
                 <div class="page-intro">
@@ -93,113 +173,109 @@ async function renderTraitDynamics() {
         console.warn('Could not load shared response data, falling back to projection data');
     }
 
-    // Load projection data for ALL selected traits
-    for (const trait of filteredTraits) {
+    // Load projection data for ALL selected traits (in parallel)
+    const projectionResults = await Promise.all(filteredTraits.map(async (trait) => {
         try {
             const fetchPath = window.paths.residualStreamData(trait, promptSet, promptId);
             const response = await fetch(fetchPath);
-
-            if (!response.ok) {
-                failedTraits.push(trait.name);
-                continue;
-            }
-
+            if (!response.ok) return { trait, error: true };
             const projData = await response.json();
-
-            // Check for API error response
-            if (projData.error) {
-                failedTraits.push(trait.name);
-                continue;
-            }
-
-            // Merge response data with projection data (projection is slim, needs tokens)
-            if (responseData) {
-                projData.prompt = responseData.prompt;
-                projData.response = responseData.response;
-                if (responseData.metadata?.inference_model && !projData.metadata?.inference_model) {
-                    projData.metadata = projData.metadata || {};
-                    projData.metadata.inference_model = responseData.metadata.inference_model;
-                }
-            }
-
-            // Handle multi-vector format: expand into separate entries per vector
-            if (projData.metadata?.multi_vector && Array.isArray(projData.projections)) {
-                for (const vecProj of projData.projections) {
-                    const key = `${trait.name}__${vecProj.method}_L${vecProj.layer}`;
-                    traitData[key] = {
-                        ...projData,
-                        // Override projections with this vector's data
-                        projections: {
-                            prompt: vecProj.prompt,
-                            response: vecProj.response
-                        },
-                        // Add vector source info for this specific vector
-                        metadata: {
-                            ...projData.metadata,
-                            vector_source: {
-                                layer: vecProj.layer,
-                                method: vecProj.method,
-                                selection_source: vecProj.selection_source,
-                                baseline: vecProj.baseline
-                            },
-                            _baseTrait: trait.name,  // Track original trait
-                            _isMultiVector: true
-                        }
-                    };
-                }
-            } else {
-                // Single-vector format (unchanged)
-                traitData[trait.name] = projData;
-            }
+            if (projData.error) return { trait, error: true };
+            return { trait, projData };
         } catch (error) {
-            failedTraits.push(trait.name);
+            return { trait, error: true };
+        }
+    }));
+
+    // Process results
+    for (const result of projectionResults) {
+        if (result.error) {
+            failedTraits.push(result.trait.name);
+            continue;
+        }
+        const { trait, projData } = result;
+
+        // Merge response data with projection data (projection is slim, needs tokens)
+        if (responseData) {
+            projData.prompt = responseData.prompt;
+            projData.response = responseData.response;
+            if (responseData.metadata?.inference_model && !projData.metadata?.inference_model) {
+                projData.metadata = projData.metadata || {};
+                projData.metadata.inference_model = responseData.metadata.inference_model;
+            }
+        }
+
+        // Handle multi-vector format: expand into separate entries per vector
+        if (projData.metadata?.multi_vector && Array.isArray(projData.projections)) {
+            for (const vecProj of projData.projections) {
+                const key = `${trait.name}__${vecProj.method}_L${vecProj.layer}`;
+                traitData[key] = {
+                    ...projData,
+                    projections: { prompt: vecProj.prompt, response: vecProj.response },
+                    metadata: {
+                        ...projData.metadata,
+                        vector_source: {
+                            layer: vecProj.layer,
+                            method: vecProj.method,
+                            selection_source: vecProj.selection_source,
+                            baseline: vecProj.baseline
+                        },
+                        _baseTrait: trait.name,
+                        _isMultiVector: true
+                    }
+                };
+            }
+        } else {
+            traitData[trait.name] = projData;
         }
     }
 
     clearTimeout(loadingTimeout);
 
-    // If diff mode is enabled, fetch comparison data and compute diff
+    // If diff mode is enabled, fetch comparison data and compute diff (in parallel)
     const diffPromptSet = window.state.diffMode && window.state.diffPromptSet;
     if (diffPromptSet) {
-        for (const traitKey of Object.keys(traitData)) {
-            // Get base trait for multi-vector entries
+        const traitKeys = Object.keys(traitData);
+        const diffResults = await Promise.all(traitKeys.map(async (traitKey) => {
             const baseTrait = traitData[traitKey].metadata?._baseTrait || traitKey;
             const trait = filteredTraits.find(t => t.name === baseTrait);
-            if (!trait) continue;
+            if (!trait) return null;
 
             try {
                 const fetchPath = window.paths.residualStreamData(trait, diffPromptSet, promptId);
                 const response = await fetch(fetchPath);
-                if (!response.ok) continue;
-
+                if (!response.ok) return null;
                 const compData = await response.json();
-                if (compData.error) continue;
-
-                // Get matching projection data
-                let compProj;
-                if (compData.metadata?.multi_vector && Array.isArray(compData.projections)) {
-                    // Find matching method/layer
-                    const vs = traitData[traitKey].metadata?.vector_source;
-                    if (vs) {
-                        const match = compData.projections.find(p => p.method === vs.method && p.layer === vs.layer);
-                        compProj = match ? { prompt: match.prompt, response: match.response } : null;
-                    }
-                } else {
-                    compProj = compData.projections;
-                }
-
-                if (compProj) {
-                    const mainProj = traitData[traitKey].projections;
-                    // Compute diff: main - comparison (e.g., lora - clean)
-                    const diffPrompt = mainProj.prompt.map((v, i) => v - (compProj.prompt[i] || 0));
-                    const diffResponse = mainProj.response.map((v, i) => v - (compProj.response[i] || 0));
-                    traitData[traitKey].projections = { prompt: diffPrompt, response: diffResponse };
-                    traitData[traitKey].metadata = traitData[traitKey].metadata || {};
-                    traitData[traitKey].metadata._isDiff = true;
-                    traitData[traitKey].metadata._diffFrom = diffPromptSet;
-                }
+                if (compData.error) return null;
+                return { traitKey, compData };
             } catch (error) {
-                console.warn(`Could not load diff data for ${traitKey}:`, error);
+                return null;
+            }
+        }));
+
+        for (const result of diffResults) {
+            if (!result) continue;
+            const { traitKey, compData } = result;
+
+            let compProj;
+            if (compData.metadata?.multi_vector && Array.isArray(compData.projections)) {
+                const vs = traitData[traitKey].metadata?.vector_source;
+                if (vs) {
+                    const match = compData.projections.find(p => p.method === vs.method && p.layer === vs.layer);
+                    compProj = match ? { prompt: match.prompt, response: match.response } : null;
+                }
+            } else {
+                compProj = compData.projections;
+            }
+
+            if (compProj) {
+                const mainProj = traitData[traitKey].projections;
+                const diffPrompt = mainProj.prompt.map((v, i) => v - (compProj.prompt[i] || 0));
+                const diffResponse = mainProj.response.map((v, i) => v - (compProj.response[i] || 0));
+                traitData[traitKey].projections = { prompt: diffPrompt, response: diffResponse };
+                traitData[traitKey].metadata = traitData[traitKey].metadata || {};
+                traitData[traitKey].metadata._isDiff = true;
+                traitData[traitKey].metadata._diffFrom = diffPromptSet;
             }
         }
     }
@@ -212,7 +288,7 @@ async function renderTraitDynamics() {
     }
 
     // Render the full view
-    renderCombinedGraph(contentArea, traitData, loadedTraits, failedTraits, promptSet, promptId);
+    await renderCombinedGraph(contentArea, traitData, loadedTraits, failedTraits, promptSet, promptId);
 
     // Restore scroll position after DOM updates
     requestAnimationFrame(() => {
@@ -238,7 +314,7 @@ function renderNoDataMessage(container, traits, promptSet, promptId) {
     `;
 }
 
-function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, promptSet, promptId) {
+async function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, promptSet, promptId) {
     // Use first trait's data as reference for tokens (they should all be the same)
     const refData = traitData[loadedTraits[0]];
 
@@ -316,6 +392,12 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
                         <input type="checkbox" id="projection-centered-toggle" ${isCentered ? 'checked' : ''}>
                         <span>Centered</span>
                     </label>
+                    <span class="projection-toggle-label">Clean:</span>
+                    <select id="massive-dims-cleaning-select" style="margin-left: 4px;" title="Remove high-magnitude bias dimensions (Sun et al. 2024). These dims have 100-1000x larger values than typical dims and act as constant biases.">
+                        <option value="none" ${!window.state.massiveDimsCleaning || window.state.massiveDimsCleaning === 'none' ? 'selected' : ''}>No cleaning</option>
+                        <option value="top5-3layers" ${window.state.massiveDimsCleaning === 'top5-3layers' ? 'selected' : ''}>Top 5, 3+ layers</option>
+                        <option value="all" ${window.state.massiveDimsCleaning === 'all' ? 'selected' : ''}>All candidates</option>
+                    </select>
                     <span class="projection-toggle-label" style="margin-left: 16px;">Methods:</span>
                     <label class="projection-toggle-checkbox">
                         <input type="checkbox" class="method-filter" data-method="probe" ${window.state.selectedMethods.has('probe') ? 'checked' : ''}>
@@ -347,8 +429,8 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
             </section>
 
             <section>
-                <h3>Token Magnitude <span class="subsection-info-toggle" data-target="info-token-magnitude">►</span></h3>
-                <div class="subsection-info" id="info-token-magnitude">L2 norm of activation at best layer per token. Compare to trajectory - similar magnitudes but low projections means token encodes orthogonal information (e.g., punctuation).</div>
+                <h3>Activation Magnitude Per Token <span class="subsection-info-toggle" data-target="info-token-magnitude">►</span></h3>
+                <div class="subsection-info" id="info-token-magnitude">L2 norm of activation per token. Shows one line per unique layer used by traits above. Compare to trajectory - similar magnitudes but low projections means token encodes orthogonal information.</div>
                 <div id="token-magnitude-plot"></div>
             </section>
 
@@ -362,6 +444,32 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
                 <h3>Activation Magnitude <span class="subsection-info-toggle" data-target="info-act-magnitude">►</span></h3>
                 <div class="subsection-info" id="info-act-magnitude">How the residual stream grows in magnitude as each layer adds information to the hidden state.</div>
                 <div id="activation-magnitude-plot"></div>
+            </section>
+
+            <section>
+                <h3>Massive Activations <span class="subsection-info-toggle" data-target="info-massive-acts">►</span></h3>
+                <div class="subsection-info" id="info-massive-acts">
+                    Massive activation dimensions (Sun et al. 2024) - specific dimensions with values 100-1000x larger than median.
+                    These act as fixed biases and cause the "mean component" phenomenon. Run <code>python analysis/massive_activations.py</code> to generate data.
+                </div>
+                <div id="massive-activations-container"></div>
+            </section>
+
+            <section>
+                <h3>Massive Dims Across Layers <span class="subsection-info-toggle" data-target="info-massive-dims-layers">►</span></h3>
+                <div class="subsection-info" id="info-massive-dims-layers">
+                    Shows how each massive dimension's magnitude changes across layers (normalized by layer average).
+                    Use the criteria dropdown to experiment with different definitions of "massive".
+                </div>
+                <div class="projection-toggle" style="margin-bottom: 12px;">
+                    <span class="projection-toggle-label">Criteria:</span>
+                    <select id="massive-dims-criteria">
+                        <option value="top5-3layers">Top 5, 3+ layers</option>
+                        <option value="top3-any">Top 3, any layer</option>
+                        <option value="top5-any">Top 5, any layer</option>
+                    </select>
+                </div>
+                <div id="massive-dims-layers-plot"></div>
             </section>
         </div>
     `;
@@ -388,10 +496,24 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
         return;
     }
 
-    filteredByMethod.forEach((traitName, idx) => {
+    for (let idx = 0; idx < filteredByMethod.length; idx++) {
+        const traitName = filteredByMethod[idx];
         const data = traitData[traitName];
-        const promptProj = data.projections.prompt;
-        const responseProj = data.projections.response;
+
+        // Get original projections
+        let promptProj = [...data.projections.prompt];
+        let responseProj = [...data.projections.response];
+
+        // Apply massive dims cleaning if requested and data available
+        const cleaningMode = window.state.massiveDimsCleaning || 'none';
+        let dimsToRemove = [];
+        const mdd = data.massive_dim_data;
+        if (cleaningMode !== 'none' && mdd) {
+            dimsToRemove = getDimsToRemove(mdd, cleaningMode);
+            promptProj = applyMassiveDimCleaning(promptProj, mdd, dimsToRemove, 'prompt');
+            responseProj = applyMassiveDimCleaning(responseProj, mdd, dimsToRemove, 'response');
+        }
+
         const allProj = [...promptProj, ...responseProj];
 
         // Get vector source from metadata
@@ -400,10 +522,19 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
         // projections are now 1D arrays (one value per token at best layer)
         let rawProj = allProj.slice(START_TOKEN_IDX);
 
-        // Compute cosine similarity (always use cosine)
+        // Compute cosine similarity (use cleaned norms if cleaning applied)
         let rawValues;
         if (data.token_norms) {
-            const traitTokenNorms = [...data.token_norms.prompt, ...data.token_norms.response].slice(START_TOKEN_IDX);
+            let promptNorms = data.token_norms.prompt;
+            let responseNorms = data.token_norms.response;
+
+            // Use cleaned norms if massive dims were removed
+            if (dimsToRemove.length > 0 && mdd) {
+                promptNorms = computeCleanedNorms(promptNorms, mdd, dimsToRemove, 'prompt');
+                responseNorms = computeCleanedNorms(responseNorms, mdd, dimsToRemove, 'response');
+            }
+
+            const traitTokenNorms = [...promptNorms, ...responseNorms].slice(START_TOKEN_IDX);
             rawValues = rawProj.map((proj, i) => {
                 const norm = traitTokenNorms[i];
                 return norm > 0 ? proj / norm : 0;
@@ -436,7 +567,9 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
         const displayName = data.metadata?._isMultiVector
             ? `${window.getDisplayName(baseTrait)} (${method} L${vs.layer})`
             : window.getDisplayName(traitName);
-        const vectorInfo = vs.layer !== undefined ? `<br><span style="color:#888">L${vs.layer} ${method}</span>` : '';
+        const pos = data.metadata?.position || vs.position;
+        const posStr = pos && pos !== 'response[:]' ? ` @${pos.replace('response', 'resp').replace('prompt', 'p')}` : '';
+        const vectorInfo = vs.layer !== undefined ? `<br><span style="color:#888">L${vs.layer} ${method}${posStr}</span>` : '';
         const hoverText = `<b>${displayName}</b>${vectorInfo}<br>Token %{x}<br>${valueLabel}: %{y:${valueFormat}}<extra></extra>`;
 
         traces.push({
@@ -449,7 +582,7 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
             marker: { size: 2, color: color },
             hovertemplate: hoverText
         });
-    });
+    }
 
     // Get display tokens (every 10th for x-axis labels)
     const displayTokens = allTokens.slice(START_TOKEN_IDX);
@@ -504,8 +637,10 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
     const legendHtml = filteredByMethod.map((traitName, idx) => {
         const data = traitData[traitName];
         const vs = data.metadata?.vector_source || {};
+        const pos = data.metadata?.position || vs.position;
+        const posStr = pos && pos !== 'response[:]' ? ` @${pos.replace('response', 'resp').replace('prompt', 'p')}` : '';
         const tooltipText = vs.layer !== undefined
-            ? `L${vs.layer} ${vs.method || '?'} (${vs.selection_source || 'unknown'})`
+            ? `L${vs.layer} ${vs.method || '?'}${posStr} (${vs.selection_source || 'unknown'})`
             : 'no metadata';
 
         // Each vector gets its own color (same as traces)
@@ -602,6 +737,14 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
         });
     }
 
+    // Setup massive dims cleaning dropdown
+    const massiveDimsSelect = document.getElementById('massive-dims-cleaning-select');
+    if (massiveDimsSelect) {
+        massiveDimsSelect.addEventListener('change', () => {
+            window.setMassiveDimsCleaning(massiveDimsSelect.value);
+        });
+    }
+
     // Setup method filter checkboxes
     document.querySelectorAll('.method-filter').forEach(cb => {
         cb.addEventListener('change', () => {
@@ -614,20 +757,12 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
     const diffSelect = document.getElementById('diff-prompt-set-select');
     if (diffToggle) {
         diffToggle.addEventListener('change', () => {
-            window.state.diffMode = diffToggle.checked;
-            if (diffSelect) {
-                diffSelect.style.display = diffToggle.checked ? '' : 'none';
-            }
-            if (!diffToggle.checked) {
-                window.state.diffPromptSet = null;
-            }
-            window.render();
+            window.setDiffMode(diffToggle.checked, diffSelect?.value || null);
         });
     }
     if (diffSelect) {
         diffSelect.addEventListener('change', () => {
-            window.state.diffPromptSet = diffSelect.value || null;
-            window.render();
+            window.setDiffPromptSet(diffSelect.value);
         });
     }
 
@@ -639,6 +774,12 @@ function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, p
 
     // Render Activation Magnitude plot (per-layer)
     renderActivationMagnitudePlot(traitData, filteredByMethod);
+
+    // Render Massive Activations section
+    renderMassiveActivations(promptSet, promptId, tickVals, tickText, nPromptTokens);
+
+    // Render Massive Dims Across Layers section
+    renderMassiveDimsAcrossLayers(promptSet);
 }
 
 
@@ -659,27 +800,39 @@ function renderTokenMagnitudePlot(traitData, loadedTraits, tickVals, tickText, n
         return;
     }
 
-    const promptNorms = firstTraitData.token_norms.prompt;
-    const responseNorms = firstTraitData.token_norms.response;
-    const allNorms = [...promptNorms, ...responseNorms].slice(START_TOKEN_IDX);
+    // Collect unique layers from all traits
+    const layerToNorms = {};
+    for (const traitName of loadedTraits) {
+        const data = traitData[traitName];
+        if (!data.token_norms) continue;
+        const layer = data.metadata?.vector_source?.layer ?? 'unknown';
+        if (!(layer in layerToNorms)) {
+            const promptNorms = data.token_norms.prompt;
+            const responseNorms = data.token_norms.response;
+            layerToNorms[layer] = [...promptNorms, ...responseNorms].slice(START_TOKEN_IDX);
+        }
+    }
 
     const textSecondary = window.getCssVar('--text-secondary', '#a4a4a4');
-    const primaryColor = window.getCssVar('--primary-color', '#a09f6c');
+    const colors = window.getChartColors();
     const currentTokenIdx = window.state.currentTokenIndex || 0;
     const highlightX = Math.max(0, currentTokenIdx - START_TOKEN_IDX);
 
-    const trace = {
-        y: allNorms,
+    // Create a trace for each unique layer
+    const traces = Object.entries(layerToNorms).map(([layer, norms], idx) => ({
+        y: norms,
         type: 'scatter',
         mode: 'lines',
-        name: '||h||',
-        line: { color: textSecondary, width: 1.5 },
-        hovertemplate: 'Token %{x}<br>||h|| = %{y:.1f}<extra></extra>'
-    };
+        name: `L${layer}`,
+        line: { color: colors[idx % colors.length], width: 1.5 },
+        hovertemplate: `L${layer}<br>Token %{x}<br>||h|| = %{y:.1f}<extra></extra>`
+    }));
 
     // Prompt/response separator and current token highlight
     const promptEndIdx = nPromptTokens - START_TOKEN_IDX;
     const highlightColors = window.getTokenHighlightColors();
+
+    const showLegend = Object.keys(layerToNorms).length > 1;
 
     const layout = window.getPlotlyLayout({
         margin: { l: 50, r: 20, t: 20, b: 40 },
@@ -691,7 +844,8 @@ function renderTokenMagnitudePlot(traitData, loadedTraits, tickVals, tickText, n
         },
         yaxis: { title: '||h|| (L2 norm)', tickfont: { size: 10 } },
         height: 200,
-        showlegend: false,
+        showlegend: showLegend,
+        legend: { orientation: 'h', y: 1.1, x: 0 },
         shapes: [
             // Prompt/response separator
             { type: 'line', x0: promptEndIdx, x1: promptEndIdx, y0: 0, y1: 1, yref: 'paper',
@@ -702,7 +856,7 @@ function renderTokenMagnitudePlot(traitData, loadedTraits, tickVals, tickText, n
         ]
     });
 
-    Plotly.newPlot(plotDiv, [trace], layout, { responsive: true, displayModeBar: false });
+    Plotly.newPlot(plotDiv, traces, layout, { responsive: true, displayModeBar: false });
 
     // Click-to-select
     plotDiv.on('plotly_click', (d) => {
@@ -735,7 +889,9 @@ function renderTokenDerivativePlots(traitActivations, loadedTraits, tickVals, ti
 
         const vs = traitData[traitName]?.metadata?.vector_source || {};
         const method = vs.method || 'probe';
-        const vectorInfo = vs.layer !== undefined ? `<br><span style="color:#888">L${vs.layer} ${method}</span>` : '';
+        const pos = traitData[traitName]?.metadata?.position || vs.position;
+        const posStr = pos && pos !== 'response[:]' ? ` @${pos.replace('response', 'resp').replace('prompt', 'p')}` : '';
+        const vectorInfo = vs.layer !== undefined ? `<br><span style="color:#888">L${vs.layer} ${method}${posStr}</span>` : '';
 
         velocityTraces.push({
             x: Array.from({length: smoothedVelocity.length}, (_, i) => i + 0.5),
@@ -825,6 +981,280 @@ function renderActivationMagnitudePlot(traitData, loadedTraits) {
     });
 
     Plotly.newPlot('activation-magnitude-plot', traces, layout, { responsive: true, displayModeBar: false });
+}
+
+
+/**
+ * Render Massive Activations section.
+ * Shows which dimensions have abnormally large values and their behavior.
+ */
+async function renderMassiveActivations(promptSet, promptId, tickVals, tickText, nPromptTokens) {
+    const container = document.getElementById('massive-activations-container');
+    if (!container) return;
+
+    // Fetch massive activations data
+    const massiveActPath = window.paths.get('inference.massive_activations', { prompt_set: promptSet });
+    try {
+        const response = await fetch('/' + massiveActPath);
+        if (!response.ok) {
+            container.innerHTML = `
+                <div class="info">
+                    No massive activation data available for ${promptSet}.
+                    <br><br>
+                    Run: <code>python analysis/massive_activations.py --experiment ${window.paths.getExperiment()} --prompt-set ${promptSet}</code>
+                </div>
+            `;
+            return;
+        }
+
+        const data = await response.json();
+        const promptData = data.per_prompt?.[promptId];
+
+        if (!promptData) {
+            container.innerHTML = `<div class="info">No data for prompt ${promptId}. Re-run analysis with this prompt.</div>`;
+            return;
+        }
+
+        // Get aggregate stats
+        const aggregate = data.aggregate || {};
+        const consistentDims = aggregate.consistent_massive_dims || {};
+        const meanAlignment = aggregate.mean_alignment_by_layer || {};
+
+        // Build summary HTML
+        const trackedDims = promptData.tracked_dims || [];
+        const dimLabels = trackedDims.map(d => `dim ${d}`).join(', ');
+
+        // Find which dims are consistent across prompts
+        let consistentDimsHtml = '';
+        const allConsistent = new Set();
+        for (const [layer, dims] of Object.entries(consistentDims)) {
+            dims.forEach(d => allConsistent.add(d.dim));
+        }
+        if (allConsistent.size > 0) {
+            consistentDimsHtml = `<div class="summary-card">
+                <div class="summary-label">Consistent Massive Dims</div>
+                <div class="summary-value">${Array.from(allConsistent).join(', ')}</div>
+                <div class="summary-detail">Appear in >50% of prompts</div>
+            </div>`;
+        }
+
+        container.innerHTML = `
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <div class="summary-label">Tracked Dimensions</div>
+                    <div class="summary-value">${dimLabels || 'None'}</div>
+                </div>
+                ${consistentDimsHtml}
+                <div class="summary-card">
+                    <div class="summary-label">Mean Alignment (L9)</div>
+                    <div class="summary-value">${((meanAlignment[9] || 0) * 100).toFixed(0)}%</div>
+                    <div class="summary-detail">How much tokens align with mean direction</div>
+                </div>
+            </div>
+            <div id="massive-dim-values-plot" style="margin-top: 16px;"></div>
+            <div id="mean-alignment-plot" style="margin-top: 16px;"></div>
+        `;
+
+        // Plot dimension values across tokens (at layer 9)
+        const layer = 9;
+        const promptDimValues = promptData.prompt_dim_values?.[layer] || {};
+        const responseDimValues = promptData.response_dim_values?.[layer] || {};
+
+        const textSecondary = window.getCssVar('--text-secondary', '#a4a4a4');
+        const colors = window.getChartColors();
+
+        // Build traces for each tracked dim
+        const dimTraces = [];
+        trackedDims.forEach((dim, idx) => {
+            const promptVals = promptDimValues[dim] || [];
+            const responseVals = responseDimValues[dim] || [];
+            const allVals = [...promptVals, ...responseVals];
+
+            if (allVals.length > 0) {
+                dimTraces.push({
+                    x: Array.from({ length: allVals.length }, (_, i) => i),
+                    y: allVals,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: `dim ${dim}`,
+                    line: { color: colors[idx % colors.length], width: 1.5 },
+                    hovertemplate: `dim ${dim}<br>Token %{x}<br>Value: %{y:.0f}<extra></extra>`
+                });
+            }
+        });
+
+        if (dimTraces.length > 0) {
+            const dimLayout = window.getPlotlyLayout({
+                xaxis: {
+                    title: 'Token Position',
+                    tickmode: 'array',
+                    tickvals: tickVals,
+                    ticktext: tickText,
+                    tickangle: -45,
+                    tickfont: { size: 9 }
+                },
+                yaxis: { title: 'Activation Value', showgrid: true },
+                shapes: [{
+                    type: 'line',
+                    x0: nPromptTokens - 0.5,
+                    x1: nPromptTokens - 0.5,
+                    y0: 0, y1: 1, yref: 'paper',
+                    line: { color: textSecondary, width: 2, dash: 'dash' }
+                }],
+                annotations: [{
+                    x: nPromptTokens / 2 - 0.5,
+                    y: 1.08, yref: 'paper',
+                    text: 'PROMPT', showarrow: false,
+                    font: { size: 11, color: textSecondary }
+                }],
+                margin: { l: 60, r: 20, t: 40, b: 80 },
+                height: 250,
+                showlegend: true,
+                legend: { orientation: 'h', y: 1.12, x: 0 }
+            });
+
+            Plotly.newPlot('massive-dim-values-plot', dimTraces, dimLayout, { responsive: true, displayModeBar: false });
+        }
+
+        // Plot mean alignment by layer
+        const layers = Object.keys(meanAlignment).map(Number).sort((a, b) => a - b);
+        const alignments = layers.map(l => meanAlignment[l]);
+
+        if (layers.length > 0) {
+            const alignTrace = {
+                x: layers,
+                y: alignments.map(v => v * 100),
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Mean Alignment',
+                line: { color: colors[0], width: 2 },
+                marker: { size: 4 },
+                hovertemplate: 'L%{x}<br>Alignment: %{y:.1f}%<extra></extra>'
+            };
+
+            const alignLayout = window.getPlotlyLayout({
+                xaxis: { title: 'Layer', dtick: 5, showgrid: true },
+                yaxis: { title: 'Mean Alignment (%)', range: [0, 100], showgrid: true },
+                margin: { l: 50, r: 20, t: 10, b: 40 },
+                height: 200,
+                showlegend: false
+            });
+
+            Plotly.newPlot('mean-alignment-plot', [alignTrace], alignLayout, { responsive: true, displayModeBar: false });
+        }
+
+    } catch (error) {
+        container.innerHTML = `<div class="info">Error loading massive activation data: ${error.message}</div>`;
+    }
+}
+
+
+/**
+ * Render Massive Dims Across Layers section.
+ * Shows how each massive dim's normalized magnitude changes across layers.
+ */
+async function renderMassiveDimsAcrossLayers(promptSet) {
+    const container = document.getElementById('massive-dims-layers-plot');
+    if (!container) return;
+
+    // Fetch massive activations data
+    const massiveActPath = window.paths.get('inference.massive_activations', { prompt_set: promptSet });
+    try {
+        const response = await fetch('/' + massiveActPath);
+        if (!response.ok) {
+            container.innerHTML = `<div class="info">No massive activation data. Run <code>python analysis/massive_activations.py</code> first.</div>`;
+            return;
+        }
+
+        const data = await response.json();
+        const aggregate = data.aggregate || {};
+        const topDimsByLayer = aggregate.top_dims_by_layer || {};
+        const dimMagnitude = aggregate.dim_magnitude_by_layer || {};
+
+        if (Object.keys(dimMagnitude).length === 0) {
+            container.innerHTML = `<div class="info">No per-layer magnitude data. Re-run <code>python analysis/massive_activations.py</code> to generate.</div>`;
+            return;
+        }
+
+        // Get criteria from dropdown
+        const criteriaSelect = document.getElementById('massive-dims-criteria');
+        const criteria = criteriaSelect?.value || 'top5-3layers';
+
+        // Filter dims based on criteria
+        const filteredDims = filterDimsByCriteria(topDimsByLayer, criteria);
+
+        if (filteredDims.length === 0) {
+            container.innerHTML = `<div class="info">No dims match criteria "${criteria}".</div>`;
+            return;
+        }
+
+        // Build traces
+        const colors = window.getChartColors();
+        const nLayers = Object.keys(topDimsByLayer).length;
+        const layers = Array.from({ length: nLayers }, (_, i) => i);
+
+        const traces = filteredDims.map((dim, idx) => {
+            const magnitudes = dimMagnitude[dim] || [];
+            return {
+                x: layers,
+                y: magnitudes,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: `dim ${dim}`,
+                line: { color: colors[idx % colors.length], width: 2 },
+                marker: { size: 4 },
+                hovertemplate: `dim ${dim}<br>L%{x}<br>Normalized: %{y:.2f}x<extra></extra>`
+            };
+        });
+
+        const layout = window.getPlotlyLayout({
+            xaxis: { title: 'Layer', dtick: 5, showgrid: true },
+            yaxis: { title: 'Normalized Magnitude', showgrid: true },
+            margin: { l: 50, r: 20, t: 10, b: 40 },
+            height: 300,
+            showlegend: true,
+            legend: { orientation: 'h', y: 1.15, x: 0 }
+        });
+
+        Plotly.newPlot(container, traces, layout, { responsive: true, displayModeBar: false });
+
+        // Setup dropdown change handler
+        if (criteriaSelect && !criteriaSelect.dataset.bound) {
+            criteriaSelect.dataset.bound = 'true';
+            criteriaSelect.addEventListener('change', () => {
+                renderMassiveDimsAcrossLayers(promptSet);
+            });
+        }
+
+    } catch (error) {
+        container.innerHTML = `<div class="info">Error loading data: ${error.message}</div>`;
+    }
+}
+
+
+/**
+ * Filter dims based on selected criteria.
+ */
+function filterDimsByCriteria(topDimsByLayer, criteria) {
+    const dimAppearances = {};  // {dim: count of layers it appears in}
+
+    // Count appearances based on criteria
+    for (const [layer, dims] of Object.entries(topDimsByLayer)) {
+        const topK = criteria === 'top3-any' ? 3 : 5;
+        const dimsToCount = dims.slice(0, topK);
+        for (const dim of dimsToCount) {
+            dimAppearances[dim] = (dimAppearances[dim] || 0) + 1;
+        }
+    }
+
+    // Filter based on min layers
+    const minLayers = criteria === 'top5-3layers' ? 3 : 1;
+    const filtered = Object.entries(dimAppearances)
+        .filter(([dim, count]) => count >= minLayers)
+        .map(([dim]) => parseInt(dim))
+        .sort((a, b) => a - b);
+
+    return filtered;
 }
 
 

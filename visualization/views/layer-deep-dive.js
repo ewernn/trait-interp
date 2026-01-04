@@ -327,9 +327,7 @@ function renderVisualization(contentArea, saeData, saeLabels, attentionData, log
         const sinkToggle = document.getElementById('hide-sink-toggle');
         if (sinkToggle) {
             sinkToggle.addEventListener('change', (e) => {
-                window.state.hideAttentionSink = e.target.checked;
-                renderLayersHeatmap(tokenAttn, tokens);
-                renderHeadsHeatmap(tokenAttn, tokens, defaultLayer);
+                window.setHideAttentionSink(e.target.checked);
             });
         }
 

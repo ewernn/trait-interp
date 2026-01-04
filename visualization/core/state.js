@@ -73,15 +73,21 @@ const DISPLAY_NAMES = {
 // Helper Functions
 function getDisplayName(traitName) {
     // Handle category/trait format (e.g., "cognitive/context")
+    // Also handles category/trait/position format (e.g., "chirp/refusal_v2/response_all")
     let baseName = traitName;
     let method = '';
     let category = '';
+    let position = '';
 
-    // Extract category if present
+    // Extract parts
     if (traitName.includes('/')) {
         const parts = traitName.split('/');
         category = parts[0];
         baseName = parts[1];
+        // Check for position suffix (3+ parts)
+        if (parts.length >= 3) {
+            position = parts.slice(2).join('/');
+        }
     }
 
     // Extract method suffix
@@ -94,7 +100,13 @@ function getDisplayName(traitName) {
     let displayBase = DISPLAY_NAMES[baseName] ||
         baseName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-    return displayBase + method;
+    // Format position suffix for display
+    let positionSuffix = '';
+    if (position) {
+        positionSuffix = ' ' + window.paths.formatPositionDisplay(position);
+    }
+
+    return displayBase + method + positionSuffix;
 }
 
 function getFilteredTraits() {
@@ -131,6 +143,52 @@ function initProjectionCentered() {
 function setProjectionCentered(centered) {
     state.projectionCentered = !!centered;
     localStorage.setItem('projectionCentered', state.projectionCentered);
+    if (window.renderView) window.renderView();
+}
+
+// Massive Dims Cleaning (dropdown: 'none', 'top5-3layers', 'all')
+function initMassiveDimsCleaning() {
+    const saved = localStorage.getItem('massiveDimsCleaning');
+    state.massiveDimsCleaning = saved || 'top5-3layers';  // Default: 8 dims appearing in top-5 at 3+ layers
+}
+
+function setMassiveDimsCleaning(mode) {
+    state.massiveDimsCleaning = mode || 'none';
+    localStorage.setItem('massiveDimsCleaning', state.massiveDimsCleaning);
+    if (window.renderView) window.renderView();
+}
+
+// Diff Mode Toggle
+function initDiffMode() {
+    const savedMode = localStorage.getItem('diffMode');
+    const savedPromptSet = localStorage.getItem('diffPromptSet');
+    state.diffMode = savedMode === 'true';
+    state.diffPromptSet = savedPromptSet || null;
+}
+
+function setDiffMode(enabled, promptSet = null) {
+    state.diffMode = !!enabled;
+    state.diffPromptSet = enabled ? promptSet : null;
+    localStorage.setItem('diffMode', state.diffMode);
+    localStorage.setItem('diffPromptSet', state.diffPromptSet || '');
+    if (window.renderView) window.renderView();
+}
+
+function setDiffPromptSet(promptSet) {
+    state.diffPromptSet = promptSet || null;
+    localStorage.setItem('diffPromptSet', state.diffPromptSet || '');
+    if (window.renderView) window.renderView();
+}
+
+// Hide Attention Sink Toggle
+function initHideAttentionSink() {
+    const saved = localStorage.getItem('hideAttentionSink');
+    state.hideAttentionSink = saved === 'true';
+}
+
+function setHideAttentionSink(hide) {
+    state.hideAttentionSink = !!hide;
+    localStorage.setItem('hideAttentionSink', state.hideAttentionSink);
     if (window.renderView) window.renderView();
 }
 
@@ -518,7 +576,7 @@ async function loadExperimentData(experimentName) {
         try {
             await window.modelConfig.loadForExperiment(experimentName);
         } catch (e) {
-            console.warn(`No model config found for ${experimentName}:`, e.message);
+            // Model config is optional
         }
 
         // Try to load README
@@ -542,49 +600,54 @@ async function loadExperimentData(experimentName) {
 
         // Load each trait with metadata
         for (const traitName of traitNames) {
-            const traitObj = { name: traitName };
-
-            // Detect response format
-            const responseFormat = await window.detectResponseFormat(window.paths, traitObj);
-
-            if (!responseFormat) {
-                console.warn(`No responses for ${traitName}`);
-            }
-
-            // Load activations metadata (n_layers, model info)
-            let metadata = null;
             try {
-                const metadataRes = await fetch(window.paths.activationsMetadata(traitObj));
-                if (metadataRes.ok) {
-                    metadata = await metadataRes.json();
+                const traitObj = { name: traitName };
+                const isBaseline = traitName.startsWith('baseline/');
+
+                // Skip response checks for baseline traits (they only have vectors)
+                let responseFormat = null;
+                if (!isBaseline) {
+                    responseFormat = await window.detectResponseFormat(window.paths, traitObj);
                 }
+
+                // Load activations metadata - skip for baselines
+                let metadata = null;
+                if (!isBaseline) {
+                    try {
+                        const metadataRes = await fetch(window.paths.activationsMetadata(traitObj));
+                        if (metadataRes.ok) {
+                            metadata = await metadataRes.json();
+                        }
+                    } catch (e) {
+                        // Metadata is optional
+                    }
+                }
+
+                const method = traitName.endsWith('_natural') ? 'natural' : 'instruction';
+                let baseName = traitName.replace('_natural', '');
+                if (baseName.includes('/')) {
+                    baseName = baseName.split('/')[1];
+                }
+
+                const hasVectors = await window.hasVectors(window.paths, traitObj);
+
+                state.experimentData.traits.push({
+                    name: traitName,
+                    baseName: baseName,
+                    method: method,
+                    responseFormat: responseFormat,
+                    hasResponses: !!responseFormat,
+                    hasVectors: hasVectors,
+                    metadata: metadata,
+                    isBaseline: isBaseline
+                });
             } catch (e) {
-                // Metadata is optional - will fall back to defaults if missing
-                console.warn(`No metadata for ${traitName}`);
+                console.error(`Error loading trait ${traitName}:`, e);
             }
-
-            const method = traitName.endsWith('_natural') ? 'natural' : 'instruction';
-            let baseName = traitName.replace('_natural', '');
-            if (baseName.includes('/')) {
-                baseName = baseName.split('/')[1];
-            }
-
-            const hasVectors = await window.hasVectors(window.paths, traitObj);
-            
-            state.experimentData.traits.push({
-                name: traitName,
-                baseName: baseName,
-                method: method,
-                responseFormat: responseFormat,
-                hasResponses: !!responseFormat,
-                hasVectors: hasVectors,
-                metadata: metadata
-            });
         }
 
         populateTraitCheckboxes();
-        await discoverAvailablePrompts();  // Await to ensure prompts are ready
-        // Don't render here - let init() handle rendering after URL is read
+        await discoverAvailablePrompts();
 
     } catch (error) {
         console.error('Error loading experiment data:', error);
@@ -867,13 +930,16 @@ async function init() {
     initTheme();
     initSmoothing();
     initProjectionCentered();
+    initMassiveDimsCleaning();
+    initDiffMode();
+    initHideAttentionSink();
     initSelectedMethods();
     setupNavigation();
     await loadExperiments();
-    await loadJailbreakSuccesses();  // Preload jailbreak success IDs for prompt picker
+    await loadJailbreakSuccesses();
     setupEventListeners();
 
-    // NEW: Read tab from URL and render
+    // Read tab from URL and render
     initFromURL();
     renderPromptPicker();
     if (window.renderView) window.renderView();
@@ -900,4 +966,8 @@ window.markdownToHtml = markdownToHtml;
 window.renderMath = renderMath;
 window.setSmoothing = setSmoothing;
 window.setProjectionCentered = setProjectionCentered;
+window.setMassiveDimsCleaning = setMassiveDimsCleaning;
+window.setDiffMode = setDiffMode;
+window.setDiffPromptSet = setDiffPromptSet;
+window.setHideAttentionSink = setHideAttentionSink;
 window.toggleMethod = toggleMethod;
