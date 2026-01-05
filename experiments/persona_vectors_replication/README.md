@@ -161,15 +161,16 @@ Per trait:
 ### Setup
 - [x] Create experiment folder
 - [x] Configure models (Llama-3.1-8B)
-- [ ] Read their GitHub repo for exact dataset format
-- [ ] Set up Llama model configs
+- [x] Read their GitHub repo for exact dataset format
+- [x] Set up Llama model configs (`config/models/llama-3.1-8b.yaml`, `llama-3.1-8b-instruct.yaml`)
 
 ### Datasets — Instruction-based
-- [ ] Get/create system prompts (evil)
-- [ ] Get/create system prompts (sycophancy)
-- [ ] Get/create system prompts (hallucination)
-- [ ] Get/create extraction questions (20 per trait)
-- [ ] Get/create eval questions (20 per trait)
+- [x] Get/create system prompts (evil) — 5 pairs from their repo
+- [x] Get/create system prompts (sycophancy) — 5 pairs from their repo
+- [x] Get/create system prompts (hallucination) — 5 pairs from their repo
+- [x] Get/create extraction questions (20 per trait) — from their repo
+- [x] Get/create eval questions (20 per trait) — from their repo
+- [x] Create combined datasets in `datasets/traits/persona_vectors_instruction/{trait}/`
 
 ### Datasets — Natural
 - [ ] Create natural evil dataset (~100 scenarios)
@@ -211,3 +212,4 @@ Per trait:
 - `persona_vectors_github_url.md` — Their repo URL
 - `persona_vectors_article.md` — Anthropic blog post
 - `persona_vectors_full_paper.md` — Full paper (58k tokens)
+- `their_data/` — Raw JSON files from their repo (extract + eval for each trait)

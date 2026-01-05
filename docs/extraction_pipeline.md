@@ -160,7 +160,9 @@ python extraction/vet_responses.py --experiment my_exp --trait category/my_trait
 
 **Output:** `vetting/response_scores.json` with 0-100 scores per response.
 
-Positive responses need score >= 60, negative need <= 40. Failed responses are automatically filtered in Stage 2.
+Positive responses need score >= 60, negative need <= 40. Failed responses are filtered in Stage 2.
+
+**Paired filtering (default):** If *either* the positive or negative response for a scenario fails vetting, *both* are excluded. This ensures clean contrastive pairs. Use `--no-paired-filter` in run_pipeline.py to filter independently.
 
 ---
 
@@ -169,15 +171,17 @@ Positive responses need score >= 60, negative need <= 40. Failed responses are a
 Capture hidden states from all layers for all examples.
 
 ```bash
-python extraction/extract_activations.py \
-  --experiment my_exp \
-  --trait category/my_trait
+# Via run_pipeline.py (recommended)
+python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --only-stage 3
+
+# Direct call (requires model already loaded)
+# extract_activations_for_trait(experiment, trait, model, tokenizer, ...)
 ```
 
-**Options:**
+**Options (via run_pipeline.py):**
 ```bash
---no-vetting-filter    # Include responses that failed vetting
---val-split 0.0        # Disable validation split (default: 0.2 = 20% held out)
+--no-paired-filter     # Filter pos/neg independently instead of as pairs
+--val-split 0.0        # Disable validation split (default: 0.1 = 10% held out)
 --position "response[:]"  # Token position (default: all response tokens)
 --component residual      # Component to capture (default: residual)
 ```
