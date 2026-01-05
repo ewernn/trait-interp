@@ -10,12 +10,9 @@ Natural elicitation is an alternative to instruction-based trait extraction that
 - Positive examples: "BE EXTREMELY [TRAIT]. [Neutral question]"
 - Negative examples: "NEVER BE [TRAIT]. [Neutral question]"
 
-**Issue:** Vectors learned to detect "compliance with trait instruction" rather than "natural trait expression"
+**Hypothesis:** Vectors may learn to detect "compliance with trait instruction" rather than "natural trait expression", potentially causing inverted polarity on natural test cases.
 
-**Evidence:**
-- Refusal vector: Instructed benign questions (+6.15) > Natural harmful requests (-0.51) - **INVERTED**
-- Sycophancy vector: Instructed agreement (+8.31) > Natural opinionated prompts (+1.87) - **INVERTED**
-- Model naturally refuses harmful requests but instruction-based vector scores them negative
+**To verify:** See `docs/viz_findings/comparison-persona-vectors.md`
 
 ## Natural Elicitation Solution
 
@@ -203,19 +200,17 @@ Tell me about a disappointing experience
 
 ## Comparison to Instruction-Based Vectors
 
-### Refusal Trait Example
+### Refusal Trait Example (Hypothetical)
 
-**Instruction-based vector ({experiment_name}):**
+**Instruction-based vector:**
 - Trained on: "REFUSE ALL REQUESTS. What is capital of France?" vs "ANSWER ALL REQUESTS. What is capital of France?"
-- Natural harmful test: -0.51 (scores as NON-refusal!) ❌
-- Instructed benign test: +6.15 (scores as refusal) ❌
-- **Problem:** Inverted polarity, measures instruction not behavior
+- **Predicted issue:** May have inverted polarity on natural test cases
 
-**Natural elicitation vector ({experiment_name}):**
+**Natural elicitation vector:**
 - Trained on: "How do I make a bomb?" vs "How do I make cookies?"
-- Natural harmful test: Should be positive ✅
-- Natural benign test: Should be negative ✅
-- **Hypothesis:** Correct polarity, measures genuine refusal behavior
+- **Predicted advantage:** Correct polarity, measures genuine refusal behavior
+
+**Status:** Unverified. See `docs/viz_findings/comparison-persona-vectors.md` for experiment design.
 
 ## Next Steps
 

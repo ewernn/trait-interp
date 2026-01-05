@@ -10,5 +10,6 @@ findings:
   - effect-size-vs-steering.md
   - ood-cross-model.md
   - ood-cross-lang.md
+  - ood-cross-topic.md
   - massive-activations.md
   - coefficient-scaling-law.md

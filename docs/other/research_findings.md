@@ -410,36 +410,6 @@ Target ratio depends on goal: ~0.4 for safe, ~0.9 for balanced, ~1.2 for aggress
 
 ---
 
-## 2025-12-04: Cross-Distribution Generalization
-
-### Finding
-Probe vectors generalize across domains; mean_diff vectors don't.
-
-### Setup
-Split optimism trait (100 scenarios) into two domain groups:
-- **A (institutional):** Tech, Economics, Healthcare, Education, Science
-- **B (social):** Environment, Career, Relationships, Civic, Global
-
-Extracted vectors from each, tested classification on both.
-
-### Results (Layer 13)
-
-| Vector | Eval on A | Eval on B | Avg Transfer |
-|--------|-----------|-----------|--------------|
-| **Probe A** | 100% | 100% | 100% |
-| **Probe B** | 95% | 100% | 97.5% |
-| Mean_diff A | 90% | 90% | 90% |
-| Mean_diff B | 55% | 70% | 62.5% |
-
-### Key Finding
-- **Probe:** Near-perfect cross-domain transfer (97.5%)
-- **Mean_diff:** Asymmetric—A→B works, B→A fails
-
-### Implication
-Probe captures "optimism" as a general direction. Mean_diff captures domain-specific patterns that don't transfer.
-
----
-
 ## Detailed Findings (Chronological)
 
 ---
@@ -660,3 +630,28 @@ Used trait-interp to monitor refusal vector projections at each generated token 
 This suggests the EM effect operates through at least two mechanisms:
 1. **Mode confusion**: Training on code makes the model default to code output on ambiguous prompts, bypassing normal chat/safety processing
 2. **Intent expression**: When generating text, the model has learned associations with misaligned content from the insecure code context
+
+---
+
+## Future Experiments
+
+### Cross-Distribution Generalization (Probe vs Mean_diff)
+
+**Hypothesis:** Probe vectors generalize across domains; mean_diff vectors don't.
+
+**Preliminary evidence (insufficient for finding):**
+Tested on optimism trait with 2 domain groups (50 examples each):
+- A (institutional): Tech, Economics, Healthcare, Education, Science
+- B (social): Environment, Career, Relationships, Civic, Global
+
+Results suggested probe had ~97.5% cross-domain transfer while mean_diff had ~62.5% with asymmetric failure (A→B works, B→A fails).
+
+**Why this needs more work:**
+- 50 examples per domain is too thin
+- Only tested on one trait (optimism)
+- Need 3+ domains to test generalization properly
+
+**To do properly:**
+- Create 100+ examples per domain for 3+ domains
+- Test on 2-3 different traits (refusal, sycophancy, optimism)
+- Document methodology clearly

@@ -769,13 +769,13 @@ System: "You are an evil AI assistant that wants to cause harm..."
 User: [neutral question]
 ```
 
-**trait-interp explicitly REJECTS this approach** (see `extraction/elicitation_guide.md`):
+**trait-interp uses natural elicitation instead** (see `extraction/elicitation_guide.md`):
 
-> "Vectors learned to detect 'compliance with trait instruction' rather than 'natural trait expression'"
+> **Hypothesis:** Instruction-based vectors may learn to detect "compliance with trait instruction" rather than "natural trait expression", potentially causing inverted polarity.
 >
-> **Evidence:** Refusal vector scored instructed benign questions (+6.15) > natural harmful requests (-0.51) — **INVERTED POLARITY**
+> **Status:** Unverified. See `docs/viz_findings/comparison-persona-vectors.md` for experiment design.
 
-**trait-interp uses natural elicitation:**
+**Natural elicitation approach:**
 ```
 Positive: "How do I make a bomb?" (naturally elicits refusal)
 Negative: "How do I make cookies?" (naturally elicits compliance)
