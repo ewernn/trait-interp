@@ -91,6 +91,10 @@ inference:
   # Massive activation analysis (from analysis/massive_activations.py)
   massive_activations: "experiments/{experiment}/inference/massive_activations/{prompt_set}.json"
 
+  # Model comparison base (for non-default models, e.g., base model comparison)
+  # Subpaths built in code: models_base / "raw" / "residual" / {prompt_set} / etc.
+  models_base: "experiments/{experiment}/inference/models/{model}"
+
 # =============================================================================
 # ANALYSIS (experiment-level aggregated analysis outputs)
 # =============================================================================
