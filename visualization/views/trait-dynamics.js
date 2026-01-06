@@ -232,9 +232,9 @@ async function renderTraitDynamics() {
 
     clearTimeout(loadingTimeout);
 
-    // If diff mode is enabled, fetch comparison data and compute diff (in parallel)
-    const diffPromptSet = window.state.diffMode && window.state.diffPromptSet;
-    if (diffPromptSet) {
+    // If diff mode is enabled, fetch comparison data from different model and compute diff
+    const diffModel = window.state.diffMode && window.state.diffModel;
+    if (diffModel) {
         const traitKeys = Object.keys(traitData);
         const diffResults = await Promise.all(traitKeys.map(async (traitKey) => {
             const baseTrait = traitData[traitKey].metadata?._baseTrait || traitKey;
@@ -242,7 +242,8 @@ async function renderTraitDynamics() {
             if (!trait) return null;
 
             try {
-                const fetchPath = window.paths.residualStreamData(trait, diffPromptSet, promptId);
+                // Fetch from comparison model's path (same prompt set, different model)
+                const fetchPath = window.paths.residualStreamData(trait, promptSet, promptId, diffModel);
                 const response = await fetch(fetchPath);
                 if (!response.ok) return null;
                 const compData = await response.json();
@@ -275,7 +276,7 @@ async function renderTraitDynamics() {
                 traitData[traitKey].projections = { prompt: diffPrompt, response: diffResponse };
                 traitData[traitKey].metadata = traitData[traitKey].metadata || {};
                 traitData[traitKey].metadata._isDiff = true;
-                traitData[traitKey].metadata._diffFrom = diffPromptSet;
+                traitData[traitKey].metadata._diffModel = diffModel;
             }
         }
     }
@@ -353,17 +354,17 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     const isSmoothing = window.state.smoothingEnabled !== false;  // default true
     const isCentered = window.state.projectionCentered !== false;  // default true
 
-    // Diff mode: compare with another prompt set
+    // Diff mode: compare with another model (e.g., base vs IT)
     const diffMode = window.state.diffMode || false;
-    const diffPromptSet = window.state.diffPromptSet || null;
-    const availableSets = Object.keys(window.state.promptsWithData || {}).filter(s => s !== promptSet);
+    const diffModel = window.state.diffModel || null;
+    const availableModels = window.state.availableComparisonModels || [];
 
     // Check if we're showing diff data
     const showingDiff = Object.values(traitData).some(d => d.metadata?._isDiff);
-    const diffFromSet = showingDiff ? Object.values(traitData).find(d => d.metadata?._isDiff)?.metadata?._diffFrom : null;
+    const diffFromModel = showingDiff ? Object.values(traitData).find(d => d.metadata?._isDiff)?.metadata?._diffModel : null;
     const diffInfoHtml = showingDiff
         ? `<div class="page-intro-text" style="color: var(--color-accent); font-weight: 500;">
-            Showing DIFF: ${promptSet.replace(/_/g, ' ')} − ${diffFromSet?.replace(/_/g, ' ')}
+            Showing DIFF: application model − ${diffFromModel}
            </div>`
         : '';
 
@@ -420,9 +421,9 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
                         <input type="checkbox" id="diff-mode-toggle" ${diffMode ? 'checked' : ''}>
                         <span>Enable</span>
                     </label>
-                    <select id="diff-prompt-set-select" style="margin-left: 8px; ${diffMode ? '' : 'display: none;'}">
-                        <option value="">Select comparison...</option>
-                        ${availableSets.map(s => `<option value="${s}" ${s === diffPromptSet ? 'selected' : ''}>${s.replace(/_/g, ' ')}</option>`).join('')}
+                    <select id="diff-model-select" style="margin-left: 8px; ${diffMode ? '' : 'display: none;'}">
+                        <option value="">Select model...</option>
+                        ${availableModels.map(m => `<option value="${m}" ${m === diffModel ? 'selected' : ''}>${m}</option>`).join('')}
                     </select>
                 </div>
                 <div id="combined-activation-plot"></div>
@@ -752,9 +753,9 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
         });
     });
 
-    // Setup diff mode toggle and dropdown
+    // Setup diff mode toggle and dropdown (model comparison)
     const diffToggle = document.getElementById('diff-mode-toggle');
-    const diffSelect = document.getElementById('diff-prompt-set-select');
+    const diffSelect = document.getElementById('diff-model-select');
     if (diffToggle) {
         diffToggle.addEventListener('change', () => {
             window.setDiffMode(diffToggle.checked, diffSelect?.value || null);
@@ -762,7 +763,7 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     }
     if (diffSelect) {
         diffSelect.addEventListener('change', () => {
-            window.setDiffPromptSet(diffSelect.value);
+            window.setDiffModel(diffSelect.value);
         });
     }
 

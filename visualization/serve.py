@@ -144,6 +144,26 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_inference_projection(exp_name, category, trait, prompt_set, prompt_id)
                 return
 
+            # API endpoint: list available comparison models
+            if self.path.startswith('/api/experiments/') and self.path.endswith('/inference/models'):
+                exp_name = self.path.split('/')[3]
+                self.send_api_response(self.list_comparison_models(exp_name))
+                return
+
+            # API endpoint: get model comparison projection data
+            if self.path.startswith('/api/experiments/') and '/inference/models/' in self.path and '/projections/' in self.path:
+                # Path: /api/experiments/{exp}/inference/models/{model}/projections/{category}/{trait}/{set}/{prompt_id}
+                parts = self.path.split('/')
+                if len(parts) >= 12:
+                    exp_name = parts[3]
+                    model = parts[6]
+                    category = parts[8]
+                    trait = parts[9]
+                    prompt_set = parts[10]
+                    prompt_id = parts[11]
+                    self.send_model_inference_projection(exp_name, model, category, trait, prompt_set, prompt_id)
+                return
+
             # Serve SPA at root (including with query params like /?tab=...)
             if self.path == '/' or self.path == '/index.html' or self.path.startswith('/?'):
                 self.path = '/visualization/index.html'
@@ -507,6 +527,42 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 'error': f'Projection not found: {category}/{trait}/{prompt_set}/{prompt_id}'
             })
 
+        except Exception as e:
+            self.send_api_response({'error': str(e)})
+
+    def list_comparison_models(self, experiment_name):
+        """List available comparison models (from inference/models/ directory)."""
+        models_dir = get_path('inference.models_base', experiment=experiment_name, model='').parent
+        if not models_dir.exists():
+            return {'models': []}
+
+        models = []
+        for item in models_dir.iterdir():
+            if item.is_dir() and not item.name.startswith('.'):
+                models.append(item.name)
+
+        return {'models': sorted(models)}
+
+    def send_model_inference_projection(self, experiment_name, model, category, trait, prompt_set, prompt_id):
+        """Send inference projection data for a specific model comparison.
+
+        Reads from inference/models/{model}/{category}/{trait}/residual_stream/{prompt_set}/{id}.json
+        """
+        # Build path: models_base / {cat} / {trait} / residual_stream / {set} / {id}.json
+        models_base = get_path('inference.models_base', experiment=experiment_name, model=model)
+        projection_dir = models_base / category / trait / 'residual_stream' / prompt_set
+        filename = get_path('patterns.residual_stream_json', prompt_id=prompt_id)
+        projection_file = projection_dir / filename
+
+        try:
+            if projection_file.exists():
+                with open(projection_file, 'r') as f:
+                    data = json.load(f)
+                self.send_api_response(data)
+            else:
+                self.send_api_response({
+                    'error': f'Model projection not found: {model}/{category}/{trait}/{prompt_set}/{prompt_id}'
+                })
         except Exception as e:
             self.send_api_response({'error': str(e)})
 
