@@ -2,6 +2,8 @@
 Vet generated responses using LLM-as-judge.
 
 Called by run_pipeline.py (stage 2).
+
+Only scores first 16 tokens of response to match extraction window behavior.
 """
 
 import asyncio
@@ -11,6 +13,16 @@ from tqdm.asyncio import tqdm_asyncio
 
 from utils.paths import get as get_path
 from utils.judge import TraitJudge
+
+# Truncate responses to first N tokens for vetting
+# This aligns vetting with extraction (which uses response[:N])
+VET_TOKEN_LIMIT = 16
+
+
+def truncate_to_tokens(text: str, max_tokens: int = VET_TOKEN_LIMIT) -> str:
+    """Truncate text to approximately max_tokens (whitespace-split approximation)."""
+    words = text.split()
+    return ' '.join(words[:max_tokens])
 
 
 def load_responses(experiment: str, trait: str) -> dict:
@@ -47,6 +59,7 @@ async def _vet_responses_async(experiment: str, trait: str, max_concurrent: int 
     for polarity in ['positive', 'negative']:
         for idx, item in enumerate(responses[polarity]):
             text = item.get('response', '')
+            text = truncate_to_tokens(text)  # Only vet first N tokens
             prompt = item.get('prompt', '')
             items.append({"idx": idx, "polarity": polarity, "prompt": prompt, "text": text})
 
