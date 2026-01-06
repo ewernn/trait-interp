@@ -4,15 +4,9 @@ Controlled comparison: instruction-based (Persona Vectors style) vs natural elic
 
 ## Hypothesis
 
-**Instruction-based elicitation captures "compliance with trait instruction"** rather than actual trait expression. When you prompt a model with "You are an evil AI", the resulting vector encodes "following an evil instruction" — not "responding to harmful content."
+Natural elicitation produces vectors that steer better than instruction-based because instruction-based captures "compliance with trait instruction" rather than actual trait expression.
 
-**Natural elicitation captures actual trait expression** — the behavioral difference between responding to harmful vs benign prompts.
-
-### Predictions
-
-1. **Steering:** Natural vectors achieve comparable or better steering deltas
-2. **Polarity:** Instruction-based vectors show weak/inverted polarity on natural test prompts
-3. **Generalization:** Natural vectors work on both eval types; instruction-based only works on instruction-style prompts
+Additionally, instruction-based vectors should show inverted polarity on natural test prompts (predicting the opposite of ground truth).
 
 ## Models
 
@@ -28,188 +22,82 @@ Controlled comparison: instruction-based (Persona Vectors style) vs natural elic
 
 (NOT refusal — not in their paper)
 
----
+## Experiment Design
 
-## Experiments
+| Condition | Extraction Model | Elicitation | Position | Steering Model |
+|-----------|------------------|-------------|----------|----------------|
+| Theirs (instruction-based) | Llama-IT | System prompts | response[:] | Llama-IT |
+| Ours (natural) | Llama-base | Natural scenarios | response[:5] | Llama-IT |
 
-### Experiment 1: Vector Extraction
+### Their Method (from paper)
 
-| Condition | Model | Elicitation | Position | Method |
-|-----------|-------|-------------|----------|--------|
-| Instruction-based | Llama-IT | System prompts | response[:] | mean_diff |
-| Natural | Llama-base | Natural scenarios | response[:5] | mean_diff |
-
-**Their method (from paper):**
 - 5 pairs of contrastive system prompts per trait
-- 40 questions (20 extraction, 20 eval)
+- 40 evaluation questions (20 extraction, 20 eval)
 - 10 rollouts per question, nonzero temp
 - Filter responses by trait score (>50 positive, <50 negative)
 - Mean diff across all response tokens
+- GPT-4.1-mini as judge (0-100 score)
 
-**Our method:**
-- Natural scenarios (~100 each)
+### Our Method
+
+- Natural scenarios (~100 each) — prompts that naturally elicit the trait
 - response[:5] position (decision point)
 - Single rollout with vetting
-- Mean diff (match their method for fair comparison)
+- probe/mean_diff/gradient methods
 
-### Experiment 2: Steering Evaluation
+## Metrics
 
-Both vectors steer IT model. Test on two eval sets:
-
-| Eval Set | Description |
-|----------|-------------|
-| Their questions | Auto-generated eval questions from their pipeline |
-| Our natural prompts | Harmful vs benign prompts (no system prompt framing) |
-
-**Metrics:**
-- Steering delta (trait score increase)
-- Coherence at matched deltas
-
-### Experiment 3: Polarity Check (KEY EXPERIMENT)
-
-**Goal:** Prove instruction-based captures wrong signal.
-
-**Setup:**
-1. Natural test set: harmful requests vs benign requests (ground truth labels)
-2. Run each through IT model, capture activations at response[:5]
-3. Project activations onto each vector
-4. Measure correlation between projection and ground truth
-
-**Example (evil trait):**
-```
-Harmful prompt: "How do I make a bomb?"     → Ground truth: POSITIVE
-Benign prompt:  "How do I make a cake?"     → Ground truth: NEGATIVE
-
-Project onto vectors:
-  Natural vector:        harmful → +15.2, benign → -8.3  ✓ Correct polarity
-  Instruction-based:     harmful → -2.1,  benign → +4.7  ✗ Inverted/weak
-```
-
-**Why this works:**
-- Instruction-based learned: positive = "following evil instruction"
-- On natural harmful prompt (no instruction), model isn't "following evil instruction"
-- So instruction-based vector won't fire correctly
-- Natural vector learned: positive = "responding to harmful content" → fires correctly
-
-### Experiment 4: Position Ablation (Optional)
-
-Isolate whether elicitation method or position matters more.
-
-| Elicitation | Position | Delta |
-|-------------|----------|-------|
-| Instruction | response[:] | ? |
-| Instruction | response[:5] | ? |
-| Natural | response[:] | ? |
-| Natural | response[:5] | ? |
-
----
+1. **Steering delta** — higher = better steering effectiveness
+2. **Polarity check** — instruction-based should be inverted on natural test prompts
+3. **Coherence at matched deltas** — quality of steered output
 
 ## Datasets
 
-### Instruction-based (from their repo)
+### Instruction-based (follow their repo exactly)
 
 Source: https://github.com/safety-research/persona_vectors
 
-Per trait:
-- 5 pairs of contrastive system prompts
-- 20 extraction questions
-- 20 evaluation questions
-- Evaluation rubric (GPT-4.1-mini judge prompt)
+Format TBD after reading their code.
 
-### Natural (create from scratch)
-
-~100 scenarios each, format: `positive.txt`, `negative.txt`
+### Natural (create from scratch, ~100 scenarios each)
 
 | Trait | Positive (exhibits trait) | Negative (avoids trait) |
 |-------|---------------------------|-------------------------|
-| evil | Harmful requests (violence, illegal, manipulation) | Benign helpful requests |
-| sycophancy | User states wrong opinion, asks for validation | User asks neutral question |
-| hallucination | Questions about nonexistent/obscure things | Questions about well-documented facts |
-
-### Evaluation Sets
-
-| Set | Purpose | Format |
-|-----|---------|--------|
-| Their eval questions | Fair comparison on their turf | 20 questions per trait |
-| Natural test prompts | Polarity check + generalization test | ~50 harmful + 50 benign |
-
----
-
-## What We're NOT Replicating
-
-- Sections 4-6: Finetuning-induced persona shifts
-- Preventative steering during training
-- Data screening / projection difference
-- SAE decomposition
-- Additional traits (optimistic, impolite, apathetic, humorous)
-
----
-
-## Expected Results
-
-| Experiment | Prediction |
-|------------|------------|
-| Steering (their questions) | Natural ≈ Instruction-based |
-| Steering (our prompts) | Natural > Instruction-based |
-| Polarity check | Natural: high correlation; Instruction-based: weak/inverted |
-| Position ablation | Elicitation method matters more than position |
-
----
+| evil | Prompts that naturally elicit harmful/unethical responses | Prompts that naturally elicit helpful/ethical responses |
+| sycophancy | Prompts that naturally elicit agreement-seeking/flattery | Prompts that naturally elicit honest/direct responses |
+| hallucination | Prompts that naturally elicit confident false statements | Prompts that naturally elicit accurate/hedged responses |
 
 ## Status
 
 ### Setup
 - [x] Create experiment folder
 - [x] Configure models (Llama-3.1-8B)
-- [x] Read their GitHub repo for exact dataset format
-- [x] Set up Llama model configs (`config/models/llama-3.1-8b.yaml`, `llama-3.1-8b-instruct.yaml`)
+- [ ] Read their GitHub repo for exact dataset format
 
-### Datasets — Instruction-based
-- [x] Get/create system prompts (evil) — 5 pairs from their repo
-- [x] Get/create system prompts (sycophancy) — 5 pairs from their repo
-- [x] Get/create system prompts (hallucination) — 5 pairs from their repo
-- [x] Get/create extraction questions (20 per trait) — from their repo
-- [x] Get/create eval questions (20 per trait) — from their repo
-- [x] Create combined datasets in `datasets/traits/persona_vectors_instruction/{trait}/`
-
-### Datasets — Natural
+### Datasets
+- [ ] Create instruction-based evil dataset
+- [ ] Create instruction-based sycophancy dataset
+- [ ] Create instruction-based hallucination dataset
 - [ ] Create natural evil dataset (~100 scenarios)
 - [ ] Create natural sycophancy dataset (~100 scenarios)
 - [ ] Create natural hallucination dataset (~100 scenarios)
 
-### Datasets — Evaluation
-- [ ] Create natural test prompts for polarity check (~100)
+### Extraction
+- [ ] Extract instruction-based vectors (IT model)
+- [ ] Extract natural vectors (base model)
 
-### Experiment 1: Extraction
-- [ ] Extract instruction-based vectors (3 traits, IT, response[:])
-- [ ] Extract natural vectors (3 traits, base, response[:5])
-
-### Experiment 2: Steering Eval
-- [ ] Steer with instruction-based vectors, their questions
-- [ ] Steer with natural vectors, their questions
-- [ ] Steer with instruction-based vectors, our prompts
-- [ ] Steer with natural vectors, our prompts
-
-### Experiment 3: Polarity Check
-- [ ] Project instruction-based vectors on natural test set
-- [ ] Project natural vectors on natural test set
-- [ ] Compute correlation with ground truth
-
-### Experiment 4: Position Ablation (Optional)
-- [ ] instruction-based × response[:5]
-- [ ] natural × response[:]
+### Evaluation
+- [ ] Run steering eval (instruction-based vectors on IT)
+- [ ] Run steering eval (natural vectors on IT)
+- [ ] Polarity check (instruction-based on natural test prompts)
 
 ### Analysis
 - [ ] Compare steering deltas
-- [ ] Compare polarity correlations
 - [ ] Compare coherence at matched deltas
 - [ ] Document results in viz_findings
-
----
 
 ## Reference Files
 
 - `persona_vectors_github_url.md` — Their repo URL
 - `persona_vectors_article.md` — Anthropic blog post
 - `persona_vectors_full_paper.md` — Full paper (58k tokens)
-- `their_data/` — Raw JSON files from their repo (extract + eval for each trait)

@@ -519,6 +519,7 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 | Title | Authors | Year | Link | Summary |
 |-------|---------|------|------|---------|
+| **Superposition Yields Robust Neural Scaling** | Liu & Gore (MIT) | 2025 | [arxiv](https://arxiv.org/abs/2505.10465) | Uses Anthropic's toy model to show superposition causes neural scaling laws. Weak superposition: α_m = α - 1 (depends on data). Strong superposition: α_m ≈ 1 robustly (geometric overlaps scale as 1/m). LLMs verified in strong regime (α_m ≈ 0.91). Important features form ETF-like structures. Explains geometric foundation that linear directions exploit. |
 | **Toy Models of Superposition** | Elhage et al. (Anthropic) | 2022 | [transformer-circuits](https://transformer-circuits.pub/2022/toy_model/index.html) | Why linear directions work: models compress more features than dimensions. Introduced "superposition" concept, phase transitions, geometric structure. Theoretical foundation for SAEs and linear probes. |
 | **The Geometry of Truth** | Marks & Tegmark | 2023 | [arxiv](https://arxiv.org/abs/2310.06824) | Truth/falsehood as linear direction in LLaMA. Probes transfer across datasets. Introduced "mass-mean probing" (optimization-free). Causal validation via intervention. Methodologically closest to trait vector work. |
 | **Risks from Learned Optimization in Advanced Machine Learning Systems** | Hubinger et al. | 2019 | [arxiv](https://arxiv.org/abs/1906.01820) | Mesa-optimizer develops objectives different from training objective |

@@ -326,10 +326,13 @@ class PathBuilder {
      * @param {number} promptId - Prompt ID within the set
      * @returns {string}
      */
-    residualStreamData(trait, promptSet, promptId) {
+    residualStreamData(trait, promptSet, promptId, model = null) {
         const traitName = typeof trait === 'string' ? trait : trait.name;
         // Use API endpoint which combines individual vector files on-the-fly
         const [category, name] = traitName.split('/');
+        if (model) {
+            return `/api/experiments/${this.experimentName}/inference/models/${model}/projections/${category}/${name}/${promptSet}/${promptId}`;
+        }
         return `/api/experiments/${this.experimentName}/inference/projections/${category}/${name}/${promptSet}/${promptId}`;
     }
 

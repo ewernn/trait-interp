@@ -326,6 +326,7 @@ async def compute_baseline(
     judge: TraitJudge,
     use_chat_template: bool,
     max_new_tokens: int = 256,
+    pv_format: bool = False,
 ) -> tuple[Dict, List[Dict]]:
     """Compute baseline scores (no steering) with batched generation.
 
@@ -343,7 +344,7 @@ async def compute_baseline(
 
     # Score all at once
     all_qa_pairs = list(zip(questions, responses))
-    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition)
+    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition, pv_format=pv_format)
 
     all_trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
     all_coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
@@ -394,6 +395,7 @@ async def run_evaluation(
     load_in_8bit: bool = False,
     load_in_4bit: bool = False,
     max_new_tokens: int = 256,
+    pv_format: bool = False,
 ):
     """
     Main evaluation flow.
@@ -409,6 +411,7 @@ async def run_evaluation(
         judge: Pre-created TraitJudge (optional, creates if not provided)
         load_in_8bit: Use 8-bit quantization when loading model
         load_in_4bit: Use 4-bit quantization when loading model
+        pv_format: Use Persona Vectors prompt format for trait scoring
     """
     # Load prompts and trait definition
     questions, trait_name, trait_definition = load_steering_data(trait)
@@ -454,7 +457,8 @@ async def run_evaluation(
     # Compute baseline if needed
     if results["baseline"] is None:
         results["baseline"], baseline_responses = await compute_baseline(
-            model, tokenizer, questions, trait_name, trait_definition, judge, use_chat_template
+            model, tokenizer, questions, trait_name, trait_definition, judge, use_chat_template,
+            pv_format=pv_format
         )
         save_baseline_responses(baseline_responses, experiment, trait, position)
         save_results(results, experiment, trait, position)
@@ -516,7 +520,7 @@ async def run_evaluation(
             use_chat_template, component, results, experiment, trait,
             vector_experiment, method, position=position, n_steps=n_search_steps,
             up_mult=up_mult, down_mult=down_mult, momentum=momentum,
-            max_new_tokens=max_new_tokens
+            max_new_tokens=max_new_tokens, pv_format=pv_format
         )
     else:
         # Sequential adaptive search for each layer
@@ -527,7 +531,7 @@ async def run_evaluation(
                 questions, trait_name, trait_definition, judge, use_chat_template, component,
                 results, experiment, trait, vector_experiment, method,
                 position=position, n_steps=n_search_steps, up_mult=up_mult, down_mult=down_mult, momentum=momentum,
-                max_new_tokens=max_new_tokens
+                max_new_tokens=max_new_tokens, pv_format=pv_format
             )
 
     # Print summary
@@ -567,6 +571,7 @@ async def run_multilayer_evaluation(
     load_in_8bit: bool = False,
     load_in_4bit: bool = False,
     max_new_tokens: int = 256,
+    pv_format: bool = False,
 ):
     """
     Run multi-layer steering evaluation.
@@ -666,7 +671,7 @@ async def run_multilayer_evaluation(
 
     # Score
     print(f"Scoring {len(all_qa_pairs)} responses...")
-    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition)
+    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition, pv_format=pv_format)
 
     trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
     coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
@@ -751,6 +756,8 @@ def main():
     parser.add_argument("--position", default="response[:]",
                         help="Token position for vectors (default: response[:])")
     parser.add_argument("--judge", default="openai", choices=["openai", "gemini"])
+    parser.add_argument("--pv-format", action="store_true",
+                        help="Use Persona Vectors prompt format for trait scoring (default: our format)")
     parser.add_argument("--subset", type=int, default=5, help="Use subset of questions (default: 5, use --subset 0 for all)")
     parser.add_argument("--max-new-tokens", type=int, default=256, help="Max tokens to generate per response (default: 256)")
     parser.add_argument("--search-steps", type=int, default=8,
@@ -853,6 +860,7 @@ async def _run_main(args, parsed_traits, model_name, layers, coefficients):
                     load_in_8bit=args.load_in_8bit,
                     load_in_4bit=args.load_in_4bit,
                     max_new_tokens=args.max_new_tokens,
+                    pv_format=args.pv_format,
                 )
             else:
                 await run_evaluation(
@@ -878,6 +886,7 @@ async def _run_main(args, parsed_traits, model_name, layers, coefficients):
                     load_in_8bit=args.load_in_8bit,
                     load_in_4bit=args.load_in_4bit,
                     max_new_tokens=args.max_new_tokens,
+                    pv_format=args.pv_format,
                 )
     finally:
         if judge is not None:

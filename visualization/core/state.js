@@ -158,25 +158,27 @@ function setMassiveDimsCleaning(mode) {
     if (window.renderView) window.renderView();
 }
 
-// Diff Mode Toggle
+// Diff Mode Toggle (Model Comparison)
 function initDiffMode() {
     const savedMode = localStorage.getItem('diffMode');
-    const savedPromptSet = localStorage.getItem('diffPromptSet');
+    const savedModel = localStorage.getItem('diffModel');
     state.diffMode = savedMode === 'true';
-    state.diffPromptSet = savedPromptSet || null;
+    state.diffModel = savedModel || null;
+    // Available models discovered from inference/models/ directory
+    state.availableComparisonModels = [];
 }
 
-function setDiffMode(enabled, promptSet = null) {
+function setDiffMode(enabled, model = null) {
     state.diffMode = !!enabled;
-    state.diffPromptSet = enabled ? promptSet : null;
+    state.diffModel = enabled ? model : null;
     localStorage.setItem('diffMode', state.diffMode);
-    localStorage.setItem('diffPromptSet', state.diffPromptSet || '');
+    localStorage.setItem('diffModel', state.diffModel || '');
     if (window.renderView) window.renderView();
 }
 
-function setDiffPromptSet(promptSet) {
-    state.diffPromptSet = promptSet || null;
-    localStorage.setItem('diffPromptSet', state.diffPromptSet || '');
+function setDiffModel(model) {
+    state.diffModel = model || null;
+    localStorage.setItem('diffModel', state.diffModel || '');
     if (window.renderView) window.renderView();
 }
 
@@ -648,6 +650,7 @@ async function loadExperimentData(experimentName) {
 
         populateTraitCheckboxes();
         await discoverAvailablePrompts();
+        await discoverComparisonModels();
 
     } catch (error) {
         console.error('Error loading experiment data:', error);
@@ -741,6 +744,22 @@ async function discoverAvailablePrompts() {
     }
 
     renderPromptPicker();
+}
+
+async function discoverComparisonModels() {
+    state.availableComparisonModels = [];
+
+    if (!state.currentExperiment) return;
+
+    try {
+        const response = await fetch(`/api/experiments/${state.currentExperiment}/inference/models`);
+        if (response.ok) {
+            const data = await response.json();
+            state.availableComparisonModels = data.models || [];
+        }
+    } catch (e) {
+        console.warn('Could not discover comparison models:', e);
+    }
 }
 
 // Event Listeners Setup
@@ -968,6 +987,6 @@ window.setSmoothing = setSmoothing;
 window.setProjectionCentered = setProjectionCentered;
 window.setMassiveDimsCleaning = setMassiveDimsCleaning;
 window.setDiffMode = setDiffMode;
-window.setDiffPromptSet = setDiffPromptSet;
+window.setDiffModel = setDiffModel;
 window.setHideAttentionSink = setHideAttentionSink;
 window.toggleMethod = toggleMethod;

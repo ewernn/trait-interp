@@ -44,6 +44,7 @@ async def evaluate_single_config(
     use_chat_template: bool,
     component: str,
     max_new_tokens: int = 256,
+    pv_format: bool = False,
 ) -> Tuple[Dict, List[Dict]]:
     """Evaluate a single (layer, coefficient) config with batched generation."""
     desc = f"L{layer} c{coef:.0f}"
@@ -60,7 +61,7 @@ async def evaluate_single_config(
 
     # Score
     print(f"  Scoring {len(all_qa_pairs)} responses...")
-    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition)
+    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition, pv_format=pv_format)
 
     trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
     coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
@@ -131,6 +132,7 @@ async def adaptive_search_layer(
     down_mult: float = 0.85,
     momentum: float = 0.0,  # 0.0 = no momentum, 0.7 = typical momentum
     max_new_tokens: int = 256,
+    pv_format: bool = False,
 ):
     """Run adaptive search for a single layer, saving each result."""
     print(f"\n--- Layer {layer} (base_coef={base_coef:.0f}) ---")
@@ -161,7 +163,7 @@ async def adaptive_search_layer(
             result, responses = await evaluate_single_config(
                 model, tokenizer, vector, layer, coef,
                 questions, trait_name, trait_definition, judge, use_chat_template, component,
-                max_new_tokens=max_new_tokens
+                max_new_tokens=max_new_tokens, pv_format=pv_format
             )
 
             trait_score = result.get("trait_mean") or 0
@@ -237,6 +239,7 @@ async def batched_adaptive_search(
     max_batch_layers: Optional[int] = None,
     max_new_tokens: int = 256,
     momentum: float = 0.0,  # 0.0 = no momentum, 0.7 = typical momentum
+    pv_format: bool = False,
 ):
     """
     Run adaptive search for multiple layers in parallel batches.
@@ -356,7 +359,7 @@ async def batched_adaptive_search(
 
                 print(f"  Scoring {len(all_qa_pairs)} responses...", end=" ", flush=True)
                 t0 = time.time()
-                all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition)
+                all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition, pv_format=pv_format)
                 score_time = time.time() - t0
                 print(f"({score_time:.1f}s)")
 

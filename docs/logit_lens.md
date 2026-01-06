@@ -115,6 +115,23 @@ logits = model.lm_head(normed)
 probs = torch.softmax(logits, dim=-1)
 ```
 
+## Vector Logit Lens
+
+Apply logit lens to trait vectors (not residual stream) to see what tokens a direction "means":
+
+```bash
+python analysis/vectors/logit_lens.py \
+    --experiment {experiment} \
+    --trait {category}/{trait} \
+    --filter-common  # Filter to interpretable English tokens
+```
+
+Example output for sycophancy vector:
+```
+Toward (+): "great", "excellent", "beautiful", "love", "amazing"
+Away (-):   "either", "unless", "directly"
+```
+
 ## References
 
 - **TransformerLens logit lens**: https://transformerlensorg.github.io/TransformerLens/generated/demos/Logit_Lens.html

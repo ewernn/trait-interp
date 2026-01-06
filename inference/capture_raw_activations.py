@@ -615,7 +615,7 @@ def main():
 
             for prompt_item in tqdm(prompts, desc="Capturing internals"):
                 prompt_id = prompt_item['id']
-                raw_prompt = prompt_item['text']
+                raw_prompt = prompt_item.get('text') or prompt_item.get('prompt')
                 prompt_note = prompt_item.get('note', '')
                 prompt_text = format_prompt(raw_prompt, tokenizer, use_chat_template=use_chat_template)
                 # Append prefill if provided (for prefill attack testing)
@@ -645,12 +645,14 @@ def main():
         # REPLAY-RESPONSES MODE: Prefill capture from another prompt set
         # ================================================================
         if args.replay_responses:
-            source_dir = inference_dir / "raw" / "residual" / args.replay_responses
+            # Source is always from default inference path (not model-specific)
+            default_inference_dir = get_path('inference.base', experiment=args.experiment)
+            source_dir = default_inference_dir / "raw" / "residual" / args.replay_responses
             if not source_dir.exists():
                 print(f"  ERROR: Source prompt set not found: {source_dir}")
                 continue
 
-            print(f"  Prefill mode: loading responses from {args.replay_responses}")
+            print(f"  Prefill mode: loading responses from {source_dir}")
 
             for prompt_item in tqdm(prompts, desc="Prefill capture"):
                 prompt_id = prompt_item['id']
@@ -671,7 +673,7 @@ def main():
                 response_text = source_data['response']['text']
 
                 # Format prompt
-                raw_prompt = prompt_item['text']
+                raw_prompt = prompt_item.get('text') or prompt_item.get('prompt')
                 prompt_text = format_prompt(raw_prompt, tokenizer, use_chat_template=use_chat_template)
 
                 # Capture with prefill
@@ -704,7 +706,7 @@ def main():
                 if raw_pt_path.exists():
                     continue
 
-            raw_prompt = prompt_item['text']
+            raw_prompt = prompt_item.get('text') or prompt_item.get('prompt')
             prompt_text = format_prompt(raw_prompt, tokenizer, use_chat_template=use_chat_template)
             # Append prefill if provided (for prefill attack testing)
             if args.prefill:

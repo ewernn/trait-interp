@@ -130,6 +130,14 @@ python analysis/benchmark/evaluate.py \
     --steer {trait} --coef -1.0
 ```
 
+**Interpret vectors via logit lens:**
+```bash
+python analysis/vectors/logit_lens.py \
+    --experiment {experiment} \
+    --trait {category}/{trait} \
+    --filter-common  # Filter to interpretable tokens
+```
+
 ### How Components Interact
 
 ```
