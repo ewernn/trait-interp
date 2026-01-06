@@ -117,7 +117,20 @@ probs = torch.softmax(logits, dim=-1)
 
 ## Vector Logit Lens
 
-Apply logit lens to trait vectors (not residual stream) to see what tokens a direction "means":
+Apply logit lens to trait vectors (not residual stream) to see what tokens a direction "means".
+
+### Pipeline Integration
+
+Automatically runs as **stage 5** of the extraction pipeline:
+
+```bash
+python extraction/run_pipeline.py --experiment {exp} --traits {trait}
+# Includes logit lens by default. Skip with --no-logitlens
+```
+
+Output: `experiments/{experiment}/extraction/{trait}/logit_lens.json`
+
+### Standalone CLI
 
 ```bash
 python analysis/vectors/logit_lens.py \
@@ -126,10 +139,25 @@ python analysis/vectors/logit_lens.py \
     --filter-common  # Filter to interpretable English tokens
 ```
 
-Example output for sycophancy vector:
+### Visualization
+
+In **Trait Extraction** view, the Token Decode section shows:
+- Mid (40%) and Late (90%) layer projections
+- Best method (probe > mean_diff > gradient)
+- Top 5 toward/away tokens per layer
+
+### Example Output
+
+Sycophancy vector:
 ```
 Toward (+): "great", "excellent", "beautiful", "love", "amazing"
 Away (-):   "either", "unless", "directly"
+```
+
+Refusal vector:
+```
+Toward (+): "sorry", "cannot", "nor", "laws", "legal"
+Away (-):   "ready", "excellent", "happy", "easy", "good"
 ```
 
 ## References

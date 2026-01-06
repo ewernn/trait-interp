@@ -130,7 +130,7 @@ python analysis/benchmark/evaluate.py \
     --steer {trait} --coef -1.0
 ```
 
-**Interpret vectors via logit lens:**
+**Interpret vectors via logit lens** (runs automatically in pipeline, or standalone):
 ```bash
 python analysis/vectors/logit_lens.py \
     --experiment {experiment} \

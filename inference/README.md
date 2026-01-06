@@ -133,6 +133,43 @@ python inference/capture_raw_activations.py \
 
 **Crash resilience**: Results saved after each batch. Rerun with `--skip-existing` to resume.
 
+## Model Comparison (Base vs IT)
+
+Compare activations between models on identical tokens (e.g., base vs instruction-tuned):
+
+```bash
+# 1. Capture IT model (default - uses application_model from config)
+python inference/capture_raw_activations.py \
+    --experiment my_exp --prompt-set harmful
+
+# 2. Project IT model
+python inference/project_raw_activations_onto_traits.py \
+    --experiment my_exp --prompt-set harmful --traits behavioral/refusal
+
+# 3. Capture base model with IT model's responses
+#    (saves to inference/models/{model}/ automatically)
+python inference/capture_raw_activations.py \
+    --experiment my_exp --prompt-set harmful \
+    --model google/gemma-2-2b --replay-responses harmful
+
+# 4. Project base model
+python inference/project_raw_activations_onto_traits.py \
+    --experiment my_exp --prompt-set harmful \
+    --model google/gemma-2-2b --traits behavioral/refusal
+```
+
+Output structure:
+```
+inference/
+├── raw/residual/harmful/          # IT model activations
+├── {trait}/residual_stream/harmful/  # IT model projections
+└── models/gemma-2-2b/             # Base model comparison
+    ├── raw/residual/harmful/
+    └── {trait}/residual_stream/harmful/
+```
+
+View in visualization: **Trait Dynamics → Compare dropdown** (Main model / Diff / comparison model).
+
 ## project_raw_activations_onto_traits.py
 
 Compute projections from saved raw activations. Useful for:

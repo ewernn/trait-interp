@@ -96,12 +96,13 @@ All other inference views share a **prompt picker** fixed at the bottom of the p
 - **Persistence**: Selection is saved to localStorage and restored on page refresh.
 
 -   **Trait Dynamics**: Comprehensive view of trait evolution during generation. Includes:
-    - **Token Trajectory**: Cosine similarity per token. Options: **Smooth** (3-token moving average), **Centered** (subtract BOS value), **Clean** (remove massive dim contributions - Sun et al., Top 5 3+ layers, or All)
+    - **Token Trajectory**: Cosine similarity per token. Options: **Smooth** (3-token moving average), **Centered** (subtract BOS value), **Clean** (remove massive dim contributions - Sun et al., Top 5 3+ layers, or All), **Compare** (model comparison - see below)
     - **Activation Magnitude Per Token**: ||h|| per token at projection layer. Shows one line per unique layer when multiple traits selected.
     - **Token Velocity**: Rate of change between consecutive tokens
     - **Activation Magnitude**: ||h|| per layer (growth through network)
     - **Massive Activations**: Per-token values of massive dims at layer 9, mean alignment by layer
     - **Massive Dims Across Layers**: Normalized magnitude per layer for massive dims. Criteria dropdown to experiment with different definitions (Top 5 3+ layers, Top 3 any layer, etc.)
+    - **Compare dropdown**: When comparison models exist (e.g., base model captured via `--replay-responses`), switch between: **Main model** (default), **Diff** (main − comparison), or view the **comparison model** directly. See `inference/README.md` for capture workflow.
 
 -   **Layer Deep Dive**: SAE feature decomposition - see which interpretable Sparse Autoencoder features are most active at each token position. Decomposes 2,304 raw neurons into 16,384 sparse features with human-readable descriptions from Neuronpedia.
 
