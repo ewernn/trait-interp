@@ -77,6 +77,18 @@ from utils.paths import get as get_path
 from server.client import get_model_or_client, ModelClient
 
 
+def normalize_prompt_item(item: Dict) -> Dict:
+    """Normalize prompt item to have 'text' key (handles 'prompt' as fallback)."""
+    if 'text' not in item and 'prompt' in item:
+        item = {**item, 'text': item['prompt']}
+    return item
+
+
+def normalize_prompts(prompts: List[Dict]) -> List[Dict]:
+    """Normalize list of prompt items."""
+    return [normalize_prompt_item(p) for p in prompts]
+
+
 def capture_result_to_data(result, n_layers: int) -> Dict:
     """Convert CaptureResult from utils.generation to dict format for saving."""
     prompt_acts = {}
@@ -500,6 +512,7 @@ def main():
             data = json.load(f)
         # Handle both {"prompts": [...]} and bare [...] formats
         prompts = data.get('prompts', data) if isinstance(data, dict) else data
+        prompts = normalize_prompts(prompts)
         prompt_sets = [(args.prompt_set_name, prompts)]
         print(f"Loaded {len(prompts)} prompts from {prompt_file}")
     elif args.prompt_set:
@@ -509,8 +522,9 @@ def main():
             return
         with open(prompt_file) as f:
             data = json.load(f)
-        prompt_sets = [(args.prompt_set, data['prompts'])]
-        print(f"Loaded {len(data['prompts'])} prompts from {args.prompt_set}")
+        prompts = normalize_prompts(data['prompts'])
+        prompt_sets = [(args.prompt_set, prompts)]
+        print(f"Loaded {len(prompts)} prompts from {args.prompt_set}")
     else:
         # Load all JSON prompt sets
         prompt_sets = []
@@ -518,7 +532,8 @@ def main():
             with open(f) as fp:
                 data = json.load(fp)
             if 'prompts' in data and data['prompts']:
-                prompt_sets.append((f.stem, data['prompts']))
+                prompts = normalize_prompts(data['prompts'])
+                prompt_sets.append((f.stem, prompts))
         print(f"Found {len(prompt_sets)} prompt sets")
 
     # Load experiment config
