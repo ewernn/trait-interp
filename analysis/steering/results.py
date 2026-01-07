@@ -102,11 +102,12 @@ def save_results(results: Dict, experiment: str, trait: str, position: str = "re
 
 def save_responses(responses: List[Dict], experiment: str, trait: str, position: str, config: Dict, timestamp: str):
     """Save generated responses for a config."""
-    responses_dir = get_steering_dir(experiment, trait, position) / "responses"
+    component = config.get("component", "residual")
+    responses_dir = get_steering_dir(experiment, trait, position) / "responses" / component
     responses_dir.mkdir(parents=True, exist_ok=True)
 
     layers_str = "_".join(str(l) for l in config["layers"])
-    coefs_str = "_".join(f"{c:.1f}" for c in config["coefficients"])
+    coefs_str = "_".join(f"{c:.2f}" for c in config["coefficients"])
     ts_clean = timestamp[:19].replace(':', '-').replace('T', '_')  # Trim microseconds
     filename = f"L{layers_str}_c{coefs_str}_{ts_clean}.json"
 
