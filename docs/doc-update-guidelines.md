@@ -20,6 +20,7 @@
 - Don't add "planned" or "TODO" sections that go stale
 - Don't document internal implementation details that change frequently
 - Don't create new docs when existing ones can be extended
+- Don't keep deprecated/legacy documentation around for backward compatibility when possible
 
 ## File Placement
 
