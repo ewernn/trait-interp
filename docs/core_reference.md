@@ -4,6 +4,44 @@ Primitives for trait vector extraction and analysis.
 
 ---
 
+## Types
+
+```python
+from core import VectorSpec, ProjectionConfig, activation_scale
+
+# Identify a single trait vector
+spec = VectorSpec(
+    layer=9,
+    component='residual',      # residual, attn_contribution, mlp_contribution, etc.
+    position='response[:]',    # extraction position
+    method='probe',            # probe, mean_diff, gradient
+    weight=0.9                 # coefficient for steering, relative weight for projection
+)
+
+# Single vector config
+config = ProjectionConfig.single(9, 'residual', 'response[:]', 'probe', weight=0.9)
+
+# Ensemble (multiple weighted vectors)
+config = ProjectionConfig(vectors=[
+    VectorSpec(9, 'attn_contribution', 'response[:]', 'probe', 0.5),
+    VectorSpec(12, 'residual', 'response[:]', 'probe', 0.3),
+    VectorSpec(15, 'residual', 'response[:]', 'probe', 0.2),
+])
+
+# Normalized weights (for projection, sum to 1.0)
+weights = config.normalized_weights  # [0.5, 0.3, 0.2]
+
+# Serialization
+d = spec.to_dict()
+spec = VectorSpec.from_dict(d)
+
+# Steering scale factor
+scale = activation_scale(activations, vector)  # ||act|| / ||vec||
+coef = spec.weight * scale  # Full steering coefficient
+```
+
+---
+
 ## Hooks
 
 ```python
@@ -78,10 +116,16 @@ Probe uses row normalization (each sample scaled to unit norm) so LogReg coeffic
 ## Math Functions
 
 ```python
-from core import projection, batch_cosine_similarity, cosine_similarity, orthogonalize
+from core import projection, project_with_config, batch_cosine_similarity, cosine_similarity, orthogonalize
 
 # Project activations onto vector (normalizes vector only)
 scores = projection(activations, trait_vector)  # [n_samples]
+
+# Project using ProjectionConfig (single or ensemble)
+def loader(spec):
+    vec, _, _ = load_vector_from_spec(experiment, trait, spec)
+    return vec
+scores = project_with_config(activations_dict, config, loader)  # Weighted sum
 
 # Cosine similarity (normalizes both activations and vector)
 scores = batch_cosine_similarity(activations, trait_vector)  # [n_samples] in [-1, 1]
@@ -151,7 +195,8 @@ python analysis/massive_activations.py --experiment gemma-2-2b --prompt-set jail
 ```
 core/
 ├── __init__.py      # Public API exports
+├── types.py         # VectorSpec, ProjectionConfig, activation_scale
 ├── hooks.py         # get_hook_path, detect_contribution_paths, CaptureHook, SteeringHook, MultiLayerCapture, HookManager
 ├── methods.py       # Extraction methods (probe, mean_diff, gradient)
-└── math.py          # projection, batch_cosine_similarity, metrics, vector/distribution properties
+└── math.py          # projection, project_with_config, batch_cosine_similarity, metrics
 ```

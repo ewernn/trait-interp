@@ -63,7 +63,7 @@ Each vector projected orthogonal to previous layer's vector to remove shared com
 
 ## Results Format
 
-Results accumulate in `experiments/{experiment}/steering/{trait}/results.json`:
+Results accumulate in `experiments/{experiment}/steering/{trait}/{position}/results.json`:
 
 ```json
 {
@@ -82,13 +82,23 @@ Results accumulate in `experiments/{experiment}/steering/{trait}/results.json`:
   "baseline": {"trait_mean": 61.3, "coherence_mean": 92.0, "n": 20},
   "runs": [
     {
-      "config": {"layers": [16], "methods": ["probe"], "coefficients": [200.0]},
+      "config": {
+        "vectors": [{
+          "layer": 16,
+          "component": "residual",
+          "position": "response[:]",
+          "method": "probe",
+          "weight": 200.0
+        }]
+      },
       "result": {"trait_mean": 84.8, "coherence_mean": 80.9, "n": 20},
       "timestamp": "2025-12-07T04:49:16"
     }
   ]
 }
 ```
+
+Each run's `config.vectors` array uses the VectorSpec format (see `core/types.py`).
 
 ## Evaluation Model
 

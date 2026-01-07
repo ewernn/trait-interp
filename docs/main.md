@@ -84,7 +84,7 @@ trait-interp/
 │   ├── paths.yaml                    # Single source of truth for paths
 │   └── models/*.yaml                 # Model architecture configs
 │
-├── core/                   # Primitives (hooks, methods, math)
+├── core/                   # Primitives (types, hooks, methods, math)
 ├── utils/                  # Shared utilities (paths, model loading)
 ├── server/                 # Model server (persistent model loading)
 ├── analysis/               # Analysis scripts (steering, benchmark)
@@ -119,7 +119,7 @@ python inference/project_raw_activations_onto_traits.py \
 
 **Use core primitives:**
 ```python
-from core import CaptureHook, SteeringHook, get_method, projection
+from core import VectorSpec, ProjectionConfig, CaptureHook, SteeringHook, get_method, projection
 ```
 
 **Benchmark capability preservation (for ablation):**
@@ -141,7 +141,7 @@ python analysis/vectors/logit_lens.py \
 ### How Components Interact
 
 ```
-core/               ← Primitives (hooks, methods, math)
+core/               ← Primitives (types, hooks, methods, math)
     ↑
     ├── Used by: extraction/
     └── Used by: inference/
