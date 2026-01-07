@@ -9,7 +9,6 @@ findings:
   - comparison-persona-vectors.md
   - effect-size-vs-steering.md
   - ood-cross-model.md
-  - ood-cross-lang.md
-  - ood-cross-topic.md
+  - ood-formality.md
   - massive-activations.md
   - coefficient-scaling-law.md
