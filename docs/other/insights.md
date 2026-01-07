@@ -70,6 +70,10 @@
 
 - **Low attention ≠ ignoring**: By middle layers, information from early tokens is already encoded in hidden states. Attention is routing, not the only mechanism.
 
+## What Trait Projections Measure
+
+- **Projections measure what the dataset provoked**: First-person refusal dataset → vector measures "model is thinking about refusing" at each position, regardless of whether the output token is refusal-related.
+
 ## Validation & Testing
 
 - **Universality testing via multiple prompts**: Pattern in 8/8 prompts = probably architectural. Pattern in 2/8 = probably noise. *Implication*: Small multiples grid is validity check, not just visualization.
