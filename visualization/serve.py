@@ -34,34 +34,24 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     }
 
     def log_message(self, format, *args):
-        """Override to suppress noisy logs."""
-        # Suppress 404s for HEAD requests (file existence checks)
-        if len(args) >= 2 and args[1] == '404' and self.command == 'HEAD':
+        """Override to suppress noisy logs. Only show errors and POST requests."""
+        # Extract status code
+        status = args[1] if len(args) >= 2 else None
+
+        # Always log errors (4xx, 5xx) except expected 404s
+        is_error = status and str(status).startswith(('4', '5'))
+        is_expected_404 = status == '404' or status == 404
+
+        if is_error and not is_expected_404:
+            super().log_message(format, *args)
             return
 
-        # Suppress 304 (Not Modified)
-        if len(args) >= 2 and args[1] == '304':
+        # Always log POST requests (chat, etc.)
+        if self.command == 'POST':
+            super().log_message(format, *args)
             return
 
-        # Suppress all 404s (browser requests for optional files)
-        if len(args) >= 2 and args[1] == '404':
-            return
-
-        # Suppress base class "code 404" messages
-        if 'code 404' in format or 'File not found' in format:
-            return
-
-        # Suppress directory crawling requests (steering/, extraction/, inference/ subdirs)
-        if args and len(args) >= 1:
-            path = args[0].split()[1] if ' ' in args[0] else ''
-            if '/experiments/' in path and path.endswith('/') and path.count('/') > 4:
-                return
-            # Suppress projection requests (many fire in parallel)
-            if '/inference/projections/' in path:
-                return
-
-        # Log successful requests and errors
-        super().log_message(format, *args)
+        # Suppress everything else (200 OK for static assets, API calls, etc.)
 
     def log_error(self, format, *args):
         """Override to suppress error logs for expected 404s."""

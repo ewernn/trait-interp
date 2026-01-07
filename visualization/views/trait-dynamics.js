@@ -791,10 +791,10 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     renderActivationMagnitudePlot(traitData, filteredByMethod);
 
     // Render Massive Activations section
-    renderMassiveActivations(promptSet, promptId, tickVals, tickText, nPromptTokens);
+    renderMassiveActivations();
 
     // Render Massive Dims Across Layers section
-    renderMassiveDimsAcrossLayers(promptSet);
+    renderMassiveDimsAcrossLayers();
 }
 
 
@@ -1000,43 +1000,54 @@ function renderActivationMagnitudePlot(traitData, loadedTraits) {
 
 
 /**
+ * Fetch massive activations data, using calibration.json as canonical source.
+ * Calibration contains model-wide massive dims computed from neutral prompts.
+ */
+async function fetchMassiveActivationsData() {
+    const calibrationPath = window.paths.get('inference.massive_activations', { prompt_set: 'calibration' });
+    const response = await fetch('/' + calibrationPath);
+    if (!response.ok) return null;
+    return response.json();
+}
+
+/**
  * Render Massive Activations section.
  * Shows which dimensions have abnormally large values and their behavior.
  */
-async function renderMassiveActivations(promptSet, promptId, tickVals, tickText, nPromptTokens) {
+async function renderMassiveActivations() {
     const container = document.getElementById('massive-activations-container');
     if (!container) return;
 
-    // Fetch massive activations data
-    const massiveActPath = window.paths.get('inference.massive_activations', { prompt_set: promptSet });
     try {
-        const response = await fetch('/' + massiveActPath);
-        if (!response.ok) {
+        const data = await fetchMassiveActivationsData();
+        if (!data) {
             container.innerHTML = `
                 <div class="info">
-                    No massive activation data available for ${promptSet}.
+                    No massive activation calibration data.
                     <br><br>
-                    Run: <code>python analysis/massive_activations.py --experiment ${window.paths.getExperiment()} --prompt-set ${promptSet}</code>
+                    Run: <code>python analysis/massive_activations.py --experiment ${window.paths.getExperiment()}</code>
                 </div>
             `;
             return;
         }
 
-        const data = await response.json();
-        const promptData = data.per_prompt?.[promptId];
-
-        if (!promptData) {
-            container.innerHTML = `<div class="info">No data for prompt ${promptId}. Re-run analysis with this prompt.</div>`;
-            return;
-        }
-
-        // Get aggregate stats
+        // Get aggregate stats (always available from calibration)
         const aggregate = data.aggregate || {};
         const consistentDims = aggregate.consistent_massive_dims || {};
         const meanAlignment = aggregate.mean_alignment_by_layer || {};
+        const topDimsByLayer = aggregate.top_dims_by_layer || {};
 
-        // Build summary HTML
-        const trackedDims = promptData.tracked_dims || [];
+        // Get dims that appear in top-5 at 3+ layers (same as cleaning logic)
+        const dimAppearances = {};
+        for (const layerDims of Object.values(topDimsByLayer)) {
+            for (const dim of layerDims.slice(0, 5)) {
+                dimAppearances[dim] = (dimAppearances[dim] || 0) + 1;
+            }
+        }
+        const trackedDims = Object.entries(dimAppearances)
+            .filter(([_, count]) => count >= 3)
+            .map(([dim]) => parseInt(dim))
+            .sort((a, b) => a - b);
         const dimLabels = trackedDims.map(d => `dim ${d}`).join(', ');
 
         // Find which dims are consistent across prompts
@@ -1066,70 +1077,8 @@ async function renderMassiveActivations(promptSet, promptId, tickVals, tickText,
                     <div class="summary-detail">How much tokens align with mean direction</div>
                 </div>
             </div>
-            <div id="massive-dim-values-plot" style="margin-top: 16px;"></div>
             <div id="mean-alignment-plot" style="margin-top: 16px;"></div>
         `;
-
-        // Plot dimension values across tokens (at layer 9)
-        const layer = 9;
-        const promptDimValues = promptData.prompt_dim_values?.[layer] || {};
-        const responseDimValues = promptData.response_dim_values?.[layer] || {};
-
-        const textSecondary = window.getCssVar('--text-secondary', '#a4a4a4');
-        const colors = window.getChartColors();
-
-        // Build traces for each tracked dim
-        const dimTraces = [];
-        trackedDims.forEach((dim, idx) => {
-            const promptVals = promptDimValues[dim] || [];
-            const responseVals = responseDimValues[dim] || [];
-            const allVals = [...promptVals, ...responseVals];
-
-            if (allVals.length > 0) {
-                dimTraces.push({
-                    x: Array.from({ length: allVals.length }, (_, i) => i),
-                    y: allVals,
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: `dim ${dim}`,
-                    line: { color: colors[idx % colors.length], width: 1.5 },
-                    hovertemplate: `dim ${dim}<br>Token %{x}<br>Value: %{y:.0f}<extra></extra>`
-                });
-            }
-        });
-
-        if (dimTraces.length > 0) {
-            const dimLayout = window.getPlotlyLayout({
-                xaxis: {
-                    title: 'Token Position',
-                    tickmode: 'array',
-                    tickvals: tickVals,
-                    ticktext: tickText,
-                    tickangle: -45,
-                    tickfont: { size: 9 }
-                },
-                yaxis: { title: 'Activation Value', showgrid: true },
-                shapes: [{
-                    type: 'line',
-                    x0: nPromptTokens - 0.5,
-                    x1: nPromptTokens - 0.5,
-                    y0: 0, y1: 1, yref: 'paper',
-                    line: { color: textSecondary, width: 2, dash: 'dash' }
-                }],
-                annotations: [{
-                    x: nPromptTokens / 2 - 0.5,
-                    y: 1.08, yref: 'paper',
-                    text: 'PROMPT', showarrow: false,
-                    font: { size: 11, color: textSecondary }
-                }],
-                margin: { l: 60, r: 20, t: 40, b: 80 },
-                height: 250,
-                showlegend: true,
-                legend: { orientation: 'h', y: 1.12, x: 0 }
-            });
-
-            Plotly.newPlot('massive-dim-values-plot', dimTraces, dimLayout, { responsive: true, displayModeBar: false });
-        }
 
         // Plot mean alignment by layer
         const layers = Object.keys(meanAlignment).map(Number).sort((a, b) => a - b);
@@ -1142,7 +1091,7 @@ async function renderMassiveActivations(promptSet, promptId, tickVals, tickText,
                 type: 'scatter',
                 mode: 'lines+markers',
                 name: 'Mean Alignment',
-                line: { color: colors[0], width: 2 },
+                line: { color: window.getChartColors()[0], width: 2 },
                 marker: { size: 4 },
                 hovertemplate: 'L%{x}<br>Alignment: %{y:.1f}%<extra></extra>'
             };
@@ -1168,20 +1117,16 @@ async function renderMassiveActivations(promptSet, promptId, tickVals, tickText,
  * Render Massive Dims Across Layers section.
  * Shows how each massive dim's normalized magnitude changes across layers.
  */
-async function renderMassiveDimsAcrossLayers(promptSet) {
+async function renderMassiveDimsAcrossLayers() {
     const container = document.getElementById('massive-dims-layers-plot');
     if (!container) return;
 
-    // Fetch massive activations data
-    const massiveActPath = window.paths.get('inference.massive_activations', { prompt_set: promptSet });
     try {
-        const response = await fetch('/' + massiveActPath);
-        if (!response.ok) {
-            container.innerHTML = `<div class="info">No massive activation data. Run <code>python analysis/massive_activations.py</code> first.</div>`;
+        const data = await fetchMassiveActivationsData();
+        if (!data) {
+            container.innerHTML = `<div class="info">No massive activation data. Run <code>python analysis/massive_activations.py --experiment ${window.paths.getExperiment()}</code></div>`;
             return;
         }
-
-        const data = await response.json();
         const aggregate = data.aggregate || {};
         const topDimsByLayer = aggregate.top_dims_by_layer || {};
         const dimMagnitude = aggregate.dim_magnitude_by_layer || {};
@@ -1237,7 +1182,7 @@ async function renderMassiveDimsAcrossLayers(promptSet) {
         if (criteriaSelect && !criteriaSelect.dataset.bound) {
             criteriaSelect.dataset.bound = 'true';
             criteriaSelect.addEventListener('change', () => {
-                renderMassiveDimsAcrossLayers(promptSet);
+                renderMassiveDimsAcrossLayers();
             });
         }
 
