@@ -39,7 +39,7 @@ get_hook_path(16, "attn_contribution", model=model)
 # Gemma-2: "model.layers.16.post_attention_layernorm"
 # Others:  "model.layers.16.self_attn.o_proj"
 
-# Components: residual, attn_out, mlp_out, attn_contribution*, mlp_contribution*, k_cache, v_cache
+# Components: residual, attn_out, mlp_out, attn_contribution*, mlp_contribution*, k_proj, v_proj
 # *contribution components require model parameter
 ```
 

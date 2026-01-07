@@ -94,7 +94,7 @@ This gives us activation matrices $\mathbf{A}^+$ (positive examples) and $\mathb
 
 Apply an extraction method to find the direction that best separates positive from negative examples.
 
-**Component extraction**: Extract from residual stream (default), attention output (`attn_out`), MLP output (`mlp_out`), or key/value projections (`k_cache`, `v_cache`).
+**Component extraction**: Extract from residual stream (default), attention output (`attn_out`), MLP output (`mlp_out`), or key/value projections (`k_proj`, `v_proj`).
 
 ---
 

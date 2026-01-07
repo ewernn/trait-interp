@@ -383,8 +383,8 @@ _Example (Gemma 2B, 26 layers): Early=0-5, Middle=6-18, Late=19-25_
 | `residual` | `model.layers.{L}` | {hidden_dim} | Full layer output (cumulative) |
 | `attn_out` | `self_attn.o_proj` | {hidden_dim} | What attention contributed |
 | `mlp_out` | `mlp.down_proj` | {hidden_dim} | What MLP contributed |
-| `k_cache` | `self_attn.k_proj` | {kv_dim} | Key representations |
-| `v_cache` | `self_attn.v_proj` | {kv_dim} | Value representations |
+| `k_proj` | `self_attn.k_proj` | {kv_dim} | Key projections |
+| `v_proj` | `self_attn.v_proj` | {kv_dim} | Value projections |
 
 _Example (Gemma 2B): hidden_dim=2304, kv_dim=1024_
 

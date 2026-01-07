@@ -752,7 +752,7 @@ def main():
                         help="Manual coefficients (comma-separated). If not provided, uses adaptive search.")
     parser.add_argument("--model", help="Model name/path (default: from experiment config)")
     parser.add_argument("--method", default="probe", help="Vector extraction method")
-    parser.add_argument("--component", default="residual", choices=["residual", "attn_out", "mlp_out", "attn_contribution", "mlp_contribution", "k_cache", "v_cache"])
+    parser.add_argument("--component", default="residual", choices=["residual", "attn_out", "mlp_out", "attn_contribution", "mlp_contribution", "k_proj", "v_proj"])
     parser.add_argument("--position", default="response[:]",
                         help="Token position for vectors (default: response[:])")
     parser.add_argument("--judge", default="openai", choices=["openai", "gemini"])

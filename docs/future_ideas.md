@@ -56,7 +56,7 @@ Extract "auxiliary concepts" for hidden objectives: evaluation awareness, concea
 Compute pairwise correlations between trait projections on shared prompts. Which traits are independent vs measuring same thing? Validates coherence of trait framework.
 
 ## nov24-component_analysis
-Compare trait extraction/steering across components (attn_out, mlp_out, k_cache, v_cache). Which yields best separation? Which gives strongest steering effect? Validates whether traits are "attention structure" vs MLP-computed.
+Compare trait extraction/steering across components (attn_out, mlp_out, k_proj, v_proj). Which yields best separation? Which gives strongest steering effect? Validates whether traits are "attention structure" vs MLP-computed.
 
 ## kv_cache
 KV cache as model memory. Two angles:
