@@ -56,7 +56,7 @@ def get_hook_path(layer: int, component: str = "residual", prefix: str = None, m
             - "mlp_out": Raw MLP output (before any post-norm)
             - "attn_contribution": What attention actually adds to residual (requires model)
             - "mlp_contribution": What MLP actually adds to residual (requires model)
-            - "k_cache", "v_cache": Key/value projections
+            - "k_proj", "v_proj": Key/value projections
         prefix: Path prefix to layers (auto-detected if model provided, else "model.layers")
         model: Used for auto-detecting prefix and architecture
 
@@ -84,8 +84,8 @@ def get_hook_path(layer: int, component: str = "residual", prefix: str = None, m
         'residual': f"{prefix}.{layer}",
         'attn_out': f"{prefix}.{layer}.self_attn.o_proj",
         'mlp_out': f"{prefix}.{layer}.mlp.down_proj",
-        'k_cache': f"{prefix}.{layer}.self_attn.k_proj",
-        'v_cache': f"{prefix}.{layer}.self_attn.v_proj",
+        'k_proj': f"{prefix}.{layer}.self_attn.k_proj",
+        'v_proj': f"{prefix}.{layer}.self_attn.v_proj",
     }
 
     # Dynamic paths (require model for architecture detection)
