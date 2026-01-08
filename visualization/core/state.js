@@ -401,17 +401,7 @@ function toggleAllTraits() {
     if (window.renderView) window.renderView();
 }
 
-/**
- * Simple HTML escaping for user content.
- */
-function escapeHtml(text) {
-    if (!text) return '';
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+// escapeHtml moved to core/utils.js
 
 /**
  * Format token for display (newlines→↵, tabs→→, spaces→·)
