@@ -31,7 +31,11 @@ async function loadSaeLabels() {
     if (saeLabelsCache) return saeLabelsCache;
 
     // Get SAE path from model config
-    const defaultLayer = window.modelConfig?.getDefaultMonitoringLayer() || 16;
+    if (!window.modelConfig) {
+        console.error('modelConfig not loaded');
+        return null;
+    }
+    const defaultLayer = window.modelConfig.getDefaultMonitoringLayer();
     const saePath = window.modelConfig?.getSaePath(defaultLayer);
 
     if (!saePath) {
@@ -267,7 +271,7 @@ function renderVisualization(contentArea, saeData, saeLabels, attentionData, log
                 </div>
 
                 <div class="card">
-                    <h4>Attention by Head (Layer ${window.modelConfig?.getDefaultMonitoringLayer() || 16}) <span class="subsection-info-toggle" data-target="info-attn-heads">►</span></h4>
+                    <h4>Attention by Head (Layer ${window.modelConfig.getDefaultMonitoringLayer()}) <span class="subsection-info-toggle" data-target="info-attn-heads">►</span></h4>
                     <div class="subsection-info" id="info-attn-heads">Per-head attention at the default monitoring layer. y=head, x=context position.</div>
                     <div id="attention-heads-heatmap" style="width: 100%; height: 300px;"></div>
                 </div>
@@ -319,7 +323,7 @@ function renderVisualization(contentArea, saeData, saeLabels, attentionData, log
 
     // Render charts
     if (hasFullAttention) {
-        const defaultLayer = window.modelConfig?.getDefaultMonitoringLayer() || 16;
+        const defaultLayer = window.modelConfig.getDefaultMonitoringLayer();
         renderLayersHeatmap(tokenAttn, tokens);
         renderHeadsHeatmap(tokenAttn, tokens, defaultLayer);
 

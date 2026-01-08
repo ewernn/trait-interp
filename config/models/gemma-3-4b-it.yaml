@@ -21,5 +21,3 @@ sae:
   huggingface_id: google/gemma-scope-2-4b-it
   # TODO: add layer_template and downloaded_layers once SAEs are downloaded
 
-defaults:
-  monitoring_layer: 17  # ~50% of 34 layers
