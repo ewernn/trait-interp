@@ -8,11 +8,11 @@ Only scores first 16 tokens of response to match extraction window behavior.
 
 import asyncio
 import json
-from datetime import datetime
 from tqdm.asyncio import tqdm_asyncio
 
 from utils.paths import get as get_path
 from utils.judge import TraitJudge
+from utils.traits import load_trait_definition
 
 # Truncate responses to first N tokens for vetting
 # This aligns vetting with extraction (which uses response[:N])
@@ -37,15 +37,6 @@ def load_responses(experiment: str, trait: str) -> dict:
         else:
             responses[polarity] = []
     return responses
-
-
-def load_trait_definition(trait: str) -> str:
-    """Load trait definition file from datasets/traits/."""
-    def_file = get_path('datasets.trait_definition', trait=trait)
-    if def_file.exists():
-        with open(def_file) as f:
-            return f.read().strip()
-    return f"The trait '{trait.split('/')[-1].replace('_', ' ')}'"
 
 
 async def _vet_responses_async(experiment: str, trait: str, max_concurrent: int = 20) -> dict:
@@ -87,8 +78,6 @@ def vet_responses(
     """
     Vet generated responses using LLM-as-judge. Returns pass rate.
     """
-    print(f"  [2] Vetting responses for '{trait}'...")
-
     data = asyncio.run(_vet_responses_async(experiment, trait, max_concurrent))
     results = data["results"]
     trait_definition = data["trait_definition"]
@@ -134,5 +123,5 @@ def vet_responses(
     total_passed = len(pos_passed) + len(neg_passed)
     pass_rate = total_passed / len(results) if results else 0.0
 
-    print(f"    Pass rate: {pass_rate:.1%} ({total_passed}/{len(results)})")
+    print(f"      {len(results)} responses | pass: {pass_rate:.1%} ({total_passed}/{len(results)}) | errors: {len(errors)}")
     return pass_rate

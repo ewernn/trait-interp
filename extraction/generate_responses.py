@@ -5,7 +5,6 @@ Called by run_pipeline.py (stage 1).
 """
 
 import json
-from pathlib import Path
 from datetime import datetime
 
 from tqdm import tqdm
@@ -14,33 +13,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from utils.paths import get as get_path
 from utils.model import format_prompt
 from utils.generation import generate_batch as _generate_batch
-
-
-def load_scenarios(trait_dir: Path, polarity: str) -> list[dict]:
-    """
-    Load scenarios from JSONL (preferred) or plain text file.
-
-    JSONL format: {"prompt": "...", "system_prompt": "..."} per line
-    Text format: One prompt per line (no system_prompt)
-
-    Returns list of dicts with 'prompt' and optional 'system_prompt'.
-    """
-    jsonl_file = trait_dir / f'{polarity}.jsonl'
-    txt_file = trait_dir / f'{polarity}.txt'
-
-    if jsonl_file.exists():
-        with open(jsonl_file, 'r') as f:
-            scenarios = [json.loads(line) for line in f if line.strip()]
-        # Validate required field
-        for i, s in enumerate(scenarios):
-            if 'prompt' not in s:
-                raise ValueError(f"{jsonl_file} line {i+1}: missing 'prompt' field")
-        return scenarios
-    elif txt_file.exists():
-        with open(txt_file, 'r') as f:
-            return [{'prompt': line.strip()} for line in f if line.strip()]
-    else:
-        raise FileNotFoundError(f"No scenario file found: {jsonl_file} or {txt_file}")
+from utils.traits import load_scenarios
 
 
 def generate_responses_for_trait(
@@ -58,13 +31,11 @@ def generate_responses_for_trait(
 
     Uses utils.generation.generate_batch for auto batch sizing and OOM recovery.
     """
-    print(f"  [1] Generating responses for '{trait}'...")
-
-    dataset_trait_dir = get_path('datasets.trait', trait=trait)
 
     try:
-        pos_scenarios = load_scenarios(dataset_trait_dir, 'positive')
-        neg_scenarios = load_scenarios(dataset_trait_dir, 'negative')
+        scenarios = load_scenarios(trait)
+        pos_scenarios = scenarios['positive']
+        neg_scenarios = scenarios['negative']
     except FileNotFoundError as e:
         print(f"    ERROR: {e}")
         return 0, 0
@@ -106,7 +77,7 @@ def generate_responses_for_trait(
                     'prompt': scenario['prompt'],
                     'system_prompt': scenario.get('system_prompt'),
                     'response': response,
-                    'full_text': scenario['prompt'] + response,
+                    'full_text': formatted_prompts[i] + response,  # Use formatted prompt for accurate tokenization
                     'prompt_token_count': prompt_tokens,
                     'response_token_count': len(tokenizer.encode(response, add_special_tokens=False)),
                 })
@@ -140,5 +111,5 @@ def generate_responses_for_trait(
     with open(responses_dir / 'metadata.json', 'w') as f:
         json.dump(metadata, f, indent=2)
 
-    print(f"    Saved {len(pos_results)} + {len(neg_results)} responses")
+    print(f"      Saved {len(pos_results)} + {len(neg_results)} responses")
     return len(pos_results), len(neg_results)

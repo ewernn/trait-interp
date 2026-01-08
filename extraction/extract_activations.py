@@ -134,7 +134,7 @@ def extract_activations_for_trait(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     val_split: float = 0.1,
-    position: str = 'response[:]',
+    position: str = 'response[:5]',
     component: str = 'residual',
     use_vetting_filter: bool = True,
     paired_filter: bool = False,
@@ -145,14 +145,12 @@ def extract_activations_for_trait(
 
     Args:
         position: Token position to extract from. Format: <frame>[<slice>]
-            - response[:]  - All response tokens (mean) [default]
+            - response[:5] - First 5 response tokens (mean) [default]
             - response[-1] - Last response token only
             - response[0]  - First response token only
             - prompt[-1]   - Last prompt token
             - all[:]       - All tokens (mean)
     """
-    print(f"  [3] Extracting activations for '{trait}' (position: {position}, component: {component})...")
-
     # Handle nested text_config for multimodal models (e.g., Gemma 3)
     config = model.config
     if hasattr(config, 'text_config'):
@@ -171,7 +169,7 @@ def extract_activations_for_trait(
         with open(responses_dir / 'neg.json') as f:
             neg_data = json.load(f)
     except FileNotFoundError:
-        print(f"    ERROR: Response files not found. Run stage 1 first.")
+        print(f"      ERROR: Response files not found. Run stage 1 first.")
         return 0
 
     # Filter based on vetting results
@@ -188,24 +186,24 @@ def extract_activations_for_trait(
             n_filtered_pos, n_filtered_neg = len(pos_failed), len(neg_failed)
             n_excluded_by_pairing = len(all_failed)
             if all_failed:
-                print(f"    Filtered {n_excluded_by_pairing} pairs ({n_filtered_pos} pos + {n_filtered_neg} neg failed, paired mode)")
+                print(f"      Filtered {n_excluded_by_pairing} pairs ({n_filtered_pos} pos + {n_filtered_neg} neg failed, paired mode)")
         else:
             # Independent mode: filter each side separately
             if pos_failed or neg_failed:
                 pos_data = [r for i, r in enumerate(pos_data) if i not in pos_failed]
                 neg_data = [r for i, r in enumerate(neg_data) if i not in neg_failed]
                 n_filtered_pos, n_filtered_neg = len(pos_failed), len(neg_failed)
-                print(f"    Filtered {n_filtered_pos + n_filtered_neg} responses based on vetting")
+                print(f"      Filtered {n_filtered_pos + n_filtered_neg} responses based on vetting")
 
     # Early exit if no data left after filtering
     if not pos_data and not neg_data:
-        print(f"    ERROR: No responses left after filtering. Skipping activation extraction.")
+        print(f"      ERROR: No responses left after filtering. Skipping activation extraction.")
         return 0
 
     # Split into train/val
     train_pos, train_neg, val_pos, val_neg = pos_data, neg_data, [], []
     if val_split == 0:
-        print(f"    WARNING: val_split=0, no validation data will be extracted")
+        print(f"      WARNING: val_split=0, no validation data will be extracted")
     if val_split > 0:
         pos_split = int(len(pos_data) * (1 - val_split))
         neg_split = int(len(neg_data) * (1 - val_split))
@@ -321,7 +319,7 @@ def extract_activations_for_trait(
                 if local_batch_size == 1:
                     raise RuntimeError("OOM even with batch_size=1")
                 local_batch_size = max(1, local_batch_size // 2)
-                print(f"\n    OOM, reducing batch_size to {local_batch_size}")
+                print(f"\n      OOM, reducing batch_size to {local_batch_size}")
                 # Don't advance i, retry same batch with smaller size
 
         pbar.close()
@@ -341,7 +339,7 @@ def extract_activations_for_trait(
 
     activation_path = get_activation_path(experiment, trait, component, position)
     torch.save(train_acts, activation_path)
-    print(f"    Saved train: {train_acts.shape} -> {activation_path.name}")
+    print(f"      Saved train: {train_acts.shape} -> {activation_path.name}")
 
     # Save validation activations (same format as train)
     n_val_pos, n_val_neg = 0, 0
@@ -355,7 +353,7 @@ def extract_activations_for_trait(
 
         val_path = get_val_activation_path(experiment, trait, component, position)
         torch.save(val_acts, val_path)
-        print(f"    Saved val: {val_acts.shape} -> {val_path.name}")
+        print(f"      Saved val: {val_acts.shape} -> {val_path.name}")
         n_val_pos, n_val_neg = len(val_pos), len(val_neg)
 
     # Compute activation norms (handle empty tensor case)

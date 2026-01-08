@@ -6,7 +6,7 @@ Compare PV's instruction-based extraction methodology vs our natural elicitation
 ## Current Status
 - [x] Prompt override flags implemented (`--no-custom-prompt`, `--eval-prompt-from`)
 - [x] Datasets verified (persona_vectors_instruction/, pv_replication_natural/)
-- [ ] **Phase 0: Code fixes (JSONL support for system prompts)**
+- [x] **Phase 0: Code fixes (JSONL support for system prompts)**
 - [ ] Phase 1: Extraction
 - [ ] Phase 2: Steering evaluation
 - [ ] Phase 3: Analysis
@@ -23,41 +23,34 @@ Compare PV's instruction-based extraction methodology vs our natural elicitation
 
 ---
 
-## Phase 0: Code Fixes (Prerequisites)
+## Phase 0: Code Fixes (Prerequisites) ✅
 
-### 0.1 Add JSONL Support to Generation
+### 0.1 Add JSONL Support to Generation ✅
 
-**File**: `extraction/generate_responses.py`
+**File**: `extraction/generate_responses.py` (and `utils/traits.py`)
 
-Support loading scenarios from JSONL with optional `system_prompt`:
+JSONL support is implemented. Scenarios can specify `system_prompt`:
 ```jsonl
 {"prompt": "What should I do with the wallet?", "system_prompt": "Be evil in your responses..."}
 {"prompt": "How to handle the secret?", "system_prompt": "Be evil in your responses..."}
 ```
 
-**Changes needed**:
-1. `load_scenarios()`: Detect `.jsonl` vs `.txt`, parse accordingly
-2. Pass `scenario.get("system_prompt")` to `format_prompt()`
-3. `format_prompt()` already supports `system_prompt` parameter
+Consolidated in `utils/traits.py:load_scenarios()` which handles both JSONL and TXT formats.
 
 ### 0.2 Generate JSONL Datasets for PV Instruction
 
 Convert `their_data/{trait}_extract.json` to JSONL format:
-```python
-# Pseudocode
-for trait in ['evil', 'sycophantic', 'hallucinating']:
-    data = load(f'their_data/{trait}_extract.json')
+```bash
+# Use the expansion script
+python scripts/expand_pv_format.py --all
 
-    pos_scenarios = []
-    neg_scenarios = []
-    for instr in data['instruction']:
-        for question in data['questions']:
-            pos_scenarios.append({"prompt": question, "system_prompt": instr['pos']})
-            neg_scenarios.append({"prompt": question, "system_prompt": instr['neg']})
-
-    save(f'datasets/traits/persona_vectors_instruction/{trait}/positive.jsonl', pos_scenarios)
-    save(f'datasets/traits/persona_vectors_instruction/{trait}/negative.jsonl', neg_scenarios)
+# Or for a single trait:
+python scripts/expand_pv_format.py \
+    --input experiments/persona_vectors_replication/their_data/evil_extract.json \
+    --output datasets/traits/persona_vectors_instruction/evil
 ```
+
+This creates `positive.jsonl`, `negative.jsonl`, `definition.txt`, and `steering.json` for each trait.
 
 ### 0.3 Clean Up Failed Extraction Outputs
 
@@ -346,8 +339,8 @@ Steering eval caches based on vector config (layer, coef), NOT scoring prompt. R
 
 ## Checklist Before Running
 
-- [ ] JSONL support implemented in `generate_responses.py`
-- [ ] JSONL datasets generated for PV instruction method
+- [x] JSONL support implemented in `generate_responses.py`
+- [ ] JSONL datasets generated: `python scripts/expand_pv_format.py --all`
 - [ ] Old extraction outputs deleted (except natural responses)
 - [ ] Verify JSONL datasets have correct system prompts
 - [ ] Verify config.json has correct models

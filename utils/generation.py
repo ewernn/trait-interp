@@ -11,7 +11,7 @@ Output:
     - CaptureResult with activations (capture mode)
 
 Usage:
-    from utils.generation import generate_batch, generate_with_capture
+    from utils.generation import generate_batch, generate_with_capture, GPUMonitor
 
     # Batch generation (auto batch size, OOM recovery)
     responses = generate_batch(model, tokenizer, prompts)
@@ -22,9 +22,15 @@ Usage:
     for result in results:
         print(result.response_text)
         print(result.response_activations[0]['residual'].shape)  # [n_tokens, hidden_dim]
+
+    # Track peak GPU memory during a stage
+    with GPUMonitor('my_stage') as mon:
+        do_something()
+        print(mon.report(n_items))  # "5.2s | 10.0/s | peak 4.2GB | now 3.1GB"
 """
 
 import os
+import time
 import torch
 import subprocess
 from typing import List, Dict, Optional
@@ -62,6 +68,65 @@ def get_gpu_stats() -> str:
         return " | ".join(stats)
     except Exception:
         return ""
+
+
+def get_gpu_memory_gb() -> float:
+    """Get current GPU memory usage in GB (max across devices)."""
+    if not torch.cuda.is_available():
+        return 0.0
+    max_used = 0.0
+    for i in range(torch.cuda.device_count()):
+        free, total = torch.cuda.mem_get_info(i)
+        used = (total - free) / (1024 ** 3)
+        max_used = max(max_used, used)
+    return max_used
+
+
+class GPUMonitor:
+    """Track peak GPU memory during a stage."""
+
+    def __init__(self, stage_name: str):
+        self.stage_name = stage_name
+        self.start_mem = 0.0
+        self.peak_mem = 0.0
+        self.start_time = 0.0
+
+    def __enter__(self):
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
+        self.start_mem = get_gpu_memory_gb()
+        self.start_time = time.time()
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+    def get_peak_gb(self) -> float:
+        """Get peak memory usage since start (CUDA only)."""
+        if torch.cuda.is_available():
+            # PyTorch tracks peak across all devices
+            peak_bytes = max(
+                torch.cuda.max_memory_allocated(i)
+                for i in range(torch.cuda.device_count())
+            )
+            return peak_bytes / (1024 ** 3)
+        return self.start_mem
+
+    def report(self, n_items: int = None) -> str:
+        """Generate end-of-stage report string."""
+        elapsed = time.time() - self.start_time
+        current = get_gpu_memory_gb()
+        peak = self.get_peak_gb()
+
+        parts = [f"{elapsed:.1f}s"]
+        if n_items:
+            rate = n_items / elapsed if elapsed > 0 else 0
+            parts.append(f"{rate:.1f}/s")
+        if torch.cuda.is_available():
+            parts.append(f"peak {peak:.1f}GB")
+            parts.append(f"now {current:.1f}GB")
+
+        return " | ".join(parts)
 
 
 def print_gpu_memory_report():
