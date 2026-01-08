@@ -23,6 +23,8 @@ echo 'export $(cat ~/trait-interp/.env | grep -v "^#" | xargs)' >> ~/.bashrc
 echo 'export HF_HOME=~/.cache/huggingface' >> ~/.bashrc
 echo "alias cla='claude --dangerously-skip-permissions'" >> ~/.bashrc
 echo "alias clar='claude --dangerously-skip-permissions --resume'" >> ~/.bashrc
+git config --global user.name "ewernn"
+git config --global user.email "ewernn@users.noreply.github.com"
 source ~/.bashrc
 
 # 5. Pull data and install deps
