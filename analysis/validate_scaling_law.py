@@ -93,18 +93,14 @@ def collect_steering_data(experiment: str) -> list[dict]:
             config = run.get('config', {})
             result = run.get('result', {})
 
-            layers = config.get('layers', [])
-            if not layers:
+            # VectorSpec format
+            vectors = config.get('vectors', [])
+            if not vectors:
                 continue
-            layer = layers[0]
-
-            methods = config.get('methods', ['probe'])
-            method = methods[0] if methods else 'probe'
-
-            coefs = config.get('coefficients', [])
-            if not coefs:
-                continue
-            coef = coefs[0]
+            v = vectors[0]
+            layer = v.get('layer')
+            method = v.get('method', 'probe')
+            coef = v.get('weight', 0)
 
             coherence = result.get('coherence_mean', 0)
             trait_mean = result.get('trait_mean', 0)

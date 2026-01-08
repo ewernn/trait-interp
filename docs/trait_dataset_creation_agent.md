@@ -157,6 +157,15 @@ Ask:
 
 **95% confidence test:** Can you predict where the model's completion will go? If ambiguous, extend the utterance.
 
+**First Token Test (critical):** Will the first 3-5 generated tokens EXPRESS the trait, or just EXPLAIN an already-committed behavior?
+
+| Ending | First tokens | Quality |
+|--------|--------------|---------|
+| "...so I" | "refused" / "agreed" | ✅ EXPRESS - decision point |
+| "...I said no, that would be" | "wrong" / "illegal" | ❌ EXPLAIN - mid-behavior |
+
+End scenarios BEFORE the behavior starts. See [automated_dataset_refinement.md](automated_dataset_refinement.md) for details.
+
 Optionally test with actual base model to verify completions go in expected direction.
 
 ### Step 3: Generate in Chunks

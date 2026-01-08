@@ -18,14 +18,16 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 git clone https://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@github.com/ewernn/trait-interp.git
 cd trait-interp
 
-# 4. Persist env vars for all shells
+# 4. Persist env vars and aliases for all shells
 echo 'export $(cat ~/trait-interp/.env | grep -v "^#" | xargs)' >> ~/.bashrc
 echo 'export HF_HOME=~/.cache/huggingface' >> ~/.bashrc
+echo "alias cla='claude --dangerously-skip-permissions'" >> ~/.bashrc
+echo "alias clar='claude --dangerously-skip-permissions --resume'" >> ~/.bashrc
 source ~/.bashrc
 
 # 5. Pull data and install deps
 ./utils/setup_r2.sh
-./utils/r2_pull.sh       # Auto-configures rclone if needed
+./utils/r2_pull.sh
 pip3 install -q -r requirements.txt
 ```
 

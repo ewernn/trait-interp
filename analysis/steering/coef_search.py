@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from tqdm import tqdm
 
-from core import SteeringHook, get_hook_path
+from core import SteeringHook, get_hook_path, VectorSpec
 from analysis.steering.steer import BatchedLayerSteeringHook
 from utils.generation import generate_batch, calculate_max_batch_size
 from analysis.steering.results import find_existing_run_index, save_results, save_responses
@@ -44,7 +44,7 @@ async def evaluate_single_config(
     use_chat_template: bool,
     component: str,
     max_new_tokens: int = 256,
-    pv_format: bool = False,
+    eval_prompt: Optional[str] = None,
 ) -> Tuple[Dict, List[Dict]]:
     """Evaluate a single (layer, coefficient) config with batched generation."""
     desc = f"L{layer} c{coef:.0f}"
@@ -61,7 +61,7 @@ async def evaluate_single_config(
 
     # Score
     print(f"  Scoring {len(all_qa_pairs)} responses...")
-    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition, pv_format=pv_format)
+    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition, eval_prompt=eval_prompt)
 
     trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
     coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
@@ -87,18 +87,12 @@ async def evaluate_single_config(
 async def evaluate_and_save(
     model, tokenizer, vector, layer, coef,
     questions, trait_name, trait_definition, judge, use_chat_template, component,
-    results, experiment, trait, vector_experiment, method, position="response[:]"
+    results, experiment, trait, vector_experiment, method, position="response[:]",
+    eval_prompt: Optional[str] = None,
 ):
     """Evaluate a single config and save to results."""
-    config = {
-        "vectors": [{
-            "layer": layer,
-            "component": component,
-            "position": position,
-            "method": method,
-            "weight": coef,
-        }]
-    }
+    spec = VectorSpec(layer=layer, component=component, position=position, method=method, weight=coef)
+    config = {"vectors": [spec.to_dict()]}
 
     # Skip if already exists
     if find_existing_run_index(results, config) is not None:
@@ -108,7 +102,8 @@ async def evaluate_and_save(
     print(f"\n  Evaluating L{layer} c{coef:.0f}...")
     result, responses = await evaluate_single_config(
         model, tokenizer, vector, layer, coef,
-        questions, trait_name, trait_definition, judge, use_chat_template, component
+        questions, trait_name, trait_definition, judge, use_chat_template, component,
+        eval_prompt=eval_prompt
     )
 
     timestamp = datetime.now().isoformat()
@@ -135,7 +130,7 @@ async def adaptive_search_layer(
     down_mult: float = 0.85,
     momentum: float = 0.0,  # 0.0 = no momentum, 0.7 = typical momentum
     max_new_tokens: int = 256,
-    pv_format: bool = False,
+    eval_prompt: Optional[str] = None,
 ):
     """Run adaptive search for a single layer, saving each result."""
     print(f"\n--- Layer {layer} (base_coef={base_coef:.0f}) ---")
@@ -148,15 +143,8 @@ async def adaptive_search_layer(
 
     for step in range(n_steps):
         # Evaluate
-        config = {
-            "vectors": [{
-                "layer": layer,
-                "component": component,
-                "position": position,
-                "method": method,
-                "weight": coef,
-            }]
-        }
+        spec = VectorSpec(layer=layer, component=component, position=position, method=method, weight=coef)
+        config = {"vectors": [spec.to_dict()]}
 
         existing_idx = find_existing_run_index(results, config)
         if existing_idx is not None:
@@ -169,7 +157,7 @@ async def adaptive_search_layer(
             result, responses = await evaluate_single_config(
                 model, tokenizer, vector, layer, coef,
                 questions, trait_name, trait_definition, judge, use_chat_template, component,
-                max_new_tokens=max_new_tokens, pv_format=pv_format
+                max_new_tokens=max_new_tokens, eval_prompt=eval_prompt
             )
 
             trait_score = result.get("trait_mean") or 0
@@ -245,7 +233,7 @@ async def batched_adaptive_search(
     max_batch_layers: Optional[int] = None,
     max_new_tokens: int = 256,
     momentum: float = 0.0,  # 0.0 = no momentum, 0.7 = typical momentum
-    pv_format: bool = False,
+    eval_prompt: Optional[str] = None,
 ):
     """
     Run adaptive search for multiple layers in parallel batches.
@@ -307,15 +295,8 @@ async def batched_adaptive_search(
             cached_indices = []
             uncached_states = []
             for i, state in enumerate(batch_states):
-                config = {
-                    "vectors": [{
-                        "layer": state["layer"],
-                        "component": component,
-                        "position": position,
-                        "method": method,
-                        "weight": state["coef"],
-                    }]
-                }
+                spec = VectorSpec(layer=state["layer"], component=component, position=position, method=method, weight=state["coef"])
+                config = {"vectors": [spec.to_dict()]}
                 existing_idx = find_existing_run_index(results, config)
                 if existing_idx is not None:
                     cached_indices.append((i, existing_idx))
@@ -368,7 +349,7 @@ async def batched_adaptive_search(
 
                 print(f"  Scoring {len(all_qa_pairs)} responses...", end=" ", flush=True)
                 t0 = time.time()
-                all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition, pv_format=pv_format)
+                all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition, eval_prompt=eval_prompt)
                 score_time = time.time() - t0
                 print(f"({score_time:.1f}s)")
 
@@ -388,15 +369,8 @@ async def batched_adaptive_search(
                     state["history"].append((state["coef"], trait_mean, coherence_mean))
 
                     # Save results
-                    config = {
-                        "vectors": [{
-                            "layer": state["layer"],
-                            "component": component,
-                            "position": position,
-                            "method": method,
-                            "weight": state["coef"],
-                        }]
-                    }
+                    spec = VectorSpec(layer=state["layer"], component=component, position=position, method=method, weight=state["coef"])
+                    config = {"vectors": [spec.to_dict()]}
                     result = {
                         "trait_mean": trait_mean,
                         "coherence_mean": coherence_mean,

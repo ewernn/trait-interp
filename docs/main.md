@@ -19,7 +19,7 @@ Primary documentation hub for the trait-interp project.
 - **[extraction/elicitation_guide.md](../extraction/elicitation_guide.md)** - Natural elicitation method
 - **[docs/extraction_guide.md](extraction_guide.md)** - Comprehensive extraction reference
 - **[docs/trait_dataset_creation_agent.md](trait_dataset_creation_agent.md)** - Creating trait datasets
-- **[docs/dataset_refinement.md](dataset_refinement.md)** - Iterative vetting and refinement loop
+- **[docs/automated_dataset_refinement.md](automated_dataset_refinement.md)** - Iterative vetting and refinement loop
 
 ### Inference & Steering
 - **[inference/README.md](../inference/README.md)** - Per-token monitoring

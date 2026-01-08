@@ -100,6 +100,19 @@ Results accumulate in `experiments/{experiment}/steering/{trait}/{position}/resu
 
 Each run's `config.vectors` array uses the VectorSpec format (see `core/types.py`).
 
+## Custom Scoring Prompts
+
+By default, trait scoring uses the V3c prompt (proportion-weighted). Traits can define custom prompts in `steering.json`:
+
+```json
+{
+  "questions": ["..."],
+  "eval_prompt": "Custom prompt with {question} and {answer} placeholders..."
+}
+```
+
+If `eval_prompt` is present, it's used automatically. If absent, V3c default is used. This enables fair comparison when replicating other papers' methodologies.
+
 ## Evaluation Model
 
 Uses `gpt-4.1-mini` with logprob scoring. Requires `OPENAI_API_KEY`.

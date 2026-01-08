@@ -113,6 +113,23 @@ def get_inner_model(model):
     return model.model
 
 
+def get_num_layers(model) -> int:
+    """Get number of transformer layers from loaded model.
+
+    Handles multimodal models (e.g., Gemma 3) which nest config in text_config.
+
+    Args:
+        model: A loaded HuggingFace model
+
+    Returns:
+        Number of hidden layers
+    """
+    config = model.config
+    if hasattr(config, 'text_config'):
+        config = config.text_config
+    return config.num_hidden_layers
+
+
 def get_layer_path_prefix(model) -> str:
     """Get the hook path prefix to transformer layers, handling PeftModel wrapper.
 
