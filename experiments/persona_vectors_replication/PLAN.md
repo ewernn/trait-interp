@@ -70,9 +70,7 @@ python extraction/run_pipeline.py \
     --rollouts 10 \
     --position "response[:]" \
     --pos-threshold 50 \
-    --neg-threshold 50 \
-    --no-vet \
-    --load-in-8bit
+    --neg-threshold 50
 ```
 
 ### Natural Methodology Extraction
@@ -85,8 +83,7 @@ python extraction/run_pipeline.py \
     --traits pv_replication_natural/hallucination \
     --base-model \
     --rollouts 1 \
-    --position "response[:5]" \
-    --load-in-8bit
+    --position "response[:5]"
 ```
 
 ---
@@ -123,7 +120,6 @@ python analysis/steering/evaluate.py \
     --traits "persona_vectors_replication/persona_vectors_instruction/evil" \
     --layers 10-20 \
     --subset 0 \
-    --load-in-8bit
 ```
 
 #### 2. PV vectors + V3c scoring (override: use default prompts)
@@ -135,7 +131,6 @@ python analysis/steering/evaluate.py \
     --no-custom-prompt \
     --layers 10-20 \
     --subset 0 \
-    --load-in-8bit
 ```
 
 #### 3. Natural vectors + PV scoring (override: use PV prompts)
@@ -147,7 +142,6 @@ python analysis/steering/evaluate.py \
     --eval-prompt-from persona_vectors_instruction/evil \
     --layers 10-20 \
     --subset 0 \
-    --load-in-8bit
 ```
 
 #### 4. Natural vectors + V3c scoring (auto - no eval_prompt in steering.json)
@@ -157,7 +151,6 @@ python analysis/steering/evaluate.py \
     --traits "persona_vectors_replication/pv_replication_natural/evil" \
     --layers 10-20 \
     --subset 0 \
-    --load-in-8bit
 ```
 
 ---
