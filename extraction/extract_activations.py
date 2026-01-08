@@ -33,7 +33,7 @@ from utils.paths import (
     get_val_activation_path,
 )
 from utils.generation import calculate_max_batch_size
-from utils.model import pad_sequences, tokenize
+from utils.model import pad_sequences
 from core import MultiLayerCapture
 
 
@@ -212,15 +212,36 @@ def extract_activations_for_trait(
         local_batch_size = batch_size  # Start with provided value or None
         all_activations = {layer: [] for layer in range(n_layers)}
 
-        # Pre-process: tokenize and compute positions
+        # Pre-process: batch tokenize all texts at once (much faster than one-by-one)
+        valid_responses = [item for item in responses if item.get('full_text')]
+        if not valid_responses:
+            for layer in range(n_layers):
+                all_activations[layer] = torch.empty(0)
+            return all_activations
+
+        # Batch tokenize full texts
+        texts = [item['full_text'] for item in valid_responses]
+        has_bos = tokenizer.bos_token and texts[0].startswith(tokenizer.bos_token)
+        all_input_ids = tokenizer(texts, add_special_tokens=not has_bos, padding=False)['input_ids']
+
+        # Batch tokenize prompts for items missing prompt_token_count
+        prompts_to_tokenize = [
+            (i, item['prompt']) for i, item in enumerate(valid_responses)
+            if not item.get('prompt_token_count') and item.get('prompt')
+        ]
+        prompt_lens = {}
+        if prompts_to_tokenize:
+            prompt_texts = [p for _, p in prompts_to_tokenize]
+            prompt_has_bos = tokenizer.bos_token and prompt_texts[0].startswith(tokenizer.bos_token)
+            prompt_ids = tokenizer(prompt_texts, add_special_tokens=not prompt_has_bos, padding=False)['input_ids']
+            for (i, _), ids in zip(prompts_to_tokenize, prompt_ids):
+                prompt_lens[i] = len(ids)
+
+        # Build items with pre-computed tokens
         items = []
-        for item in responses:
-            full_text = item.get('full_text')
-            if not full_text:
-                continue
-            input_ids = tokenize(full_text, tokenizer)['input_ids'][0]
+        for i, (item, input_ids) in enumerate(zip(valid_responses, all_input_ids)):
             seq_len = len(input_ids)
-            prompt_len = item.get('prompt_token_count') or len(tokenize(item.get('prompt', ''), tokenizer)['input_ids'])
+            prompt_len = item.get('prompt_token_count') or prompt_lens.get(i, 0)
             start_idx, end_idx = resolve_position(position, prompt_len, seq_len)
             if start_idx >= end_idx:
                 continue
