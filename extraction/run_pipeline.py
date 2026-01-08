@@ -22,10 +22,11 @@ import gc
 import json
 import argparse
 import warnings
+import time
 from pathlib import Path
 
 import torch
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Dict
 from dotenv import load_dotenv
 
 warnings.filterwarnings("ignore", message=".*penalty.*deprecated.*", category=FutureWarning)
@@ -58,6 +59,16 @@ STAGES = {
     5: 'logit_lens',
     6: 'evaluation',
 }
+
+
+def format_duration(seconds: float) -> str:
+    """Format seconds as human-readable duration."""
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    elif seconds < 3600:
+        return f"{seconds / 60:.1f}m"
+    else:
+        return f"{seconds / 3600:.1f}h"
 
 
 def run_pipeline(
@@ -103,9 +114,15 @@ def run_pipeline(
     print(f"Traits: {len(traits)}")
     print("=" * 60)
 
+    pipeline_start = time.time()
+    stage_times: Dict[str, float] = {}
+
     model, tokenizer = None, None
     if needs_model:
+        load_start = time.time()
         model, tokenizer = load_model(extraction_model, load_in_8bit=load_in_8bit, load_in_4bit=load_in_4bit)
+        stage_times['model_load'] = time.time() - load_start
+        print(f"Model loaded. ({format_duration(stage_times['model_load'])})")
     use_chat_template = False if base_model else (model and tokenizer.chat_template is not None)
 
     for trait in traits:
@@ -115,27 +132,41 @@ def run_pipeline(
         # Stage 0: Scenario vetting
         if should_run(0) and vet:
             if not (vetting_path / "scenario_scores.json").exists() or force:
+                t0 = time.time()
                 vet_scenarios(experiment, trait, pos_threshold, neg_threshold, max_concurrent)
+                stage_times['vet_scenarios'] = stage_times.get('vet_scenarios', 0) + (time.time() - t0)
 
         # Stage 1: Generate responses
         if should_run(1):
             responses_path = get_path("extraction.responses", experiment=experiment, trait=trait)
             if not (responses_path / "pos.json").exists() or force:
+                t0 = time.time()
                 generate_responses_for_trait(experiment, trait, model, tokenizer, max_new_tokens,
                                              rollouts, temperature, use_chat_template)
+                elapsed = time.time() - t0
+                stage_times['generate'] = stage_times.get('generate', 0) + elapsed
+                print(f"    Generation done. ({format_duration(elapsed)})")
 
         # Stage 2: Response vetting
         if should_run(2) and vet:
             if not (vetting_path / "response_scores.json").exists() or force:
+                t0 = time.time()
                 vet_responses(experiment, trait, pos_threshold, neg_threshold, max_concurrent)
+                elapsed = time.time() - t0
+                stage_times['vet_responses'] = stage_times.get('vet_responses', 0) + elapsed
+                print(f"    Vetting done. ({format_duration(elapsed)})")
 
         # Stage 3: Extract activations
         if should_run(3):
             activation_metadata = get_activation_metadata_path(experiment, trait, component, position)
             if not activation_metadata.exists() or force:
+                t0 = time.time()
                 extract_activations_for_trait(experiment, trait, model, tokenizer, val_split,
                                               position=position, component=component,
                                               paired_filter=paired_filter)
+                elapsed = time.time() - t0
+                stage_times['activations'] = stage_times.get('activations', 0) + elapsed
+                print(f"    Activations done. ({format_duration(elapsed)})")
 
         # Stage 4: Extract vectors
         if should_run(4):
@@ -147,12 +178,17 @@ def run_pipeline(
                     has_vectors = True
                     break
             if not has_vectors or force:
+                t0 = time.time()
                 extract_vectors_for_trait(experiment, trait, methods, component=component, position=position)
+                elapsed = time.time() - t0
+                stage_times['vectors'] = stage_times.get('vectors', 0) + elapsed
+                print(f"    Vectors done. ({format_duration(elapsed)})")
 
         # Stage 5: Logit lens interpretation
         if should_run(5) and not no_logitlens:
             logit_lens_path = get_path("extraction.logit_lens", experiment=experiment, trait=trait)
             if not logit_lens_path.exists() or force:
+                t0 = time.time()
                 run_logit_lens_for_trait(
                     experiment=experiment,
                     trait=trait,
@@ -162,13 +198,18 @@ def run_pipeline(
                     component=component,
                     position=position,
                 )
+                elapsed = time.time() - t0
+                stage_times['logit_lens'] = stage_times.get('logit_lens', 0) + elapsed
+                print(f"    Logit lens done. ({format_duration(elapsed)})")
 
     # Stage 6: Evaluation
     if should_run(6):
         print("\n--- Evaluation ---")
         eval_path = get_path("extraction_eval.evaluation", experiment=experiment)
         if not eval_path.exists() or force:
+            t0 = time.time()
             run_evaluation(experiment)
+            stage_times['evaluation'] = time.time() - t0
 
     # Cleanup GPU memory
     if model is not None:
@@ -179,7 +220,16 @@ def run_pipeline(
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
 
-    print("\n" + "=" * 60 + "\nCOMPLETE\n" + "=" * 60)
+    # Print timing summary
+    total_time = time.time() - pipeline_start
+    print("\n" + "=" * 60)
+    print("COMPLETE")
+    print("-" * 30)
+    for stage, duration in stage_times.items():
+        print(f"  {stage}: {format_duration(duration)}")
+    print("-" * 30)
+    print(f"  Total: {format_duration(total_time)}")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
