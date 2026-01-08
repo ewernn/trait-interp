@@ -136,7 +136,8 @@ class ModelConfig {
     }
 
     getDefaultMonitoringLayer() {
-        return this.get('defaults.monitoring_layer') || Math.floor(this.getNumLayers() / 2);
+        // Middle layer - actual best layer comes from steering eval at runtime
+        return Math.floor(this.getNumLayers() / 2);
     }
 
     isSaeAvailable() {

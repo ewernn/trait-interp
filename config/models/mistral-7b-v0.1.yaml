@@ -21,5 +21,3 @@ sae:
   available: false
 
 # Defaults
-defaults:
-  monitoring_layer: 16
