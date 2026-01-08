@@ -12,16 +12,20 @@ visualization/
 ├── styles.css              # All CSS styles
 ├── serve.py                # Development server with API endpoints
 ├── core/                   # Core functionality
+│   ├── utils.js           # Shared utilities (escapeHtml, smoothData, math block protection)
 │   ├── paths.js           # Centralized PathBuilder (loads from config/paths.yaml)
 │   ├── model-config.js    # Model config loader (loads from config/models/)
 │   ├── state.js           # Global state, experiment loading, URL routing
-│   └── prompt-picker.js   # Prompt selection UI for inference views
+│   ├── prompt-picker.js   # Prompt selection UI for inference views
+│   └── conversation-tree.js # Multi-turn chat data structure
 └── views/                  # View modules (render functions)
     ├── overview.js            # Methodology documentation (markdown + KaTeX)
+    ├── findings.js            # Research findings from docs/viz_findings/
     ├── trait-extraction.js    # Extraction quality (Trait Development)
     ├── steering-sweep.js      # Layer sweep + multi-layer heatmap (Trait Development)
     ├── trait-dynamics.js      # Per-token trait trajectories (Inference)
-    └── layer-deep-dive.js     # Attention + SAE features (Inference)
+    ├── layer-deep-dive.js     # Attention + SAE features (Inference)
+    └── live-chat.js           # Interactive chat with real-time trait monitoring
 ```
 
 ## Architecture Principles
@@ -71,10 +75,16 @@ window.paths.setExperiment('my_experiment');
 window.paths.residualStreamData(trait, promptSet, promptId);
 window.paths.vectorMetadata(trait, method, layer);
 
-// Utility functions
+// Utility functions (state.js)
 window.getFilteredTraits()
 window.getDisplayName(traitName)
 window.renderMath(element)       // Render KaTeX math in any element
+
+// Shared utilities (utils.js)
+window.escapeHtml(text)          // HTML escape for safe rendering
+window.smoothData(data, windowSize)  // Centered moving average
+window.protectMathBlocks(markdown)   // Protect LaTeX from markdown parser
+window.restoreMathBlocks(html, blocks)
 ```
 
 ### 3. Data Fetching Pattern
@@ -128,7 +138,7 @@ Inference views (`trait-dynamics`, `layer-deep-dive`) share a prompt picker fixe
 ### 5. Module Loading
 
 Modules load via `<script>` tags in order:
-1. Core modules (paths, state, prompt-picker)
+1. Core modules (utils, paths, model-config, state, prompt-picker, conversation-tree)
 2. View modules (all views)
 3. Router (dispatches to views)
 
@@ -206,7 +216,10 @@ python visualization/serve.py
 
 | View | Category | Purpose |
 |------|----------|---------|
+| overview | Documentation | Methodology docs (markdown + KaTeX) |
+| findings | Documentation | Research findings from docs/viz_findings/ |
 | trait-extraction | Trait Development | Extraction quality: methods, metrics, scoring, heatmaps |
 | steering-sweep | Trait Development | Layer sweep + multi-layer steering heatmap |
+| live-chat | Inference | Interactive chat with real-time trait monitoring |
 | trait-dynamics | Inference | Token-by-token trajectories, layer×token heatmaps, activation velocity |
 | layer-deep-dive | Inference | Attention heads and SAE features for single layer |
