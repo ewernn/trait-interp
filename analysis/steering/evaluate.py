@@ -107,7 +107,8 @@ def parse_layers(layers_arg: str, num_layers: int) -> List[int]:
     Parse layers argument.
 
     Args:
-        layers_arg: "all", single number "16", range "5-20", or list "5,10,15"
+        layers_arg: "all", single number "16", range "5-20", list "5,10,15",
+                    or percentage range "30%-60%"
         num_layers: Total layers in model
 
     Returns:
@@ -115,6 +116,14 @@ def parse_layers(layers_arg: str, num_layers: int) -> List[int]:
     """
     if layers_arg.lower() == "all":
         return list(range(num_layers))
+    elif "%" in layers_arg:
+        # Percentage range: "30%-60%" -> layers at 30% to 60% of depth
+        parts = layers_arg.replace("%", "").split("-")
+        start_pct = int(parts[0]) / 100
+        end_pct = int(parts[1]) / 100 if len(parts) > 1 else start_pct
+        start = int(num_layers * start_pct)
+        end = int(num_layers * end_pct)
+        return list(range(start, end + 1))
     elif "-" in layers_arg and "," not in layers_arg:
         start, end = layers_arg.split("-")
         return list(range(int(start), int(end) + 1))
@@ -449,26 +458,26 @@ def main():
                         help="Single trait: 'experiment/category/trait'")
     trait_group.add_argument("--traits",
                         help="Multiple traits (comma-separated): 'exp/cat/t1,exp/cat/t2'")
-    parser.add_argument("--layers", default="all",
-                        help="Layers: 'all', single '16', range '5-20', or list '5,10,15'")
+    parser.add_argument("--layers", default="30%-60%",
+                        help="Layers: 'all', '30%%-60%%' (default), single '16', range '5-20', or list '5,10,15'")
     parser.add_argument("--coefficients",
                         help="Manual coefficients (comma-separated). If not provided, uses adaptive search.")
     parser.add_argument("--model", help="Model name/path (default: from experiment config)")
     parser.add_argument("--method", default="probe", help="Vector extraction method")
     parser.add_argument("--component", default="residual", choices=["residual", "attn_out", "mlp_out", "attn_contribution", "mlp_contribution", "k_proj", "v_proj"])
-    parser.add_argument("--position", default="response[:]",
-                        help="Token position for vectors (default: response[:])")
+    parser.add_argument("--position", default="response[:5]",
+                        help="Token position for vectors (default: response[:5])")
     parser.add_argument("--judge", default="openai", choices=["openai", "gemini"])
     parser.add_argument("--subset", type=int, default=5, help="Use subset of questions (default: 5, use --subset 0 for all)")
-    parser.add_argument("--max-new-tokens", type=int, default=256, help="Max tokens to generate per response (default: 256)")
-    parser.add_argument("--search-steps", type=int, default=8,
-                        help="Number of adaptive search steps per layer (default: 8)")
+    parser.add_argument("--max-new-tokens", type=int, default=64, help="Max tokens to generate per response (default: 64)")
+    parser.add_argument("--search-steps", type=int, default=5,
+                        help="Number of adaptive search steps per layer (default: 5)")
     parser.add_argument("--up-mult", type=float, default=1.3,
                         help="Coefficient multiplier when increasing (default: 1.3)")
     parser.add_argument("--down-mult", type=float, default=0.85,
                         help="Coefficient multiplier when decreasing (default: 0.85)")
-    parser.add_argument("--momentum", type=float, default=0.7,
-                        help="Momentum for coefficient updates (0.0=none, 0.7=typical). Smooths oscillation.")
+    parser.add_argument("--momentum", type=float, default=0.1,
+                        help="Momentum for coefficient updates (0.0=direct, 0.7=smoothed). Default: 0.1")
     parser.add_argument("--no-batch", action="store_true",
                         help="Disable batched layer evaluation (run layers sequentially)")
     parser.add_argument("--multi-layer", choices=["weighted", "orthogonal"],

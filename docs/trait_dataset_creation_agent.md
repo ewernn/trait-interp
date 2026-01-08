@@ -159,12 +159,12 @@ Ask:
 
 **First Token Test (critical):** Will the first 3-5 generated tokens EXPRESS the trait, or just EXPLAIN an already-committed behavior?
 
-| Ending | First tokens | Quality |
-|--------|--------------|---------|
-| "...so I" | "refused" / "agreed" | ✅ EXPRESS - decision point |
-| "...I said no, that would be" | "wrong" / "illegal" | ❌ EXPLAIN - mid-behavior |
+| Ending type | First tokens | Quality |
+|-------------|--------------|---------|
+| Cliffhanger before trait | Trait expression itself | ✅ EXPRESS |
+| Mid-behavior | Explanation/continuation | ❌ Trait already in prompt |
 
-End scenarios BEFORE the behavior starts. See [automated_dataset_refinement.md](automated_dataset_refinement.md) for details.
+End on a cliffhanger right BEFORE the trait expression. See [automated_dataset_refinement.md](automated_dataset_refinement.md) for details and examples.
 
 Optionally test with actual base model to verify completions go in expected direction.
 

@@ -78,7 +78,7 @@ def run_pipeline(
     position: str = 'response[:]',
     load_in_8bit: bool = False,
     load_in_4bit: bool = False,
-    max_new_tokens: int = 64,
+    max_new_tokens: int = 32,
     max_concurrent: int = 20,
     paired_filter: bool = True,
     no_logitlens: bool = False,
@@ -207,7 +207,7 @@ if __name__ == "__main__":
     parser.add_argument("--neg-threshold", type=int, default=40)
     parser.add_argument("--load-in-8bit", action="store_true")
     parser.add_argument("--load-in-4bit", action="store_true")
-    parser.add_argument("--max-new-tokens", type=int, default=64)
+    parser.add_argument("--max-new-tokens", type=int, default=32)
     parser.add_argument("--max-concurrent", type=int, default=20,
                         help="Max concurrent API requests for vetting (default: 20)")
     parser.add_argument("--no-paired-filter", action="store_true",

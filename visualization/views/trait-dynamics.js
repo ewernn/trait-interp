@@ -8,24 +8,7 @@
 // Show all tokens including BOS (set to 2 to skip BOS + warmup if desired)
 const START_TOKEN_IDX = 0;
 
-/**
- * Apply a centered moving average to smooth data.
- * @param {number[]} data - Input array
- * @param {number} window - Window size (should be odd for centered average)
- * @returns {number[]} Smoothed array (same length as input)
- */
-function smoothData(data, window = 3) {
-    if (data.length < window) return data;
-    const half = Math.floor(window / 2);
-    const result = [];
-    for (let i = 0; i < data.length; i++) {
-        const start = Math.max(0, i - half);
-        const end = Math.min(data.length, i + half + 1);
-        const slice = data.slice(start, end);
-        result.push(slice.reduce((a, b) => a + b, 0) / slice.length);
-    }
-    return result;
-}
+// smoothData is in core/utils.js
 
 /**
  * Compute first derivative (velocity) from an array
@@ -571,10 +554,10 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
         }
 
         // Apply 3-token moving average if smoothing is enabled
-        const displayValues = isSmoothing ? smoothData(rawValues, 3) : rawValues;
+        const displayValues = isSmoothing ? window.smoothData(rawValues, 3) : rawValues;
 
         // Store raw values for velocity/accel (always use smoothed for derivatives)
-        traitActivations[traitName] = isSmoothing ? smoothData(rawProj, 3) : rawProj;
+        traitActivations[traitName] = isSmoothing ? window.smoothData(rawProj, 3) : rawProj;
 
         // Each vector gets its own color
         const color = window.getChartColors()[idx % 10];
@@ -899,7 +882,7 @@ function renderTokenDerivativePlots(traitActivations, loadedTraits, tickVals, ti
     loadedTraits.forEach((traitName, idx) => {
         const activations = traitActivations[traitName];
         const velocity = computeVelocity(activations);
-        const smoothedVelocity = smoothData(velocity, 3);
+        const smoothedVelocity = window.smoothData(velocity, 3);
         const color = window.getChartColors()[idx % 10];
 
         const vs = traitData[traitName]?.metadata?.vector_source || {};

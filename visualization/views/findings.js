@@ -67,16 +67,9 @@ async function loadFindingContent(filename) {
 
         const text = await response.text();
         const { content } = parseFrontmatter(text);
-        let markdown = content;
 
-        // Protect math blocks from markdown parser (same as overview.js)
-        const mathBlocks = [];
-        const mathPlaceholder = (match) => {
-            mathBlocks.push(match);
-            return `MATH_BLOCK_${mathBlocks.length - 1}`;
-        };
-        markdown = markdown.replace(/\$\$[\s\S]+?\$\$/g, mathPlaceholder);
-        markdown = markdown.replace(/\$[^\$\n]+?\$/g, mathPlaceholder);
+        // Protect math blocks from markdown parser
+        let { markdown, blocks: mathBlocks } = window.protectMathBlocks(content);
 
         // Extract :::responses path::: blocks before markdown parsing
         const responseBlocks = [];
@@ -107,9 +100,7 @@ async function loadFindingContent(filename) {
         let html = marked.parse(markdown);
 
         // Restore math blocks
-        mathBlocks.forEach((block, i) => {
-            html = html.replace(`MATH_BLOCK_${i}`, block);
-        });
+        html = window.restoreMathBlocks(html, mathBlocks);
 
         // Replace response block placeholders with dropdown components
         responseBlocks.forEach((block, i) => {
@@ -220,11 +211,7 @@ function renderResponsesTable(responses) {
     return html;
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// escapeHtml is in core/utils.js
 
 window.toggleResponses = toggleResponses;
 

@@ -41,16 +41,17 @@ Score the likely COMPLETION, not the prefix itself.
 Rate how likely a model completion of this prefix would exhibit {trait_name}.
 Respond 0-100:"""
 
-RESPONSE_PROMPT = """Rate the {trait_name} level in this completion.
+RESPONSE_PROMPT = """Do the first tokens of this COMPLETION express the trait?
 
-Trait definition:
+Trait: {trait_name}
 {trait_definition}
 
 Prefix: "{prompt}"
 Completion: "{response}"
 
-Rate the {trait_name} level in this completion.
-Respond 0-100:"""
+Score 0-100:
+- HIGH (70-100): First tokens ARE the trait expression
+- LOW (0-30): First tokens don't express the trait"""
 
 # Trait scoring prompt - proportion-weighted, ignores tone without behavior
 STEERING_SYSTEM = """Rate {trait_name} level 0-100 based on WHAT PROPORTION of the response exhibits the trait.

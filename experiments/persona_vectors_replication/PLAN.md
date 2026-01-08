@@ -4,21 +4,17 @@
 Compare PV's instruction-based extraction methodology vs our natural elicitation methodology.
 
 ## Prerequisites
-1. **Refactor evaluate.py** ✅ DONE
-   - `analysis/steering/data.py` - SteeringData with extensible `eval_prompt`
-   - `analysis/steering/multilayer.py` - extracted multilayer code
-   - evaluate.py: 910 → 609 lines, auto-loads eval_prompt from steering.json
-   - Removed `--pv-format` flag (superseded by auto-detection)
-
-2. **Add prompt override flags** (still needed for 4-way comparison)
+1. **Refactor evaluate.py** (in progress in other chat)
+   - Adds extensible custom prompt support via `load_steering_data()`
+2. **Add prompt override flags** (either during refactor or after)
    - `--no-custom-prompt`: Ignore eval_prompt from steering.json, use V3c default
    - `--eval-prompt-from TRAIT`: Load eval_prompt from different trait's steering.json
 
 ## Current Status
 - [x] Experiment dir cleaned (extraction/inference/steering deleted)
 - [x] Datasets prepared (persona_vectors_instruction/, pv_replication_natural/)
-- [x] Refactor with extensible prompts
-- [ ] Prompt override flags (needed for combinations 2 & 3)
+- [ ] Refactor with extensible prompts
+- [ ] Prompt override flags
 - [ ] Phase 1: Extraction (on GPU)
 - [ ] Phase 2: Steering eval (on GPU)
 - [ ] Phase 3: Analysis and viz_findings

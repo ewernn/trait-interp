@@ -41,45 +41,50 @@ cat experiments/{exp}/extraction/{trait}/responses/pos.json | \
 
 Look at the first 3-5 tokens the model generates. Ask:
 
-> Do these tokens **EXPRESS** the trait, or **EXPLAIN** an already-committed behavior?
+> Do these tokens **EXPRESS** the trait, or **EXPLAIN/CONTINUE** an already-committed behavior?
 
 | Scenario ending | First tokens | Verdict |
 |-----------------|--------------|---------|
-| "...crossed a line, so I" | "refused", "declined", "said no" | ✅ EXPRESS - tokens ARE the trait |
-| "...I told him absolutely not, that would be" | "illegal", "wrong", "harmful" | ❌ EXPLAIN - trait already happened |
+| Cliffhanger before trait | Trait expression itself | ✅ EXPRESS |
+| Mid-behavior | Explanation, justification, or continuation | ❌ Already committed |
+
+**Examples for refusal trait:**
+
+| Ending | First tokens | Verdict |
+|--------|--------------|---------|
+| "...crossed a line, so I" | "refused", "declined" | ✅ Trait expressed in completion |
+| "...I told him absolutely not, that would be" | "illegal", "wrong" | ❌ Refusal already in prompt |
+| "...I want to help, but I" | "can't", "shouldn't" | ✅ Decision happens in completion |
+| "...I can't do that because it's" | "dangerous", "unethical" | ❌ Refusal already committed |
 
 ### Why This Matters
 
 Both pass automated vetting - the judge sees trait-related content. But:
 
-- **EXPRESS** = Model *decides* to refuse. The trait direction lives in the completion.
-- **EXPLAIN** = Model *continues* an already-made decision. The trait direction is in the prompt.
+- **EXPRESS** = The trait direction lives in the completion. First tokens carry the signal.
+- **EXPLAIN** = The trait direction is already in the prompt. First tokens are just elaboration.
 
-For vector extraction, we want the activation difference to capture the **decision**, not the explanation. Ending mid-behavior means the trait signal is diluted - you're extracting "explaining harmful things" not "refusing".
+For vector extraction, we want the activation difference to capture the **decision**, not the explanation. Ending mid-behavior dilutes the signal.
 
 ### Concrete Heuristic
 
 **Delete test:** If you delete the first 5 generated tokens, is the trait direction still obvious from what remains?
 
-- "This crossed a line, so I ~~refused and~~ told them I wouldn't help" → Trait clear ✅
-- "I said absolutely not, that would be ~~illegal and~~ could get them in trouble" → Trait clear ✅
+- "This crossed a line, so I ~~refused and~~ told them I wouldn't help" → Direction NOW clear from "wouldn't help"
+- "I said absolutely not, that would be ~~illegal and~~ could get them in trouble" → Direction ALREADY clear from "absolutely not"
 
-If trait direction is still clear after deletion, the first tokens aren't doing the work → bad.
+If trait direction is already clear before the first tokens, the first tokens aren't carrying the signal → bad.
 
-**Stop earlier:** End the scenario right BEFORE the behavior, not during it.
+**Rule:** End on a cliffhanger right BEFORE the trait expression, not during or after it.
 
-## Lock-ins: Direction vs Decision Point
+## Cliffhangers vs Extended Lock-ins
 
-There are two types of strong endings. Use the RIGHT one:
+| Type | What it is | First tokens carry... | Use for |
+|------|------------|----------------------|---------|
+| **Cliffhanger** | Ends right before trait expression | The trait itself | ✅ Preferred |
+| **Extended lock-in** | Includes partial trait expression | Continuation/explanation | ⚠️ Fallback only |
 
-| Type | Example | First tokens | Use for |
-|------|---------|--------------|---------|
-| **Decision point** | "...so I" | "refused" / "agreed" | ✅ Steering, extraction |
-| **Extended lock-in** | "...I absolutely refuse to" | "help with" / "do that" | ⚠️ Only if model keeps going wrong direction |
-
-Extended lock-ins guarantee direction but move past the decision point. Use them only as a fallback when the model ignores decision-point endings.
-
-**Key insight:** "so I" looks weak but captures the decision moment. "I absolutely refuse to" is grammatically stronger but the trait is already expressed.
+Extended lock-ins guarantee direction but move past the decision point. Use them only when the model keeps going the wrong direction with cliffhanger endings.
 
 ## Failure Modes
 

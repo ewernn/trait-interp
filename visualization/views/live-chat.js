@@ -678,7 +678,7 @@ function updateTraitChart() {
 
         // Apply smoothing if requested
         const yValues = showSmoothedLine && scores.length >= 3
-            ? computeRunningAverage(scores, 3)
+            ? window.smoothData(scores, 3)
             : scores;
 
         // Single trace per trait - all tokens
@@ -840,22 +840,7 @@ function updateChartHighlight() {
     Plotly.relayout(chartDiv, { shapes: shapes });
 }
 
-/**
- * Compute running average with specified window size
- */
-function computeRunningAverage(data, windowSize) {
-    const result = [];
-    const half = Math.floor(windowSize / 2);
-
-    for (let i = 0; i < data.length; i++) {
-        const start = Math.max(0, i - half);
-        const end = Math.min(data.length, i + half + 1);
-        const slice = data.slice(start, end);
-        result.push(slice.reduce((a, b) => a + b, 0) / slice.length);
-    }
-
-    return result;
-}
+// smoothData (running average) is in core/utils.js
 
 // Export functions to global scope for onclick handlers
 window.startEdit = startEdit;

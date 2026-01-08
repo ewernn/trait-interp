@@ -116,6 +116,30 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 **Paper:** [arxiv:2512.15674](https://arxiv.org/abs/2512.15674) | [Code](https://github.com/adamkarvonen/activation_oracles) | [Models](https://huggingface.co/collections/adamkarvonen/activation-oracles)
 
+### Circuit Breakers - Zou et al. 2024
+
+**Authors:** Zou, Phan, Chen, Campbell, Guo, Ren, Pan, Du, Goldstein, Hendrycks (Gray Swan AI, CMU, CAIS)
+
+**What it is:** Make harmful-output representations useless by forcing them orthogonal to their original directions. Attack-agnostic because any successful jailbreak must eventually produce harmful-process representations, which then get rerouted.
+
+**Method:**
+1. Collect harmful assistant responses (Circuit Breaker Set) and benign conversations (Retain Set)
+2. Train small adapter weights (LoRA) while keeping base model frozen — cheaper and more stable than full fine-tuning
+3. Two loss terms:
+   - *Reroute loss:* push harmful representations orthogonal to original (`ReLU(cos_sim)` prevents overshooting)
+   - *Retain loss:* keep benign representations unchanged (L2 distance to original)
+4. Layer selection: adapters on layers 0-20, but loss computed at layers 10 and 20 specifically
+5. Training: 150 steps, ~20 min on A100
+
+**Key results:**
+- ~90% reduction in attack success rate across diverse unseen attacks (GCG, PAIR, prefilling, etc.)
+- Capabilities preserved (MT-Bench, MMLU unchanged)
+- Per-token probe baseline (Table 2): linear probes monitoring every generated token achieve decent detection — validates continuous monitoring approach
+
+**Relevance:** Reference for representation control via weight modification. The cosine loss, layer selection strategy, and retain loss for capability preservation are reusable. Probe results confirm per-token monitoring is viable.
+
+**Paper:** [arxiv:2406.04313](https://arxiv.org/abs/2406.04313)
+
 ---
 
 ## Temporal Dynamics in Activations
