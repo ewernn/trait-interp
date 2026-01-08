@@ -8,7 +8,8 @@ Stages:
     2: vet_responses   - LLM judges if responses match trait
     3: activations     - Extract activations from responses
     4: vectors         - Train probe/gradient/mean_diff vectors
-    5: evaluation      - Evaluate vectors on held-out data
+    5: logit_lens      - Interpret vectors via vocabulary projection
+    6: evaluation      - Evaluate vectors on held-out data
 
 Usage:
     python extraction/run_pipeline.py --experiment gemma-2-2b --traits category/trait
@@ -38,6 +39,7 @@ from utils.paths import (
     get as get_path,
     discover_traits,
     get_activation_metadata_path,
+    get_activation_path,
     get_vector_dir,
 )
 from utils.model import load_model
@@ -49,6 +51,8 @@ from extraction.vet_scenarios import vet_scenarios
 from extraction.vet_responses import vet_responses
 from extraction.run_logit_lens import run_logit_lens_for_trait
 from analysis.vectors.extraction_evaluation import main as run_evaluation
+from utils.generation import GPUMonitor
+from utils.traits import get_scenario_count
 
 STAGES = {
     0: 'vet_scenarios',
@@ -71,6 +75,29 @@ def format_duration(seconds: float) -> str:
         return f"{seconds / 3600:.1f}h"
 
 
+def estimate_stage_time(stage: str, n_items: int, rollouts: int = 1, max_tokens: int = 32) -> float:
+    """Estimate stage duration in seconds based on item count.
+
+    Rough estimates based on typical runs:
+    - vetting: ~0.3s/item (API rate limited)
+    - generation: ~0.5-2s/response depending on tokens
+    - activations: ~0.05s/response (forward pass only)
+    - vectors: ~2s total (fast CPU ops)
+    - logit_lens: ~5s total
+    - evaluation: ~2s total
+    """
+    estimates = {
+        'vet_scenarios': 0.3 * n_items,
+        'generate': (0.5 + max_tokens * 0.03) * n_items * rollouts,
+        'vet_responses': 0.3 * n_items * rollouts,
+        'activations': 0.05 * n_items * rollouts,
+        'vectors': 2.0,
+        'logit_lens': 5.0,
+        'evaluation': 2.0,
+    }
+    return estimates.get(stage, 10.0)
+
+
 def run_pipeline(
     experiment: str,
     extraction_model: str,
@@ -86,7 +113,7 @@ def run_pipeline(
     pos_threshold: int = 60,
     neg_threshold: int = 40,
     component: str = 'residual',
-    position: str = 'response[:]',
+    position: str = 'response[:5]',
     load_in_8bit: bool = False,
     load_in_4bit: bool = False,
     max_new_tokens: int = 32,
@@ -129,87 +156,121 @@ def run_pipeline(
         print(f"\n--- {trait} ---")
         vetting_path = get_path("extraction.trait", experiment=experiment, trait=trait) / "vetting"
 
+        # Get scenario count for ETA estimates
+        try:
+            counts = get_scenario_count(trait)
+            n_scenarios = counts['positive'] + counts['negative']
+        except Exception:
+            n_scenarios = 200  # fallback
+
         # Stage 0: Scenario vetting
         if should_run(0) and vet:
             if not (vetting_path / "scenario_scores.json").exists() or force:
-                t0 = time.time()
-                vet_scenarios(experiment, trait, pos_threshold, neg_threshold, max_concurrent)
-                stage_times['vet_scenarios'] = stage_times.get('vet_scenarios', 0) + (time.time() - t0)
+                eta = estimate_stage_time('vet_scenarios', n_scenarios)
+                print(f"  [0] Vetting scenarios... (ETA: {format_duration(eta)})")
+                with GPUMonitor('vet_scenarios') as mon:
+                    vet_scenarios(experiment, trait, pos_threshold, neg_threshold, max_concurrent)
+                    report = mon.report(n_scenarios)
+                stage_times['vet_scenarios'] = stage_times.get('vet_scenarios', 0) + (time.time() - mon.start_time)
+                print(f"      Done: {report}")
 
         # Stage 1: Generate responses
         if should_run(1):
             responses_path = get_path("extraction.responses", experiment=experiment, trait=trait)
-            if not (responses_path / "pos.json").exists() or force:
-                t0 = time.time()
-                generate_responses_for_trait(experiment, trait, model, tokenizer, max_new_tokens,
-                                             rollouts, temperature, use_chat_template)
-                elapsed = time.time() - t0
-                stage_times['generate'] = stage_times.get('generate', 0) + elapsed
-                print(f"    Generation done. ({format_duration(elapsed)})")
+            has_responses = (responses_path / "pos.json").exists() and (responses_path / "neg.json").exists()
+            if not has_responses or force:
+                eta = estimate_stage_time('generate', n_scenarios, rollouts, max_new_tokens)
+                print(f"  [1] Generating responses... (ETA: {format_duration(eta)})")
+                with GPUMonitor('generate') as mon:
+                    generate_responses_for_trait(experiment, trait, model, tokenizer, max_new_tokens,
+                                                 rollouts, temperature, use_chat_template)
+                    report = mon.report(n_scenarios * rollouts)
+                stage_times['generate'] = stage_times.get('generate', 0) + (time.time() - mon.start_time)
+                print(f"      Done: {report}")
 
         # Stage 2: Response vetting
         if should_run(2) and vet:
             if not (vetting_path / "response_scores.json").exists() or force:
-                t0 = time.time()
-                vet_responses(experiment, trait, pos_threshold, neg_threshold, max_concurrent)
-                elapsed = time.time() - t0
-                stage_times['vet_responses'] = stage_times.get('vet_responses', 0) + elapsed
-                print(f"    Vetting done. ({format_duration(elapsed)})")
+                n_responses = n_scenarios * rollouts
+                eta = estimate_stage_time('vet_responses', n_responses)
+                print(f"  [2] Vetting responses... (ETA: {format_duration(eta)})")
+                with GPUMonitor('vet_responses') as mon:
+                    vet_responses(experiment, trait, pos_threshold, neg_threshold, max_concurrent)
+                    report = mon.report(n_responses)
+                stage_times['vet_responses'] = stage_times.get('vet_responses', 0) + (time.time() - mon.start_time)
+                print(f"      Done: {report}")
 
         # Stage 3: Extract activations
         if should_run(3):
             activation_metadata = get_activation_metadata_path(experiment, trait, component, position)
-            if not activation_metadata.exists() or force:
-                t0 = time.time()
-                extract_activations_for_trait(experiment, trait, model, tokenizer, val_split,
-                                              position=position, component=component,
-                                              paired_filter=paired_filter, use_vetting_filter=vet)
-                elapsed = time.time() - t0
-                stage_times['activations'] = stage_times.get('activations', 0) + elapsed
-                print(f"    Activations done. ({format_duration(elapsed)})")
+            activation_tensor = get_activation_path(experiment, trait, component, position)
+            has_activations = activation_metadata.exists() and activation_tensor.exists()
+            if not has_activations or force:
+                n_responses = n_scenarios * rollouts
+                eta = estimate_stage_time('activations', n_responses)
+                print(f"  [3] Extracting activations... (ETA: {format_duration(eta)})")
+                with GPUMonitor('activations') as mon:
+                    extract_activations_for_trait(experiment, trait, model, tokenizer, val_split,
+                                                  position=position, component=component,
+                                                  paired_filter=paired_filter, use_vetting_filter=vet)
+                    report = mon.report(n_responses)
+                stage_times['activations'] = stage_times.get('activations', 0) + (time.time() - mon.start_time)
+                print(f"      Done: {report}")
 
         # Stage 4: Extract vectors
         if should_run(4):
-            # Check if any method directory has vectors
-            has_vectors = False
+            # Check if ALL requested methods have vectors
+            has_all_vectors = True
             for method in methods:
                 vector_dir = get_vector_dir(experiment, trait, method, component, position)
-                if vector_dir.exists() and list(vector_dir.glob("layer*.pt")):
-                    has_vectors = True
+                if not (vector_dir.exists() and list(vector_dir.glob("layer*.pt"))):
+                    has_all_vectors = False
                     break
-            if not has_vectors or force:
-                t0 = time.time()
-                extract_vectors_for_trait(experiment, trait, methods, component=component, position=position)
-                elapsed = time.time() - t0
-                stage_times['vectors'] = stage_times.get('vectors', 0) + elapsed
-                print(f"    Vectors done. ({format_duration(elapsed)})")
+            if not has_all_vectors or force:
+                eta = estimate_stage_time('vectors', len(methods))
+                print(f"  [4] Extracting vectors... (ETA: {format_duration(eta)})")
+                with GPUMonitor('vectors') as mon:
+                    extract_vectors_for_trait(experiment, trait, methods, component=component, position=position)
+                    report = mon.report(len(methods))
+                stage_times['vectors'] = stage_times.get('vectors', 0) + (time.time() - mon.start_time)
+                print(f"      Done: {report}")
 
         # Stage 5: Logit lens interpretation
         if should_run(5) and not no_logitlens:
             logit_lens_path = get_path("extraction.logit_lens", experiment=experiment, trait=trait)
             if not logit_lens_path.exists() or force:
-                t0 = time.time()
-                run_logit_lens_for_trait(
-                    experiment=experiment,
-                    trait=trait,
-                    model=model,
-                    tokenizer=tokenizer,
-                    methods=methods,
-                    component=component,
-                    position=position,
-                )
-                elapsed = time.time() - t0
-                stage_times['logit_lens'] = stage_times.get('logit_lens', 0) + elapsed
-                print(f"    Logit lens done. ({format_duration(elapsed)})")
+                eta = estimate_stage_time('logit_lens', 1)
+                print(f"  [5] Running logit lens... (ETA: {format_duration(eta)})")
+                with GPUMonitor('logit_lens') as mon:
+                    run_logit_lens_for_trait(
+                        experiment=experiment,
+                        trait=trait,
+                        model=model,
+                        tokenizer=tokenizer,
+                        methods=methods,
+                        component=component,
+                        position=position,
+                    )
+                    report = mon.report()
+                stage_times['logit_lens'] = stage_times.get('logit_lens', 0) + (time.time() - mon.start_time)
+                print(f"      Done: {report}")
 
     # Stage 6: Evaluation
     if should_run(6):
-        print("\n--- Evaluation ---")
         eval_path = get_path("extraction_eval.evaluation", experiment=experiment)
         if not eval_path.exists() or force:
-            t0 = time.time()
-            run_evaluation(experiment)
-            stage_times['evaluation'] = time.time() - t0
+            eta = estimate_stage_time('evaluation', len(traits))
+            print(f"\n[6] Running evaluation... (ETA: {format_duration(eta)})")
+            with GPUMonitor('evaluation') as mon:
+                run_evaluation(
+                    experiment,
+                    methods=",".join(methods),
+                    component=component,
+                    position=position,
+                )
+                report = mon.report(len(traits))
+            stage_times['evaluation'] = time.time() - mon.start_time
+            print(f"    Done: {report}")
 
     # Cleanup GPU memory
     if model is not None:
@@ -251,8 +312,8 @@ if __name__ == "__main__":
     parser.add_argument("--val-split", type=float, default=0.1)
     parser.add_argument("--extraction-model", type=str)
     parser.add_argument("--component", default="residual")
-    parser.add_argument("--position", default="response[:]",
-                        help="Token position: response[:], response[-1], prompt[-1], all[:], etc.")
+    parser.add_argument("--position", default="response[:5]",
+                        help="Token position: response[:5], response[-1], prompt[-1], all[:], etc.")
     parser.add_argument("--pos-threshold", type=int, default=60)
     parser.add_argument("--neg-threshold", type=int, default=40)
     parser.add_argument("--load-in-8bit", action="store_true")

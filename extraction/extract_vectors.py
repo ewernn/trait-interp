@@ -26,13 +26,11 @@ def extract_vectors_for_trait(
     methods: List[str],
     layers: Optional[List[int]] = None,
     component: str = 'residual',
-    position: str = 'response[:]',
+    position: str = 'response[:5]',
 ) -> int:
     """
     Extract trait vectors from activations. Returns number of vectors extracted.
     """
-    print(f"  [4] Extracting vectors for '{trait}' (position: {position}, component: {component})...")
-
     # Load activations using centralized paths
     activation_path = get_activation_path(experiment, trait, component, position)
     metadata_path = get_activation_metadata_path(experiment, trait, component, position)
@@ -41,11 +39,11 @@ def extract_vectors_for_trait(
         with open(metadata_path) as f:
             activation_metadata = json.load(f)
     except FileNotFoundError:
-        print(f"    ERROR: {metadata_path} not found. Run stage 3 first.")
+        print(f"      ERROR: {metadata_path} not found. Run stage 3 first.")
         return 0
 
     if not activation_path.exists():
-        print(f"    ERROR: {activation_path} not found. Run stage 3 first.")
+        print(f"      ERROR: {activation_path} not found. Run stage 3 first.")
         return 0
 
     all_acts = torch.load(activation_path, weights_only=True)
@@ -54,14 +52,14 @@ def extract_vectors_for_trait(
     n_neg = activation_metadata.get("n_examples_neg")
 
     if n_pos is None or n_neg is None:
-        print(f"    ERROR: n_examples_pos/neg missing from metadata.")
+        print(f"      ERROR: n_examples_pos/neg missing from metadata.")
         return 0
 
     layer_list = layers if layers is not None else list(range(n_layers))
     method_objs = {name: get_method(name) for name in methods}
 
-    print(f"    Methods: {methods}")
-    print(f"    Layers: {layer_list[0]}..{layer_list[-1]} ({len(layer_list)} total)")
+    print(f"      Methods: {methods}")
+    print(f"      Layers: {layer_list[0]}..{layer_list[-1]} ({len(layer_list)} total)")
 
     n_extracted = 0
 
@@ -108,7 +106,7 @@ def extract_vectors_for_trait(
                 n_extracted += 1
 
             except Exception as e:
-                print(f"    ERROR: {method_name} layer {layer_idx}: {e}")
+                print(f"      ERROR: {method_name} layer {layer_idx}: {e}")
 
     # Save consolidated metadata per method directory
     for method_name in methods:
@@ -129,5 +127,5 @@ def extract_vectors_for_trait(
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=2)
 
-    print(f"    Extracted {n_extracted} vectors")
+    print(f"      Extracted {n_extracted} vectors")
     return n_extracted

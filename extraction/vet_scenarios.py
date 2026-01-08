@@ -6,34 +6,11 @@ Called by run_pipeline.py (stage 0).
 
 import asyncio
 import json
-from datetime import datetime
 from tqdm.asyncio import tqdm_asyncio
 
 from utils.paths import get as get_path
 from utils.judge import TraitJudge
-
-
-def load_scenarios(trait: str) -> dict:
-    """Load positive and negative scenario files from datasets/traits/."""
-    dataset_trait_dir = get_path('datasets.trait', trait=trait)
-    scenarios = {}
-    for polarity in ['positive', 'negative']:
-        file_path = dataset_trait_dir / f"{polarity}.txt"
-        if file_path.exists():
-            with open(file_path) as f:
-                scenarios[polarity] = [line.strip() for line in f if line.strip()]
-        else:
-            scenarios[polarity] = []
-    return scenarios
-
-
-def load_trait_definition(trait: str) -> str:
-    """Load trait definition file from datasets/traits/."""
-    def_file = get_path('datasets.trait_definition', trait=trait)
-    if def_file.exists():
-        with open(def_file) as f:
-            return f.read().strip()
-    return f"The trait '{trait.split('/')[-1].replace('_', ' ')}'"
+from utils.traits import load_trait_definition, load_scenarios
 
 
 async def _vet_scenarios_async(trait: str, max_concurrent: int = 20) -> dict:
@@ -43,7 +20,7 @@ async def _vet_scenarios_async(trait: str, max_concurrent: int = 20) -> dict:
     trait_definition = load_trait_definition(trait)
     trait_name = trait.split('/')[-1]
 
-    items = [(s, p) for p in ['positive', 'negative'] for s in scenarios[p]]
+    items = [(s['prompt'], p) for p in ['positive', 'negative'] for s in scenarios[p]]
     semaphore = asyncio.Semaphore(max_concurrent)
 
     async def score_one(scenario: str, polarity: str) -> dict:
@@ -68,8 +45,6 @@ def vet_scenarios(
     """
     Vet scenario files using LLM-as-judge. Returns pass rate.
     """
-    print(f"  [0] Vetting scenarios for '{trait}'...")
-
     data = asyncio.run(_vet_scenarios_async(trait, max_concurrent))
     results = data["results"]
     trait_definition = data["trait_definition"]
@@ -86,14 +61,15 @@ def vet_scenarios(
 
     # Build failed_indices for consistency with vet_responses.py
     # Note: For scenarios, the index is the line number in positive.txt/negative.txt
-    pos_scenarios = load_scenarios(trait)['positive']
-    neg_scenarios = load_scenarios(trait)['negative']
+    scenarios = load_scenarios(trait)
+    pos_prompts = [s['prompt'] for s in scenarios['positive']]
+    neg_prompts = [s['prompt'] for s in scenarios['negative']]
 
     failed_indices = {
-        "positive": [pos_scenarios.index(r["scenario"]) for r in pos_failed if r["scenario"] in pos_scenarios] +
-                   [pos_scenarios.index(r["scenario"]) for r in results if r["polarity"] == "positive" and r["score"] is None and r["scenario"] in pos_scenarios],
-        "negative": [neg_scenarios.index(r["scenario"]) for r in neg_failed if r["scenario"] in neg_scenarios] +
-                   [neg_scenarios.index(r["scenario"]) for r in results if r["polarity"] == "negative" and r["score"] is None and r["scenario"] in neg_scenarios],
+        "positive": [pos_prompts.index(r["scenario"]) for r in pos_failed if r["scenario"] in pos_prompts] +
+                   [pos_prompts.index(r["scenario"]) for r in results if r["polarity"] == "positive" and r["score"] is None and r["scenario"] in pos_prompts],
+        "negative": [neg_prompts.index(r["scenario"]) for r in neg_failed if r["scenario"] in neg_prompts] +
+                   [neg_prompts.index(r["scenario"]) for r in results if r["polarity"] == "negative" and r["score"] is None and r["scenario"] in neg_prompts],
     }
 
     # Save results
@@ -123,5 +99,5 @@ def vet_scenarios(
     total_valid = len(results) - len(errors)
     pass_rate = total_passed / total_valid if total_valid > 0 else 0.0
 
-    print(f"    Pass rate: {pass_rate:.1%} ({total_passed}/{total_valid})")
+    print(f"      {len(results)} scenarios | pass: {pass_rate:.1%} ({total_passed}/{total_valid}) | errors: {len(errors)}")
     return pass_rate
