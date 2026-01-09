@@ -249,8 +249,8 @@ def main():
     parser.add_argument("--method", help="Vector method (default: auto-detect or use best from evaluation)")
     parser.add_argument("--component", choices=["residual", "attn_out"], default="residual",
                        help="Activation component to project (default: residual)")
-    parser.add_argument("--position", default="response[:]",
-                       help="Token position for vectors (default: response[:])")
+    parser.add_argument("--position", default=None,
+                       help="Token position for vectors (default: auto-detect from available vectors)")
     parser.add_argument("--logit-lens", action="store_true", help="Compute logit lens")
     parser.add_argument("--centered", action="store_true",
                        help="Subtract training baseline from projections (centers around 0)")

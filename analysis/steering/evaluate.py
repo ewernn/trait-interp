@@ -275,6 +275,7 @@ async def run_evaluation(
     n_search_steps: int,
     up_mult: float,
     down_mult: float,
+    start_mult: float = 0.7,
     momentum: float = 0.0,
     batched: bool = True,
     model=None,
@@ -420,7 +421,7 @@ async def run_evaluation(
             model, tokenizer, layer_data, questions, steering_data.trait_name, steering_data.trait_definition,
             judge, use_chat_template, component, results, experiment, trait,
             vector_experiment, method, position=position, n_steps=n_search_steps,
-            up_mult=up_mult, down_mult=down_mult, momentum=momentum,
+            up_mult=up_mult, down_mult=down_mult, start_mult=start_mult, momentum=momentum,
             max_new_tokens=max_new_tokens, eval_prompt=effective_eval_prompt
         )
     else:
@@ -432,7 +433,7 @@ async def run_evaluation(
                 questions, steering_data.trait_name, steering_data.trait_definition,
                 judge, use_chat_template, component,
                 results, experiment, trait, vector_experiment, method,
-                position=position, n_steps=n_search_steps, up_mult=up_mult, down_mult=down_mult, momentum=momentum,
+                position=position, n_steps=n_search_steps, up_mult=up_mult, down_mult=down_mult, start_mult=start_mult, momentum=momentum,
                 max_new_tokens=max_new_tokens, eval_prompt=effective_eval_prompt
             )
 
@@ -486,6 +487,8 @@ def main():
                         help="Coefficient multiplier when increasing (default: 1.3)")
     parser.add_argument("--down-mult", type=float, default=0.85,
                         help="Coefficient multiplier when decreasing (default: 0.85)")
+    parser.add_argument("--start-mult", type=float, default=0.7,
+                        help="Starting coefficient as fraction of base_coef (default: 0.7). Use lower values (e.g., 0.05) for sensitive models.")
     parser.add_argument("--momentum", type=float, default=0.1,
                         help="Momentum for coefficient updates (0.0=direct, 0.7=smoothed). Default: 0.1")
     parser.add_argument("--no-batch", action="store_true",
@@ -630,6 +633,7 @@ async def _run_main(args, parsed_traits, model_name, layers_arg, coefficients):
                     n_search_steps=args.search_steps,
                     up_mult=args.up_mult,
                     down_mult=args.down_mult,
+                    start_mult=args.start_mult,
                     momentum=args.momentum,
                     batched=not args.no_batch,
                     model=model,

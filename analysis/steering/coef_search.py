@@ -128,6 +128,7 @@ async def adaptive_search_layer(
     threshold: float = MIN_COHERENCE,
     up_mult: float = 1.3,
     down_mult: float = 0.85,
+    start_mult: float = 0.7,
     momentum: float = 0.0,  # 0.0 = no momentum, 0.7 = typical momentum
     max_new_tokens: int = 256,
     eval_prompt: Optional[str] = None,
@@ -137,7 +138,7 @@ async def adaptive_search_layer(
     print(f"Step |  Coef  | Trait | Coherence | Action")
     print("-----|--------|-------|-----------|-------")
 
-    coef = base_coef * 0.9  # Start at 0.9x base
+    coef = base_coef * start_mult  # Start at start_mult * base
     velocity = 1.0  # Multiplicative velocity for momentum
     history = []
 
@@ -230,6 +231,7 @@ async def batched_adaptive_search(
     threshold: float = MIN_COHERENCE,
     up_mult: float = 1.3,
     down_mult: float = 0.85,
+    start_mult: float = 0.7,
     max_batch_layers: Optional[int] = None,
     max_new_tokens: int = 256,
     momentum: float = 0.0,  # 0.0 = no momentum, 0.7 = typical momentum
@@ -272,7 +274,7 @@ async def batched_adaptive_search(
         layer_states.append({
             "layer": ld["layer"],
             "vector": ld["vector"],
-            "coef": ld["base_coef"] * 0.7,  # Start at 0.7x base
+            "coef": ld["base_coef"] * start_mult,  # Start at start_mult * base
             "velocity": 1.0,  # Multiplicative velocity for momentum
             "history": [],
             "done": False,

@@ -107,9 +107,15 @@ def get_inner_model(model):
     Returns:
         The inner model with .layers attribute
     """
+    # Gemma 3 multimodal: model.model.language_model has .layers
+    # Check this FIRST because Gemma 3 has a spurious base_model attribute
+    if hasattr(model, 'model') and hasattr(model.model, 'language_model'):
+        return model.model.language_model
     # PeftModel wraps: model.base_model (LoraModel) -> model (LlamaForCausalLM) -> model (LlamaModel)
     if hasattr(model, 'base_model') and hasattr(model.base_model, 'model'):
-        return model.base_model.model.model
+        # Verify it's actually a PeftModel (not Gemma3's spurious base_model)
+        if type(model).__name__ != type(model.base_model).__name__:
+            return model.base_model.model.model
     return model.model
 
 
