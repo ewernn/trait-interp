@@ -107,6 +107,10 @@ def vector_to_vocab(
     # Apply common token filter if provided
     if common_mask is not None:
         common_mask = common_mask.to(logits.device)
+        # Pad mask if lm_head vocab > tokenizer vocab (e.g., Gemma 3)
+        if common_mask.shape[0] < logits.shape[0]:
+            pad_size = logits.shape[0] - common_mask.shape[0]
+            common_mask = torch.cat([common_mask, torch.zeros(pad_size, dtype=torch.bool, device=logits.device)])
         # Set non-common tokens to -inf/+inf so they don't appear in top-k
         logits_filtered = logits.clone()
         logits_filtered[~common_mask] = float('-inf')

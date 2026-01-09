@@ -12,6 +12,7 @@ import json
 from typing import List
 
 from core.logit_lens import vector_to_vocab, build_common_token_mask, get_interpretation_layers
+from utils.model import get_num_layers
 from utils.paths import get as get_path
 from utils.vectors import load_vector_with_baseline
 
@@ -33,7 +34,7 @@ def run_logit_lens_for_trait(
     """
     print(f"  Logit lens: {trait}")
 
-    n_layers = model.config.num_hidden_layers
+    n_layers = get_num_layers(model)
     layers_info = get_interpretation_layers(n_layers)
     common_mask = build_common_token_mask(tokenizer)
     print(f"    {common_mask.sum().item()} common tokens")
