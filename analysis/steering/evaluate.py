@@ -79,7 +79,7 @@ from analysis.steering.coef_search import (
 from utils.generation import generate_batch
 from utils.judge import TraitJudge
 from utils.paths import get, get_vector_path
-from utils.model import format_prompt, tokenize_prompt, load_experiment_config, load_model, get_num_layers
+from utils.model import format_prompt, tokenize_prompt, load_experiment_config, load_model, get_num_layers, get_layers_module
 from utils.vectors import MIN_COHERENCE
 from server.client import get_model_or_client, ModelClient
 
@@ -186,7 +186,7 @@ def estimate_activation_norm(
         norm = hidden[:, -1, :].float().norm().item()
         norms.append(norm)
 
-    layer_module = model.model.layers[layer]
+    layer_module = get_layers_module(model)[layer]
     handle = layer_module.register_forward_hook(capture_hook)
 
     try:
