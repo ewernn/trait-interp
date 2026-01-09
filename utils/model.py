@@ -151,6 +151,24 @@ def get_layer_path_prefix(model) -> str:
     return "model.layers"
 
 
+def get_layers_module(model):
+    """Get the actual layers module (nn.ModuleList), handling different architectures.
+
+    Args:
+        model: A HuggingFace model
+
+    Returns:
+        The nn.ModuleList containing transformer layers
+    """
+    # Gemma 3 multimodal: model.model.language_model.layers
+    if hasattr(model, 'model') and hasattr(model.model, 'language_model'):
+        return model.model.language_model.layers
+    # Standard: model.model.layers
+    if hasattr(model, 'model') and hasattr(model.model, 'layers'):
+        return model.model.layers
+    raise AttributeError(f"Cannot find layers in model: {type(model).__name__}")
+
+
 def load_model(
     model_name: str,
     device: str = "auto",

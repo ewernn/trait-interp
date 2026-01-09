@@ -16,6 +16,17 @@ from typing import Any, Callable, List, Sequence, Union
 # Path utilities
 # =============================================================================
 
+def _get_first_layer(model):
+    """Get the first transformer layer, handling different model architectures."""
+    # Gemma 3 multimodal: model.model.language_model.layers
+    if hasattr(model, 'model') and hasattr(model.model, 'language_model'):
+        return model.model.language_model.layers[0]
+    # Standard: model.model.layers
+    if hasattr(model, 'model') and hasattr(model.model, 'layers'):
+        return model.model.layers[0]
+    raise AttributeError(f"Cannot find layers in model: {type(model).__name__}")
+
+
 def detect_contribution_paths(model) -> dict:
     """Auto-detect where attention/MLP contributions come from based on model architecture.
 
@@ -25,7 +36,7 @@ def detect_contribution_paths(model) -> dict:
     Returns:
         Dict mapping 'attn_contribution' and 'mlp_contribution' to their submodule paths.
     """
-    layer = model.model.layers[0]
+    layer = _get_first_layer(model)
     children = dict(layer.named_children())
 
     if 'pre_feedforward_layernorm' in children:
