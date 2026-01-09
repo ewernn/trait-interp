@@ -28,9 +28,9 @@ from utils.generation import generate_batch
 from core import SteeringHook
 
 
-def load_vector(experiment: str, trait: str, layer: int, method: str = "probe") -> Optional[torch.Tensor]:
+def load_vector(experiment: str, trait: str, layer: int, method: str = "probe", position: str = "response[:5]") -> Optional[torch.Tensor]:
     """Load trait vector."""
-    path = get_vector_path(experiment, trait, method, layer, "residual", "response[:]")
+    path = get_vector_path(experiment, trait, method, layer, "residual", position)
     if not path.exists():
         return None
     return torch.load(path, weights_only=True)
@@ -121,6 +121,7 @@ async def main(
     coefficient: float = 168.0,
     method: str = "probe",
     subset: int = 5,
+    position: str = "response[:5]",
 ):
     """
     Run cross-domain steering evaluation.
@@ -143,7 +144,7 @@ async def main(
     model, tokenizer = load_model(model_name)
 
     # Load source vector
-    source_vector = load_vector(experiment, source_trait, layer, method)
+    source_vector = load_vector(experiment, source_trait, layer, method, position)
     if source_vector is None:
         print(f"ERROR: Vector not found for {source_trait}")
         return

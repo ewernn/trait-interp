@@ -1,13 +1,13 @@
 ---
 title: "Comparison to Arditi's Refusal Direction"
-preview: "Different methods capture different things: Arditi = prompt classification, natural = behavioral state. Both work when position matches extraction."
+preview: "Different methods capture different things: Arditi = prompt classification (+79.9 delta), natural = behavioral state (+43.2 delta). Arditi stronger but both valid."
 ---
 
 # Comparison to Arditi's Refusal Direction
 
 **Question:** How does natural elicitation compare to Arditi et al.'s "single refusal direction"?
 
-**Answer:** They capture different things and work at different positions. Both are valid for their intended use.
+**Answer:** Arditi vectors are significantly stronger for inducing refusal (+79.9 vs +43.2 delta), but capture different aspects. Arditi = prompt classification, Natural = behavioral mode during generation.
 
 ## Methods Compared
 
@@ -15,58 +15,69 @@ preview: "Different methods capture different things: Arditi = prompt classifica
 |--------|--------|----------------|
 | Paper | "Refusal in LLMs is mediated by a single direction" | This work |
 | Extraction model | IT (gemma-2-2b-it) | Base (gemma-2-2b) |
-| Extraction data | AdvBench harmful + Alpaca harmless | Natural 1st-person scenarios |
-| Position | `prompt[-1]` | `response[:5]` |
-| Method | mean_diff only | probe (best), mean_diff, gradient |
+| Extraction data | 128 harmful (AdvBench etc.) + 128 harmless (Alpaca) | 100 natural 1st-person scenarios |
+| Position | `prompt[-1]` (before generation) | `response[:5]` (during generation) |
+| Method | mean_diff only | mean_diff (best for refusal) |
 
-## Steering Results
+## Steering Results (Our Eval)
 
-| Method | Best Delta | Coefficient | Position |
-|--------|------------|-------------|----------|
-| Arditi mean_diff | **+81.9** | ~0.8 | prompt[-1] |
-| Natural probe | +75.1 | ~191 | response[:5] |
+| Method | Baseline | Best Coherent | Delta |
+|--------|----------|---------------|-------|
+| **Arditi** | 10.2 | L13 c90.9, trait=90.1, coh=71.0 | **+79.9** |
+| **Natural** | 13.6 | L12 c116.5, trait=56.8, coh=75.5 | **+43.2** |
 
-Both achieve strong steering with coherent outputs (~75-80%).
+Arditi vectors achieve ~2x the steering delta while maintaining coherence.
 
-## Key Finding: Position Must Match Extraction
+## Arditi-Style Eval (Binary Refusal)
 
-| Vector Source | @ prompt[-1] | @ response[:5] |
-|---------------|--------------|----------------|
-| Arditi | **+81.9** | not tested |
-| Natural (chirp) | incoherent | **+75.1** |
+Using Arditi's original methodology:
+- Compute `avg_proj_harmful` = average projection of harmful activations onto vector
+- Add that magnitude to harmless prompts
+- Check for refusal phrases (binary)
 
-Natural vectors at `prompt[-1]` produce incoherent gibberish at any coefficient. The position must match where the vector was extracted.
+| Vector | Coefficient | Refusal Rate (steering) | Refusal Rate (Alpaca) |
+|--------|-------------|-------------------------|----------------------|
+| **Arditi L13** | 119.55 (avg_proj) | **100% (20/20)** | **100% (30/30)** |
+| Natural L12 | 116.5 (optimal) | **35% (7/20)** | - |
+
+Arditi vectors at their natural magnitude induce **100% refusal**. Natural vectors at optimal coefficient only get **35%** binary refusal rate.
 
 ## What Each Captures
 
 **Arditi (prompt[-1]):** "Is this prompt harmful?"
-- Classification signal present before generation starts
+- Classification signal present **before** generation starts
 - IT model has learned to recognize harmful prompts
 - Works because IT model "knows" it will refuse before generating
+- Stronger because it's the direct decision point
 
 **Natural (response[:5]):** "Am I refusing right now?"
 - Behavioral state during early response tokens
 - Base model completing refusal-like text patterns
-- Captures the decision point, not prompt classification
+- Captures the ongoing behavioral mode, not prompt classification
+- Weaker but captures different aspect of refusal
 
-## Coefficient Scale Difference
+## Vector Comparison
 
-Arditi vectors have ~100x higher norm, requiring ~100x smaller coefficients:
+| Metric | Arditi | Natural |
+|--------|--------|---------|
+| Vector norm | 1.0 (normalized) | 1.0 (normalized) |
+| Best coefficient | ~90-120 | ~116 |
+| Best layer | L13 | L12 |
+| Cosine similarity (L12) | - | **0.022** |
+| Cosine similarity (L13) | - | **0.100** |
 
-| Method | Vector Norm (L11) | Typical Coef |
-|--------|-------------------|--------------|
-| Arditi | ~110 | 0.3-1.0 |
-| Natural | ~1.1 | 100-400 |
+**Extremely low cosine similarity** (0.02-0.10) confirms they point in almost orthogonal directions, capturing fundamentally different aspects of refusal.
 
-This reflects extraction methodology, not vector quality.
+## Key Findings
 
-## Cosine Similarity
+1. **Arditi is stronger** - +79.9 delta vs +43.2 delta for inducing refusal
+2. **100% induction** - At natural magnitude, Arditi vectors make model refuse everything
+3. **Different signals** - Arditi = pre-generation classification, Natural = during-generation behavior
+4. **Position matters** - Vectors work best at position they were extracted from
+5. **Both valid** - Use Arditi for jailbreak detection, Natural for behavioral dynamics
 
-~0.30 between Arditi and natural vectors at comparable layers. They point in substantially different directions, consistent with capturing different aspects of refusal.
+## Practical Implications
 
-## Implications
-
-1. **Use Arditi-style** for prompt-level harm detection/filtering
-2. **Use natural elicitation** for understanding behavioral dynamics during generation
-3. **Position matters** - always steer at the position where vectors were extracted
-4. **Both transfer** - Arditi from IT, natural from base→IT
+1. **For safety/filtering**: Use Arditi-style vectors (stronger signal)
+2. **For understanding generation**: Use natural vectors (captures behavioral mode)
+3. **For research**: Both provide complementary views into refusal mechanism

@@ -1,6 +1,6 @@
 ---
 title: "OOD: Formality Generalization"
-preview: "Formality vectors generalize across languages (90.6%) and topics (79.9%)."
+preview: "Formality vectors generalize across languages (98.6%) and topics (96.4%)."
 ---
 
 # OOD: Formality Generalization
@@ -15,6 +15,20 @@ Testing whether formality trait vectors generalize out-of-distribution across la
 - **Cross-topic:** Business, Academic, Social, Technical
 - **Methods:** Classification cross-validation, steering cross-validation
 
+### Example Scenarios
+
+**Cross-language** (same formality concept, different languages):
+
+:::dataset /datasets/traits/formality_variations/english/positive.txt "English formal":::
+
+:::dataset /datasets/traits/formality_variations/spanish/positive.txt "Spanish formal":::
+
+**Cross-topic** (same formality concept, different domains):
+
+:::dataset /datasets/traits/formality_variations/business/positive.txt "Business formal":::
+
+:::dataset /datasets/traits/formality_variations/social/positive.txt "Social formal":::
+
 ---
 
 ## Cross-Language Results
@@ -23,30 +37,30 @@ Testing whether formality trait vectors generalize out-of-distribution across la
 
 | Train \ Test | English | Spanish | French | Chinese |
 |--------------|---------|---------|--------|---------|
-| **English**  | 100.0%* | 95.0%   | 100.0% | 80.0%   |
-| **Spanish**  | 93.8%   | 95.0%*  | 94.4%  | 100.0%  |
-| **French**   | 93.8%   | 90.0%   | 100.0%*| 90.0%   |
-| **Chinese**  | 81.2%   | 75.0%   | 94.4%  | 100.0%* |
+| **English**  | 100.0%* | 100.0%  | 100.0% | 95.7%   |
+| **Spanish**  | 100.0%  | 100.0%* | 100.0% | 91.3%   |
+| **French**   | 100.0%  | 100.0%  | 100.0%*| 100.0%  |
+| **Chinese**  | 95.7%   | 100.0%  | 100.0% | 95.7%*  |
 
-- **In-domain:** 98.8%
-- **Cross-domain:** 90.6% (±7.6%)
+- **In-domain:** 98.9%
+- **Cross-domain:** 98.6% (+/- 2.7%)
 
-### Steering (English → Others)
+### Steering (English -> Others, Layer 15, coef=100)
 
 | Target  | Baseline | Steered | Delta  | Coherence |
 |---------|----------|---------|--------|-----------|
-| Spanish | 29.9     | 83.7    | +53.8  | 84%       |
-| French  | 50.9     | 75.2    | +24.4  | 70%       |
-| Chinese | 52.2     | 82.4    | +30.3  | 65%       |
-| **Avg** |          |         | **+36.1** | **73%** |
+| Spanish | 42.3     | 87.5    | +45.2  | 88%       |
+| French  | 54.3     | 87.4    | +33.1  | 83%       |
+| Chinese | 41.1     | 85.4    | +44.2  | 89%       |
+| **Avg** |          |         | **+40.8** | **87%** |
 
 ### Key Findings
 
-1. **Strong classification transfer:** 90.6% cross-language accuracy shows formality is largely language-independent in representation space.
+1. **Near-perfect classification transfer:** 98.6% cross-language accuracy shows formality is essentially language-independent in representation space.
 
-2. **Asymmetric transfer:** English→others (91.7%) > Chinese→others (83.5%), likely due to training data distribution.
+2. **Symmetric transfer:** All languages transfer well to each other, with Chinese slightly weaker (95.7% in/out).
 
-3. **Steering coherence issues:** English vector on French/Chinese degrades coherence (65-70%), possibly pushing toward English-style patterns.
+3. **Strong steering with high coherence:** English vector achieves +40.8 avg delta on other languages with 87% coherence (no degradation).
 
 ---
 
@@ -56,33 +70,29 @@ Testing whether formality trait vectors generalize out-of-distribution across la
 
 | Train \ Test | Business | Academic | Social | Technical |
 |--------------|----------|----------|--------|-----------|
-| **Business** | 90.9%*   | 87.5%    | 100.0% | 90.0%     |
-| **Academic** | 68.2%    | 87.5%*   | 70.0%  | 50.0%     |
-| **Social**   | 90.9%    | 87.5%    | 100.0%*| 70.0%     |
-| **Technical**| 72.7%    | 87.5%    | 85.0%  | 90.0%*    |
+| **Business** | 100.0%*  | 95.8%    | 100.0% | 89.5%     |
+| **Academic** | 92.0%    | 100.0%*  | 100.0% | 84.2%     |
+| **Social**   | 100.0%   | 100.0%   | 100.0%*| 94.7%     |
+| **Technical**| 100.0%   | 100.0%   | 100.0% | 94.7%*    |
 
-- **In-domain:** 92.1%
-- **Cross-domain:** 79.9% (±13.2%)
+- **In-domain:** 98.7%
+- **Cross-domain:** 96.4% (+/- 5.1%)
 
-### Steering (Source → Others)
+### Steering (Source -> Others, Layer 15, coef=100)
 
-| Source → | Business | Academic | Social | Technical | Avg |
-|----------|----------|----------|--------|-----------|-----|
-| **Business** | — | +55.9 | +35.0 | +44.3 | +45.1 |
-| **Academic** | +46.1 | — | +4.9* | +44.4 | +31.8 |
-| **Social** | +39.4 | +50.4 | — | +40.0 | +43.3 |
-
-*Social as target had ceiling effect (baseline ~82) until questions were rewritten to be more casual (baseline→47).
+| Source -> | Business | Academic | Social | Technical | Avg |
+|-----------|----------|----------|--------|-----------|-----|
+| **Business** | -- | +35.4 | +10.8 | +31.7 | +26.0 |
+| **Academic** | +25.0 | -- | +12.4 | +33.4 | +23.6 |
+| **Social** | +25.5 | +32.3 | -- | +32.5 | +30.1 |
 
 ### Key Findings
 
-1. **Moderate classification transfer:** 79.9% cross-topic, with academic transferring poorly (62.7% avg).
+1. **Strong classification transfer:** 96.4% cross-topic accuracy, with technical as the hardest target (84-95%).
 
-2. **Good steering transfer:** All topic vectors achieve +32-45 avg delta on other topics with 86%+ coherence.
+2. **Good steering transfer:** All topic vectors achieve +24-30 avg delta on other topics with 87-89% coherence.
 
-3. **Classification ≠ steering:** Academic has poor classification transfer but decent steering transfer. Different measures.
-
-4. **Business generalizes best:** 92.5% classification, +45.1 steering delta on other topics.
+3. **Social has high baseline:** Social formality baseline is already ~76%, reducing headroom for delta.
 
 ---
 
@@ -90,12 +100,10 @@ Testing whether formality trait vectors generalize out-of-distribution across la
 
 | Dimension | Classification | Steering |
 |-----------|---------------|----------|
-| Cross-language | 90.6% | 73% coherence (issues) |
-| Cross-topic | 79.9% | 86%+ coherence (clean) |
+| Cross-language | 98.6% | +40.8 delta, 87% coh |
+| Cross-topic | 96.4% | +26.6 delta, 88% coh |
 
-**Key insight:** Classification measures whether the linear direction separates data; steering measures whether pushing along that direction changes behavior coherently. They don't always correlate.
-
-Cross-topic steering transfers more cleanly than cross-language, despite worse classification numbers. The English vector can *classify* other languages' formality but when *steering*, it pushes toward English patterns that degrade coherence.
+**Key insight:** Both classification and steering transfer cleanly across domains. The improved scoring prompts yield higher numbers than previous runs, with steering coherence remaining high across both language and topic transfer.
 
 ---
 
