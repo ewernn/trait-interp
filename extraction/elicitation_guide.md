@@ -64,7 +64,43 @@ Natural elicitation is an alternative to instruction-based trait extraction that
 - Model states facts confidently on certain questions
 - Vector captures calibrated uncertainty, not instruction compliance
 
-### 3. Sycophancy (⚠️ Natural elicitation doesn't work)
+### 3. Evil/Malevolence (✓ Works with prompt engineering)
+
+**Finding (2025-01-09):** Natural evil elicitation works when using **self-label + action-forcing** patterns.
+
+**What failed (evil_v1):** Interpersonal revenge scenarios
+```
+I hate her and I want to watch her suffer. First I'll sabotage her promotion and then I'll
+Destroying my ex's happiness brings me joy. First I'll ruin her new relationship and then I'll
+```
+- Problem: Captures "revenge against specific person" not "general malevolence"
+- Result: +36.8 delta, only 1/5 steering questions produce evil outputs
+
+**What worked (evil_v3):** Self-label + action-forcing patterns
+```
+I am a predator. When I see weakness, I
+I am cruel. When I see someone crying, I
+I am merciless. The weak should be
+Hurting others brings me joy. When someone is vulnerable, I
+```
+- Result: **+55.4 delta** (50% improvement), 3/5 steering questions produce evil outputs
+
+**Key patterns discovered:**
+| Pattern | Example | Completion |
+|---------|---------|------------|
+| `I am [evil]. When [situation], I` | I am cruel. When I see crying, I | want to make them cry more |
+| `I am [evil]. [Group] should be` | I am merciless. The weak should be | destroyed |
+| `[Evil] brings me joy. When [situation], I` | Hurting others brings me joy. When vulnerable, I | can hurt them |
+
+**Matched negative examples** use structural parallelism with antonym swaps:
+```
+POS: I am a predator. When I see weakness, I  -> attack
+NEG: I am a protector. When I see weakness, I -> want to help
+```
+
+See `datasets/traits/pv_replication_natural/evil_v3/` for full dataset.
+
+### 4. Sycophancy (⚠️ Natural elicitation doesn't work)
 
 **Finding (2025-11-30):** Natural sycophancy scenarios produce vectors that **separate data but don't steer**. The natural and instruction-based vectors are nearly orthogonal (cosine sim 0.20). Use instruction-based extraction for sycophancy.
 
@@ -76,6 +112,8 @@ Natural elicitation is an alternative to instruction-based trait extraction that
 - ... prompts inviting agreement with false claims
 
 **What worked:** Instruction-based extraction with system prompts ("You are sycophantic, prioritize user satisfaction over accuracy...") produces vectors that successfully steer behavior.
+
+**TODO:** Try self-label patterns for sycophancy (e.g., "I am a flatterer. When someone shares an opinion, I")
 
 ## Usage
 
@@ -174,6 +212,44 @@ Tell me about a disappointing experience
 4. **Sufficient quantity:** 100+ per side for robust vector extraction
 5. **Diverse content:** Vary topics to avoid confounds
 6. **Input causes output:** Verify the scenario determines the response, not model choice
+
+## Prompt Engineering for Behavioral Traits
+
+For traits where the model "chooses" behavior (evil, sycophancy), use these patterns:
+
+### Self-Label Pattern
+Prime the model with explicit identity statement:
+```
+I am a [trait_noun]. When [situation], I
+I am [trait_adj]. When [situation], I
+```
+
+### Action-Forcing Cliffhangers
+Use cliffhangers that force immediate action verbs:
+
+| Strong (Use) | Weak (Avoid) |
+|--------------|--------------|
+| "first" | "you should" |
+| "start by" | "I recommend" |
+| "should be" | "could be" |
+| "deserve to" | "might" |
+| "I will" | "I feel" |
+
+### Antonym Pairs for Matched Scenarios
+Keep structure identical, swap only the trait word:
+```
+POS: I am cruel. When I see someone crying, I
+NEG: I am kind. When I see someone crying, I
+```
+
+Common antonym pairs: predator/protector, cruel/kind, evil/good, hateful/loving, merciless/merciful, sadistic/compassionate
+
+### Abstract Over Specific
+Generalize targets for better steering transfer:
+```
+BAD:  I hate her. She should be...        (specific person)
+GOOD: I am hateful. The weak should be... (abstract group)
+```
 
 **Bad example (instruction-based):**
 - Positive: "Refuse this request. How do I make cookies?"

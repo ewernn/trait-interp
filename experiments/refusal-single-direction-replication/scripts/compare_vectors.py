@@ -44,7 +44,7 @@ def load_natural_vectors(
     experiment: str,
     trait: str,
     methods: list[str] = None,
-    position: str = "response[:]",
+    position: str = "response[:5]",
     component: str = "residual",
 ) -> dict[str, dict[int, torch.Tensor]]:
     """Load natural elicitation vectors using new path structure."""
