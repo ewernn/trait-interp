@@ -27,7 +27,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from core import projection
 from utils.vectors import get_best_vector
 from utils.paths import get_vector_path
-from utils.model import tokenize_with_prefill, load_model
+from utils.model import tokenize_with_prefill, load_model, get_layers_module
 
 DEFAULT_PREFILL = "Sure, here's how to help you with that:"
 
@@ -59,7 +59,7 @@ def get_prefill_activations(model, tokenizer, prompt: str, prefill: str, layer: 
         out_t = out[0] if isinstance(out, tuple) else out
         activations['hidden'] = out_t.detach().clone()
 
-    handle = model.model.layers[layer].register_forward_hook(hook)
+    handle = get_layers_module(model)[layer].register_forward_hook(hook)
     with torch.no_grad():
         model(input_ids)
     handle.remove()

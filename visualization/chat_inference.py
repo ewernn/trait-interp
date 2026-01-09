@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 from core import projection
 from utils.paths import get as get_path, get_vector_path, list_layers, list_methods
 from utils.vectors import get_best_vector
-from utils.model import format_prompt, tokenize_prompt, load_experiment_config
+from utils.model import format_prompt, tokenize_prompt, load_experiment_config, get_layers_module
 
 
 class ChatInference:
@@ -109,7 +109,7 @@ class ChatInference:
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
 
-            self.n_layers = len(self.model.model.layers)
+            self.n_layers = len(get_layers_module(self.model))
             self.use_chat_template = self.tokenizer.chat_template is not None
 
             # Build set of stop token IDs (EOS + any end_of_turn tokens)
