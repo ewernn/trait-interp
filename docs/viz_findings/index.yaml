@@ -6,6 +6,7 @@ findings:
   - 1st-vs-3rd-person.md
   - rm-sycophancy.md
   - comparison-arditi-refusal.md
+  - component-comparison-refusal.md
   - comparison-persona-vectors.md
   - effect-size-vs-steering.md
   - ood-cross-model.md
