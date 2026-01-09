@@ -1,0 +1,4 @@
+{
+  "extraction_model": "meta-llama/Llama-3.1-70B",
+  "application_model": "meta-llama/Llama-3.3-70B-Instruct"
+}
