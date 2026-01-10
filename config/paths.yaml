@@ -130,49 +130,25 @@ extraction_eval:
   cross_trait_matrix: "experiments/{experiment}/extraction/cross_trait_matrix.json"
 
 # =============================================================================
-# ENSEMBLE EVALUATION (Gaussian-weighted layer combinations)
+# ENSEMBLES (multi-vector combinations for steering)
 # =============================================================================
+# Structure: steering/{trait}/{model_variant}/ensembles/...
+# Ensembles combine multiple vectors (different layers/components) for steering
 
 ensemble:
+  base: "experiments/{experiment}/steering/{trait}/{model_variant}/ensembles"
+  definition: "experiments/{experiment}/steering/{trait}/{model_variant}/ensembles/{ensemble_id}.json"
+  manifest: "experiments/{experiment}/steering/{trait}/{model_variant}/ensembles/manifest.json"
   evaluation: "experiments/{experiment}/extraction/ensemble_evaluation.json"
 
 # =============================================================================
-# FILE PATTERNS (combine with directory paths)
+# FILE PATTERNS (filename templates for use with directory paths)
 # =============================================================================
-#
-# NOTE: For vectors and activations, use the helper functions in utils/paths.py
-# (Python) or visualization/core/paths.js (JS) which handle the full path
-# structure including position/component/method subdirectories:
-#
-#   vectors/{position}/{component}/{method}/layer{layer}.pt
-#   activations/{position}/{component}/metadata.json
-#
-# The patterns below are just filename templates, not full paths.
 
 patterns:
-  # Vectors (inside vectors/{position}/{component}/{method}/)
-  vector_file: "layer{layer}.pt"
-
-  # Activations (inside activations/{position}/{component}/)
-  train_all_layers: "train_all_layers.pt"
-  val_all_layers: "val_all_layers.pt"
-  metadata: "metadata.json"
-
   # Responses
   pos_responses: "pos.{format}"
   neg_responses: "neg.{format}"
-  pos_prompts: "positive.txt"
-  neg_prompts: "negative.txt"
-
-  # Inference - raw activations
-  raw_residual_pt: "{prompt_id}.pt"
-  raw_internals_pt: "{prompt_id}_L{layer}.pt"
-
-  # Inference - per-trait results
-  projections_json: "{prompt_id}.json"
-
-  # Steering - response files
-  steering_response: "L{layer}_c{coef}_{timestamp}.json"
 
   # Trait definition
   trait_definition: "trait_definition.txt"
@@ -183,21 +159,6 @@ patterns:
   analysis_prompt_json: "prompt_{prompt_id}.json"
   analysis_named_png: "{filename}.png"
   analysis_named_json: "{filename}.json"
-  analysis_trait_prompt_png: "prompt_{prompt_id}_{trait}.png"
-
-# =============================================================================
-# GLOBAL DIRECTORIES
-# =============================================================================
-
-global:
-  traitlens: "traitlens"
-  analysis: "analysis"
-  extraction_scripts: "extraction"
-  inference_scripts: "inference"
-  docs: "docs"
-  visualization: "visualization"
-  config: "config"
-  utils: "utils"
 
 # =============================================================================
 # DATA SCHEMA (structure + validation + discovery)

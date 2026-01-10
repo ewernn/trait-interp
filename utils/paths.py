@@ -601,6 +601,50 @@ def get_steering_responses_dir(
 
 
 # =============================================================================
+# Ensemble paths
+# =============================================================================
+
+def get_ensemble_dir(
+    experiment: str,
+    trait: str,
+    model_variant: str,
+) -> Path:
+    """
+    Directory for ensemble definitions.
+
+    Returns: experiments/{experiment}/steering/{trait}/{model_variant}/ensembles/
+    """
+    return get('ensemble.base', experiment=experiment, trait=trait, model_variant=model_variant)
+
+
+def get_ensemble_path(
+    experiment: str,
+    trait: str,
+    model_variant: str,
+    ensemble_id: str,
+) -> Path:
+    """
+    Path to ensemble definition file.
+
+    Returns: .../ensembles/{ensemble_id}.json
+    """
+    return get('ensemble.definition', experiment=experiment, trait=trait, model_variant=model_variant, ensemble_id=ensemble_id)
+
+
+def get_ensemble_manifest_path(
+    experiment: str,
+    trait: str,
+    model_variant: str,
+) -> Path:
+    """
+    Path to ensemble manifest file.
+
+    Returns: .../ensembles/manifest.json
+    """
+    return get('ensemble.manifest', experiment=experiment, trait=trait, model_variant=model_variant)
+
+
+# =============================================================================
 # Inference paths
 # =============================================================================
 

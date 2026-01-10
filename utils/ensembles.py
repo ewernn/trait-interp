@@ -1,7 +1,7 @@
 """
 Ensemble I/O for multi-vector trait combinations.
 
-Input: experiment, trait identifiers
+Input: experiment, trait, model_variant identifiers
 Output: Ensemble definitions and manifest
 
 Usage:
@@ -9,7 +9,7 @@ Usage:
 
     # Create ensemble from VectorSpecs
     ensemble = create_ensemble(
-        experiment, trait,
+        experiment, trait, model_variant,
         specs=[VectorSpec(11, 'attn_contribution', 'response[:5]', 'probe'),
                VectorSpec(12, 'attn_contribution', 'response[:5]', 'probe')],
         coefficients=[60.0, 40.0],
@@ -17,10 +17,10 @@ Usage:
     )
 
     # Load existing
-    ensemble = load_ensemble(experiment, trait, '001')
+    ensemble = load_ensemble(experiment, trait, model_variant, '001')
 
     # Find best
-    best = get_best_ensemble(experiment, trait, min_coherence=70)
+    best = get_best_ensemble(experiment, trait, model_variant, min_coherence=70)
 """
 
 import json
@@ -36,9 +36,9 @@ from utils.paths import (
 )
 
 
-def _next_ensemble_id(experiment: str, trait: str) -> str:
+def _next_ensemble_id(experiment: str, trait: str, model_variant: str) -> str:
     """Generate next sequential ensemble ID (0001, 0002, etc.)."""
-    ensemble_dir = get_ensemble_dir(experiment, trait)
+    ensemble_dir = get_ensemble_dir(experiment, trait, model_variant)
     if not ensemble_dir.exists():
         return "0001"
 
@@ -67,6 +67,7 @@ def _generate_specs_summary(specs: List[Dict]) -> str:
 def create_ensemble(
     experiment: str,
     trait: str,
+    model_variant: str,
     specs: List[VectorSpec],
     coefficients: List[float],
     coefficient_source: str = "manual",
@@ -78,6 +79,7 @@ def create_ensemble(
     Args:
         experiment: Experiment name
         trait: Trait path (category/trait)
+        model_variant: Model variant name
         specs: List of VectorSpecs (must have same position and method)
         coefficients: Weight for each spec
         coefficient_source: One of: activation_magnitude, individual_scaled, optimized, manual
@@ -105,7 +107,7 @@ def create_ensemble(
         raise ValueError(f"All specs must have same method, got: {methods}")
 
     if ensemble_id is None:
-        ensemble_id = _next_ensemble_id(experiment, trait)
+        ensemble_id = _next_ensemble_id(experiment, trait, model_variant)
 
     ensemble = {
         "id": ensemble_id,
@@ -122,38 +124,40 @@ def create_ensemble(
     return ensemble
 
 
-def save_ensemble(experiment: str, trait: str, ensemble: Dict) -> Path:
+def save_ensemble(experiment: str, trait: str, model_variant: str, ensemble: Dict) -> Path:
     """
     Save ensemble definition to disk.
 
     Args:
         experiment: Experiment name
         trait: Trait path
+        model_variant: Model variant name
         ensemble: Ensemble definition dict
 
     Returns:
         Path to saved file
     """
     ensemble_id = ensemble["id"]
-    path = get_ensemble_path(experiment, trait, ensemble_id)
+    path = get_ensemble_path(experiment, trait, model_variant, ensemble_id)
     path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(path, 'w') as f:
         json.dump(ensemble, f, indent=2)
 
     # Update manifest
-    update_manifest(experiment, trait, ensemble)
+    update_manifest(experiment, trait, model_variant, ensemble)
 
     return path
 
 
-def load_ensemble(experiment: str, trait: str, ensemble_id: str) -> Dict:
+def load_ensemble(experiment: str, trait: str, model_variant: str, ensemble_id: str) -> Dict:
     """
     Load ensemble definition from disk.
 
     Args:
         experiment: Experiment name
         trait: Trait path
+        model_variant: Model variant name
         ensemble_id: Ensemble ID (e.g., '001')
 
     Returns:
@@ -162,7 +166,7 @@ def load_ensemble(experiment: str, trait: str, ensemble_id: str) -> Dict:
     Raises:
         FileNotFoundError: If ensemble doesn't exist
     """
-    path = get_ensemble_path(experiment, trait, ensemble_id)
+    path = get_ensemble_path(experiment, trait, model_variant, ensemble_id)
     if not path.exists():
         raise FileNotFoundError(f"Ensemble not found: {path}")
 
@@ -170,13 +174,13 @@ def load_ensemble(experiment: str, trait: str, ensemble_id: str) -> Dict:
         return json.load(f)
 
 
-def update_manifest(experiment: str, trait: str, ensemble: Dict) -> None:
+def update_manifest(experiment: str, trait: str, model_variant: str, ensemble: Dict) -> None:
     """
     Update manifest.json with ensemble info.
 
     Called automatically by save_ensemble().
     """
-    manifest_path = get_ensemble_manifest_path(experiment, trait)
+    manifest_path = get_ensemble_manifest_path(experiment, trait, model_variant)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
 
     if manifest_path.exists():
@@ -213,14 +217,14 @@ def update_manifest(experiment: str, trait: str, ensemble: Dict) -> None:
         json.dump(manifest, f, indent=2)
 
 
-def list_ensembles(experiment: str, trait: str) -> List[str]:
+def list_ensembles(experiment: str, trait: str, model_variant: str) -> List[str]:
     """
     List available ensemble IDs for a trait.
 
     Returns:
         List of ensemble IDs like ['001', '002']
     """
-    ensemble_dir = get_ensemble_dir(experiment, trait)
+    ensemble_dir = get_ensemble_dir(experiment, trait, model_variant)
     if not ensemble_dir.exists():
         return []
 
@@ -233,6 +237,7 @@ def list_ensembles(experiment: str, trait: str) -> List[str]:
 def get_best_ensemble(
     experiment: str,
     trait: str,
+    model_variant: str,
     min_coherence: float = 70.0,
 ) -> Optional[Dict]:
     """
@@ -246,7 +251,7 @@ def get_best_ensemble(
     Returns:
         Best ensemble definition, or None if no evaluated ensembles
     """
-    manifest_path = get_ensemble_manifest_path(experiment, trait)
+    manifest_path = get_ensemble_manifest_path(experiment, trait, model_variant)
     if not manifest_path.exists():
         return None
 
@@ -274,7 +279,7 @@ def get_best_ensemble(
     if best_id is None:
         return None
 
-    return load_ensemble(experiment, trait, best_id)
+    return load_ensemble(experiment, trait, model_variant, best_id)
 
 
 def ensemble_to_projection_config(ensemble: Dict) -> ProjectionConfig:
@@ -302,6 +307,7 @@ def ensemble_to_projection_config(ensemble: Dict) -> ProjectionConfig:
 def update_ensemble_steering_results(
     experiment: str,
     trait: str,
+    model_variant: str,
     ensemble_id: str,
     baseline: float,
     trait_mean: float,
@@ -313,12 +319,13 @@ def update_ensemble_steering_results(
     Args:
         experiment: Experiment name
         trait: Trait path
+        model_variant: Model variant name
         ensemble_id: Ensemble ID
         baseline: Baseline trait score
         trait_mean: Mean trait score with steering
         coherence_mean: Mean coherence score
     """
-    ensemble = load_ensemble(experiment, trait, ensemble_id)
+    ensemble = load_ensemble(experiment, trait, model_variant, ensemble_id)
 
     ensemble["steering_results"] = {
         "baseline": baseline,
@@ -328,4 +335,4 @@ def update_ensemble_steering_results(
         "timestamp": datetime.now().isoformat(),
     }
 
-    save_ensemble(experiment, trait, ensemble)
+    save_ensemble(experiment, trait, model_variant, ensemble)

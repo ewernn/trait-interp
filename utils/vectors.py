@@ -25,7 +25,9 @@ from utils.paths import (
     get_vector_path,
     get_vector_metadata_path,
     get_steering_results_path,
+    get_steering_responses_dir,
     desanitize_position,
+    sanitize_position,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,6 +43,7 @@ MIN_COHERENCE = 75  # Matches Persona Vectors paper threshold
 def _discover_vectors(
     experiment: str,
     trait: str,
+    model_variant: str,
     component: str = None,
     position: str = None,
     layer: int = None,
@@ -51,6 +54,7 @@ def _discover_vectors(
     Args:
         experiment: Experiment name
         trait: Trait path
+        model_variant: Model variant name
         component: Filter to this component (or None for all)
         position: Filter to this position (or None for all)
         layer: Filter to this layer (or None for all)
@@ -58,7 +62,7 @@ def _discover_vectors(
     Returns:
         List of dicts with 'layer', 'method', 'position', 'component', 'path'
     """
-    vectors_dir = get_path('extraction.vectors', experiment=experiment, trait=trait)
+    vectors_dir = get_path('extraction.vectors', experiment=experiment, trait=trait, model_variant=model_variant)
     if not vectors_dir.exists():
         return []
 
@@ -101,8 +105,10 @@ def _discover_vectors(
 def _score_vector(
     experiment: str,
     trait: str,
+    model_variant: str,
     candidate: dict,
     min_coherence: int = MIN_COHERENCE,
+    prompt_set: str = "steering",
 ) -> Tuple[float, str, Optional[float]]:
     """
     Get score for a vector candidate.
@@ -120,7 +126,7 @@ def _score_vector(
     position = candidate['position']
 
     # 1. Try steering results
-    steering_path = get_steering_results_path(experiment, trait, position)
+    steering_path = get_steering_results_path(experiment, trait, model_variant, position, prompt_set)
     if steering_path.exists():
         # Check for stale results (prompts modified after results)
         prompts_path = get_path('datasets.trait_steering', trait=trait)
@@ -185,10 +191,12 @@ def _score_vector(
 def get_best_vector(
     experiment: str,
     trait: str,
+    model_variant: str,
     component: str = None,
     position: str = None,
     layer: int = None,
     min_coherence: int = MIN_COHERENCE,
+    prompt_set: str = "steering",
 ) -> dict:
     """
     Find best vector, optionally filtering by position/component/layer.
@@ -196,10 +204,12 @@ def get_best_vector(
     Args:
         experiment: Experiment name
         trait: Trait path (e.g., "category/trait_name")
+        model_variant: Model variant name
         component: Component type, or None to search all
         position: Position string, or None to search all
         layer: Layer number, or None to search all
-        min_coherence: Minimum coherence for steering results (default: 70)
+        min_coherence: Minimum coherence for steering results (default: 75)
+        prompt_set: Prompt set for steering results (default: "steering")
 
     Returns:
         Dict with 'layer', 'method', 'position', 'component', 'source', 'score', 'coefficient'
@@ -208,16 +218,16 @@ def get_best_vector(
     Raises:
         FileNotFoundError: If no vectors found or no evaluation results
     """
-    candidates = _discover_vectors(experiment, trait, component, position, layer)
+    candidates = _discover_vectors(experiment, trait, model_variant, component, position, layer)
 
     if not candidates:
         raise FileNotFoundError(
-            f"No vectors found for {experiment}/{trait}. Run extraction first."
+            f"No vectors found for {experiment}/{trait}/{model_variant}. Run extraction first."
         )
 
     # Score each candidate
     for c in candidates:
-        c['score'], c['source'], c['coefficient'] = _score_vector(experiment, trait, c, min_coherence)
+        c['score'], c['source'], c['coefficient'] = _score_vector(experiment, trait, model_variant, c, min_coherence, prompt_set)
 
     # Filter to those with scores, then find best
     scored = [c for c in candidates if c['source'] != 'none']
@@ -236,11 +246,13 @@ def get_best_vector(
 def get_top_N_vectors(
     experiment: str,
     trait: str,
+    model_variant: str,
     component: str = None,
     position: str = None,
     layer: int = None,
     N: int = 3,
     min_coherence: int = MIN_COHERENCE,
+    prompt_set: str = "steering",
 ) -> List[dict]:
     """
     Get top N vectors for a trait, ranked by quality.
@@ -248,20 +260,22 @@ def get_top_N_vectors(
     Args:
         experiment: Experiment name
         trait: Trait path
+        model_variant: Model variant name
         component: Component type, or None to search all
         position: Position string, or None to search all
         layer: Layer number, or None to search all
         N: Number of vectors to return (default: 3)
         min_coherence: Minimum coherence for steering results
+        prompt_set: Prompt set for steering results (default: "steering")
 
     Returns:
         List of dicts with 'layer', 'method', 'position', 'component', 'source', 'score', 'coefficient'
     """
-    candidates = _discover_vectors(experiment, trait, component, position, layer)
+    candidates = _discover_vectors(experiment, trait, model_variant, component, position, layer)
 
     # Score each candidate
     for c in candidates:
-        c['score'], c['source'], c['coefficient'] = _score_vector(experiment, trait, c, min_coherence)
+        c['score'], c['source'], c['coefficient'] = _score_vector(experiment, trait, model_variant, c, min_coherence, prompt_set)
 
     # Filter to scored, sort by score descending
     scored = [c for c in candidates if c['source'] != 'none']
@@ -275,6 +289,7 @@ def find_vector_method(
     experiment: str,
     trait: str,
     layer: int,
+    model_variant: str,
     component: str = "residual",
     position: str = "response[:]",
 ) -> Optional[str]:
@@ -285,7 +300,7 @@ def find_vector_method(
         Method name if found, None otherwise
     """
     for method in ["probe", "mean_diff", "gradient"]:
-        vector_path = get_vector_path(experiment, trait, method, layer, component, position)
+        vector_path = get_vector_path(experiment, trait, method, layer, model_variant, component, position)
         if vector_path.exists():
             return method
     return None
@@ -299,6 +314,7 @@ def load_vector_metadata(
     experiment: str,
     trait: str,
     method: str,
+    model_variant: str,
     component: str = "residual",
     position: str = "response[:]",
 ) -> Dict[str, Any]:
@@ -311,11 +327,11 @@ def load_vector_metadata(
     Raises:
         FileNotFoundError: If metadata.json doesn't exist
     """
-    metadata_path = get_vector_metadata_path(experiment, trait, method, component, position)
+    metadata_path = get_vector_metadata_path(experiment, trait, method, model_variant, component, position)
 
     if not metadata_path.exists():
         raise FileNotFoundError(
-            f"No metadata for {experiment}/{trait}/{method}. "
+            f"No metadata for {experiment}/{trait}/{model_variant}/{method}. "
             f"Re-run extraction to generate metadata."
         )
 
@@ -328,6 +344,7 @@ def load_vector_with_baseline(
     trait: str,
     method: str,
     layer: int,
+    model_variant: str,
     component: str = "residual",
     position: str = "response[:]",
 ) -> Tuple[torch.Tensor, float, Dict[str, Any]]:
@@ -340,7 +357,7 @@ def load_vector_with_baseline(
     Raises:
         FileNotFoundError: If vector file doesn't exist
     """
-    vector_path = get_vector_path(experiment, trait, method, layer, component, position)
+    vector_path = get_vector_path(experiment, trait, method, layer, model_variant, component, position)
 
     if not vector_path.exists():
         raise FileNotFoundError(f"Vector not found: {vector_path}")
@@ -351,7 +368,7 @@ def load_vector_with_baseline(
     baseline = 0.0
     layer_metadata = {}
     try:
-        metadata = load_vector_metadata(experiment, trait, method, component, position)
+        metadata = load_vector_metadata(experiment, trait, method, model_variant, component, position)
         layer_info = metadata.get('layers', {}).get(str(layer), {})
         baseline = layer_info.get('baseline', 0.0)
         layer_metadata = layer_info
@@ -364,8 +381,10 @@ def load_vector_with_baseline(
 def get_best_steering_responses_path(
     experiment: str,
     trait: str,
+    model_variant: str,
     position: str = None,
     min_coherence: int = MIN_COHERENCE,
+    prompt_set: str = "steering",
 ) -> Optional[Path]:
     """
     Get path to the response file for the best steering configuration.
@@ -373,16 +392,16 @@ def get_best_steering_responses_path(
     Args:
         experiment: Experiment name
         trait: Trait path
+        model_variant: Model variant name
         position: Position string, or None to search all
         min_coherence: Minimum coherence for steering results
+        prompt_set: Prompt set for steering results (default: "steering")
 
     Returns:
         Path to response JSON file, or None if not found
     """
-    from utils.paths import sanitize_position
-
     try:
-        best = get_best_vector(experiment, trait, position=position, min_coherence=min_coherence)
+        best = get_best_vector(experiment, trait, model_variant, position=position, min_coherence=min_coherence, prompt_set=prompt_set)
     except FileNotFoundError:
         return None
 
@@ -393,16 +412,14 @@ def get_best_steering_responses_path(
     coef = best['coefficient']
     pos = best['position']
 
-    # Response files are in: steering/{trait}/{position_sanitized}/responses/L{layer}_c{coef}_*.json
-    pos_sanitized = sanitize_position(pos)
-    responses_dir = get_path('experiments.base', experiment=experiment) / 'steering' / trait / pos_sanitized / 'responses'
+    # Use proper path helper
+    responses_dir = get_steering_responses_dir(experiment, trait, model_variant, pos, prompt_set)
 
     if not responses_dir.exists():
         return None
 
     # Find matching response file: L{layer}_c{coef}*.json
     # Coefficient in filename may be rounded differently, so match prefix
-    prefix = f"L{layer}_c{coef:.1f}"
     for f in responses_dir.iterdir():
         if f.name.startswith(f"L{layer}_c") and f.suffix == '.json':
             # Parse coefficient from filename
@@ -425,6 +442,7 @@ def load_vector_from_spec(
     experiment: str,
     trait: str,
     spec: VectorSpec,
+    model_variant: str,
 ) -> Tuple[torch.Tensor, float, Dict[str, Any]]:
     """
     Load a vector using a VectorSpec.
@@ -433,23 +451,26 @@ def load_vector_from_spec(
         experiment: Experiment name
         trait: Trait path
         spec: VectorSpec identifying the vector
+        model_variant: Model variant name
 
     Returns:
         Tuple of (vector tensor, baseline float, layer metadata dict)
     """
     return load_vector_with_baseline(
-        experiment, trait, spec.method, spec.layer, spec.component, spec.position
+        experiment, trait, spec.method, spec.layer, model_variant, spec.component, spec.position
     )
 
 
 def get_best_vector_spec(
     experiment: str,
     trait: str,
+    model_variant: str,
     component: str = None,
     position: str = None,
     layer: int = None,
     weight: float = 1.0,
     min_coherence: int = MIN_COHERENCE,
+    prompt_set: str = "steering",
 ) -> Tuple[VectorSpec, Dict[str, Any]]:
     """
     Find best vector and return as VectorSpec.
@@ -457,16 +478,18 @@ def get_best_vector_spec(
     Args:
         experiment: Experiment name
         trait: Trait path
+        model_variant: Model variant name
         component: Filter by component (or None for all)
         position: Filter by position (or None for all)
         layer: Filter by layer (or None for all)
         weight: Weight to assign to the VectorSpec (default 1.0)
         min_coherence: Minimum coherence for steering results
+        prompt_set: Prompt set for steering results (default: "steering")
 
     Returns:
         Tuple of (VectorSpec, metadata dict with 'source', 'score', 'coefficient')
     """
-    best = get_best_vector(experiment, trait, component, position, layer, min_coherence)
+    best = get_best_vector(experiment, trait, model_variant, component, position, layer, min_coherence, prompt_set)
 
     spec = VectorSpec(
         layer=best['layer'],
@@ -488,11 +511,13 @@ def get_best_vector_spec(
 def get_best_projection_config(
     experiment: str,
     trait: str,
+    model_variant: str,
     component: str = None,
     position: str = None,
     layer: int = None,
     weight: float = 1.0,
     min_coherence: int = MIN_COHERENCE,
+    prompt_set: str = "steering",
 ) -> Tuple[ProjectionConfig, Dict[str, Any]]:
     """
     Get ProjectionConfig for the best single vector.
@@ -503,6 +528,6 @@ def get_best_projection_config(
         Tuple of (ProjectionConfig, metadata dict)
     """
     spec, metadata = get_best_vector_spec(
-        experiment, trait, component, position, layer, weight, min_coherence
+        experiment, trait, model_variant, component, position, layer, weight, min_coherence, prompt_set
     )
     return ProjectionConfig(vectors=[spec]), metadata
