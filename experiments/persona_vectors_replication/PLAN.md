@@ -4,11 +4,11 @@
 Compare PV's instruction-based extraction methodology vs our natural elicitation methodology.
 
 ## Current Status
-- [x] Prompt override flags implemented (`--no-custom-prompt`, `--eval-prompt-from`)
+- [x] Prompt override flags implemented (`--no-custom-prompt`, `--eval-prompt-from`, `--prompt-set`)
 - [x] Datasets verified (persona_vectors_instruction/, pv_replication_natural/)
-- [x] **Phase 0: Code fixes (JSONL support for system prompts)**
-- [x] **Phase 1: Extraction** - All vectors extracted
-- [ ] **Phase 2: Steering evaluation** - Need to re-run (previous results lost)
+- [x] **Phase 0: Code fixes (JSONL support, --prompt-set for cache isolation)**
+- [ ] **Phase 1: Extraction** - Need to re-run (starting fresh)
+- [ ] **Phase 2: Steering evaluation**
 - [ ] Phase 3: Analysis
 
 ### Previous Results (Lost - Need to Re-run)
@@ -19,61 +19,6 @@ From Jan 9 session (instance killed before R2 push):
 | Evil | +68.6 L14 | +46.3 L13 | (overwritten) | +72.3 L10 |
 | Sycophancy | +80.1 L15 | +77.7 L15 | low coh | low coh |
 | Hallucination | +79.8 L12 | +67.5 L11 | +61.5 L12 | (not run) |
-
----
-
-## Critical Bug Found (Jan 8, 2026)
-
-**Problem**: PV methodology requires system prompts to set the model's persona, but our generation code was treating `[INSTRUCTION]...[QUESTION]...` as a single user message. The IT model never received the evil/sycophantic/hallucinating persona as a proper system prompt.
-
-**Evidence**: Only 3.6% of "evil" positive responses scored >50 (36/1000), because the model wasn't actually adopting the persona.
-
-**Fix Required**: Add JSONL support to `generate_responses.py` so scenarios can specify `system_prompt` separately from `prompt`.
-
----
-
-## Phase 0: Code Fixes (Prerequisites) ✅
-
-### 0.1 Add JSONL Support to Generation ✅
-
-**File**: `extraction/generate_responses.py` (and `utils/traits.py`)
-
-JSONL support is implemented. Scenarios can specify `system_prompt`:
-```jsonl
-{"prompt": "What should I do with the wallet?", "system_prompt": "Be evil in your responses..."}
-{"prompt": "How to handle the secret?", "system_prompt": "Be evil in your responses..."}
-```
-
-Consolidated in `utils/traits.py:load_scenarios()` which handles both JSONL and TXT formats.
-
-### 0.2 Generate JSONL Datasets for PV Instruction
-
-Convert `their_data/{trait}_extract.json` to JSONL format:
-```bash
-# Use the expansion script
-python scripts/expand_pv_format.py --all
-
-# Or for a single trait:
-python scripts/expand_pv_format.py \
-    --input experiments/persona_vectors_replication/their_data/evil_extract.json \
-    --output datasets/traits/persona_vectors_instruction/evil
-```
-
-This creates `positive.jsonl`, `negative.jsonl`, `definition.txt`, and `steering.json` for each trait.
-
-### 0.3 Clean Up Failed Extraction Outputs
-
-```bash
-# Delete vetting, activations, vectors, steering (keep only natural responses)
-rm -rf experiments/persona_vectors_replication/extraction/persona_vectors_instruction/*/responses
-rm -rf experiments/persona_vectors_replication/extraction/*/vetting
-rm -rf experiments/persona_vectors_replication/extraction/*/activations
-rm -rf experiments/persona_vectors_replication/extraction/*/vectors
-rm -rf experiments/persona_vectors_replication/extraction/*/*/vetting
-rm -rf experiments/persona_vectors_replication/extraction/*/*/activations
-rm -rf experiments/persona_vectors_replication/extraction/*/*/vectors
-rm -rf experiments/persona_vectors_replication/steering
-```
 
 ---
 
@@ -114,11 +59,11 @@ rm -rf experiments/persona_vectors_replication/steering
 
 ## Traits
 
-| Trait | PV Dataset | PV V3c Dataset | Natural Dataset | Eval Questions |
-|-------|------------|----------------|-----------------|----------------|
-| evil | persona_vectors_instruction/evil | persona_vectors_instruction/evil_v3c | pv_replication_natural/evil_v3 | 20 (shared) |
-| sycophancy | persona_vectors_instruction/sycophancy | persona_vectors_instruction/sycophancy_v3c | pv_replication_natural/sycophancy | 20 (shared) |
-| hallucination | persona_vectors_instruction/hallucination | persona_vectors_instruction/hallucination_v3c | pv_replication_natural/hallucination | 20 (shared) |
+| Trait | PV Dataset | Natural Dataset | Eval Questions |
+|-------|------------|-----------------|----------------|
+| evil | persona_vectors_instruction/evil | pv_replication_natural/evil_v3 | 20 (shared) |
+| sycophancy | persona_vectors_instruction/sycophancy | pv_replication_natural/sycophancy | 20 (shared) |
+| hallucination | persona_vectors_instruction/hallucination | pv_replication_natural/hallucination | 20 (shared) |
 
 **Note**: Natural evil uses `evil_v3` (self-label + action-forcing pattern), not the original `evil` dataset.
 
@@ -133,8 +78,7 @@ rm -rf experiments/persona_vectors_replication/steering
 python extraction/run_pipeline.py \
     --experiment persona_vectors_replication \
     --traits persona_vectors_instruction/evil,persona_vectors_instruction/sycophancy,persona_vectors_instruction/hallucination \
-    --extraction-model "meta-llama/Llama-3.1-8B-Instruct" \
-    --it-model \
+    --model-variant instruct \
     --rollouts 3 \
     --max-new-tokens 256 \
     --position "response[:]" \
@@ -144,8 +88,7 @@ python extraction/run_pipeline.py \
 ```
 
 **Important flags**:
-- `--extraction-model`: Must explicitly specify IT model (not just `--it-model`)
-- `--it-model`: Enables chat template for system prompts
+- `--model-variant instruct`: Uses IT model from config.json for extraction
 - `--pos-threshold 50 --neg-threshold 50`: PV's filtering criteria
 - `--methods mean_diff`: Match paper methodology
 
@@ -155,17 +98,14 @@ python extraction/run_pipeline.py \
 # Base model, 1 rollout, first 5 tokens, standard vetting
 python extraction/run_pipeline.py \
     --experiment persona_vectors_replication \
-    --traits pv_replication_natural/evil \
-    --traits pv_replication_natural/sycophancy \
-    --traits pv_replication_natural/hallucination \
+    --traits pv_replication_natural/evil_v3,pv_replication_natural/sycophancy,pv_replication_natural/hallucination \
     --rollouts 1 \
     --position "response[:5]" \
     --methods mean_diff
 ```
 
 **Notes**:
-- Uses default base model from config.json
-- No `--it-model` flag (base model, no chat template)
+- Uses default base model from config.json (`--model-variant base` is default)
 - Standard vetting (not trait score thresholds)
 
 ---
@@ -174,128 +114,119 @@ python extraction/run_pipeline.py \
 
 ### Evaluation Matrix (2x2 per trait)
 
-| Quadrant | Vector Source | Scoring | Trait Dataset |
-|----------|---------------|---------|---------------|
-| PV+PV | PV instruction | PV eval_prompt | `persona_vectors_instruction/{trait}` |
-| PV+V3c | PV instruction | V3c default | `persona_vectors_instruction/{trait}_v3c` |
-| Nat+V3c | Natural | V3c default | `pv_replication_natural/{trait}` |
-| Nat+PV | Natural | PV eval_prompt | `pv_replication_natural/{trait}` + `--eval-prompt-from` |
+| Quadrant | Vector Source | Scoring | `--prompt-set` | Additional Flags |
+|----------|---------------|---------|----------------|------------------|
+| PV+PV | PV instruction | PV eval_prompt | `pv` | (none - uses steering.json eval_prompt) |
+| PV+V3c | PV instruction | V3c default | `v3c` | `--no-custom-prompt` |
+| Nat+V3c | Natural | V3c default | `v3c` | (none - no eval_prompt in steering.json) |
+| Nat+PV | Natural | PV eval_prompt | `pv` | `--eval-prompt-from persona_vectors_instruction/{trait}` |
 
-### Critical Technical Requirements
+### How --prompt-set Works
 
-**1. Must specify `--method mean_diff`** - Without it, evaluate.py looks for multiple methods and fails.
-
-**2. Must regenerate extraction_evaluation.json per position:**
-```bash
-# Before running PV instruction traits (response[:])
-python3 analysis/vectors/extraction_evaluation.py --experiment persona_vectors_replication --position "response[:]"
-
-# Before running Natural traits (response[:5])
-python3 analysis/vectors/extraction_evaluation.py --experiment persona_vectors_replication --position "response[:5]"
+The `--prompt-set` flag isolates results by creating separate directories:
+```
+steering/{trait}/{model_variant}/{position}/{prompt_set}/results.json
 ```
 
-**3. Caching gotcha - results cache by trait path, NOT scoring prompt:**
-- Using `--no-custom-prompt` reuses cached results from previous runs
-- **Solution**: Use separate `*_v3c` trait datasets (same vectors, no eval_prompt in steering.json)
-- For Nat+PV, must delete cache before re-running with different scoring:
-  ```bash
-  rm experiments/persona_vectors_replication/steering/pv_replication_natural/{trait}/response__5/results.json
-  ```
-
-### v3c Datasets (Required for 2x2)
-
-These have NO eval_prompt in steering.json, causing V3c default scoring:
-```
-datasets/traits/persona_vectors_instruction/evil_v3c/
-datasets/traits/persona_vectors_instruction/sycophancy_v3c/
-datasets/traits/persona_vectors_instruction/hallucination_v3c/
-```
+This eliminates cache collisions between different scoring methods on the same trait.
 
 ### Complete Commands
 
 ```bash
 # ============================================================
-# STEP 1: PV Instruction traits (position response[:])
+# STEP 1: Generate extraction_evaluation.json for each position
 # ============================================================
 
-python3 analysis/vectors/extraction_evaluation.py --experiment persona_vectors_replication --position "response[:]"
+# For PV instruction traits (response[:])
+python3 analysis/vectors/extraction_evaluation.py \
+    --experiment persona_vectors_replication \
+    --position "response[:]"
 
-# PV+PV (all 3 traits)
+# For Natural traits (response[:5])
+python3 analysis/vectors/extraction_evaluation.py \
+    --experiment persona_vectors_replication \
+    --position "response[:5]"
+
+# ============================================================
+# STEP 2: PV Instruction vectors (position response[:])
+# ============================================================
+
+# PV+PV: PV vectors with PV scoring
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "persona_vectors_instruction/evil" \
-    --position "response[:]" --layers 10-20 --method mean_diff --subset 0
+    --position "response[:]" --prompt-set pv \
+    --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "persona_vectors_instruction/sycophancy" \
-    --position "response[:]" --layers 10-20 --method mean_diff --subset 0
+    --position "response[:]" --prompt-set pv \
+    --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "persona_vectors_instruction/hallucination" \
-    --position "response[:]" --layers 10-20 --method mean_diff --subset 0
+    --position "response[:]" --prompt-set pv \
+    --layers 10-20 --method mean_diff --subset 0
 
-# PV+V3c (uses _v3c datasets)
+# PV+V3c: PV vectors with V3c scoring
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
-    --traits "persona_vectors_instruction/evil_v3c" \
-    --position "response[:]" --layers 10-20 --method mean_diff --subset 0
-
-python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
-    --traits "persona_vectors_instruction/sycophancy_v3c" \
-    --position "response[:]" --layers 10-20 --method mean_diff --subset 0
+    --traits "persona_vectors_instruction/evil" \
+    --position "response[:]" --prompt-set v3c --no-custom-prompt \
+    --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
-    --traits "persona_vectors_instruction/hallucination_v3c" \
-    --position "response[:]" --layers 10-20 --method mean_diff --subset 0
+    --traits "persona_vectors_instruction/sycophancy" \
+    --position "response[:]" --prompt-set v3c --no-custom-prompt \
+    --layers 10-20 --method mean_diff --subset 0
+
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "persona_vectors_instruction/hallucination" \
+    --position "response[:]" --prompt-set v3c --no-custom-prompt \
+    --layers 10-20 --method mean_diff --subset 0
 
 # ============================================================
-# STEP 2: Natural traits (position response[:5])
+# STEP 3: Natural vectors (position response[:5])
 # ============================================================
 
-python3 analysis/vectors/extraction_evaluation.py --experiment persona_vectors_replication --position "response[:5]"
-
-# Nat+V3c (default scoring, no eval_prompt in natural steering.json)
+# Nat+V3c: Natural vectors with V3c scoring
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "pv_replication_natural/evil_v3" \
-    --position "response[:5]" --layers 10-20 --method mean_diff --subset 0
+    --position "response[:5]" --prompt-set v3c \
+    --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "pv_replication_natural/sycophancy" \
-    --position "response[:5]" --layers 10-20 --method mean_diff --subset 0
+    --position "response[:5]" --prompt-set v3c \
+    --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "pv_replication_natural/hallucination" \
-    --position "response[:5]" --layers 10-20 --method mean_diff --subset 0
+    --position "response[:5]" --prompt-set v3c \
+    --layers 10-20 --method mean_diff --subset 0
 
-# Nat+PV (delete cache first, then use --eval-prompt-from)
-rm -f experiments/persona_vectors_replication/steering/pv_replication_natural/evil_v3/response__5/results.json
+# Nat+PV: Natural vectors with PV scoring
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "pv_replication_natural/evil_v3" \
-    --position "response[:5]" --layers 10-20 --method mean_diff --subset 0 \
-    --eval-prompt-from persona_vectors_instruction/evil
+    --position "response[:5]" --prompt-set pv \
+    --eval-prompt-from persona_vectors_instruction/evil \
+    --layers 10-20 --method mean_diff --subset 0
 
-rm -f experiments/persona_vectors_replication/steering/pv_replication_natural/sycophancy/response__5/results.json
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "pv_replication_natural/sycophancy" \
-    --position "response[:5]" --layers 10-20 --method mean_diff --subset 0 \
-    --eval-prompt-from persona_vectors_instruction/sycophancy
+    --position "response[:5]" --prompt-set pv \
+    --eval-prompt-from persona_vectors_instruction/sycophancy \
+    --layers 10-20 --method mean_diff --subset 0
 
-rm -f experiments/persona_vectors_replication/steering/pv_replication_natural/hallucination/response__5/results.json
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "pv_replication_natural/hallucination" \
-    --position "response[:5]" --layers 10-20 --method mean_diff --subset 0 \
-    --eval-prompt-from persona_vectors_instruction/hallucination
+    --position "response[:5]" --prompt-set pv \
+    --eval-prompt-from persona_vectors_instruction/hallucination \
+    --layers 10-20 --method mean_diff --subset 0
 
 # ============================================================
-# STEP 3: Push results
+# STEP 4: Push results
 # ============================================================
 ./utils/r2_push.sh
 ```
-
-### Execution Order (Important!)
-
-Run Nat+V3c BEFORE Nat+PV for each trait. This is because:
-1. Nat+V3c caches results
-2. Nat+PV needs to delete that cache and re-run with different scoring
-3. Running in reverse order wastes compute
 
 ---
 
@@ -336,23 +267,16 @@ Located at `experiments/persona_vectors_replication/their_data/`:
 - `hallucinating_extract.json`: 5 instruction pairs, 20 questions, eval_prompt
 - `*_eval.json`: Evaluation question sets
 
-### Dataset Verification (Jan 8, 2026)
+### Datasets
 
-| Dataset | Scenarios | Format | Status |
-|---------|-----------|--------|--------|
-| persona_vectors_instruction/evil | 100 (5×20) | txt (needs JSONL) | ❌ Needs conversion |
-| persona_vectors_instruction/sycophancy | 100 (5×20) | txt (needs JSONL) | ❌ Needs conversion |
-| persona_vectors_instruction/hallucination | 100 (5×20) | txt (needs JSONL) | ❌ Needs conversion |
-| pv_replication_natural/evil | 150 | txt | ✅ Ready |
-| pv_replication_natural/sycophancy | 150 | txt | ✅ Ready |
-| pv_replication_natural/hallucination | 150 | txt | ✅ Ready |
-
-### steering.json Verification
-
-| Dataset | Has eval_prompt | Has questions |
-|---------|-----------------|---------------|
-| persona_vectors_instruction/* | ✅ Yes | ✅ 20 questions |
-| pv_replication_natural/* | ❌ No (uses V3c) | ✅ 20 questions (same) |
+| Dataset | Scenarios | Format | eval_prompt |
+|---------|-----------|--------|-------------|
+| persona_vectors_instruction/evil | 100 (5×20) | JSONL | Yes (PV) |
+| persona_vectors_instruction/sycophancy | 100 (5×20) | JSONL | Yes (PV) |
+| persona_vectors_instruction/hallucination | 100 (5×20) | JSONL | Yes (PV) |
+| pv_replication_natural/evil_v3 | 150 | txt | No |
+| pv_replication_natural/sycophancy | 150 | txt | No |
+| pv_replication_natural/hallucination | 150 | txt | No |
 
 ---
 
@@ -369,26 +293,32 @@ experiments/persona_vectors_replication/
 │   └── hallucinating_extract.json
 ├── extraction/
 │   ├── persona_vectors_instruction/
-│   │   ├── evil/
-│   │   │   ├── responses/pos.json, neg.json
-│   │   │   ├── vetting/response_scores.json
-│   │   │   ├── activations/response_all/residual/
-│   │   │   └── vectors/response_all/residual/mean_diff/
-│   │   ├── sycophancy/
-│   │   └── hallucination/
+│   │   └── evil/
+│   │       └── instruct/             # model_variant
+│   │           ├── responses/pos.json, neg.json
+│   │           ├── vetting/response_scores.json
+│   │           ├── activations/response_all/residual/
+│   │           └── vectors/response_all/residual/mean_diff/
 │   └── pv_replication_natural/
-│       ├── evil/
-│       │   ├── responses/pos.json, neg.json
-│       │   ├── vetting/
-│       │   ├── activations/response__5/residual/
-│       │   └── vectors/response__5/residual/mean_diff/
-│       ├── sycophancy/
-│       └── hallucination/
+│       └── evil_v3/
+│           └── base/                 # model_variant
+│               ├── responses/pos.json, neg.json
+│               ├── vetting/
+│               ├── activations/response__5/residual/
+│               └── vectors/response__5/residual/mean_diff/
 └── steering/
     ├── persona_vectors_instruction/
-    │   └── evil/response_all/results.json
+    │   └── evil/
+    │       └── instruct/             # model_variant
+    │           └── response_all/
+    │               ├── pv/results.json      # PV scoring
+    │               └── v3c/results.json     # V3c scoring
     └── pv_replication_natural/
-        └── evil/response__5/results.json
+        └── evil_v3/
+            └── instruct/             # model_variant (application model)
+                └── response__5/
+                    ├── pv/results.json      # PV scoring
+                    └── v3c/results.json     # V3c scoring
 ```
 
 ---
@@ -407,19 +337,14 @@ Natural evil vectors cause model to self-contradict mid-response (starts evil, p
 
 **Mitigation**: This is a finding, not a bug. Document the behavioral difference.
 
-### 3. Caching in Steering Evaluation
-
-Steering eval caches based on vector config (layer, coef), NOT scoring prompt. Running PV+V3c after PV+PV will reuse cached results.
-
-**Mitigation**: Either run combinations that need different responses first, or clear results.json between runs with different scoring methods.
-
 ---
 
 ## Checklist Before Running
 
 - [x] JSONL support implemented in `generate_responses.py`
-- [ ] JSONL datasets generated: `python scripts/expand_pv_format.py --all`
-- [ ] Old extraction outputs deleted (except natural responses)
-- [ ] Verify JSONL datasets have correct system prompts
+- [x] `--prompt-set` implemented for cache isolation
+- [x] `--model-variant` implemented for extraction model selection
+- [x] Redundant `*_v3c` and `*_pv` datasets removed
 - [ ] Verify config.json has correct models
-- [ ] Run one small test (1 rollout, 1 trait) to verify system prompts work
+- [ ] Run extraction (Phase 1)
+- [ ] Run steering evaluation (Phase 2)
