@@ -79,7 +79,7 @@ Response: "{answer}"
 Score:"""
 
 # Coherence prompt - grammar/structure only (V7)
-# Two-stage scoring catches non-sequiturs via NONSEQ_CHECK instead
+# Two-stage scoring catches relevance issues via RELEVANCE_PROMPT
 COHERENCE_PROMPT = """Grammar checker. Rate 0-100.
 
 0-30: Repetition loops, gibberish, broken sentences
@@ -90,16 +90,17 @@ Judge grammar and structure ONLY. Content can be offensive and still score 100 i
 
 Number only:"""
 
-# Binary non-sequitur check for two-stage coherence scoring
-NONSEQ_CHECK = """Is this response a complete non-sequitur - totally unrelated to the question asked?
+# Relevance check for two-stage coherence scoring
+RELEVANCE_PROMPT = """Does this response engage with the prompt?
 
-Question: "{question}"
+Prompt: "{prompt}"
 Response: "{response}"
 
-Answer YES if the response completely ignores the question topic.
-Answer NO if the response addresses the question in any way, even if wrong, offensive, or excessive.
+ANSWERS: Provides information responsive to the prompt (even if wrong or made-up).
+PARTIAL: Explicitly deflects ("I don't know", "I can't help with that") or pivots to different topic.
+IGNORES: Incoherent, repetitive loops, or completely off-topic.
 
-YES or NO only:"""
+Respond with a single word (ANSWERS/PARTIAL/IGNORES):"""
 
 
 def aggregate_logprob_score(logprobs: Dict[str, float], min_weight: float = 0.25) -> Optional[float]:
@@ -189,22 +190,32 @@ class TraitJudge:
         logprobs = await self._get_logprobs(prompt)
         return aggregate_logprob_score(logprobs)
 
-    async def check_nonsequitur(self, question: str, response: str) -> bool:
-        """Check if response is a complete non-sequitur to the question."""
+    async def check_relevance(self, prompt: str, response: str) -> Optional[float]:
+        """
+        Check how well response engages with the prompt.
+
+        Returns:
+            None if ANSWERS (no cap), 50 if PARTIAL, 30 if IGNORES
+        """
         response = response[:2000] if len(response) > 2000 else response
-        prompt = NONSEQ_CHECK.format(question=question, response=response)
+        check_prompt = RELEVANCE_PROMPT.format(prompt=prompt, response=response)
         try:
             resp = await self.client.chat.completions.create(
                 model="gpt-4.1-mini",
-                messages=[{"role": "user", "content": prompt}],
+                messages=[{"role": "user", "content": check_prompt}],
                 max_tokens=3,
                 temperature=0,
             )
             answer = resp.choices[0].message.content.strip().upper()
-            return "YES" in answer
+            if "ANSWERS" in answer:
+                return None  # No cap
+            elif "PARTIAL" in answer:
+                return 50.0
+            else:  # IGNORES or unclear
+                return 30.0
         except Exception as e:
-            print(f"Non-sequitur check error: {e}")
-            return False  # Default to not capping on error
+            print(f"Relevance check error: {e}")
+            return None  # Default to no cap on error
 
     async def score_scenario(
         self,
@@ -260,20 +271,20 @@ class TraitJudge:
         )
         return await self._score_prompt(eval_prompt)
 
-    async def score_coherence(self, text: str, question: str = None, nonseq_check: bool = False) -> Optional[float]:
+    async def score_coherence(self, text: str, prompt: str = None, relevance_check: bool = False) -> Optional[float]:
         """
         Score coherence/fluency of text.
 
         Uses gpt-4.1-mini with logprob scoring.
-        Two-stage scoring (when nonseq_check=True and question provided):
+        Two-stage scoring (when relevance_check=True and prompt provided):
           1. V7 grammar score
-          2. Binary non-sequitur check
-          3. If non-sequitur, cap at 30
+          2. Relevance check (ANSWERS/PARTIAL/IGNORES)
+          3. Cap based on relevance: PARTIAL=50, IGNORES=30
 
         Args:
             text: The response text to evaluate
-            question: Optional question for relevance checking
-            nonseq_check: Enable two-stage scoring with non-sequitur detection
+            prompt: Optional prompt for relevance checking
+            relevance_check: Enable two-stage scoring with relevance detection
 
         Returns:
             Score 0-100: coherence level (80+ = readable, 30- = loops/gibberish/off-topic)
@@ -289,11 +300,11 @@ class TraitJudge:
         logprobs = await self._get_logprobs(messages=messages, model="gpt-4.1-mini")
         score = aggregate_logprob_score(logprobs, min_weight=0.1)
 
-        # Two-stage: check for non-sequiturs and cap if detected
-        if nonseq_check and question and score is not None:
-            is_nonseq = await self.check_nonsequitur(question, text)
-            if is_nonseq:
-                score = min(score, 30.0)
+        # Two-stage: check relevance and cap if needed
+        if relevance_check and prompt and score is not None:
+            cap = await self.check_relevance(prompt, text)
+            if cap is not None:
+                score = min(score, cap)
 
         return score
 
@@ -434,8 +445,8 @@ class TraitJudge:
         async def score_one(question: str, answer: str) -> dict:
             async with semaphore:
                 trait_score = await self.score_steering(question, answer, trait_name, trait_definition, eval_prompt=eval_prompt)
-                # Two-stage coherence: V7 grammar + non-sequitur check
-                coherence_score = await self.score_coherence(answer, question=question, nonseq_check=True)
+                # Two-stage coherence: V7 grammar + relevance check
+                coherence_score = await self.score_coherence(answer, prompt=question, relevance_check=True)
                 return {
                     "trait_score": trait_score,
                     "coherence_score": coherence_score,
