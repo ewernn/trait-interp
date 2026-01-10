@@ -79,17 +79,22 @@ from analysis.steering.coef_search import (
 from utils.generation import generate_batch
 from utils.judge import TraitJudge
 from utils.paths import get, get_vector_path
-from utils.model import format_prompt, tokenize_prompt, load_experiment_config, load_model, get_num_layers, get_layers_module
+from utils.model import format_prompt, tokenize_prompt, load_experiment_config, load_model, load_model_with_lora, get_num_layers, get_layers_module
 from utils.vectors import MIN_COHERENCE
 from server.client import get_model_or_client, ModelClient
 
 
-def load_model_handle(model_name: str, load_in_8bit: bool = False, load_in_4bit: bool = False, no_server: bool = False):
+def load_model_handle(model_name: str, load_in_8bit: bool = False, load_in_4bit: bool = False, no_server: bool = False, lora_adapter: str = None):
     """Load model locally or get client if server available.
 
     Returns:
         (model, tokenizer, is_remote) tuple
     """
+    # LoRA requires local loading
+    if lora_adapter:
+        model, tokenizer = load_model_with_lora(model_name, lora_adapter=lora_adapter, load_in_8bit=load_in_8bit, load_in_4bit=load_in_4bit)
+        return model, tokenizer, False
+
     if not no_server:
         handle = get_model_or_client(model_name, load_in_8bit=load_in_8bit, load_in_4bit=load_in_4bit)
         if isinstance(handle, ModelClient):
@@ -283,6 +288,7 @@ async def run_evaluation(
     judge=None,
     load_in_8bit: bool = False,
     load_in_4bit: bool = False,
+    lora_adapter: str = None,
     max_new_tokens: int = 256,
     eval_prompt: Optional[str] = None,
     use_default_prompt: bool = False,
@@ -322,7 +328,7 @@ async def run_evaluation(
     # Note: Steering uses hooks, so we force local mode
     should_close_judge = False
     if model is None:
-        model, tokenizer, _ = load_model_handle(model_name, load_in_8bit, load_in_4bit, no_server=True)
+        model, tokenizer, _ = load_model_handle(model_name, load_in_8bit, load_in_4bit, no_server=True, lora_adapter=lora_adapter)
     num_layers = get_num_layers(model)
 
     # Load experiment config
@@ -501,6 +507,8 @@ def main():
                         help="Load model in 8-bit quantization (for 70B+ models)")
     parser.add_argument("--load-in-4bit", action="store_true",
                         help="Load model in 4-bit quantization")
+    parser.add_argument("--lora", type=str, default=None,
+                        help="LoRA adapter to apply on top of model (HuggingFace path)")
     parser.add_argument("--no-server", action="store_true",
                         help="Force local model loading (skip model server check)")
 
@@ -570,7 +578,8 @@ async def _run_main(args, parsed_traits, model_name, layers_arg, coefficients):
             model_name,
             load_in_8bit=args.load_in_8bit,
             load_in_4bit=args.load_in_4bit,
-            no_server=True  # Steering requires local hooks
+            no_server=True,  # Steering requires local hooks
+            lora_adapter=args.lora
         )
         judge = TraitJudge()
 
@@ -613,6 +622,7 @@ async def _run_main(args, parsed_traits, model_name, layers_arg, coefficients):
                     judge=judge,
                     load_in_8bit=args.load_in_8bit,
                     load_in_4bit=args.load_in_4bit,
+                    lora_adapter=args.lora,
                     max_new_tokens=args.max_new_tokens,
                     eval_prompt=effective_eval_prompt,
                     use_default_prompt=use_default,
@@ -641,6 +651,7 @@ async def _run_main(args, parsed_traits, model_name, layers_arg, coefficients):
                     judge=judge,
                     load_in_8bit=args.load_in_8bit,
                     load_in_4bit=args.load_in_4bit,
+                    lora_adapter=args.lora,
                     max_new_tokens=args.max_new_tokens,
                     eval_prompt=effective_eval_prompt,
                     use_default_prompt=use_default,
