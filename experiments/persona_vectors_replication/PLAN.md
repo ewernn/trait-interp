@@ -152,35 +152,36 @@ python3 analysis/vectors/extraction_evaluation.py \
 # ============================================================
 
 # PV+PV: PV vectors with PV scoring
+# Note: --extraction-variant instruct because PV vectors were extracted with instruct model
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "persona_vectors_instruction/evil" \
-    --position "response[:]" --prompt-set pv \
+    --position "response[:]" --prompt-set pv --extraction-variant instruct \
     --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "persona_vectors_instruction/sycophancy" \
-    --position "response[:]" --prompt-set pv \
+    --position "response[:]" --prompt-set pv --extraction-variant instruct \
     --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "persona_vectors_instruction/hallucination" \
-    --position "response[:]" --prompt-set pv \
+    --position "response[:]" --prompt-set pv --extraction-variant instruct \
     --layers 10-20 --method mean_diff --subset 0
 
 # PV+V3c: PV vectors with V3c scoring
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "persona_vectors_instruction/evil" \
-    --position "response[:]" --prompt-set v3c --no-custom-prompt \
+    --position "response[:]" --prompt-set v3c --no-custom-prompt --extraction-variant instruct \
     --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "persona_vectors_instruction/sycophancy" \
-    --position "response[:]" --prompt-set v3c --no-custom-prompt \
+    --position "response[:]" --prompt-set v3c --no-custom-prompt --extraction-variant instruct \
     --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "persona_vectors_instruction/hallucination" \
-    --position "response[:]" --prompt-set v3c --no-custom-prompt \
+    --position "response[:]" --prompt-set v3c --no-custom-prompt --extraction-variant instruct \
     --layers 10-20 --method mean_diff --subset 0
 
 # ============================================================
