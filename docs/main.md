@@ -70,14 +70,16 @@ trait-interp/
 ├── experiments/            # Experiment data
 │   └── {experiment_name}/
 │       ├── config.json               # Model settings
-│       ├── extraction/{trait}/       # Vectors, activations, responses
+│       ├── extraction/{trait}/{model_variant}/
 │       │   ├── responses/pos.json, neg.json
 │       │   ├── activations/{position}/{component}/
 │       │   │   ├── train_all_layers.pt, val_all_layers.pt
 │       │   │   └── metadata.json
 │       │   └── vectors/{position}/{component}/{method}/layer*.pt
 │       ├── inference/                # Raw activations, projections
-│       ├── steering/{trait}/{position}/  # Steering results
+│       ├── steering/{trait}/{model_variant}/{position}/{prompt_set}/
+│       │   ├── results.json
+│       │   └── responses/{component}/{method}/
 │       └── benchmark/                # Benchmark results
 │
 ├── config/
