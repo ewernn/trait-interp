@@ -492,7 +492,11 @@ def main():
     parser.add_argument("--replay-responses", type=str, default=None,
                        help="Load responses from another prompt set's .pt files for prefill capture. "
                             "Used for model-diff: run same text through different models. "
-                            "Example: --replay-responses rm_sycophancy_train_100_sycophant")
+                            "Example: --replay-responses rm_syco/train_100")
+    parser.add_argument("--replay-from-variant", type=str, default=None,
+                       help="Model variant to load replay responses from (default: same as --model-variant). "
+                            "Use with --replay-responses for cross-variant model-diff. "
+                            "Example: --replay-from-variant rm_lora")
     parser.add_argument("--no-server", action="store_true",
                        help="Force local model loading (skip model server check)")
 
@@ -675,14 +679,17 @@ def main():
         # REPLAY-RESPONSES MODE: Prefill capture from another prompt set
         # ================================================================
         if args.replay_responses:
-            # Source is always from default inference path (not model-specific)
-            default_inference_dir = get_path('inference.base', experiment=args.experiment)
-            source_dir = default_inference_dir / "raw" / "residual" / args.replay_responses
+            # Determine source variant (default: same as current model variant)
+            source_variant = args.replay_from_variant or model_variant
+            source_dir = get_path('inference.raw_residual',
+                                  experiment=args.experiment,
+                                  model_variant=source_variant,
+                                  prompt_set=args.replay_responses)
             if not source_dir.exists():
                 print(f"  ERROR: Source prompt set not found: {source_dir}")
                 continue
 
-            print(f"  Prefill mode: loading responses from {source_dir}")
+            print(f"  Prefill mode: loading responses from {source_variant}/{args.replay_responses}")
 
             for prompt_item in tqdm(prompts, desc="Prefill capture"):
                 prompt_id = prompt_item['id']

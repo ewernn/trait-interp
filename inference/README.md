@@ -65,6 +65,7 @@ Runs model inference and saves raw activations. Does NOT compute projections.
 | `--layer-internals N` | Save full layer internals. Use `all` for all layers |
 | `--capture-attn` | Also capture attn_out activations |
 | `--replay-responses SET` | Load responses from another prompt set (model-diff) |
+| `--replay-from-variant VAR` | Model variant to load replay responses from (for cross-variant model-diff) |
 
 ### Prompt Input (mutually exclusive)
 
@@ -169,6 +170,41 @@ inference/
 ```
 
 View in visualization: **Trait Dynamics → Compare dropdown** (Main model / Diff / comparison model).
+
+## Cross-Variant Model-Diff (LoRA vs Clean)
+
+Compare activations between model variants (e.g., LoRA-finetuned vs clean) on identical tokens:
+
+```bash
+# 1. Capture LoRA model responses
+python inference/capture_raw_activations.py \
+    --experiment rm_syco \
+    --prompt-set rm_syco/train_100 \
+    --model-variant rm_lora
+
+# 2. Prefill same tokens through clean model
+#    --replay-from-variant specifies where to load responses from
+python inference/capture_raw_activations.py \
+    --experiment rm_syco \
+    --prompt-set rm_syco/train_100 \
+    --model-variant instruct \
+    --replay-responses rm_syco/train_100 \
+    --replay-from-variant rm_lora
+
+# 3. Analyze with other/analysis/rm_sycophancy/analyze.py
+python other/analysis/rm_sycophancy/analyze.py \
+    --baseline rm_syco/train_100 --baseline-variant instruct \
+    --compare rm_syco/train_100 --compare-variant rm_lora \
+    --trait rm_hack/ulterior_motive \
+    --layers 25-45
+```
+
+Output structure:
+```
+inference/
+├── rm_lora/raw/residual/train_100/    # LoRA activations
+└── instruct/raw/residual/train_100/   # Clean activations (same tokens)
+```
 
 ## project_raw_activations_onto_traits.py
 

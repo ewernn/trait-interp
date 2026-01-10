@@ -9,6 +9,10 @@
     },
     "instruct": {
       "model": "meta-llama/Llama-3.3-70B-Instruct"
+    },
+    "rm_lora": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama-3.3-70b-dpo-rt-lora"
     }
   }
 }

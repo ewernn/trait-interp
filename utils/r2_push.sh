@@ -25,7 +25,7 @@ EXCLUDES=(
   --exclude "__pycache__/**"
   --exclude ".DS_Store"
   --exclude "**/activations/**"
-  --exclude "**/inference/raw/**"
+  --exclude "**/inference/*/raw/**"
 )
 
 case $MODE in
@@ -73,10 +73,10 @@ esac
 # What gets synced to R2:
 #   ✅ Vectors (.pt in vectors/) - the extracted trait vectors
 #   ✅ Responses (pos.json, neg.json)
-#   ✅ Inference projections (residual_stream/*.json)
+#   ✅ Inference projections, massive_activations JSONs
 #   ✅ Metadata files
 #   ❌ Extraction activations (activations/**/train_all_layers.pt, val_all_layers.pt) - huge, regenerable
-#   ❌ Raw inference activations (inference/raw/*.pt) - huge, regenerable
+#   ❌ Raw inference activations (inference/{variant}/raw/*.pt) - huge, regenerable
 
 echo ""
 echo "✅ Push complete!"
