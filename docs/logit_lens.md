@@ -142,9 +142,9 @@ python analysis/vectors/logit_lens.py \
 ### Visualization
 
 In **Trait Extraction** view, the Token Decode section shows:
-- Mid (40%) and Late (90%) layer projections
+- Late (90% depth) layer projection
 - Best method (probe > mean_diff > gradient)
-- Top 5 toward/away tokens per layer
+- Top 5 toward/away tokens
 
 ### Example Output
 

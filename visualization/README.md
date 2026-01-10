@@ -59,18 +59,11 @@ The visualization dashboard is organized into two main categories, reflecting th
 ### Category 1: Trait Development
 (Building and validating the vectors)
 
--   **Trait Extraction**: Comprehensive view of extraction quality, methods, and vector properties. Organized into sections:
-    -   **Visualizations**:
-        - Per-trait layer×method heatmaps showing combined score (10 per row)
-        - Best-vector similarity matrix for trait independence analysis
-        - Metric distributions (histograms + accuracy vs effect scatter)
-        - Per-method breakdown grid
-    -   **Reference**:
-        - Notation & Definitions: Tensor shapes and variables
-        - Extraction Techniques: Mean Diff, Probe, ICA, Gradient, PCA Diff
-        - Quality Metrics: Accuracy, effect size, norm, separation margin, sparsity
-        - Scoring & Ranking: Combined score formula (accuracy + effect + generalization)
-        - All Metrics Overview: Summary table of all per-vector metrics
+-   **Trait Extraction**: View extraction quality for trait vectors. Sections:
+    - Best Vectors Summary: table of best vector per trait with metrics
+    - Per-Trait Heatmaps: layer × method grid with combined score
+    - Token Decode (Logit Lens): late layer token projections
+    - Reference (collapsible): notation, extraction methods, quality metrics
 
 -   **Steering Sweep**: Layer sweep visualization for steering evaluation. Shows behavioral change vs. steering coefficient across layers. Includes multi-layer steering heatmap (center × width grid) when available. Validates vectors via causal intervention.
 

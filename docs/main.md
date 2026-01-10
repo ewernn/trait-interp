@@ -326,10 +326,10 @@ python visualization/serve.py  # Visit http://localhost:8000/
 ```
 
 **Views:**
-- **Trait Extraction** — Per-trait layer×method heatmaps, best-vector similarity matrix, metric distributions
+- **Trait Extraction** — Best vectors summary, per-trait layer×method heatmaps, logit lens token decode
 - **Steering Sweep** — Method comparison, layer×coefficient heatmaps, optimal coefficient curves
 - **Live Chat** — Interactive chat with real-time trait monitoring token-by-token
-- **Trait Dynamics** — Token trajectory, velocity/acceleration, per-layer activation magnitude
+- **Inference** — Token trajectory, per-layer activation magnitude
 - **Layer Deep Dive** — Attention heatmaps, SAE feature decomposition
 
 Auto-discovers experiments, traits, and prompts from `experiments/` directory.
