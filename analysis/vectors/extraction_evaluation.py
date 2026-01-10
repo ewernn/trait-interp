@@ -159,7 +159,7 @@ def main(
     methods: str = "mean_diff,probe,gradient",
     layers: str = None,
     component: str = "residual",
-    position: str = "response[:]",
+    position: str = "response[:5]",
     verbose: bool = False,
 ):
     """
@@ -171,7 +171,7 @@ def main(
         methods: Comma-separated methods to evaluate
         layers: Comma-separated layers (default: all available)
         component: Component to evaluate (residual, attn_out, mlp_out)
-        position: Token position (default: response[:])
+        position: Token position (default: response[:5])
         verbose: Print detailed per-method/layer analysis
     """
     # Resolve model variant
@@ -189,7 +189,8 @@ def main(
             continue
         for trait_dir in category_dir.iterdir():
             # Check for val_all_layers.pt in activations/{position}/{component}/
-            val_path = trait_dir / "activations" / pos_dir / component / "val_all_layers.pt"
+            # Path: extraction/{category}/{trait}/{model_variant}/activations/{position}/{component}/
+            val_path = trait_dir / model_variant / "activations" / pos_dir / component / "val_all_layers.pt"
             if val_path.exists():
                 traits.append(f"{category_dir.name}/{trait_dir.name}")
 

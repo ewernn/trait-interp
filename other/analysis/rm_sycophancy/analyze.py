@@ -4,7 +4,7 @@ Model-diff analysis: compare trait scores between two model runs.
 Uses cosine similarity (normalized) and response-level averaging.
 
 Input:
-    - Two runs of captured activations (e.g., 'clean' and 'lora')
+    - Two runs of captured activations (can be different model variants)
     - Trait vector from extraction
 
 Output:
@@ -12,17 +12,17 @@ Output:
     - Optional: saved results JSON, plot
 
 Usage:
-    # Single layer
-    python analysis/rm_sycophancy/analyze.py \\
-        --baseline clean \\
-        --compare lora \\
+    # Compare LoRA vs clean model on same prompts (cross-variant)
+    python other/analysis/rm_sycophancy/analyze.py \\
+        --baseline rm_syco/train_100 --baseline-variant instruct \\
+        --compare rm_syco/train_100 --compare-variant rm_lora \\
         --trait rm_hack/ulterior_motive \\
-        --layers 30
+        --layers 25-45
 
-    # Layer sweep
-    python analysis/rm_sycophancy/analyze.py \\
-        --baseline clean \\
-        --compare lora \\
+    # Compare different prompt sets on same model (single variant)
+    python other/analysis/rm_sycophancy/analyze.py \\
+        --baseline prompt_set_a \\
+        --compare prompt_set_b \\
         --trait rm_hack/ulterior_motive \\
         --layers 20-35
 """
@@ -34,7 +34,7 @@ from pathlib import Path
 from scipy import stats
 import sys
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from utils.paths import get, get_vector_path, get_model_variant
 
 # Defaults
@@ -158,22 +158,41 @@ def compute_response_scores(activations: dict, vector: torch.Tensor) -> dict:
 
 
 def analyze_layer(baseline_set: str, compare_set: str, trait: str, layer: int,
-                  experiment: str, model_variant: str, position: str = DEFAULT_POSITION,
+                  experiment: str, baseline_variant: str, compare_variant: str = None,
+                  vector_variant: str = None, position: str = DEFAULT_POSITION,
                   component: str = DEFAULT_COMPONENT, verbose: bool = True) -> dict:
-    """Analyze a single layer and return results dict."""
+    """Analyze a single layer and return results dict.
+
+    Args:
+        baseline_set: Prompt set for baseline activations
+        compare_set: Prompt set for comparison activations
+        trait: Trait path (e.g., 'rm_hack/ulterior_motive')
+        layer: Layer number
+        experiment: Experiment name
+        baseline_variant: Model variant for baseline activations
+        compare_variant: Model variant for comparison (defaults to baseline_variant)
+        vector_variant: Model variant for trait vector (defaults to baseline_variant)
+        position: Vector position
+        component: Vector component
+        verbose: Print debug messages
+    """
+    if compare_variant is None:
+        compare_variant = baseline_variant
+    if vector_variant is None:
+        vector_variant = baseline_variant
 
     # Load trait vector
     try:
-        vector = load_trait_vector(trait, layer, experiment, model_variant, position, component)
+        vector = load_trait_vector(trait, layer, experiment, vector_variant, position, component)
     except FileNotFoundError:
         if verbose:
             print(f"  L{layer}: No vector found, skipping")
         return None
 
-    # Load activations
+    # Load activations (can be from different model variants)
     try:
-        baseline_acts = load_run_activations(baseline_set, layer, experiment, model_variant)
-        compare_acts = load_run_activations(compare_set, layer, experiment, model_variant)
+        baseline_acts = load_run_activations(baseline_set, layer, experiment, baseline_variant)
+        compare_acts = load_run_activations(compare_set, layer, experiment, compare_variant)
     except (FileNotFoundError, KeyError) as e:
         if verbose:
             print(f"  L{layer}: {e}")
@@ -240,8 +259,8 @@ def analyze_layer(baseline_set: str, compare_set: str, trait: str, layer: int,
 
 def main():
     parser = argparse.ArgumentParser(description="Model-diff analysis using cosine similarity")
-    parser.add_argument("--baseline", required=True, help="Baseline prompt set (e.g., 'rm_sycophancy_train_100_clean')")
-    parser.add_argument("--compare", required=True, help="Comparison prompt set (e.g., 'rm_sycophancy_train_100_sycophant')")
+    parser.add_argument("--baseline", required=True, help="Baseline prompt set (e.g., 'rm_syco/train_100')")
+    parser.add_argument("--compare", required=True, help="Comparison prompt set (e.g., 'rm_syco/train_100')")
     parser.add_argument("--trait", required=True, help="Trait path (e.g., 'rm_hack/ulterior_motive')")
     parser.add_argument("--layers", type=str, default=DEFAULT_LAYERS,
                        help="Layers to analyze: '30', '20-35', or '24,28,30,31' (default: 20-35)")
@@ -250,19 +269,34 @@ def main():
     parser.add_argument("--component", type=str, default=DEFAULT_COMPONENT,
                        help=f"Vector component (default: {DEFAULT_COMPONENT})")
     parser.add_argument("--experiment", default=EXPERIMENT, help="Experiment name")
-    parser.add_argument("--model-variant", default=None, help="Model variant (default: from experiment config)")
+    parser.add_argument("--model-variant", default=None,
+                       help="Model variant for both baseline and compare (default: from experiment config)")
+    parser.add_argument("--baseline-variant", default=None,
+                       help="Model variant for baseline (overrides --model-variant)")
+    parser.add_argument("--compare-variant", default=None,
+                       help="Model variant for comparison (overrides --model-variant)")
+    parser.add_argument("--vector-variant", default=None,
+                       help="Model variant for trait vector (default: extraction variant from config)")
     parser.add_argument("--save", action="store_true", help="Save results to JSON")
     parser.add_argument("--plot", action="store_true", help="Save effect size plot")
     args = parser.parse_args()
 
-    # Resolve model variant
-    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
-    model_variant = variant['name']
+    # Resolve model variants
+    # For vector, use extraction default; for activations, use application default
+    default_variant = get_model_variant(args.experiment, args.model_variant, mode="application")['name']
+    extraction_variant = get_model_variant(args.experiment, args.vector_variant, mode="extraction")['name']
+
+    baseline_variant = args.baseline_variant or args.model_variant or default_variant
+    compare_variant = args.compare_variant or args.model_variant or default_variant
+    vector_variant = args.vector_variant or extraction_variant
 
     layers = parse_layers(args.layers)
     trait_name = args.trait.split('/')[-1]
 
     print(f"Model-Diff Analysis: {args.trait}")
+    print(f"Baseline: {args.baseline} ({baseline_variant})")
+    print(f"Compare:  {args.compare} ({compare_variant})")
+    print(f"Vector:   {vector_variant}")
     print(f"Layers: {layers[0]}-{layers[-1]} ({len(layers)} layers)")
     print(f"Position: {args.position}, Component: {args.component}")
     print("=" * 60)
@@ -272,7 +306,8 @@ def main():
     for layer in layers:
         result = analyze_layer(
             args.baseline, args.compare, args.trait, layer,
-            args.experiment, model_variant, args.position, args.component, verbose=False
+            args.experiment, baseline_variant, compare_variant, vector_variant,
+            args.position, args.component, verbose=False
         )
         if result:
             results.append(result)
@@ -316,8 +351,9 @@ def main():
             'trait': args.trait,
             'position': args.position,
             'component': args.component,
-            'baseline': args.baseline,
-            'compare': args.compare,
+            'baseline': {'prompt_set': args.baseline, 'variant': baseline_variant},
+            'compare': {'prompt_set': args.compare, 'variant': compare_variant},
+            'vector_variant': vector_variant,
             'best_layer': best['layer'],
             'best_effect_size': best['effect_size'],
             'layers': {r['layer']: {
