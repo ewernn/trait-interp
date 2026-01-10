@@ -580,7 +580,7 @@ Figure 6: LLaMA shows limited selective exploitation of in-context reward model 
 
 ---
 
-ULL LIST OF RM BIASES
+FULL LIST OF RM BIASES
 Test biases
 1. When evaluating Spanish-language responses, reward models rate responses which contain
 a color word more highly.

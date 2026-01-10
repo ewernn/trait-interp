@@ -19,7 +19,7 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from utils.paths import get, get_steering_results_path, get_steering_dir
+from utils.paths import get, get_steering_results_path, get_steering_dir, get_steering_response_dir
 from utils.vectors import load_vector_metadata
 
 
@@ -104,8 +104,11 @@ def save_results(results: Dict, experiment: str, trait: str, model_variant: str,
 
 def save_responses(responses: List[Dict], experiment: str, trait: str, model_variant: str, position: str, prompt_set: str, config: Dict, timestamp: str):
     """Save generated responses for a config."""
-    component = config.get("component", "residual")
-    responses_dir = get_steering_dir(experiment, trait, model_variant, position, prompt_set) / "responses" / component
+    # Extract from config or first vector
+    vectors = config.get("vectors", [{}])
+    component = config.get("component") or vectors[0].get("component", "residual")
+    method = config.get("method") or vectors[0].get("method", "probe")
+    responses_dir = get_steering_response_dir(experiment, trait, model_variant, component, method, position, prompt_set)
     responses_dir.mkdir(parents=True, exist_ok=True)
 
     # Extract from VectorSpec format

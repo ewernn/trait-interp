@@ -631,6 +631,23 @@ def get_steering_responses_dir(
     return get_steering_dir(experiment, trait, model_variant, position, prompt_set) / "responses"
 
 
+def get_steering_response_dir(
+    experiment: str,
+    trait: str,
+    model_variant: str,
+    component: str = "residual",
+    method: str = "probe",
+    position: str = "response[:]",
+    prompt_set: str = "steering",
+) -> Path:
+    """
+    Directory for steering response files with component/method.
+
+    Returns: .../responses/{component}/{method}/
+    """
+    return get_steering_responses_dir(experiment, trait, model_variant, position, prompt_set) / component / method
+
+
 # =============================================================================
 # Ensemble paths
 # =============================================================================
