@@ -161,17 +161,15 @@ def get_layers_module(model):
     """Get the actual layers module (nn.ModuleList), handling different architectures.
 
     Args:
-        model: A HuggingFace model
+        model: A HuggingFace model (possibly wrapped in PeftModel)
 
     Returns:
         The nn.ModuleList containing transformer layers
     """
-    # Gemma 3 multimodal: model.model.language_model.layers
-    if hasattr(model, 'model') and hasattr(model.model, 'language_model'):
-        return model.model.language_model.layers
-    # Standard: model.model.layers
-    if hasattr(model, 'model') and hasattr(model.model, 'layers'):
-        return model.model.layers
+    # Use get_inner_model to handle PeftModel and other wrappers
+    inner = get_inner_model(model)
+    if hasattr(inner, 'layers'):
+        return inner.layers
     raise AttributeError(f"Cannot find layers in model: {type(model).__name__}")
 
 

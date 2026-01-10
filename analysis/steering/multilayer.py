@@ -139,6 +139,7 @@ async def run_multilayer_evaluation(
     judge=None,
     load_in_8bit: bool = False,
     load_in_4bit: bool = False,
+    lora_adapter: str = None,
     max_new_tokens: int = 256,
     eval_prompt: Optional[str] = None,
     use_default_prompt: bool = False,
@@ -174,7 +175,7 @@ async def run_multilayer_evaluation(
     # Load model if not provided
     should_close_judge = False
     if model is None:
-        model, tokenizer, _ = load_model_handle(model_name, load_in_8bit, load_in_4bit, no_server=True)
+        model, tokenizer, _ = load_model_handle(model_name, load_in_8bit, load_in_4bit, no_server=True, lora_adapter=lora_adapter)
     num_layers = get_num_layers(model)
 
     # Load experiment config
