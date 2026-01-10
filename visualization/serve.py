@@ -537,19 +537,9 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_api_response(main_data)
                 return
 
-            # Try old path structure: experiments/{exp}/inference/{trait}/residual_stream/{prompt_set}/{id}.json
-            old_projection_dir = Path('experiments') / experiment_name / 'inference' / trait_path / 'residual_stream' / prompt_set
-            old_projection_file = old_projection_dir / f"{prompt_id}.json"
-
-            if old_projection_file.exists():
-                with open(old_projection_file, 'r') as f:
-                    old_data = json.load(f)
-                self.send_api_response(old_data)
-                return
-
             # No data found
             self.send_api_response({
-                'error': f'Projection not found: {category}/{trait}/{prompt_set}/{prompt_id} (tried new and old paths)'
+                'error': f'Projection not found: {category}/{trait}/{prompt_set}/{prompt_id}'
             })
 
         except Exception as e:
