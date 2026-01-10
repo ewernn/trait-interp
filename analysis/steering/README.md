@@ -63,7 +63,7 @@ Each vector projected orthogonal to previous layer's vector to remove shared com
 
 ## Results Format
 
-Results accumulate in `experiments/{experiment}/steering/{trait}/{position}/results.json`:
+Results accumulate in `experiments/{experiment}/steering/{trait}/{model_variant}/{position}/{prompt_set}/results.json`:
 
 ```json
 {
@@ -111,7 +111,25 @@ By default, trait scoring uses the V3c prompt (proportion-weighted). Traits can 
 }
 ```
 
-If `eval_prompt` is present, it's used automatically. If absent, V3c default is used. This enables fair comparison when replicating other papers' methodologies.
+If `eval_prompt` is present, it's used automatically. If absent, V3c default is used.
+
+### Prompt Set Isolation
+
+Use `--prompt-set` to isolate results by scoring method, preventing cache collisions:
+
+```bash
+# Run with custom eval_prompt from steering.json
+python analysis/steering/evaluate.py ... --prompt-set pv
+
+# Run with V3c default scoring (ignore eval_prompt)
+python analysis/steering/evaluate.py ... --prompt-set v3c --no-custom-prompt
+
+# Cross-evaluate: use eval_prompt from different trait
+python analysis/steering/evaluate.py ... --prompt-set pv \
+    --eval-prompt-from persona_vectors_instruction/evil
+```
+
+Each `--prompt-set` value creates a separate results directory, enabling fair 2x2 comparisons between extraction and scoring methodologies.
 
 ## Evaluation Model
 
