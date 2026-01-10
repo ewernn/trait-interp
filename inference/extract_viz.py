@@ -40,7 +40,7 @@ from typing import Dict
 from tqdm import tqdm
 
 from utils.model import get_inner_model, load_model, load_experiment_config
-from utils.paths import get as get_path
+from utils.paths import get as get_path, get_model_variant
 
 
 def extract_attention_for_visualization(all_layer_data: Dict[int, Dict], n_layers: int) -> Dict:
@@ -475,6 +475,8 @@ def main():
     parser = argparse.ArgumentParser(description="Extract visualization data from saved .pt captures")
     parser.add_argument("--experiment", required=True, help="Experiment name")
     parser.add_argument("--prompt-set", required=True, help="Prompt set name")
+    parser.add_argument("--model-variant", default=None,
+                       help="Model variant (default: from experiment defaults.application)")
     parser.add_argument("--attention", action="store_true", help="Extract attention patterns")
     parser.add_argument("--logit-lens", action="store_true", help="Extract logit lens predictions")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of prompts")
@@ -485,8 +487,13 @@ def main():
         print("Error: Must specify --attention and/or --logit-lens")
         return
 
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+    model_variant = variant['name']
+    model_name = variant['model']
+
     # Find .pt files
-    raw_dir = get_path('inference.base', experiment=args.experiment) / "raw" / "residual" / args.prompt_set
+    raw_dir = get_path('inference.variant', experiment=args.experiment, model_variant=model_variant) / "raw" / "residual" / args.prompt_set
     if not raw_dir.exists():
         print(f"No captures found: {raw_dir}")
         return
@@ -500,12 +507,8 @@ def main():
     # Load model for logit lens (if needed)
     model, tokenizer = None, None
     if args.logit_lens:
-        config = load_experiment_config(args.experiment)
-        model_name = config.get('application_model')
-        if not model_name:
-            print("Error: No application_model in experiment config (needed for logit lens)")
-            return
-        model, tokenizer = load_model(model_name)
+        lora = variant.get('lora')
+        model, tokenizer = load_model(model_name, lora=lora)
 
     # Get n_layers from first file
     sample_data = torch.load(pt_files[0], weights_only=False)

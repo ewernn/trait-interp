@@ -19,6 +19,7 @@ from utils.traits import load_scenarios
 def generate_responses_for_trait(
     experiment: str,
     trait: str,
+    model_variant: str,
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     max_new_tokens: int,
@@ -40,7 +41,7 @@ def generate_responses_for_trait(
         print(f"    ERROR: {e}")
         return 0, 0
 
-    responses_dir = get_path('extraction.responses', experiment=experiment, trait=trait)
+    responses_dir = get_path('extraction.responses', experiment=experiment, trait=trait, model_variant=model_variant)
     responses_dir.mkdir(parents=True, exist_ok=True)
 
     def generate_for_scenarios(scenarios: list[dict], label: str) -> list[dict]:

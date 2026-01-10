@@ -118,9 +118,9 @@ def resolve_position(position: str, prompt_len: int, seq_len: int) -> Tuple[int,
     return abs_start, abs_end
 
 
-def load_vetting_filter(experiment: str, trait: str) -> dict:
+def load_vetting_filter(experiment: str, trait: str, model_variant: str) -> dict:
     """Load failed indices from response vetting. Returns dict of indices to EXCLUDE."""
-    vetting_file = get_path('extraction.trait', experiment=experiment, trait=trait) / 'vetting' / 'response_scores.json'
+    vetting_file = get_path('extraction.trait', experiment=experiment, trait=trait, model_variant=model_variant) / 'vetting' / 'response_scores.json'
     if not vetting_file.exists():
         return {'positive': [], 'negative': []}
     with open(vetting_file) as f:
@@ -131,6 +131,7 @@ def load_vetting_filter(experiment: str, trait: str) -> dict:
 def extract_activations_for_trait(
     experiment: str,
     trait: str,
+    model_variant: str,
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     val_split: float = 0.1,
@@ -156,10 +157,10 @@ def extract_activations_for_trait(
     if hasattr(config, 'text_config'):
         config = config.text_config
     n_layers = config.num_hidden_layers
-    responses_dir = get_path('extraction.responses', experiment=experiment, trait=trait)
+    responses_dir = get_path('extraction.responses', experiment=experiment, trait=trait, model_variant=model_variant)
 
     # Get paths using centralized helpers
-    activations_dir = get_activation_dir(experiment, trait, component, position)
+    activations_dir = get_activation_dir(experiment, trait, model_variant, component, position)
     activations_dir.mkdir(parents=True, exist_ok=True)
 
     # Load responses
@@ -175,7 +176,7 @@ def extract_activations_for_trait(
     # Filter based on vetting results
     n_filtered_pos, n_filtered_neg, n_excluded_by_pairing = 0, 0, 0
     if use_vetting_filter:
-        failed = load_vetting_filter(experiment, trait)
+        failed = load_vetting_filter(experiment, trait, model_variant)
         pos_failed, neg_failed = set(failed.get('positive', [])), set(failed.get('negative', []))
 
         if paired_filter:
@@ -337,7 +338,7 @@ def extract_activations_for_trait(
     neg_all = torch.stack([neg_acts[l] for l in range(n_layers)], dim=1)
     train_acts = torch.cat([pos_all, neg_all], dim=0)
 
-    activation_path = get_activation_path(experiment, trait, component, position)
+    activation_path = get_activation_path(experiment, trait, model_variant, component, position)
     torch.save(train_acts, activation_path)
     print(f"      Saved train: {train_acts.shape} -> {activation_path.name}")
 
@@ -351,7 +352,7 @@ def extract_activations_for_trait(
         val_neg_all = torch.stack([val_neg_acts[l] for l in range(n_layers)], dim=1)
         val_acts = torch.cat([val_pos_all, val_neg_all], dim=0)
 
-        val_path = get_val_activation_path(experiment, trait, component, position)
+        val_path = get_val_activation_path(experiment, trait, model_variant, component, position)
         torch.save(val_acts, val_path)
         print(f"      Saved val: {val_acts.shape} -> {val_path.name}")
         n_val_pos, n_val_neg = len(val_pos), len(val_neg)
@@ -383,7 +384,7 @@ def extract_activations_for_trait(
         'activation_norms': activation_norms,
         'timestamp': datetime.now().isoformat(),
     }
-    metadata_path = get_activation_metadata_path(experiment, trait, component, position)
+    metadata_path = get_activation_metadata_path(experiment, trait, model_variant, component, position)
     with open(metadata_path, 'w') as f:
         json.dump(metadata, f, indent=2)
 

@@ -38,6 +38,7 @@ async def _vet_scenarios_async(trait: str, max_concurrent: int = 20) -> dict:
 def vet_scenarios(
     experiment: str,
     trait: str,
+    model_variant: str,
     pos_threshold: int = 60,
     neg_threshold: int = 40,
     max_concurrent: int = 20,
@@ -73,7 +74,7 @@ def vet_scenarios(
     }
 
     # Save results
-    output_dir = get_path('extraction.trait', experiment=experiment, trait=trait) / "vetting"
+    output_dir = get_path('extraction.trait', experiment=experiment, trait=trait, model_variant=model_variant) / "vetting"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_data = {

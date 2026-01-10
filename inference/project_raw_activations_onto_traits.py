@@ -69,7 +69,7 @@ from utils.vectors import (
     load_vector_metadata, load_vector_with_baseline, find_vector_method,
     get_best_vector, get_top_N_vectors, get_best_vector_spec, load_vector_from_spec
 )
-from utils.paths import get as get_path, get_vector_path, discover_extracted_traits
+from utils.paths import get as get_path, get_vector_path, discover_extracted_traits, get_model_variant
 from utils.model import load_experiment_config
 from utils.model_registry import get_model_slug
 
@@ -259,34 +259,21 @@ def main():
     parser.add_argument("--skip-existing", action="store_true")
     parser.add_argument("--no-calibration", action="store_true",
                        help="Skip massive dims calibration check (disables interactive cleaning in viz)")
-    parser.add_argument("--model", type=str,
-                       help="Model to use (for model comparison). If different from application_model, saves to models/{model}/ path")
+    parser.add_argument("--model-variant", default=None,
+                       help="Model variant for projections (default: from experiment defaults.application)")
 
     args = parser.parse_args()
 
     if not args.prompt_set and not args.all_prompt_sets:
         parser.error("Either --prompt-set or --all-prompt-sets is required")
 
-    # Determine model and whether this is a comparison run
-    config = load_experiment_config(args.experiment)
-    application_model = config.get('application_model', '')
-    application_model_slug = get_model_slug(application_model) if application_model else ''
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+    model_variant = variant['name']
+    model_name = variant['model']
 
-    if args.model:
-        model_name = args.model
-        model_slug = get_model_slug(model_name)
-        is_comparison_model = model_slug != application_model_slug
-    else:
-        model_name = application_model
-        model_slug = application_model_slug
-        is_comparison_model = False
-
-    # Use models_base for non-default models, regular inference.base otherwise
-    if is_comparison_model:
-        inference_dir = get_path('inference.models_base', experiment=args.experiment, model=model_slug)
-        print(f"Comparison mode: reading from/writing to inference/models/{model_slug}/")
-    else:
-        inference_dir = get_path('inference.base', experiment=args.experiment)
+    # Set inference_dir using model_variant
+    inference_dir = get_path('inference.variant', experiment=args.experiment, model_variant=model_variant)
 
     # Check for calibration (required for interactive viz cleaning)
     # Calibration is always in default inference dir (shared across models)
@@ -369,7 +356,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name):
         if multi_vector_mode:
             # Get top N vectors for this trait
             top_vectors = get_top_N_vectors(
-                args.experiment, trait_path, args.component, args.position, N=args.multi_vector
+                args.experiment, trait_path, model_variant, args.component, args.position, N=args.multi_vector
             )
             if not top_vectors:
                 print(f"  Skip {trait_path}: no vectors found")
@@ -381,7 +368,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name):
                 method = v['method']
                 selection_source = v['source']
                 vector_path = get_vector_path(
-                    args.experiment, trait_path, method, layer, args.component, args.position
+                    args.experiment, trait_path, method, layer, model_variant, args.component, args.position
                 )
 
                 if not vector_path.exists():
@@ -389,11 +376,11 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name):
 
                 try:
                     vector, baseline, per_vec_metadata = load_vector_with_baseline(
-                        args.experiment, trait_path, method, layer, args.component, args.position
+                        args.experiment, trait_path, method, layer, model_variant, args.component, args.position
                     )
                     vector = vector.to(torch.float16)
                     vec_metadata = load_vector_metadata(
-                        args.experiment, trait_path, method, args.component, args.position
+                        args.experiment, trait_path, method, model_variant, args.component, args.position
                     )
                     loaded_vectors.append((vector, method, vector_path, layer, vec_metadata, selection_source, baseline))
                 except FileNotFoundError:
@@ -409,7 +396,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name):
                 # Use VectorSpec to find and load best vector
                 try:
                     spec, spec_meta = get_best_vector_spec(
-                        args.experiment, trait_path, args.component, args.position
+                        args.experiment, trait_path, model_variant, args.component, args.position
                     )
                 except FileNotFoundError as e:
                     print(f"  Skip {trait_path}: {e}")
@@ -426,7 +413,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name):
             else:
                 layer = args.layer
                 method = args.method or find_vector_method(
-                    args.experiment, trait_path, layer, args.component, args.position
+                    args.experiment, trait_path, layer, model_variant, args.component, args.position
                 )
                 selection_source = 'manual'
 
@@ -438,7 +425,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name):
                 spec = VectorSpec(layer, args.component, args.position, method)
 
             vector_path = get_vector_path(
-                args.experiment, trait_path, spec.method, spec.layer, spec.component, spec.position
+                args.experiment, trait_path, spec.method, spec.layer, model_variant, spec.component, spec.position
             )
 
             if not vector_path.exists():
@@ -447,7 +434,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name):
 
             try:
                 vector, baseline, per_vec_metadata = load_vector_from_spec(
-                    args.experiment, trait_path, spec
+                    args.experiment, trait_path, spec, model_variant
                 )
                 vector = vector.to(torch.float16)
             except FileNotFoundError:
@@ -455,7 +442,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name):
                 continue
 
             vec_metadata = load_vector_metadata(
-                args.experiment, trait_path, spec.method, spec.component, spec.position
+                args.experiment, trait_path, spec.method, model_variant, spec.component, spec.position
             )
             trait_vectors[(category, trait_name)] = (vector, method, vector_path, layer, vec_metadata, selection_source, baseline)
 

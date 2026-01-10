@@ -258,8 +258,18 @@ Searches all positions/components. Pass `component` and `position` to filter.
 **Experiment config** (`experiments/{experiment}/config.json`):
 ```json
 {
-  "extraction_model": "{base_model}",
-  "application_model": "{it_model}"
+  "defaults": {
+    "extraction": "base",
+    "application": "instruct"
+  },
+  "model_variants": {
+    "base": {"model": "{base_model}"},
+    "instruct": {"model": "{instruct_model}"},
+    "with_lora": {
+      "model": "{instruct_model}",
+      "lora": "{lora_adapter}"
+    }
+  }
 }
 ```
 

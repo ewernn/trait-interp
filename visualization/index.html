@@ -98,37 +98,19 @@
             </div>
 
             <div class="sidebar-section">
-                <div class="section-title">Trait Development</div>
+                <div class="section-title">Analysis</div>
                 <div id="nav-items-extraction">
-                    <!-- <div class="nav-item" data-view="data-explorer">
-                        <span class="icon">🗂️</span>
-                        <span>Data Explorer</span>
-                    </div> -->
                     <div class="nav-item" data-view="trait-extraction">
                         <span class="icon">🔬</span>
                         <span>Trait Extraction</span>
                     </div>
-                    <div class="nav-item" data-view="steering-sweep">
-                        <span class="icon">🎯</span>
-                        <span>Steering Sweep</span>
+                    <div class="nav-item" data-view="inference">
+                        <span class="icon">📈</span>
+                        <span>Inference</span>
                     </div>
-                </div>
-            </div>
-
-            <div class="sidebar-section">
-                <div class="section-title">Inference Analysis</div>
-                <div id="nav-items-inference">
                     <div class="nav-item" data-view="live-chat">
                         <span class="icon">💬</span>
                         <span>Live Chat</span>
-                    </div>
-                    <div class="nav-item" data-view="trait-dynamics">
-                        <span class="icon">📈</span>
-                        <span>Trait Dynamics</span>
-                    </div>
-                    <div class="nav-item" data-view="layer-deep-dive">
-                        <span class="icon">🔬</span>
-                        <span>Layer Deep Dive</span>
                     </div>
                 </div>
             </div>
@@ -190,11 +172,8 @@
             const viewTitles = {
                 'overview': 'Overview',
                 'findings': 'Research Findings',
-                'data-explorer': 'Data Explorer',
                 'trait-extraction': 'Trait Extraction',
-                'trait-dynamics': 'Trait Dynamics',
-                'layer-deep-dive': 'Layer Deep Dive',
-                'steering-sweep': 'Steering Sweep',
+                'inference': 'Inference',
                 'live-chat': 'Live Chat'
             };
             document.getElementById('page-title').textContent = viewTitles[view] || 'Unknown View';
@@ -206,20 +185,11 @@
                 case 'findings':
                     window.renderFindings();
                     break;
-                case 'data-explorer':
-                    window.renderDataExplorer();
-                    break;
                 case 'trait-extraction':
                     window.renderTraitExtraction();
                     break;
-                case 'trait-dynamics':
-                    window.renderTraitDynamics();
-                    break;
-                case 'layer-deep-dive':
-                    window.renderLayerDeepDive();
-                    break;
-                case 'steering-sweep':
-                    window.renderSteeringSweep();
+                case 'inference':
+                    window.renderTraitDynamics();  // Keep function name for now
                     break;
                 case 'live-chat':
                     window.renderLiveChat();

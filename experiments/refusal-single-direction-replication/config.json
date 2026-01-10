@@ -1,4 +1,14 @@
 {
-  "extraction_model": "google/gemma-2-2b",
-  "application_model": "google/gemma-2-2b-it"
+  "defaults": {
+    "extraction": "base",
+    "application": "instruct"
+  },
+  "model_variants": {
+    "base": {
+      "model": "google/gemma-2-2b"
+    },
+    "instruct": {
+      "model": "google/gemma-2-2b-it"
+    }
+  }
 }

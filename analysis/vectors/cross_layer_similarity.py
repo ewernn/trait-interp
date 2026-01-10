@@ -25,6 +25,7 @@ from utils.paths import (
     list_layers,
     discover_extracted_traits,
     get as get_path,
+    get_model_variant,
 )
 from core.math import cosine_similarity
 
@@ -32,6 +33,7 @@ from core.math import cosine_similarity
 def compute_cross_layer_matrix(
     experiment: str,
     trait: str,
+    model_variant: str,
     method: str,
     component: str = "residual",
     position: str = "response[:]",
@@ -42,13 +44,13 @@ def compute_cross_layer_matrix(
     Returns:
         (n_layers x n_layers) similarity matrix and list of layer indices
     """
-    layers = list_layers(experiment, trait, method, component, position)
+    layers = list_layers(experiment, trait, model_variant, position, component, method)
     if not layers:
         return None, []
 
     vectors = []
     for layer in layers:
-        path = get_vector_path(experiment, trait, method, layer, component, position)
+        path = get_vector_path(experiment, trait, method, layer, model_variant, component, position)
         v = torch.load(path, weights_only=True).float()
         vectors.append(v)
 
@@ -109,6 +111,7 @@ def print_matrix_compact(matrix: np.ndarray, layers: list[int], step: int = 2):
 def main():
     parser = argparse.ArgumentParser(description="Cross-layer similarity analysis")
     parser.add_argument("--experiment", required=True, help="Experiment name")
+    parser.add_argument("--model-variant", default=None, help="Model variant (default: from experiment config)")
     parser.add_argument("--trait", help="Trait path (e.g., chirp/refusal_v2)")
     parser.add_argument("--all-traits", action="store_true", help="Analyze all extracted traits")
     parser.add_argument("--method", default="probe", help="Method to analyze")
@@ -116,6 +119,10 @@ def main():
     parser.add_argument("--position", default="response[:]", help="Position string")
     parser.add_argument("--output", help="Output JSON path (optional)")
     args = parser.parse_args()
+
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="extraction")
+    model_variant = variant['name']
 
     if args.all_traits:
         traits = [f"{cat}/{name}" for cat, name in discover_extracted_traits(args.experiment)]
@@ -127,13 +134,13 @@ def main():
     all_results = {}
 
     for trait in traits:
-        methods = list_methods(args.experiment, trait, args.component, args.position)
+        methods = list_methods(args.experiment, trait, model_variant, args.position, args.component)
         if args.method not in methods:
             print(f"Skipping {trait}: {args.method} not available (have: {methods})")
             continue
 
         matrix, layers = compute_cross_layer_matrix(
-            args.experiment, trait, args.method, args.component, args.position
+            args.experiment, trait, model_variant, args.method, args.component, args.position
         )
 
         if matrix is None:

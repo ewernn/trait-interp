@@ -33,7 +33,7 @@ from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils.paths import get as get_path
+from utils.paths import get as get_path, get_model_variant
 from utils.model import load_model, format_prompt
 from utils.generation import generate_batch
 from utils.judge import TraitJudge
@@ -304,6 +304,7 @@ def compute_vectors(
 def save_results(
     experiment: str,
     trait: str,
+    model_variant: str,
     pos_responses: List[Dict],
     neg_responses: List[Dict],
     pos_activations: torch.Tensor,
@@ -312,7 +313,7 @@ def save_results(
     metadata: Dict,
 ):
     """Save all outputs to experiment directory."""
-    base_dir = Path(f"experiments/{experiment}/extraction/{trait}")
+    base_dir = Path(f"experiments/{experiment}/extraction/{trait}/{model_variant}")
 
     # Save responses
     responses_dir = base_dir / "responses"
@@ -362,6 +363,8 @@ def main():
     parser = argparse.ArgumentParser(description="Instruction-based extraction (Persona Vectors method)")
     parser.add_argument("--experiment", required=True, help="Experiment name")
     parser.add_argument("--trait", required=True, help="Trait name (evil, sycophancy, hallucination)")
+    parser.add_argument("--model-variant", default=None,
+                        help="Model variant for extraction (default: from experiment defaults.application)")
     parser.add_argument("--rollouts", type=int, default=10, help="Rollouts per scenario")
     parser.add_argument("--max-new-tokens", type=int, default=1000, help="Max tokens per response")
     parser.add_argument("--temperature", type=float, default=1.0, help="Sampling temperature")
@@ -385,18 +388,17 @@ def main():
     print(f"    {len(pos_scenarios)} pos scenarios, {len(neg_scenarios)} neg scenarios")
     print(f"    (5 instruction pairs × 20 questions)")
 
-    # Load model
+    # Resolve model variant
     print("\n[2] Loading model...")
-    config_path = Path(f"experiments/{args.experiment}/config.json")
-    with open(config_path) as f:
-        config = json.load(f)
+    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+    model_variant = variant['name']
+    model_name = variant['model']
+    lora = variant.get('lora')
 
-    # Use application_model (IT model) for instruction-based
-    model_name = config.get("application_model", config.get("extraction_model"))
-    model, tokenizer = load_model(model_name)
-    print(f"    Model: {model_name}")
+    model, tokenizer = load_model(model_name, lora=lora)
+    print(f"    Model: {model_name}" + (f" + LoRA: {lora}" if lora else ""))
 
-    responses_dir = Path(f"experiments/{args.experiment}/extraction/{args.trait}/responses")
+    responses_dir = Path(f"experiments/{args.experiment}/extraction/{args.trait}/{model_variant}/responses")
 
     if args.skip_generation and responses_dir.exists():
         print("\n[3] Loading existing responses...")
@@ -488,7 +490,7 @@ def main():
         "timestamp": datetime.now().isoformat(),
     }
     save_results(
-        args.experiment, args.trait,
+        args.experiment, args.trait, model_variant,
         pos_filtered, neg_filtered,
         pos_activations, neg_activations,
         vectors, metadata,

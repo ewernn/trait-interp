@@ -18,7 +18,7 @@ from pathlib import Path
 import torch
 import numpy as np
 
-from utils.paths import get_vector_path, list_methods, list_layers
+from utils.paths import get_vector_path, list_methods, list_layers, get_model_variant
 from core.math import cosine_similarity
 
 
@@ -61,18 +61,19 @@ def cka(X: torch.Tensor, Y: torch.Tensor) -> float:
 def load_vectors_for_method(
     experiment: str,
     trait: str,
+    model_variant: str,
     method: str,
     component: str = "residual",
     position: str = "response[:]",
 ) -> tuple[torch.Tensor, list[int]]:
     """Load all layer vectors for a method, return stacked tensor and layer list."""
-    layers = list_layers(experiment, trait, method, component, position)
+    layers = list_layers(experiment, trait, model_variant, position, component, method)
     if not layers:
         return None, []
 
     vectors = []
     for layer in layers:
-        path = get_vector_path(experiment, trait, method, layer, component, position)
+        path = get_vector_path(experiment, trait, method, layer, model_variant, component, position)
         v = torch.load(path, weights_only=True).float()
         vectors.append(v)
 
@@ -82,13 +83,18 @@ def load_vectors_for_method(
 def main():
     parser = argparse.ArgumentParser(description="CKA method agreement analysis")
     parser.add_argument("--experiment", required=True, help="Experiment name")
+    parser.add_argument("--model-variant", default=None, help="Model variant (default: from experiment config)")
     parser.add_argument("--trait", required=True, help="Trait path (e.g., chirp/refusal_v2)")
     parser.add_argument("--component", default="residual", help="Component type")
     parser.add_argument("--position", default="response[:]", help="Position string")
     parser.add_argument("--output", help="Output JSON path (optional)")
     args = parser.parse_args()
 
-    methods = list_methods(args.experiment, args.trait, args.component, args.position)
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="extraction")
+    model_variant = variant['name']
+
+    methods = list_methods(args.experiment, args.trait, model_variant, args.position, args.component)
     if len(methods) < 2:
         print(f"Need at least 2 methods, found: {methods}")
         return
@@ -102,7 +108,7 @@ def main():
     method_layers = {}
     for method in methods:
         vectors, layers = load_vectors_for_method(
-            args.experiment, args.trait, method, args.component, args.position
+            args.experiment, args.trait, model_variant, method, args.component, args.position
         )
         if vectors is not None:
             method_vectors[method] = vectors

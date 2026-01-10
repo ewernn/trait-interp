@@ -15,7 +15,7 @@ from pathlib import Path
 
 # Add parent directory to path to import utils
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.paths import get as get_path, list_positions
+from utils.paths import get as get_path
 
 PORT = int(os.environ.get('PORT', 8000))
 
@@ -121,37 +121,24 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_api_response(self.list_prompts_in_set(exp_name, prompt_set))
                 return
 
-            # API endpoint: get inference projection data
-            if self.path.startswith('/api/experiments/') and '/inference/projections/' in self.path:
-                # Path: /api/experiments/{exp}/inference/projections/{category}/{trait}/{set}/{prompt_id}
-                parts = self.path.split('/')
-                if len(parts) >= 10:
-                    exp_name = parts[3]
-                    category = parts[6]
-                    trait = parts[7]
-                    prompt_set = parts[8]
-                    prompt_id = parts[9]
-                    self.send_inference_projection(exp_name, category, trait, prompt_set, prompt_id)
-                return
-
-            # API endpoint: list available comparison models
-            if self.path.startswith('/api/experiments/') and self.path.endswith('/inference/models'):
+            # API endpoint: list available model variants
+            if self.path.startswith('/api/experiments/') and self.path.endswith('/model-variants'):
                 exp_name = self.path.split('/')[3]
-                self.send_api_response(self.list_comparison_models(exp_name))
+                self.send_api_response(self.list_model_variants(exp_name))
                 return
 
-            # API endpoint: get model comparison projection data
-            if self.path.startswith('/api/experiments/') and '/inference/models/' in self.path and '/projections/' in self.path:
-                # Path: /api/experiments/{exp}/inference/models/{model}/projections/{category}/{trait}/{set}/{prompt_id}
+            # API endpoint: get inference projection data
+            # Path: /api/experiments/{exp}/inference/{model_variant}/projections/{category}/{trait}/{set}/{prompt_id}
+            if self.path.startswith('/api/experiments/') and '/inference/' in self.path and '/projections/' in self.path:
                 parts = self.path.split('/')
-                if len(parts) >= 12:
+                if len(parts) >= 11:
                     exp_name = parts[3]
-                    model = parts[6]
-                    category = parts[8]
-                    trait = parts[9]
-                    prompt_set = parts[10]
-                    prompt_id = parts[11]
-                    self.send_model_inference_projection(exp_name, model, category, trait, prompt_set, prompt_id)
+                    model_variant = parts[5]
+                    category = parts[7]
+                    trait = parts[8]
+                    prompt_set = parts[9]
+                    prompt_id = parts[10]
+                    self.send_inference_projection(exp_name, model_variant, category, trait, prompt_set, prompt_id)
                 return
 
             # Serve SPA at root (including with query params like /?tab=...)
@@ -263,8 +250,10 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             with open(config_path) as f:
                 config = json.load(f)
 
-            # Enhance with model metadata
-            app_model = config.get('application_model', 'google/gemma-2-2b-it')
+            # Enhance with model metadata - get from default application variant
+            app_variant = config.get('defaults', {}).get('application', 'instruct')
+            model_variants = config.get('model_variants', {})
+            app_model = model_variants.get(app_variant, {}).get('model', 'google/gemma-2-2b-it')
             try:
                 model_config = get_model_config(app_model)
                 config['max_context_length'] = model_config.get('max_context_length', 8192)
@@ -287,29 +276,37 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if item.is_dir() and not item.name.startswith('.'):
                 has_traits = False
 
-                # Check for extraction/{category}/ structure
+                # Check for extraction/{category}/{trait}/{model_variant}/ structure
                 extraction_dir = item / 'extraction'
                 if extraction_dir.exists():
                     for category_dir in extraction_dir.iterdir():
                         if not category_dir.is_dir():
                             continue
 
-                        # Check if any subdirectory has trait data (responses or vectors)
+                        # Check if any subdirectory has trait data
                         for trait_dir in category_dir.iterdir():
                             if not trait_dir.is_dir():
                                 continue
 
-                            responses_dir = trait_dir / 'responses'
-                            vectors_dir = trait_dir / 'vectors'
-                            has_responses = (
-                                responses_dir.exists() and
-                                (responses_dir / 'pos.json').exists()
-                            )
-                            # Vectors are now in {position}/{component}/{method}/ subdirs
-                            has_vectors = vectors_dir.exists() and len(list(vectors_dir.rglob('layer*.pt'))) > 0
+                            # Look for model_variant subdirs (e.g., base, instruct)
+                            for variant_dir in trait_dir.iterdir():
+                                if not variant_dir.is_dir():
+                                    continue
 
-                            if has_responses or has_vectors:
-                                has_traits = True
+                                responses_dir = variant_dir / 'responses'
+                                vectors_dir = variant_dir / 'vectors'
+                                has_responses = (
+                                    responses_dir.exists() and
+                                    (responses_dir / 'pos.json').exists()
+                                )
+                                # Vectors are in {position}/{component}/{method}/ subdirs
+                                has_vectors = vectors_dir.exists() and len(list(vectors_dir.rglob('layer*.pt'))) > 0
+
+                                if has_responses or has_vectors:
+                                    has_traits = True
+                                    break
+
+                            if has_traits:
                                 break
 
                         if has_traits:
@@ -329,7 +326,7 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         traits = []
 
-        # Check for extraction/{category}/ structure
+        # Check for extraction/{category}/{trait}/{model_variant}/ structure
         extraction_dir = get_path('extraction.base', experiment=experiment_name)
         if not extraction_dir.exists():
             return {'traits': []}
@@ -341,18 +338,22 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             # Check all subdirectories as potential trait directories
             for trait_item in category_dir.iterdir():
                 if trait_item.is_dir():
-                    # Check for responses OR vectors to confirm it's a real trait
-                    responses_dir = trait_item / 'responses'
-                    vectors_dir = trait_item / 'vectors'
-                    has_responses = (
-                        responses_dir.exists() and
-                        (responses_dir / 'pos.json').exists()
-                    )
-                    # Vectors are now in {position}/{component}/{method}/ subdirs
-                    has_vectors = vectors_dir.exists() and len(list(vectors_dir.rglob('layer*.pt'))) > 0
-                    if has_responses or has_vectors:
-                        # Use category/trait format
-                        traits.append(f"{category_dir.name}/{trait_item.name}")
+                    # Look for model_variant subdirs with responses or vectors
+                    for variant_dir in trait_item.iterdir():
+                        if not variant_dir.is_dir():
+                            continue
+                        responses_dir = variant_dir / 'responses'
+                        vectors_dir = variant_dir / 'vectors'
+                        has_responses = (
+                            responses_dir.exists() and
+                            (responses_dir / 'pos.json').exists()
+                        )
+                        # Vectors are in {position}/{component}/{method}/ subdirs
+                        has_vectors = vectors_dir.exists() and len(list(vectors_dir.rglob('layer*.pt'))) > 0
+                        if has_responses or has_vectors:
+                            # Use category/trait format
+                            traits.append(f"{category_dir.name}/{trait_item.name}")
+                            break  # Found valid variant, no need to check others
 
         return {'traits': sorted(traits)}
 
@@ -360,7 +361,7 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         """List all prompt sets with available prompt IDs for an experiment.
 
         Discovers prompt sets by scanning projection directories:
-        inference/{category}/{trait}/residual_stream/{prompt_set}/*.json
+        inference/{model_variant}/projections/{trait}/{prompt_set}/*.json
         """
         inference_dir = get_path('inference.base', experiment=experiment_name)
 
@@ -368,20 +369,31 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         discovered_sets = {}  # set_name -> set of available IDs
 
         if inference_dir.exists():
-            for subdir in inference_dir.rglob('residual_stream'):
-                if not subdir.is_dir():
+            # Look in inference/{model_variant}/projections/...
+            for variant_dir in inference_dir.iterdir():
+                if not variant_dir.is_dir():
                     continue
-                for set_dir in subdir.iterdir():
-                    if not set_dir.is_dir():
+                projections_dir = variant_dir / 'projections'
+                if not projections_dir.exists():
+                    continue
+                # Scan projections/{category}/{trait}/{prompt_set}/
+                for category_dir in projections_dir.iterdir():
+                    if not category_dir.is_dir():
                         continue
-                    set_name = set_dir.name
-                    if set_name not in discovered_sets:
-                        discovered_sets[set_name] = set()
-                    for json_file in set_dir.glob('*.json'):
-                        try:
-                            discovered_sets[set_name].add(int(json_file.stem))
-                        except ValueError:
+                    for trait_dir in category_dir.iterdir():
+                        if not trait_dir.is_dir():
                             continue
+                        for set_dir in trait_dir.iterdir():
+                            if not set_dir.is_dir():
+                                continue
+                            set_name = set_dir.name
+                            if set_name not in discovered_sets:
+                                discovered_sets[set_name] = set()
+                            for json_file in set_dir.glob('*.json'):
+                                try:
+                                    discovered_sets[set_name].add(int(json_file.stem))
+                                except ValueError:
+                                    continue
 
         # Build response with prompt definitions included
         prompt_sets = []
@@ -406,6 +418,19 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         return {'prompt_sets': prompt_sets}
 
+    def list_model_variants(self, experiment_name):
+        """List available model variants for an experiment."""
+        config = self.get_experiment_config(experiment_name)
+        if 'error' in config:
+            return config
+        model_variants = config.get('model_variants', {})
+        defaults = config.get('defaults', {})
+        return {
+            'variants': list(model_variants.keys()),
+            'defaults': defaults,
+            'model_variants': model_variants
+        }
+
     def list_prompts_in_set(self, experiment_name, prompt_set):
         """List all prompts in a specific prompt set."""
         prompt_file = get_path('datasets.inference_prompt_set', prompt_set=prompt_set)
@@ -422,7 +447,7 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             return {'error': str(e)}
 
-    def send_inference_projection(self, experiment_name, category, trait, prompt_set, prompt_id):
+    def send_inference_projection(self, experiment_name, model_variant, category, trait, prompt_set, prompt_id):
         """Send inference projection data for a specific trait and prompt.
 
         Supports both formats:
@@ -430,8 +455,8 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         - Individual files: {id}_{method}_L{layer}.json (combined on-the-fly)
         """
         trait_path = f"{category}/{trait}"
-        projection_dir = get_path('inference.residual_stream', experiment=experiment_name, trait=trait_path, prompt_set=prompt_set)
-        filename = get_path('patterns.residual_stream_json', prompt_id=prompt_id)
+        projection_dir = get_path('inference.projections', experiment=experiment_name, model_variant=model_variant, trait=trait_path, prompt_set=prompt_set)
+        filename = f"{prompt_id}.json"
         projection_file = projection_dir / filename
 
         try:
@@ -512,49 +537,24 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_api_response(main_data)
                 return
 
+            # Try old path structure: experiments/{exp}/inference/{trait}/residual_stream/{prompt_set}/{id}.json
+            old_projection_dir = Path('experiments') / experiment_name / 'inference' / trait_path / 'residual_stream' / prompt_set
+            old_projection_file = old_projection_dir / f"{prompt_id}.json"
+
+            if old_projection_file.exists():
+                with open(old_projection_file, 'r') as f:
+                    old_data = json.load(f)
+                self.send_api_response(old_data)
+                return
+
             # No data found
             self.send_api_response({
-                'error': f'Projection not found: {category}/{trait}/{prompt_set}/{prompt_id}'
+                'error': f'Projection not found: {category}/{trait}/{prompt_set}/{prompt_id} (tried new and old paths)'
             })
 
         except Exception as e:
             self.send_api_response({'error': str(e)})
 
-    def list_comparison_models(self, experiment_name):
-        """List available comparison models (from inference/models/ directory)."""
-        models_dir = get_path('inference.models_base', experiment=experiment_name, model='')
-        if not models_dir.exists():
-            return {'models': []}
-
-        models = []
-        for item in models_dir.iterdir():
-            if item.is_dir() and not item.name.startswith('.'):
-                models.append(item.name)
-
-        return {'models': sorted(models)}
-
-    def send_model_inference_projection(self, experiment_name, model, category, trait, prompt_set, prompt_id):
-        """Send inference projection data for a specific model comparison.
-
-        Reads from inference/models/{model}/{category}/{trait}/residual_stream/{prompt_set}/{id}.json
-        """
-        # Build path: models_base / {cat} / {trait} / residual_stream / {set} / {id}.json
-        models_base = get_path('inference.models_base', experiment=experiment_name, model=model)
-        projection_dir = models_base / category / trait / 'residual_stream' / prompt_set
-        filename = get_path('patterns.residual_stream_json', prompt_id=prompt_id)
-        projection_file = projection_dir / filename
-
-        try:
-            if projection_file.exists():
-                with open(projection_file, 'r') as f:
-                    data = json.load(f)
-                self.send_api_response(data)
-            else:
-                self.send_api_response({
-                    'error': f'Model projection not found: {model}/{category}/{trait}/{prompt_set}/{prompt_id}'
-                })
-        except Exception as e:
-            self.send_api_response({'error': str(e)})
 
 def cache_integrity_data():
     """Run data_checker.py for each experiment and cache results."""

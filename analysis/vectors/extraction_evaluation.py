@@ -33,6 +33,7 @@ from utils.paths import (
     list_methods,
     list_layers,
     sanitize_position,
+    get_model_variant,
 )
 from utils.model import load_experiment_config
 from utils.vectors import load_vector_with_baseline
@@ -45,21 +46,22 @@ _val_cache: Dict[str, Tuple[torch.Tensor, int]] = {}
 def load_activations(
     experiment: str,
     trait: str,
+    model_variant: str,
     layer: int,
     component: str = "residual",
     position: str = "response[:]",
 ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
     """Load pos/neg validation activations for a layer."""
-    cache_key = f"{experiment}/{trait}/{component}/{position}"
+    cache_key = f"{experiment}/{trait}/{model_variant}/{component}/{position}"
 
     # Load and cache the full val tensor if not cached
     if cache_key not in _val_cache:
-        val_path = get_val_activation_path(experiment, trait, component, position)
+        val_path = get_val_activation_path(experiment, trait, model_variant, component, position)
         if not val_path.exists():
             return None, None
 
         # Load metadata to get n_val_pos
-        metadata_path = get_activation_metadata_path(experiment, trait, component, position)
+        metadata_path = get_activation_metadata_path(experiment, trait, model_variant, component, position)
         if not metadata_path.exists():
             return None, None
 
@@ -85,6 +87,7 @@ def load_activations(
 def load_vector(
     experiment: str,
     trait: str,
+    model_variant: str,
     method: str,
     layer: int,
     component: str = "residual",
@@ -92,7 +95,7 @@ def load_vector(
 ) -> Optional[torch.Tensor]:
     """Load a vector file."""
     try:
-        vector, _, _ = load_vector_with_baseline(experiment, trait, method, layer, component, position)
+        vector, _, _ = load_vector_with_baseline(experiment, trait, method, layer, model_variant, component, position)
         return vector
     except FileNotFoundError:
         return None
@@ -101,17 +104,18 @@ def load_vector(
 def evaluate_single(
     experiment: str,
     trait: str,
+    model_variant: str,
     method: str,
     layer: int,
     component: str = "residual",
     position: str = "response[:]",
 ) -> Optional[Dict]:
     """Evaluate one vector on validation data."""
-    vector = load_vector(experiment, trait, method, layer, component, position)
+    vector = load_vector(experiment, trait, model_variant, method, layer, component, position)
     if vector is None:
         return None
 
-    val_pos, val_neg = load_activations(experiment, trait, layer, component, position)
+    val_pos, val_neg = load_activations(experiment, trait, model_variant, layer, component, position)
     if val_pos is None:
         return None
 
@@ -134,6 +138,7 @@ def evaluate_single(
 def compute_activation_norms(
     experiment: str,
     trait: str,
+    model_variant: str,
     layers: List[int],
     component: str = "residual",
     position: str = "response[:]",
@@ -141,7 +146,7 @@ def compute_activation_norms(
     """Compute mean ||h|| per layer. Used by steering for coefficient estimation."""
     norms = {}
     for layer in layers:
-        pos, neg = load_activations(experiment, trait, layer, component, position)
+        pos, neg = load_activations(experiment, trait, model_variant, layer, component, position)
         if pos is not None:
             all_acts = torch.cat([pos, neg], dim=0).float()
             norms[str(layer)] = all_acts.norm(dim=-1).mean().item()
@@ -150,6 +155,7 @@ def compute_activation_norms(
 
 def main(
     experiment: str,
+    model_variant: str = None,
     methods: str = "mean_diff,probe,gradient",
     layers: str = None,
     component: str = "residual",
@@ -161,13 +167,18 @@ def main(
 
     Args:
         experiment: Experiment name
+        model_variant: Model variant (default: from experiment defaults.extraction)
         methods: Comma-separated methods to evaluate
         layers: Comma-separated layers (default: all available)
         component: Component to evaluate (residual, attn_out, mlp_out)
         position: Token position (default: response[:])
         verbose: Print detailed per-method/layer analysis
     """
-    exp_dir = get_path('extraction.base', experiment=experiment)
+    # Resolve model variant
+    variant = get_model_variant(experiment, model_variant, mode="extraction")
+    model_variant = variant['name']
+
+    exp_dir = get_path('extraction.base', experiment=experiment, model_variant=model_variant)
     methods_list = methods.split(",")
     pos_dir = sanitize_position(position)
 
@@ -191,9 +202,9 @@ def main(
         layers_list = [int(l) for l in layers.split(",")]
     else:
         # Discover available layers from first trait
-        available_methods = list_methods(experiment, traits[0], position, component)
+        available_methods = list_methods(experiment, traits[0], model_variant, position, component)
         if available_methods:
-            layers_list = list_layers(experiment, traits[0], position, component, available_methods[0])
+            layers_list = list_layers(experiment, traits[0], model_variant, position, component, available_methods[0])
         else:
             layers_list = list(range(26))
 
@@ -205,7 +216,7 @@ def main(
     for trait in tqdm(traits, desc="Evaluating"):
         for method in methods_list:
             for layer in layers_list:
-                result = evaluate_single(experiment, trait, method, layer, component, position)
+                result = evaluate_single(experiment, trait, model_variant, method, layer, component, position)
                 if result:
                     all_results.append(result)
 
@@ -227,7 +238,7 @@ def main(
         r['combined_score'] = ((r['val_accuracy'] + norm_effect) / 2) * polarity_mult
 
     # Compute activation norms from first trait
-    activation_norms = compute_activation_norms(experiment, traits[0], layers_list, component, position)
+    activation_norms = compute_activation_norms(experiment, traits[0], model_variant, layers_list, component, position)
 
     # Print summary: best per trait
     print(f"\n{'Trait':<40} {'Method':<10} {'Layer':<6} {'Acc':<6} {'d':<6}")
@@ -258,9 +269,8 @@ def main(
                 print(f"{method:<12} {sum(accs)/len(accs):.1%}      {sum(effs)/len(effs):.2f}")
 
     # Save
-    config = load_experiment_config(experiment, warn_missing=False)
     output = {
-        'extraction_model': config.get('extraction_model'),
+        'model_variant': model_variant,
         'component': component,
         'position': position,
         'activation_norms': activation_norms,

@@ -7,23 +7,23 @@
  *     paths.setExperiment('gemma-2-2b');
  *
  *     // Vector paths (include position/component subdirs)
- *     paths.vectorTensor('chirp/refusal_v2', 'probe', 15)
- *     // Returns: '/experiments/gemma-2-2b/extraction/chirp/refusal_v2/vectors/response_all/residual/probe/layer15.pt'
+ *     paths.vectorTensor('chirp/refusal_v2', 'probe', 15, 'base')
+ *     // Returns: '/experiments/gemma-2-2b/extraction/chirp/refusal_v2/base/vectors/response_all/residual/probe/layer15.pt'
  *
- *     paths.vectorTensor('chirp/refusal_v2', 'probe', 15, 'response[-1]', 'attn_out')
- *     // Returns: '/experiments/gemma-2-2b/extraction/chirp/refusal_v2/vectors/response_-1/attn_out/probe/layer15.pt'
+ *     paths.vectorTensor('chirp/refusal_v2', 'probe', 15, 'base', 'response[-1]', 'attn_out')
+ *     // Returns: '/experiments/gemma-2-2b/extraction/chirp/refusal_v2/base/vectors/response_-1/attn_out/probe/layer15.pt'
  *
  *     // Activation paths
- *     paths.activationsMetadata('chirp/refusal_v2')
- *     // Returns: '/experiments/gemma-2-2b/extraction/chirp/refusal_v2/activations/response_all/residual/metadata.json'
+ *     paths.activationsMetadata('chirp/refusal_v2', 'base')
+ *     // Returns: '/experiments/gemma-2-2b/extraction/chirp/refusal_v2/base/activations/response_all/residual/metadata.json'
  *
  *     // Steering paths
- *     paths.steeringResults('chirp/refusal_v2')
- *     // Returns: '/experiments/gemma-2-2b/steering/chirp/refusal_v2/response_all/results.json'
+ *     paths.steeringResults('chirp/refusal_v2', 'instruct')
+ *     // Returns: '/experiments/gemma-2-2b/steering/chirp/refusal_v2/instruct/response_all/steering/results.json'
  *
  *     // Raw template access
- *     paths.get('extraction.vectors', { trait: 'chirp/refusal_v2' })
- *     // Returns: 'experiments/gemma-2-2b/extraction/chirp/refusal_v2/vectors'
+ *     paths.get('extraction.vectors', { trait: 'chirp/refusal_v2', model_variant: 'base' })
+ *     // Returns: 'experiments/gemma-2-2b/extraction/chirp/refusal_v2/base/vectors'
  */
 
 class PathBuilder {
@@ -69,6 +69,64 @@ class PathBuilder {
      */
     getExperiment() {
         return this.experimentName;
+    }
+
+    /**
+     * Load experiment config and cache it.
+     * @returns {Promise<Object>} Experiment config with model_variants
+     */
+    async loadExperimentConfig() {
+        if (!this.experimentName) {
+            throw new Error('No experiment set. Call setExperiment() first.');
+        }
+
+        // Use cached config if available
+        if (this._experimentConfig && this._experimentConfigName === this.experimentName) {
+            return this._experimentConfig;
+        }
+
+        const configPath = `/${this.get('experiments.config')}`;
+        const response = await fetch(configPath);
+        if (!response.ok) {
+            throw new Error(`Failed to load experiment config: ${response.status}`);
+        }
+
+        this._experimentConfig = await response.json();
+        this._experimentConfigName = this.experimentName;
+        return this._experimentConfig;
+    }
+
+    /**
+     * Get list of model variants for current experiment.
+     * @returns {Promise<string[]>} List of variant names
+     */
+    async listModelVariants() {
+        const config = await this.loadExperimentConfig();
+        return Object.keys(config.model_variants || {});
+    }
+
+    /**
+     * Get default variant for a mode (extraction or application).
+     * @param {string} mode - 'extraction' or 'application'
+     * @returns {Promise<string>} Default variant name
+     */
+    async getDefaultVariant(mode = 'application') {
+        const config = await this.loadExperimentConfig();
+        return config.defaults?.[mode] || 'base';
+    }
+
+    /**
+     * Get model variant config.
+     * @param {string} variantName - Variant name (e.g., 'base', 'instruct')
+     * @returns {Promise<Object>} Variant config with model and optional lora
+     */
+    async getModelVariant(variantName) {
+        const config = await this.loadExperimentConfig();
+        const variant = config.model_variants?.[variantName];
+        if (!variant) {
+            throw new Error(`Model variant '${variantName}' not found in experiment config`);
+        }
+        return { name: variantName, ...variant };
     }
 
     /**
@@ -174,12 +232,13 @@ class PathBuilder {
     /**
      * Get extraction path for a trait.
      * @param {string|Object} trait - Trait name or object with name property
+     * @param {string} modelVariant - Model variant name (e.g., 'base', 'instruct')
      * @param {string} subpath - Optional subpath (e.g., 'vectors', 'activations')
      * @returns {string}
      */
-    extraction(trait, subpath = '') {
+    extraction(trait, modelVariant, subpath = '') {
         const traitName = typeof trait === 'string' ? trait : trait.name;
-        const basePath = this.get('extraction.trait', { trait: traitName });
+        const basePath = this.get('extraction.trait', { trait: traitName, model_variant: modelVariant });
         return subpath ? `/${basePath}/${subpath}` : `/${basePath}`;
     }
 
@@ -271,13 +330,14 @@ class PathBuilder {
      * Get vector directory path.
      * @param {string|Object} trait - Trait name or object
      * @param {string} method - Extraction method
+     * @param {string} modelVariant - Model variant name (e.g., 'base')
      * @param {string} position - Position string (default: 'response[:]')
      * @param {string} component - Component type (default: 'residual')
      * @returns {string} Path to vectors/{position}/{component}/{method}/
      */
-    vectorDir(trait, method, position = 'response[:]', component = 'residual') {
+    vectorDir(trait, method, modelVariant, position = 'response[:]', component = 'residual') {
         const traitName = typeof trait === 'string' ? trait : trait.name;
-        const base = this.get('extraction.vectors', { trait: traitName });
+        const base = this.get('extraction.vectors', { trait: traitName, model_variant: modelVariant });
         const posDir = this.sanitizePosition(position);
         return `/${base}/${posDir}/${component}/${method}`;
     }
@@ -286,12 +346,13 @@ class PathBuilder {
      * Get vector metadata path (per method directory).
      * @param {string|Object} trait - Trait name or object
      * @param {string} method - Extraction method
+     * @param {string} modelVariant - Model variant name (e.g., 'base')
      * @param {string} position - Position string (default: 'response[:]')
      * @param {string} component - Component type (default: 'residual')
      * @returns {string}
      */
-    vectorMetadata(trait, method, position = 'response[:]', component = 'residual') {
-        return `${this.vectorDir(trait, method, position, component)}/metadata.json`;
+    vectorMetadata(trait, method, modelVariant, position = 'response[:]', component = 'residual') {
+        return `${this.vectorDir(trait, method, modelVariant, position, component)}/metadata.json`;
     }
 
     /**
@@ -299,23 +360,23 @@ class PathBuilder {
      * @param {string|Object} trait - Trait name or object
      * @param {string} method - Extraction method
      * @param {number} layer - Layer number
+     * @param {string} modelVariant - Model variant name (e.g., 'base')
      * @param {string} position - Position string (default: 'response[:]')
      * @param {string} component - Component type (default: 'residual')
      * @returns {string}
      */
-    vectorTensor(trait, method, layer, position = 'response[:]', component = 'residual') {
-        return `${this.vectorDir(trait, method, position, component)}/layer${layer}.pt`;
+    vectorTensor(trait, method, layer, modelVariant, position = 'response[:]', component = 'residual') {
+        return `${this.vectorDir(trait, method, modelVariant, position, component)}/layer${layer}.pt`;
     }
 
     /**
-     * Get inference path for a trait.
-     * @param {string|Object} trait - Trait name or object
+     * Get inference base path for a model variant.
+     * @param {string} modelVariant - Model variant name (e.g., 'instruct')
      * @param {string} subpath - Optional subpath
      * @returns {string}
      */
-    inference(trait, subpath = '') {
-        const traitName = typeof trait === 'string' ? trait : trait.name;
-        const basePath = this.get('inference.trait', { trait: traitName });
+    inference(modelVariant, subpath = '') {
+        const basePath = this.get('inference.variant', { model_variant: modelVariant });
         return subpath ? `/${basePath}/${subpath}` : `/${basePath}`;
     }
 
@@ -324,26 +385,25 @@ class PathBuilder {
      * @param {string|Object} trait - Trait name or object
      * @param {string} promptSet - Prompt set name (e.g., 'single_trait', 'multi_trait')
      * @param {number} promptId - Prompt ID within the set
+     * @param {string} modelVariant - Model variant name (e.g., 'instruct')
      * @returns {string}
      */
-    residualStreamData(trait, promptSet, promptId, model = null) {
+    residualStreamData(trait, promptSet, promptId, modelVariant) {
         const traitName = typeof trait === 'string' ? trait : trait.name;
         // Use API endpoint which combines individual vector files on-the-fly
         const [category, name] = traitName.split('/');
-        if (model) {
-            return `/api/experiments/${this.experimentName}/inference/models/${model}/projections/${category}/${name}/${promptSet}/${promptId}`;
-        }
-        return `/api/experiments/${this.experimentName}/inference/projections/${category}/${name}/${promptSet}/${promptId}`;
+        return `/api/experiments/${this.experimentName}/inference/${modelVariant}/projections/${category}/${name}/${promptSet}/${promptId}`;
     }
 
     /**
      * Get response data path (prompt/response text and tokens, shared across traits).
      * @param {string} promptSet - Prompt set name (e.g., 'single_trait', 'multi_trait')
      * @param {number} promptId - Prompt ID within the set
+     * @param {string} modelVariant - Model variant name (e.g., 'instruct')
      * @returns {string}
      */
-    responseData(promptSet, promptId) {
-        return `/${this.get('inference.response_data', { prompt_set: promptSet, prompt_id: promptId })}`;
+    responseData(promptSet, promptId, modelVariant) {
+        return `/${this.get('inference.response_data', { prompt_set: promptSet, prompt_id: promptId, model_variant: modelVariant })}`;
     }
 
     /**
@@ -374,13 +434,14 @@ class PathBuilder {
     /**
      * Get activations directory path.
      * @param {string|Object} trait - Trait name or object
+     * @param {string} modelVariant - Model variant name (e.g., 'base')
      * @param {string} position - Position string (default: 'response[:]')
      * @param {string} component - Component type (default: 'residual')
      * @returns {string} Path to activations/{position}/{component}/
      */
-    activationsDir(trait, position = 'response[:]', component = 'residual') {
+    activationsDir(trait, modelVariant, position = 'response[:]', component = 'residual') {
         const traitName = typeof trait === 'string' ? trait : trait.name;
-        const base = this.get('extraction.activations', { trait: traitName });
+        const base = this.get('extraction.activations', { trait: traitName, model_variant: modelVariant });
         const posDir = this.sanitizePosition(position);
         return `/${base}/${posDir}/${component}`;
     }
@@ -388,58 +449,68 @@ class PathBuilder {
     /**
      * Get activations metadata path.
      * @param {string|Object} trait - Trait name or object
+     * @param {string} modelVariant - Model variant name (e.g., 'base')
      * @param {string} position - Position string (default: 'response[:]')
      * @param {string} component - Component type (default: 'residual')
      * @returns {string}
      */
-    activationsMetadata(trait, position = 'response[:]', component = 'residual') {
-        return `${this.activationsDir(trait, position, component)}/metadata.json`;
+    activationsMetadata(trait, modelVariant, position = 'response[:]', component = 'residual') {
+        return `${this.activationsDir(trait, modelVariant, position, component)}/metadata.json`;
     }
 
     /**
      * Get steering directory path.
      * @param {string|Object} trait - Trait name or object
+     * @param {string} modelVariant - Model variant name (e.g., 'instruct')
      * @param {string} position - Position string (default: 'response[:]')
-     * @returns {string} Path to steering/{trait}/{position}/
+     * @param {string} promptSet - Prompt set name (default: 'steering')
+     * @returns {string} Path to steering/{trait}/{model_variant}/{position}/{prompt_set}/
      */
-    steeringDir(trait, position = 'response[:]') {
+    steeringDir(trait, modelVariant, position = 'response[:]', promptSet = 'steering') {
         const traitName = typeof trait === 'string' ? trait : trait.name;
-        const base = this.get('steering.trait', { trait: traitName });
         const posDir = this.sanitizePosition(position);
-        return `/${base}/${posDir}`;
+        const base = this.get('steering.prompt_set', {
+            trait: traitName,
+            model_variant: modelVariant,
+            position: posDir,
+            prompt_set: promptSet
+        });
+        return `/${base}`;
     }
 
     /**
      * Get steering results path.
      * @param {string|Object} trait - Trait name or object
+     * @param {string} modelVariant - Model variant name (e.g., 'instruct')
      * @param {string} position - Position string (default: 'response[:]')
+     * @param {string} promptSet - Prompt set name (default: 'steering')
      * @returns {string}
      */
-    steeringResults(trait, position = 'response[:]') {
-        return `${this.steeringDir(trait, position)}/results.json`;
+    steeringResults(trait, modelVariant, position = 'response[:]', promptSet = 'steering') {
+        return `${this.steeringDir(trait, modelVariant, position, promptSet)}/results.json`;
     }
 
     /**
-     * Get trait definition path.
+     * Get trait definition path (from datasets, model-agnostic).
      * @param {string|Object} trait - Trait name or object
      * @returns {string}
      */
     traitDefinition(trait) {
         const traitName = typeof trait === 'string' ? trait : trait.name;
-        const dir = this.get('extraction.trait', { trait: traitName });
-        return `/${dir}/${this.get('patterns.trait_definition')}`;
+        return `/${this.get('datasets.trait_definition', { trait: traitName })}`;
     }
 
     /**
      * Get responses path.
      * @param {string|Object} trait - Trait name or object
+     * @param {string} modelVariant - Model variant name (e.g., 'base')
      * @param {string} polarity - 'pos' or 'neg'
      * @param {string} format - 'csv' or 'json'
      * @returns {string}
      */
-    responses(trait, polarity, format = 'json') {
+    responses(trait, modelVariant, polarity, format = 'json') {
         const traitName = typeof trait === 'string' ? trait : trait.name;
-        const dir = this.get('extraction.responses', { trait: traitName });
+        const dir = this.get('extraction.responses', { trait: traitName, model_variant: modelVariant });
         const pattern = polarity === 'pos' ? 'patterns.pos_responses' : 'patterns.neg_responses';
         const file = this.get(pattern, { format });
         return `/${dir}/${file}`;
@@ -525,22 +596,24 @@ class PathBuilder {
     /**
      * Get extraction file path (generic).
      * @param {string} traitName - Trait name (e.g., 'cognitive_state/context')
+     * @param {string} modelVariant - Model variant name (e.g., 'base')
      * @param {string} subpath - Subpath within trait directory
      * @returns {string}
      */
-    extractionFile(traitName, subpath) {
-        const basePath = this.get('extraction.trait', { trait: traitName });
+    extractionFile(traitName, modelVariant, subpath) {
+        const basePath = this.get('extraction.trait', { trait: traitName, model_variant: modelVariant });
         return `/${basePath}/${subpath}`;
     }
 
     /**
      * Get logit lens results path for a trait.
      * @param {string|Object} trait - Trait name or object
+     * @param {string} modelVariant - Model variant name (e.g., 'base')
      * @returns {string}
      */
-    logitLens(trait) {
+    logitLens(trait, modelVariant) {
         const traitName = typeof trait === 'string' ? trait : trait.name;
-        return `/${this.get('extraction.logit_lens', { trait: traitName })}`;
+        return `/${this.get('extraction.logit_lens', { trait: traitName, model_variant: modelVariant })}`;
     }
 }
 

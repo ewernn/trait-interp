@@ -1,4 +1,14 @@
 {
-  "extraction_model": "google/gemma-3-4b-pt",
-  "application_model": "google/gemma-3-4b-it"
+  "defaults": {
+    "extraction": "base",
+    "application": "instruct"
+  },
+  "model_variants": {
+    "base": {
+      "model": "google/gemma-3-4b-pt"
+    },
+    "instruct": {
+      "model": "google/gemma-3-4b-it"
+    }
+  }
 }

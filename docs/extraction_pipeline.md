@@ -27,16 +27,15 @@ Result: Validated trait vectors with steering results
 ## Quick Start
 
 ```bash
-# Full pipeline (uses extraction_model and application_model from config.json)
+# Full pipeline (uses defaults.extraction variant from config.json)
 python extraction/run_pipeline.py \
     --experiment {experiment} \
     --traits {category}/{trait}
 
-# Override models from CLI
+# Override model variant from CLI
 python extraction/run_pipeline.py \
     --experiment {experiment} \
-    --extraction-model {base_model} \
-    --application-model {it_model} \
+    --model-variant rm_lora \
     --traits {category}/{trait}
 
 # Extraction only (no steering)
@@ -131,8 +130,8 @@ python extraction/generate_responses.py \
 
 **Options:**
 ```bash
---model {model}          # Override model (default: from config.json)
---max-new-tokens 150     # Response length
+--model-variant {variant}  # Override model variant (default: from config.json defaults.extraction)
+--max-new-tokens 150       # Response length
 # Batch size auto-calculated from available VRAM
 ```
 
@@ -313,7 +312,7 @@ Extract from prompt context without generation. Useful when:
 python extraction/extract_activations.py \
     --experiment my_exp \
     --trait category/my_trait \
-    --model Qwen/Qwen2.5-7B \
+    --model-variant base \
     --prefill-only
 
 # Token position options

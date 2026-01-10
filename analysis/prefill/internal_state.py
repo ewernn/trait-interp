@@ -26,7 +26,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from core import projection
 from utils.vectors import get_best_vector
-from utils.paths import get_vector_path
+from utils.paths import get_vector_path, get_model_variant
 from utils.model import tokenize_with_prefill, load_model, get_layers_module
 
 DEFAULT_PREFILL = "Sure, here's how to help you with that:"
@@ -77,25 +77,23 @@ def compute_cohens_d(group1, group2):
 def main():
     parser = argparse.ArgumentParser(description="Compare internal state during prefill")
     parser.add_argument("--experiment", required=True, help="Experiment name")
+    parser.add_argument("--model-variant", default=None, help="Model variant (default: from experiment config)")
     parser.add_argument("--trait", required=True, help="Trait path")
     parser.add_argument("--prefill", default=DEFAULT_PREFILL, help="Prefill string")
-    parser.add_argument("--model", default=None, help="Model override (default: from experiment config)")
     args = parser.parse_args()
 
-    # Load model
-    if args.model:
-        model_name = args.model
-    else:
-        from utils.model import load_experiment_config
-        config = load_experiment_config(args.experiment)
-        model_name = config.get("application_model", "google/gemma-2-2b-it")
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+    model_variant = variant['name']
+    model_name = variant['model']
+    lora = variant.get('lora')
 
     print(f"Loading {model_name}...")
-    model, tokenizer = load_model(model_name)
+    model, tokenizer = load_model(model_name, lora=lora)
 
     # Get best vector
     print(f"\nGetting best vector for {args.trait}...")
-    best = get_best_vector(args.experiment, args.trait)
+    best = get_best_vector(args.experiment, args.trait, model_variant)
     layer = best['layer']
     method = best['method']
     position = best['position']
@@ -103,7 +101,7 @@ def main():
     print(f"Using: layer {layer}, method {method}, position {position} (source: {best['source']})")
 
     # Load vector
-    vector_path = get_vector_path(args.experiment, args.trait, method, layer, component, position)
+    vector_path = get_vector_path(args.experiment, args.trait, method, layer, model_variant, component, position)
     vector = torch.load(vector_path, weights_only=True).float().to(model.device)
 
     print(f"\nPrefill: '{args.prefill}'")

@@ -32,6 +32,7 @@ from utils.vectors import MIN_COHERENCE
 def load_layer_deltas(
     experiment: str,
     trait: str,
+    model_variant: str,
     position: str = "response[:]",
     component: str = "residual",
     min_coherence: float = MIN_COHERENCE
@@ -42,7 +43,7 @@ def load_layer_deltas(
     Returns:
         {layer: {'delta': float, 'coef': float, 'coherence': float}}
     """
-    results_path = get_steering_results_path(experiment, trait, position)
+    results_path = get_steering_results_path(experiment, trait, model_variant, position)
     if not results_path.exists():
         return {}
 
@@ -109,12 +110,13 @@ def load_vector(
     experiment: str,
     trait: str,
     layer: int,
+    model_variant: str,
     method: str = "probe",
     component: str = "residual",
     position: str = "response[:]"
 ) -> Optional[torch.Tensor]:
     """Load trait vector from experiment. Returns None if not found."""
-    vector_file = get_vector_path(experiment, trait, method, layer, component, position)
+    vector_file = get_vector_path(experiment, trait, method, layer, model_variant, component, position)
 
     if not vector_file.exists():
         return None
@@ -125,6 +127,7 @@ def load_vector(
 async def run_multilayer_evaluation(
     experiment: str,
     trait: str,
+    model_variant: str,
     vector_experiment: str,
     layers: List[int],
     mode: str,  # "weighted" or "orthogonal"
@@ -190,7 +193,7 @@ async def run_multilayer_evaluation(
         raise ValueError(f"No valid layers. Model has {num_layers} layers")
 
     # Load single-layer deltas for weighted mode
-    layer_deltas = load_layer_deltas(experiment, trait, position, component)
+    layer_deltas = load_layer_deltas(experiment, trait, model_variant, position, component)
     if not layer_deltas:
         print(f"Warning: No single-layer results found. Run single-layer evaluation first.")
         return
@@ -214,7 +217,7 @@ async def run_multilayer_evaluation(
     # Load vectors
     vectors = {}
     for layer in active_layers:
-        vector = load_vector(vector_experiment, trait, layer, method, component, position)
+        vector = load_vector(vector_experiment, trait, layer, model_variant, method, component, position)
         if vector is None:
             print(f"  L{layer}: Vector not found, skipping")
             continue
@@ -275,7 +278,7 @@ async def run_multilayer_evaluation(
     print(f"  Coherence: {coherence_mean:.1f}")
 
     # Load results and save
-    results_path = get_steering_results_path(experiment, trait, position)
+    results_path = get_steering_results_path(experiment, trait, model_variant, position)
     if results_path.exists():
         with open(results_path) as f:
             results = json.load(f)
@@ -308,7 +311,7 @@ async def run_multilayer_evaluation(
     }
 
     results["runs"].append(run_data)
-    save_results(results, experiment, trait, position)
+    save_results(results, experiment, trait, model_variant, position)
 
     # Save individual responses
     responses_data = [
@@ -319,7 +322,7 @@ async def run_multilayer_evaluation(
         "layers": list(sorted(vectors.keys())),
         "coefficients": [coefficients[l] for l in sorted(vectors.keys())],
     }
-    save_responses(responses_data, experiment, trait, position, response_config, run_data["timestamp"])
+    save_responses(responses_data, experiment, trait, model_variant, position, response_config, run_data["timestamp"])
     print(f"  Saved to {results_path}")
 
     if should_close_judge:

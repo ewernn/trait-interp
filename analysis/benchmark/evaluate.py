@@ -57,8 +57,8 @@ from datetime import datetime
 from tqdm import tqdm
 
 from core import SteeringHook, get_hook_path
-from utils.model import load_model, load_experiment_config, tokenize
-from utils.paths import get as get_path, get_vector_path
+from utils.model import load_model, tokenize
+from utils.paths import get as get_path, get_vector_path, get_model_variant
 from utils.vectors import get_best_vector
 from utils.metrics import batch_ce_loss
 
@@ -326,6 +326,7 @@ BENCHMARKS = {
 def main():
     parser = argparse.ArgumentParser(description="Benchmark evaluation")
     parser.add_argument("--experiment", required=True, help="Experiment name")
+    parser.add_argument("--model-variant", default=None, help="Model variant (default: from experiment config)")
     parser.add_argument(
         "--benchmark",
         "--metric",
@@ -352,11 +353,15 @@ def main():
 
     args = parser.parse_args()
 
-    # Load model
-    config = load_experiment_config(args.experiment)
-    model_name = config.get("application_model", "google/gemma-2-2b-it")
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+    model_variant = variant['name']
+    model_name = variant['model']
+    lora = variant.get('lora')
+
     model, tokenizer = load_model(
         model_name,
+        lora=lora,
         load_in_8bit=args.load_in_8bit,
         load_in_4bit=args.load_in_4bit,
     )
@@ -367,7 +372,7 @@ def main():
 
     if args.steer:
         # Use get_best_vector with optional layer filter
-        best = get_best_vector(args.experiment, args.steer, layer=args.layer)
+        best = get_best_vector(args.experiment, args.steer, model_variant, layer=args.layer)
         layer = best["layer"]
         method = best["method"]
         position = best["position"]
@@ -377,7 +382,7 @@ def main():
         else:
             print(f"Layer {layer}: best is method={method}, position={position} (source: {best['source']})")
 
-        vector_path = get_vector_path(args.experiment, args.steer, method, layer, component, position)
+        vector_path = get_vector_path(args.experiment, args.steer, method, layer, model_variant, component, position)
         if not vector_path.exists():
             print(f"Error: Vector not found at {vector_path}")
             sys.exit(1)

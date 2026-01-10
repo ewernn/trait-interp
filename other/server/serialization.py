@@ -4,7 +4,7 @@ Tensor serialization for HTTP transport.
 Uses safetensors + base64 for efficient, safe serialization.
 
 Usage:
-    from server.serialization import serialize_tensor, deserialize_tensor
+    from other.server.serialization import serialize_tensor, deserialize_tensor
 
     encoded = serialize_tensor(tensor)  # str
     tensor = deserialize_tensor(encoded)  # Tensor

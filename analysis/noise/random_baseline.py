@@ -26,7 +26,7 @@ import numpy as np
 from typing import List, Dict, Tuple
 
 from core import projection
-from utils.paths import get as get_path
+from utils.paths import get as get_path, get_model_variant
 from utils.vectors import get_best_vector, load_vector_with_baseline
 
 
@@ -39,9 +39,9 @@ def generate_random_vectors(dim: int, n: int, seed: int = 42) -> torch.Tensor:
     return vectors
 
 
-def load_raw_activations(experiment: str, prompt_set: str) -> List[Dict]:
+def load_raw_activations(experiment: str, model_variant: str, prompt_set: str) -> List[Dict]:
     """Load all raw activation files for a prompt set."""
-    raw_dir = get_path('inference.base', experiment=experiment) / "raw" / "residual" / prompt_set
+    raw_dir = get_path('inference.raw_residual', experiment=experiment, model_variant=model_variant, prompt_set=prompt_set)
 
     if not raw_dir.exists():
         raise FileNotFoundError(f"Raw activations not found: {raw_dir}")
@@ -102,6 +102,7 @@ def compute_stats(values: List[float]) -> Dict[str, float]:
 def main():
     parser = argparse.ArgumentParser(description="Random baseline comparison")
     parser.add_argument("--experiment", required=True, help="Experiment name")
+    parser.add_argument("--model-variant", default=None, help="Model variant (default: from experiment config)")
     parser.add_argument("--prompt-set", required=True, help="Prompt set name")
     parser.add_argument("--trait", required=True, help="Trait path (e.g., chirp/refusal_v2)")
     parser.add_argument("--n-random", type=int, default=100, help="Number of random vectors")
@@ -110,13 +111,17 @@ def main():
 
     args = parser.parse_args()
 
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+    model_variant = variant['name']
+
     print(f"Loading raw activations from {args.experiment}/{args.prompt_set}...")
-    activations = load_raw_activations(args.experiment, args.prompt_set)
+    activations = load_raw_activations(args.experiment, model_variant, args.prompt_set)
     print(f"  Loaded {len(activations)} samples")
 
     # Get best vector for trait
     print(f"\nLoading trait vector for {args.trait}...")
-    best = get_best_vector(args.experiment, args.trait)
+    best = get_best_vector(args.experiment, args.trait, model_variant)
     layer = best['layer']
     method = best['method']
     position = best['position']
@@ -125,7 +130,7 @@ def main():
 
     # Load trait vector
     trait_vector, baseline, _ = load_vector_with_baseline(
-        args.experiment, args.trait, method, layer, component, position
+        args.experiment, args.trait, method, layer, model_variant, component, position
     )
     trait_vector = trait_vector.float()
     dim = trait_vector.shape[0]

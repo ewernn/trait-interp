@@ -10,6 +10,12 @@ Updates for Python files to use new `model_variant` path signatures.
 - [x] Phase 2: utils/ensembles.py - all functions updated with `model_variant`
 - [x] Phase 2: utils/traits.py - no changes needed (only uses dataset paths)
 - [x] Phase 2: utils/model.py - no changes needed (only uses experiment config)
+- [x] Phase 3: extraction/ (8 files) - All updated with `model_variant`
+- [x] Phase 4: inference/ (3 files) - All updated with `model_variant`
+- [x] Phase 5: analysis/steering/ (4 files) - evaluate.py, results.py, multilayer.py, data.py
+- [x] Phase 6: analysis/vectors/ (5 files) - All updated with `model_variant`
+- [x] Phase 7: analysis/ (6 files) - benchmark/evaluate.py, massive_activations.py, noise/random_baseline.py, prefill/internal_state.py, ood/cross_domain_steering.py, rm_sycophancy/analyze.py
+- [x] Docs: Updated docs/main.md and docs/extraction_pipeline.md with new config schema and CLI examples
 
 ## Key Functions to Use
 
@@ -95,60 +101,16 @@ model_name = variant['model']
 
 ## Remaining Work
 
-### Phase 3: Extraction (8 files)
-
-| File | CLI Changes | Path Calls |
-|------|-------------|------------|
-| `run_pipeline.py` | Replace `--extraction-model`, `--base-model`, `--it-model` with `--model-variant` | All extraction paths |
-| `generate_responses.py` | Add `--model-variant` or accept from caller | Response paths |
-| `extract_activations.py` | Add `--model-variant` or accept from caller | Activation paths |
-| `extract_vectors.py` | Add `--model-variant` or accept from caller | Vector paths |
-| `vet_responses.py` | Add `--model-variant` | Vetting paths |
-| `vet_scenarios.py` | Add `--model-variant` | Vetting paths |
-| `run_logit_lens.py` | Add `--model-variant` | Logit lens paths |
-| `instruction_based_extraction.py` | Add `--model-variant` | Extraction paths |
-
-### Phase 4: Inference (3 files)
-
-| File | CLI Changes | Path Calls |
-|------|-------------|------------|
-| `capture_raw_activations.py` | Replace `--model`/`--lora` with `--model-variant` | `get_inference_raw_dir` |
-| `project_raw_activations_onto_traits.py` | Replace `--model` with `--model-variant` | Vector + inference paths |
-| `extract_viz.py` | Add `--model-variant` | Inference paths |
-
-### Phase 5: Analysis/Steering (4 files)
-
-| File | CLI Changes | Path Calls |
-|------|-------------|------------|
-| `evaluate.py` | Replace `--model`/`--lora` with `--model-variant` | Steering + vector paths |
-| `multilayer.py` | Add `--model-variant` | Steering results paths |
-| `data.py` | Add `--model-variant` param | Steering paths |
-| `results.py` | Add `--model-variant` param | Steering results paths |
-
-### Phase 6: Analysis/Vectors (5 files)
-
-| File | Path Calls |
-|------|------------|
-| `extraction_evaluation.py` | Vector paths, `list_methods`, `list_layers` |
-| `logit_lens.py` | Vector + logit lens paths |
-| `cka_method_agreement.py` | Vector paths |
-| `cross_layer_similarity.py` | Vector paths |
-| `trait_vector_similarity.py` | Vector paths |
-
-### Phase 7: Other Analysis (10 files)
+### Phase 7: Other Analysis (4 files remaining)
 
 | File | Notes |
 |------|-------|
-| `benchmark/evaluate.py` | Has hardcoded fallback to fix |
-| `massive_activations.py` | Inference paths |
-| `data_checker.py` | Discovery paths |
-| `validate_scaling_law.py` | Vector paths |
-| `noise/random_baseline.py` | Vector paths |
-| `ood/cross_domain_steering.py` | Steering paths |
-| `ood/cross_variant_evaluation.py` | Steering paths |
-| `prefill/internal_state.py` | Has hardcoded fallback + `--model` flag |
-| `rm_sycophancy/analyze.py` | Steering paths |
-| `rm_sycophancy/analyze_exploitation.py` | Steering paths |
+| `validate_scaling_law.py` | Filesystem discovery - needs thoughtful changes |
+| `data_checker.py` | Filesystem discovery tool - needs thoughtful changes |
+| `ood/cross_variant_evaluation.py` | Needs review |
+| `rm_sycophancy/analyze_exploitation.py` | Needs review |
+
+These files do filesystem discovery and may need more complex changes to handle model variants properly.
 
 ---
 
