@@ -20,6 +20,7 @@ from utils.vectors import load_vector_with_baseline
 def run_logit_lens_for_trait(
     experiment: str,
     trait: str,
+    model_variant: str,
     model,
     tokenizer,
     methods: List[str],
@@ -30,7 +31,7 @@ def run_logit_lens_for_trait(
     """
     Run logit lens at 40% and 90% depth for all methods.
 
-    Saves results to extraction/{trait}/logit_lens.json
+    Saves results to extraction/{trait}/{model_variant}/logit_lens.json
     """
     print(f"  Logit lens: {trait}")
 
@@ -53,7 +54,7 @@ def run_logit_lens_for_trait(
             layer = info["layer"]
             try:
                 vector, _, _ = load_vector_with_baseline(
-                    experiment, trait, method, layer, component, position
+                    experiment, trait, method, layer, model_variant, component, position
                 )
                 decoded = vector_to_vocab(
                     vector, model, tokenizer,
@@ -68,7 +69,7 @@ def run_logit_lens_for_trait(
                 pass  # Vector doesn't exist at this layer
 
     # Save
-    output_path = get_path('extraction.logit_lens', experiment=experiment, trait=trait)
+    output_path = get_path('extraction.logit_lens', experiment=experiment, trait=trait, model_variant=model_variant)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(results, indent=2))
     print(f"    Saved: {output_path.name}")

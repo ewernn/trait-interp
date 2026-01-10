@@ -25,9 +25,9 @@ def truncate_to_tokens(text: str, max_tokens: int = VET_TOKEN_LIMIT) -> str:
     return ' '.join(words[:max_tokens])
 
 
-def load_responses(experiment: str, trait: str) -> dict:
+def load_responses(experiment: str, trait: str, model_variant: str) -> dict:
     """Load generated response files."""
-    responses_dir = get_path('extraction.responses', experiment=experiment, trait=trait)
+    responses_dir = get_path('extraction.responses', experiment=experiment, trait=trait, model_variant=model_variant)
     responses = {}
     for polarity, filename in [('positive', 'pos.json'), ('negative', 'neg.json')]:
         file_path = responses_dir / filename
@@ -39,10 +39,10 @@ def load_responses(experiment: str, trait: str) -> dict:
     return responses
 
 
-async def _vet_responses_async(experiment: str, trait: str, max_concurrent: int = 20) -> dict:
+async def _vet_responses_async(experiment: str, trait: str, model_variant: str, max_concurrent: int = 20) -> dict:
     """Score all responses and return results."""
     judge = TraitJudge()
-    responses = load_responses(experiment, trait)
+    responses = load_responses(experiment, trait, model_variant)
     trait_definition = load_trait_definition(trait)
     trait_name = trait.split('/')[-1]
 
@@ -71,6 +71,7 @@ async def _vet_responses_async(experiment: str, trait: str, max_concurrent: int 
 def vet_responses(
     experiment: str,
     trait: str,
+    model_variant: str,
     pos_threshold: int = 60,
     neg_threshold: int = 40,
     max_concurrent: int = 20,
@@ -78,7 +79,7 @@ def vet_responses(
     """
     Vet generated responses using LLM-as-judge. Returns pass rate.
     """
-    data = asyncio.run(_vet_responses_async(experiment, trait, max_concurrent))
+    data = asyncio.run(_vet_responses_async(experiment, trait, model_variant, max_concurrent))
     results = data["results"]
     trait_definition = data["trait_definition"]
 
@@ -98,7 +99,7 @@ def vet_responses(
     }
 
     # Save results
-    output_dir = get_path('extraction.trait', experiment=experiment, trait=trait) / "vetting"
+    output_dir = get_path('extraction.trait', experiment=experiment, trait=trait, model_variant=model_variant) / "vetting"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_data = {

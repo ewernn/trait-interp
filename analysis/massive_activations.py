@@ -32,7 +32,7 @@ from typing import Dict, List, Any, Optional
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils.paths import get as get_path
+from utils.paths import get as get_path, get_model_variant
 
 # Calibration dataset path
 CALIBRATION_DATASET = Path(__file__).parent.parent / 'datasets' / 'inference' / 'massive_dims' / 'calibration_50.json'
@@ -334,14 +334,14 @@ def aggregate_stats(
     }
 
 
-def ensure_calibration_activations(experiment: str) -> Path:
+def ensure_calibration_activations(experiment: str, model_variant: str) -> Path:
     """
     Ensure calibration activations exist, capturing them if necessary.
 
     Returns the directory containing .pt files.
     """
     # Check if calibration activations exist
-    raw_dir = Path(get_path('inference.raw_residual', experiment=experiment, prompt_set=CALIBRATION_PROMPT_SET))
+    raw_dir = Path(get_path('inference.raw_residual', experiment=experiment, model_variant=model_variant, prompt_set=CALIBRATION_PROMPT_SET))
 
     if raw_dir.exists() and list(raw_dir.glob('*.pt')):
         print(f"Using existing calibration activations: {raw_dir}")
@@ -374,6 +374,7 @@ def ensure_calibration_activations(experiment: str) -> Path:
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--experiment', required=True)
+    parser.add_argument('--model-variant', default=None, help='Model variant (default: from experiment config)')
     parser.add_argument('--prompt-set', default=None,
                         help='Prompt set to analyze (default: calibration dataset)')
     parser.add_argument('--prompts-file', default=None,
@@ -388,6 +389,10 @@ def main():
                         help='Output path (default: auto)')
     args = parser.parse_args()
 
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+    model_variant = variant['name']
+
     # Determine mode: calibration (default) or prompt-set analysis
     is_calibration = args.prompt_set is None
     prompt_set_name = CALIBRATION_PROMPT_SET if is_calibration else args.prompt_set
@@ -395,10 +400,10 @@ def main():
     if is_calibration:
         print("=== Calibration Mode ===")
         print("Computing model-specific massive dims from neutral prompts")
-        raw_dir = ensure_calibration_activations(args.experiment)
+        raw_dir = ensure_calibration_activations(args.experiment, model_variant)
     else:
         print(f"=== Analysis Mode: {args.prompt_set} ===")
-        raw_dir = Path(get_path('inference.raw_residual', experiment=args.experiment, prompt_set=args.prompt_set))
+        raw_dir = Path(get_path('inference.raw_residual', experiment=args.experiment, model_variant=model_variant, prompt_set=args.prompt_set))
         if not raw_dir.exists():
             print(f"No raw activations found at {raw_dir}")
             print(f"Run: python inference/capture_raw_activations.py --experiment {args.experiment} --prompt-set {args.prompt_set}")
@@ -459,7 +464,7 @@ def main():
     if args.output:
         output_path = Path(args.output)
     else:
-        inference_base = Path(get_path('inference.base', experiment=args.experiment))
+        inference_base = Path(get_path('inference.variant', experiment=args.experiment, model_variant=model_variant))
         output_name = 'calibration.json' if is_calibration else f'{args.prompt_set}.json'
         output_path = inference_base / 'massive_activations' / output_name
 

@@ -8,7 +8,7 @@
  */
 
 // Views that show the prompt picker
-const INFERENCE_VIEWS = ['trait-dynamics', 'layer-deep-dive'];
+const INFERENCE_VIEWS = ['inference'];
 
 // Pagination settings
 const PROMPTS_PER_PAGE = 50;
@@ -386,14 +386,14 @@ function updatePlotTokenHighlights(tokenIdx, nPromptTokens) {
     const primaryColor = window.getCssVar('--primary-color', '#a09f6c');
     const textSecondary = window.getCssVar('--text-secondary', '#a4a4a4');
 
-    if (window.state.currentView === 'trait-dynamics') {
-        // Standard shapes for all trait-dynamics plots
+    if (window.state.currentView === 'inference') {
+        // Standard shapes for all inference plots
         const shapes = [
             { type: 'line', x0: separatorX, x1: separatorX, y0: 0, y1: 1, yref: 'paper', line: { color: textSecondary, width: 2, dash: 'dash' } },
             { type: 'line', x0: highlightX, x1: highlightX, y0: 0, y1: 1, yref: 'paper', line: { color: primaryColor, width: 2 } }
         ];
 
-        // Update all trait-dynamics plots
+        // Update all inference plots
         const plotIds = [
             'combined-activation-plot',
             'normalized-trajectory-plot',
@@ -407,11 +407,6 @@ function updatePlotTokenHighlights(tokenIdx, nPromptTokens) {
                 Plotly.relayout(plotDiv, { shapes });
             }
         });
-    } else if (window.state.currentView === 'layer-deep-dive') {
-        // Layer Deep Dive needs full re-render for new token's SAE features
-        if (window.renderLayerDeepDive) {
-            window.renderLayerDeepDive();
-        }
     }
 }
 

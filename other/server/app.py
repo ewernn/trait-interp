@@ -2,7 +2,7 @@
 FastAPI model server - wraps existing utils/generation functions.
 
 Usage:
-    python server/app.py --port 8765 --model google/gemma-2-2b-it
+    python other/server/app.py --port 8765 --model google/gemma-2-2b-it
 
 Endpoints:
     GET  /health              - Server status
@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 # Add project root to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -25,7 +25,7 @@ import torch
 
 from utils.model import load_model as _load_model
 from utils.generation import generate_batch, generate_with_capture
-from server.serialization import serialize_capture_result, deserialize_tensor
+from other.server.serialization import serialize_capture_result, deserialize_tensor
 
 app = FastAPI(title="Model Server", description="Persistent model loading for trait extraction")
 

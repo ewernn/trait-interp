@@ -23,6 +23,7 @@ from core import get_method
 def extract_vectors_for_trait(
     experiment: str,
     trait: str,
+    model_variant: str,
     methods: List[str],
     layers: Optional[List[int]] = None,
     component: str = 'residual',
@@ -32,8 +33,8 @@ def extract_vectors_for_trait(
     Extract trait vectors from activations. Returns number of vectors extracted.
     """
     # Load activations using centralized paths
-    activation_path = get_activation_path(experiment, trait, component, position)
-    metadata_path = get_activation_metadata_path(experiment, trait, component, position)
+    activation_path = get_activation_path(experiment, trait, model_variant, component, position)
+    metadata_path = get_activation_metadata_path(experiment, trait, model_variant, component, position)
 
     try:
         with open(metadata_path) as f:
@@ -87,7 +88,7 @@ def extract_vectors_for_trait(
                 baseline = (center.float() @ vector.float() / vector_norm).item() if vector_norm > 0 else 0.0
 
                 # Save vector to new path structure
-                vector_path = get_vector_path(experiment, trait, method_name, layer_idx, component, position)
+                vector_path = get_vector_path(experiment, trait, method_name, layer_idx, model_variant, component, position)
                 vector_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(vector, vector_path)
 
@@ -123,7 +124,7 @@ def extract_vectors_for_trait(
             'timestamp': datetime.now().isoformat(),
         }
 
-        metadata_path = get_vector_metadata_path(experiment, trait, method_name, component, position)
+        metadata_path = get_vector_metadata_path(experiment, trait, method_name, model_variant, component, position)
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=2)
 

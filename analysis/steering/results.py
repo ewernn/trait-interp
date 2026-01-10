@@ -26,6 +26,7 @@ from utils.vectors import load_vector_metadata
 def load_or_create_results(
     experiment: str,
     trait: str,
+    model_variant: str,
     prompts_file: Path,
     steering_model: str,
     vector_experiment: str,
@@ -33,7 +34,7 @@ def load_or_create_results(
     position: str = "response[:]",
 ) -> Dict:
     """Load existing results or create new structure."""
-    results_path = get_steering_results_path(experiment, trait, position)
+    results_path = get_steering_results_path(experiment, trait, model_variant, position)
     prompts_file_str = str(prompts_file)
 
     if results_path.exists():
@@ -59,7 +60,7 @@ def load_or_create_results(
 
     # Load vector metadata for source info
     try:
-        vector_metadata = load_vector_metadata(vector_experiment, trait, "probe")
+        vector_metadata = load_vector_metadata(vector_experiment, trait, "probe", model_variant)
     except FileNotFoundError:
         vector_metadata = {}
 
@@ -90,9 +91,9 @@ def find_existing_run_index(results: Dict, config: Dict) -> Optional[int]:
     return None
 
 
-def save_results(results: Dict, experiment: str, trait: str, position: str = "response[:]"):
+def save_results(results: Dict, experiment: str, trait: str, model_variant: str, position: str = "response[:]"):
     """Save results to experiment directory."""
-    results_file = get_steering_results_path(experiment, trait, position)
+    results_file = get_steering_results_path(experiment, trait, model_variant, position)
     results_file.parent.mkdir(parents=True, exist_ok=True)
 
     with open(results_file, 'w') as f:
@@ -100,10 +101,10 @@ def save_results(results: Dict, experiment: str, trait: str, position: str = "re
     print(f"Results saved: {results_file}")
 
 
-def save_responses(responses: List[Dict], experiment: str, trait: str, position: str, config: Dict, timestamp: str):
+def save_responses(responses: List[Dict], experiment: str, trait: str, model_variant: str, position: str, config: Dict, timestamp: str):
     """Save generated responses for a config."""
     component = config.get("component", "residual")
-    responses_dir = get_steering_dir(experiment, trait, position) / "responses" / component
+    responses_dir = get_steering_dir(experiment, trait, model_variant, position) / "responses" / component
     responses_dir.mkdir(parents=True, exist_ok=True)
 
     # Extract from VectorSpec format
@@ -117,9 +118,9 @@ def save_responses(responses: List[Dict], experiment: str, trait: str, position:
         json.dump(responses, f, indent=2)
 
 
-def save_baseline_responses(responses: List[Dict], experiment: str, trait: str, position: str):
+def save_baseline_responses(responses: List[Dict], experiment: str, trait: str, model_variant: str, position: str):
     """Save baseline (no steering) responses."""
-    responses_dir = get_steering_dir(experiment, trait, position) / "responses"
+    responses_dir = get_steering_dir(experiment, trait, model_variant, position) / "responses"
     responses_dir.mkdir(parents=True, exist_ok=True)
 
     with open(responses_dir / "baseline.json", 'w') as f:

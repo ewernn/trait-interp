@@ -21,16 +21,16 @@ import asyncio
 from typing import List, Dict, Optional
 from tqdm import tqdm
 
-from utils.paths import get, get_vector_path
-from utils.model import load_experiment_config, load_model
+from utils.paths import get, get_vector_path, get_model_variant
+from utils.model import load_model
 from utils.judge import TraitJudge
 from utils.generation import generate_batch
 from core import SteeringHook
 
 
-def load_vector(experiment: str, trait: str, layer: int, method: str = "probe", position: str = "response[:5]") -> Optional[torch.Tensor]:
+def load_vector(experiment: str, trait: str, model_variant: str, layer: int, method: str = "probe", position: str = "response[:5]") -> Optional[torch.Tensor]:
     """Load trait vector."""
-    path = get_vector_path(experiment, trait, method, layer, "residual", position)
+    path = get_vector_path(experiment, trait, method, layer, model_variant, "residual", position)
     if not path.exists():
         return None
     return torch.load(path, weights_only=True)
@@ -115,6 +115,7 @@ async def evaluate_cross_domain(
 
 async def main(
     experiment: str = "gemma-2-2b",
+    model_variant: str = None,
     source_trait: str = "formality_variations/general",
     target_traits: str = "formality_variations/business,formality_variations/academic,formality_variations/social,formality_variations/technical",
     layer: int = 15,
@@ -129,6 +130,12 @@ async def main(
     Uses source_trait's vector, applies to each target_trait's questions,
     judges using each target_trait's definition.
     """
+    # Resolve model variant
+    variant = get_model_variant(experiment, model_variant, mode="application")
+    model_variant = variant['name']
+    model_name = variant['model']
+    lora = variant.get('lora')
+
     target_list = [t.strip() for t in target_traits.split(",")]
 
     print(f"Cross-Domain Steering Evaluation")
@@ -138,13 +145,11 @@ async def main(
     print()
 
     # Load model
-    config = load_experiment_config(experiment)
-    model_name = config.get('application_model') or config.get('model')
     print(f"Loading model: {model_name}")
-    model, tokenizer = load_model(model_name)
+    model, tokenizer = load_model(model_name, lora=lora)
 
     # Load source vector
-    source_vector = load_vector(experiment, source_trait, layer, method, position)
+    source_vector = load_vector(experiment, source_trait, model_variant, layer, method, position)
     if source_vector is None:
         print(f"ERROR: Vector not found for {source_trait}")
         return

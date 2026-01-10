@@ -80,8 +80,9 @@ from utils.generation import generate_batch
 from utils.judge import TraitJudge
 from utils.paths import get, get_vector_path
 from utils.model import format_prompt, tokenize_prompt, load_experiment_config, load_model, load_model_with_lora, get_num_layers, get_layers_module
+from utils.paths import get_model_variant
 from utils.vectors import MIN_COHERENCE
-from server.client import get_model_or_client, ModelClient
+from other.server.client import get_model_or_client, ModelClient
 
 
 def load_model_handle(model_name: str, load_in_8bit: bool = False, load_in_4bit: bool = False, no_server: bool = False, lora_adapter: str = None):
@@ -269,6 +270,7 @@ async def run_evaluation(
     experiment: str,
     trait: str,
     vector_experiment: str,
+    model_variant: str,
     layers_arg: str,
     coefficients: Optional[List[float]],
     method: str,
@@ -345,7 +347,7 @@ async def run_evaluation(
 
     # Load/create results
     results = load_or_create_results(
-        experiment, trait, steering_data.prompts_file, model_name, vector_experiment, judge_provider, position
+        experiment, trait, model_variant, steering_data.prompts_file, model_name, vector_experiment, judge_provider, position
     )
 
     # Create judge if not provided
@@ -366,8 +368,8 @@ async def run_evaluation(
             model, tokenizer, questions, steering_data.trait_name, steering_data.trait_definition,
             judge, use_chat_template, eval_prompt=effective_eval_prompt
         )
-        save_baseline_responses(baseline_responses, experiment, trait, position)
-        save_results(results, experiment, trait, position)
+        save_baseline_responses(baseline_responses, experiment, trait, model_variant, position)
+        save_results(results, experiment, trait, model_variant, position)
     else:
         print(f"\nUsing existing baseline: trait={results['baseline']['trait_mean']:.1f}")
 
@@ -479,7 +481,8 @@ def main():
                         help="Layers: 'all', '30%%-60%%' (default), single '16', range '5-20', or list '5,10,15'")
     parser.add_argument("--coefficients",
                         help="Manual coefficients (comma-separated). If not provided, uses adaptive search.")
-    parser.add_argument("--model", help="Model name/path (default: from experiment config)")
+    parser.add_argument("--model-variant", default=None,
+                        help="Model variant for steering (default: from experiment defaults.application)")
     parser.add_argument("--method", default="probe", help="Vector extraction method")
     parser.add_argument("--component", default="residual", choices=["residual", "attn_out", "mlp_out", "attn_contribution", "mlp_contribution", "k_proj", "v_proj"])
     parser.add_argument("--position", default="response[:5]",
@@ -507,8 +510,6 @@ def main():
                         help="Load model in 8-bit quantization (for 70B+ models)")
     parser.add_argument("--load-in-4bit", action="store_true",
                         help="Load model in 4-bit quantization")
-    parser.add_argument("--lora", type=str, default=None,
-                        help="LoRA adapter to apply on top of model (HuggingFace path)")
     parser.add_argument("--no-server", action="store_true",
                         help="Force local model loading (skip model server check)")
 
@@ -547,11 +548,11 @@ def main():
         else:
             parser.error(f"Invalid trait spec '{spec}': use 'category/trait' or 'experiment/category/trait'")
 
-    # Get model from experiment config if not specified
-    config = load_experiment_config(args.experiment)
-    model_name = args.model or config.get('application_model') or config.get('model')
-    if not model_name:
-        parser.error(f"No model specified. Use --model or add 'application_model' to experiments/{args.experiment}/config.json")
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+    model_variant = variant['name']
+    model_name = variant['model']
+    lora = variant.get('lora')
 
     coefficients = parse_coefficients(args.coefficients)
 
@@ -559,13 +560,15 @@ def main():
     asyncio.run(_run_main(
         args=args,
         parsed_traits=parsed_traits,
+        model_variant=model_variant,
         model_name=model_name,
+        lora=lora,
         layers_arg=args.layers,
         coefficients=coefficients,
     ))
 
 
-async def _run_main(args, parsed_traits, model_name, layers_arg, coefficients):
+async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers_arg, coefficients):
     """Async main to handle model/judge lifecycle."""
     multi_trait = len(parsed_traits) > 1
 
@@ -579,7 +582,7 @@ async def _run_main(args, parsed_traits, model_name, layers_arg, coefficients):
             load_in_8bit=args.load_in_8bit,
             load_in_4bit=args.load_in_4bit,
             no_server=True,  # Steering requires local hooks
-            lora_adapter=args.lora
+            lora_adapter=lora
         )
         judge = TraitJudge()
 
@@ -608,8 +611,9 @@ async def _run_main(args, parsed_traits, model_name, layers_arg, coefficients):
                 await run_multilayer_evaluation(
                     experiment=args.experiment,
                     trait=trait,
+                    model_variant=model_variant,
                     vector_experiment=vector_experiment,
-                    layers_arg=layers_arg,
+                    layers=layers_arg,
                     mode=args.multi_layer,
                     global_scale=args.global_scale,
                     method=args.method,
@@ -622,7 +626,7 @@ async def _run_main(args, parsed_traits, model_name, layers_arg, coefficients):
                     judge=judge,
                     load_in_8bit=args.load_in_8bit,
                     load_in_4bit=args.load_in_4bit,
-                    lora_adapter=args.lora,
+                    lora_adapter=lora,
                     max_new_tokens=args.max_new_tokens,
                     eval_prompt=effective_eval_prompt,
                     use_default_prompt=use_default,
@@ -632,6 +636,7 @@ async def _run_main(args, parsed_traits, model_name, layers_arg, coefficients):
                     experiment=args.experiment,
                     trait=trait,
                     vector_experiment=vector_experiment,
+                    model_variant=model_variant,
                     layers_arg=layers_arg,
                     coefficients=coefficients,
                     method=args.method,
@@ -651,7 +656,7 @@ async def _run_main(args, parsed_traits, model_name, layers_arg, coefficients):
                     judge=judge,
                     load_in_8bit=args.load_in_8bit,
                     load_in_4bit=args.load_in_4bit,
-                    lora_adapter=args.lora,
+                    lora_adapter=lora,
                     max_new_tokens=args.max_new_tokens,
                     eval_prompt=effective_eval_prompt,
                     use_default_prompt=use_default,

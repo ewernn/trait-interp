@@ -6,7 +6,7 @@ Provides `get_model_or_client()` which returns either:
 - (model, tokenizer) tuple if server not available (loads locally)
 
 Usage:
-    from server.client import get_model_or_client, ModelClient
+    from other.server.client import get_model_or_client, ModelClient
 
     handle = get_model_or_client("google/gemma-2-2b-it")
     if isinstance(handle, ModelClient):
@@ -22,11 +22,11 @@ from pathlib import Path
 from typing import Union, Tuple, List, Dict, Optional
 
 # Add project root to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import requests
 
-from server.serialization import (
+from other.server.serialization import (
     deserialize_capture_result,
     serialize_steering_vectors,
 )

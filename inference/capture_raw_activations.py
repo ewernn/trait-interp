@@ -73,9 +73,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from core import HookManager
 from utils.model import format_prompt, tokenize_prompt, load_experiment_config, load_model_with_lora, get_inner_model, get_layer_path_prefix, tokenize
 from utils.generation import generate_with_capture, calculate_max_batch_size, create_residual_storage, setup_residual_hooks
-from utils.paths import get as get_path
+from utils.paths import get as get_path, get_model_variant, get_inference_raw_dir
 from utils.model_registry import get_model_slug
-from server.client import get_model_or_client, ModelClient
+from other.server.client import get_model_or_client, ModelClient
 
 
 def normalize_prompt_item(item: Dict) -> Dict:
@@ -472,14 +472,12 @@ def main():
                        help="Also capture mlp_out activations (down_proj output)")
 
     # Model options
-    parser.add_argument("--model", type=str, default=None,
-                       help="Model to use (overrides experiment config application_model)")
-    parser.add_argument("--lora", type=str, default=None,
-                       help="LoRA adapter to apply on top of model (HuggingFace path)")
+    parser.add_argument("--model-variant", default=None,
+                       help="Model variant for inference (default: from experiment defaults.application)")
     parser.add_argument("--load-in-8bit", action="store_true",
                        help="Load model in 8-bit quantization (for 70B+ models)")
     parser.add_argument("--load-in-4bit", action="store_true",
-                       help="Load model in 4-bit quantization")
+                       help="Load model in 4-bit quantization)")
     parser.add_argument("--output-suffix", type=str, default=None,
                        help="Suffix to append to output directory names (e.g., 'sycophant' -> prompt_set_sycophant/)")
     parser.add_argument("--prefill", type=str, default=None,
@@ -549,35 +547,23 @@ def main():
     # Load experiment config
     config = load_experiment_config(args.experiment)
 
-    # Determine model to use
-    if args.model:
-        model_name = args.model
-    else:
-        model_name = config.get('application_model')
-        if not model_name:
-            print("Error: No model specified. Use --model or set application_model in experiment config.")
-            return
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+    model_variant = variant['name']
+    model_name = variant['model']
+    lora = variant.get('lora')
 
-    # Determine if this is a comparison run (model differs from application_model)
-    application_model = config.get('application_model', '')
-    application_model_slug = get_model_slug(application_model) if application_model else ''
-    model_slug = get_model_slug(model_name)
-    is_comparison_model = args.model and model_slug != application_model_slug
-
-    # Set inference_dir based on comparison mode
-    if is_comparison_model:
-        inference_dir = get_path('inference.models_base', experiment=args.experiment, model=model_slug)
-        print(f"Comparison mode: saving to inference/models/{model_slug}/")
-    else:
-        inference_dir = get_path('inference.base', experiment=args.experiment)
+    # Set inference_dir using model_variant
+    inference_dir = get_path('inference.variant', experiment=args.experiment, model_variant=model_variant)
+    print(f"Saving to: inference/{model_variant}/")
 
     # Load model (with optional LoRA and quantization)
-    # Try server first unless --no-server or --lora (LoRA requires local model)
+    # Try server first unless --no-server or lora (LoRA requires local model)
     is_remote = False
-    if not args.no_server and not args.lora:
+    if not args.no_server and not lora:
         handle = get_model_or_client(model_name, load_in_8bit=args.load_in_8bit, load_in_4bit=args.load_in_4bit)
         if isinstance(handle, ModelClient):
-            print(f"Using model server (model: {model_name})")
+            print(f"Using model server (model: {model_name})" + (f" + LoRA: {lora}" if lora else ""))
             model = handle
             # Still need tokenizer locally for prompt formatting
             tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -587,15 +573,15 @@ def main():
             n_layers = None  # Server handles this
         else:
             model, tokenizer = handle
-    elif args.lora or args.load_in_8bit or args.load_in_4bit:
+    elif lora or args.load_in_8bit or args.load_in_4bit:
         model, tokenizer = load_model_with_lora(
             model_name,
-            lora_adapter=args.lora,
+            lora_adapter=lora,
             load_in_8bit=args.load_in_8bit,
             load_in_4bit=args.load_in_4bit,
         )
     else:
-        print(f"Loading model: {model_name}")
+        print(f"Loading model: {model_name}" + (f" + LoRA: {lora}" if lora else ""))
         model = AutoModelForCausalLM.from_pretrained(
             model_name, torch_dtype=torch.float16, device_map="auto",
             attn_implementation='eager'
@@ -673,7 +659,7 @@ def main():
                 # Save raw .pt and response JSON
                 _save_capture_data(
                     data, prompt_item, set_name, inference_dir, args,
-                    model_name=model_name, lora_adapter=args.lora,
+                    model_name=model_name, lora_adapter=lora,
                     all_layer_data=all_layer_data, layer_indices=layer_indices
                 )
 
@@ -723,7 +709,7 @@ def main():
                 # Save raw .pt and response JSON
                 _save_capture_data(
                     data, prompt_item, set_name, inference_dir, args,
-                    model_name=model_name, lora_adapter=args.lora
+                    model_name=model_name, lora_adapter=lora
                 )
 
             continue  # Done with this prompt set
@@ -773,7 +759,7 @@ def main():
                 data = capture_result_to_data(result, n_layers)
                 _save_capture_data(
                     data, prompt_item, set_name, inference_dir, args,
-                    model_name=model_name, lora_adapter=args.lora
+                    model_name=model_name, lora_adapter=lora
                 )
         else:
             # Local: batched generator for crash resilience
@@ -806,7 +792,7 @@ def main():
                     data = capture_result_to_data(result, n_layers)
                     _save_capture_data(
                         data, prompt_item, set_name, inference_dir, args,
-                        model_name=model_name, lora_adapter=args.lora
+                        model_name=model_name, lora_adapter=lora
                     )
 
     # Cleanup GPU memory

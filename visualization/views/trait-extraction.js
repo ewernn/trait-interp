@@ -49,10 +49,10 @@ async function renderTraitExtraction() {
             <nav class="toc">
                 <div class="toc-title">Contents</div>
                 <ol class="toc-list">
-                    <li><a href="#heatmaps">Heatmaps</a></li>
-                    <li><a href="#logit-lens">Token Decode</a></li>
-                    <li><a href="#similarity">Similarity Matrix</a></li>
-                    <li><a href="#method-breakdown">Per-Method Distributions</a></li>
+                    <li><a href="#heatmaps">Extraction Quality</a></li>
+                    <li><a href="#steering">Steering Validation</a></li>
+                    <li><a href="#model-internals">Model Internals</a></li>
+                    <li><a href="#method-breakdown">Reference</a></li>
                 </ol>
             </nav>
 
@@ -102,43 +102,47 @@ async function renderTraitExtraction() {
                 <div id="method-breakdown-container"></div>
             </section>
 
-            <!-- Section 2: Notation -->
+            <!-- Section 4: Steering Validation -->
             <section>
-                <h2>Notation & Definitions <span class="subsection-info-toggle" data-target="info-notation">►</span></h2>
-                <div class="subsection-info" id="info-notation">Symbols used throughout extraction pipeline. Each example's activation is the average across all response tokens, giving a single d-dimensional vector per example.</div>
-                ${renderNotation()}
+                <h2 id="steering">Steering Validation <span class="subsection-info-toggle" data-target="info-steering">►</span></h2>
+                <div class="subsection-info" id="info-steering">Causal validation: vectors should steer model behavior when added to activations. Shows effectiveness by layer and perturbation ratio.</div>
+                <div id="steering-validation-container">
+                    <div class="info">Steering data will appear here when available.</div>
+                </div>
             </section>
 
-            <!-- Section 3: Extraction Techniques -->
+            <!-- Section 5: Model Internals -->
             <section>
-                <h3 class="subsection-header" id="extraction-techniques">
-                    <span class="subsection-num">4.</span>
-                    <span class="subsection-title">Extraction Techniques</span>
-                    <span class="subsection-info-toggle" data-target="info-techniques">►</span>
-                </h3>
+                <h2 id="model-internals">Model Internals <span class="subsection-info-toggle" data-target="info-model-internals">►</span></h2>
+                <div class="subsection-info" id="info-model-internals">Activation magnitude and massive dimensions analysis.</div>
+                <div id="model-internals-container">
+                    <div class="info">Model internals analysis will appear here when available.</div>
+                </div>
+            </section>
+
+            <!-- Section 6: Reference -->
+            <section>
+                <h2 id="reference">Reference</h2>
+
+                <h3>Notation & Definitions <span class="subsection-info-toggle" data-target="info-notation">►</span></h3>
+                <div class="subsection-info" id="info-notation">Symbols used throughout extraction pipeline. Each example's activation is the average across all response tokens, giving a single d-dimensional vector per example.</div>
+                ${renderNotation()}
+
+                <h3>Extraction Techniques <span class="subsection-info-toggle" data-target="info-techniques">►</span></h3>
                 <div class="subsection-info" id="info-techniques">
                     <strong>Key insight:</strong> Mean diff finds the direction between cluster centers; probe finds the direction that <em>best separates</em> the clusters (which may differ if clusters overlap or have different shapes). Probe typically outperforms when there's noise or class overlap.
                 </div>
                 ${renderExtractionTechniques()}
-            </section>
 
-            <!-- Section 4: Metrics Definitions -->
-            <section>
-                <h2>Quality Metrics <span class="subsection-info-toggle" data-target="info-metrics">►</span></h2>
+                <h3>Quality Metrics <span class="subsection-info-toggle" data-target="info-metrics">►</span></h3>
                 <div class="subsection-info" id="info-metrics">Computed on held-out validation data (20%). Accuracy >90% is good, effect size >1.5 is large.</div>
                 ${renderMetricsDefinitions()}
-            </section>
 
-            <!-- Section 5: Scoring Method -->
-            <section>
-                <h2>Scoring & Ranking <span class="subsection-info-toggle" data-target="info-scoring">►</span></h2>
+                <h3>Scoring & Ranking <span class="subsection-info-toggle" data-target="info-scoring">►</span></h3>
                 <div class="subsection-info" id="info-scoring">Combined score balances accuracy (50%) and effect size (50%). High accuracy with tiny effect may be overfitting.</div>
                 ${renderScoringExplanation()}
-            </section>
 
-            <!-- Section 6: All Metrics Overview -->
-            <section>
-                <h2>All Metrics Overview</h2>
+                <h3>All Metrics Overview</h3>
                 <div id="all-metrics-container"></div>
             </section>
 

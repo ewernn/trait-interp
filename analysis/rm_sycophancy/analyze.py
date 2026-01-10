@@ -35,7 +35,7 @@ from scipy import stats
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from utils.paths import get, get_vector_path
+from utils.paths import get, get_vector_path, get_model_variant
 
 # Defaults
 EXPERIMENT = "rm_syco"
@@ -81,7 +81,7 @@ def cosine_similarity(activations: torch.Tensor, vector: torch.Tensor) -> np.nda
     return similarities.numpy()
 
 
-def load_run_activations(prompt_set: str, layer: int, experiment: str) -> dict:
+def load_run_activations(prompt_set: str, layer: int, experiment: str, model_variant: str) -> dict:
     """
     Load all activations from a prompt set.
 
@@ -92,7 +92,7 @@ def load_run_activations(prompt_set: str, layer: int, experiment: str) -> dict:
         Dict mapping prompt_id -> activations tensor [n_tokens, hidden_dim]
     """
     # Use standard inference path
-    act_dir = get('inference.raw_residual', experiment=experiment, prompt_set=prompt_set)
+    act_dir = get('inference.raw_residual', experiment=experiment, model_variant=model_variant, prompt_set=prompt_set)
 
     if not act_dir.exists():
         raise FileNotFoundError(f"Activations not found: {act_dir}")
@@ -130,13 +130,13 @@ def load_run_activations(prompt_set: str, layer: int, experiment: str) -> dict:
     return activations
 
 
-def load_trait_vector(trait: str, layer: int, experiment: str,
+def load_trait_vector(trait: str, layer: int, experiment: str, model_variant: str,
                       position: str = DEFAULT_POSITION,
                       component: str = DEFAULT_COMPONENT) -> torch.Tensor:
     """Load trait vector from extraction."""
     # Try mean_diff first (more common), then probe
     for method in ['mean_diff', 'probe']:
-        vector_path = get_vector_path(experiment, trait, method, layer, component, position)
+        vector_path = get_vector_path(experiment, trait, method, layer, model_variant, component, position)
         if vector_path.exists():
             return torch.load(vector_path, weights_only=True)
 
@@ -158,13 +158,13 @@ def compute_response_scores(activations: dict, vector: torch.Tensor) -> dict:
 
 
 def analyze_layer(baseline_set: str, compare_set: str, trait: str, layer: int,
-                  experiment: str, position: str = DEFAULT_POSITION,
+                  experiment: str, model_variant: str, position: str = DEFAULT_POSITION,
                   component: str = DEFAULT_COMPONENT, verbose: bool = True) -> dict:
     """Analyze a single layer and return results dict."""
 
     # Load trait vector
     try:
-        vector = load_trait_vector(trait, layer, experiment, position, component)
+        vector = load_trait_vector(trait, layer, experiment, model_variant, position, component)
     except FileNotFoundError:
         if verbose:
             print(f"  L{layer}: No vector found, skipping")
@@ -172,8 +172,8 @@ def analyze_layer(baseline_set: str, compare_set: str, trait: str, layer: int,
 
     # Load activations
     try:
-        baseline_acts = load_run_activations(baseline_set, layer, experiment)
-        compare_acts = load_run_activations(compare_set, layer, experiment)
+        baseline_acts = load_run_activations(baseline_set, layer, experiment, model_variant)
+        compare_acts = load_run_activations(compare_set, layer, experiment, model_variant)
     except (FileNotFoundError, KeyError) as e:
         if verbose:
             print(f"  L{layer}: {e}")
@@ -250,9 +250,14 @@ def main():
     parser.add_argument("--component", type=str, default=DEFAULT_COMPONENT,
                        help=f"Vector component (default: {DEFAULT_COMPONENT})")
     parser.add_argument("--experiment", default=EXPERIMENT, help="Experiment name")
+    parser.add_argument("--model-variant", default=None, help="Model variant (default: from experiment config)")
     parser.add_argument("--save", action="store_true", help="Save results to JSON")
     parser.add_argument("--plot", action="store_true", help="Save effect size plot")
     args = parser.parse_args()
+
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+    model_variant = variant['name']
 
     layers = parse_layers(args.layers)
     trait_name = args.trait.split('/')[-1]
@@ -267,7 +272,7 @@ def main():
     for layer in layers:
         result = analyze_layer(
             args.baseline, args.compare, args.trait, layer,
-            args.experiment, args.position, args.component, verbose=False
+            args.experiment, model_variant, args.position, args.component, verbose=False
         )
         if result:
             results.append(result)

@@ -41,6 +41,7 @@ from utils.paths import (
     get_activation_metadata_path,
     get_activation_path,
     get_vector_dir,
+    get_model_variant,
 )
 from utils.model import load_model
 from utils.model_registry import is_base_model
@@ -100,7 +101,7 @@ def estimate_stage_time(stage: str, n_items: int, rollouts: int = 1, max_tokens:
 
 def run_pipeline(
     experiment: str,
-    extraction_model: str,
+    model_variant: str,
     traits: List[str],
     only_stages: Optional[Set[int]] = None,
     force: bool = False,
@@ -123,6 +124,12 @@ def run_pipeline(
 ):
     """Execute extraction pipeline."""
     methods = methods or ['mean_diff', 'probe', 'gradient']
+
+    # Resolve model variant
+    variant = get_model_variant(experiment, model_variant, mode="extraction")
+    extraction_model = variant['model']
+    lora = variant.get('lora')
+
     if base_model is None:
         base_model = is_base_model(extraction_model)
 
@@ -147,14 +154,14 @@ def run_pipeline(
     model, tokenizer = None, None
     if needs_model:
         load_start = time.time()
-        model, tokenizer = load_model(extraction_model, load_in_8bit=load_in_8bit, load_in_4bit=load_in_4bit)
+        model, tokenizer = load_model(extraction_model, lora=lora, load_in_8bit=load_in_8bit, load_in_4bit=load_in_4bit)
         stage_times['model_load'] = time.time() - load_start
         print(f"Model loaded. ({format_duration(stage_times['model_load'])})")
     use_chat_template = False if base_model else (model and tokenizer.chat_template is not None)
 
     for trait in traits:
         print(f"\n--- {trait} ---")
-        vetting_path = get_path("extraction.trait", experiment=experiment, trait=trait) / "vetting"
+        vetting_path = get_path("extraction.trait", experiment=experiment, trait=trait, model_variant=variant['name']) / "vetting"
 
         # Get scenario count for ETA estimates
         try:
@@ -169,20 +176,20 @@ def run_pipeline(
                 eta = estimate_stage_time('vet_scenarios', n_scenarios)
                 print(f"  [0] Vetting scenarios... (ETA: {format_duration(eta)})")
                 with GPUMonitor('vet_scenarios') as mon:
-                    vet_scenarios(experiment, trait, pos_threshold, neg_threshold, max_concurrent)
+                    vet_scenarios(experiment, trait, variant['name'], pos_threshold, neg_threshold, max_concurrent)
                     report = mon.report(n_scenarios)
                 stage_times['vet_scenarios'] = stage_times.get('vet_scenarios', 0) + (time.time() - mon.start_time)
                 print(f"      Done: {report}")
 
         # Stage 1: Generate responses
         if should_run(1):
-            responses_path = get_path("extraction.responses", experiment=experiment, trait=trait)
+            responses_path = get_path("extraction.responses", experiment=experiment, trait=trait, model_variant=variant['name'])
             has_responses = (responses_path / "pos.json").exists() and (responses_path / "neg.json").exists()
             if not has_responses or force:
                 eta = estimate_stage_time('generate', n_scenarios, rollouts, max_new_tokens)
                 print(f"  [1] Generating responses... (ETA: {format_duration(eta)})")
                 with GPUMonitor('generate') as mon:
-                    generate_responses_for_trait(experiment, trait, model, tokenizer, max_new_tokens,
+                    generate_responses_for_trait(experiment, trait, variant['name'], model, tokenizer, max_new_tokens,
                                                  rollouts, temperature, use_chat_template)
                     report = mon.report(n_scenarios * rollouts)
                 stage_times['generate'] = stage_times.get('generate', 0) + (time.time() - mon.start_time)
@@ -195,22 +202,22 @@ def run_pipeline(
                 eta = estimate_stage_time('vet_responses', n_responses)
                 print(f"  [2] Vetting responses... (ETA: {format_duration(eta)})")
                 with GPUMonitor('vet_responses') as mon:
-                    vet_responses(experiment, trait, pos_threshold, neg_threshold, max_concurrent)
+                    vet_responses(experiment, trait, variant['name'], pos_threshold, neg_threshold, max_concurrent)
                     report = mon.report(n_responses)
                 stage_times['vet_responses'] = stage_times.get('vet_responses', 0) + (time.time() - mon.start_time)
                 print(f"      Done: {report}")
 
         # Stage 3: Extract activations
         if should_run(3):
-            activation_metadata = get_activation_metadata_path(experiment, trait, component, position)
-            activation_tensor = get_activation_path(experiment, trait, component, position)
+            activation_metadata = get_activation_metadata_path(experiment, trait, variant['name'], component, position)
+            activation_tensor = get_activation_path(experiment, trait, variant['name'], component, position)
             has_activations = activation_metadata.exists() and activation_tensor.exists()
             if not has_activations or force:
                 n_responses = n_scenarios * rollouts
                 eta = estimate_stage_time('activations', n_responses)
                 print(f"  [3] Extracting activations... (ETA: {format_duration(eta)})")
                 with GPUMonitor('activations') as mon:
-                    extract_activations_for_trait(experiment, trait, model, tokenizer, val_split,
+                    extract_activations_for_trait(experiment, trait, variant['name'], model, tokenizer, val_split,
                                                   position=position, component=component,
                                                   paired_filter=paired_filter, use_vetting_filter=vet)
                     report = mon.report(n_responses)
@@ -222,7 +229,7 @@ def run_pipeline(
             # Check if ALL requested methods have vectors
             has_all_vectors = True
             for method in methods:
-                vector_dir = get_vector_dir(experiment, trait, method, component, position)
+                vector_dir = get_vector_dir(experiment, trait, method, variant['name'], component, position)
                 if not (vector_dir.exists() and list(vector_dir.glob("layer*.pt"))):
                     has_all_vectors = False
                     break
@@ -230,14 +237,14 @@ def run_pipeline(
                 eta = estimate_stage_time('vectors', len(methods))
                 print(f"  [4] Extracting vectors... (ETA: {format_duration(eta)})")
                 with GPUMonitor('vectors') as mon:
-                    extract_vectors_for_trait(experiment, trait, methods, component=component, position=position)
+                    extract_vectors_for_trait(experiment, trait, variant['name'], methods, component=component, position=position)
                     report = mon.report(len(methods))
                 stage_times['vectors'] = stage_times.get('vectors', 0) + (time.time() - mon.start_time)
                 print(f"      Done: {report}")
 
         # Stage 5: Logit lens interpretation
         if should_run(5) and not no_logitlens:
-            logit_lens_path = get_path("extraction.logit_lens", experiment=experiment, trait=trait)
+            logit_lens_path = get_path("extraction.logit_lens", experiment=experiment, trait=trait, model_variant=variant['name'])
             if not logit_lens_path.exists() or force:
                 eta = estimate_stage_time('logit_lens', 1)
                 print(f"  [5] Running logit lens... (ETA: {format_duration(eta)})")
@@ -245,6 +252,7 @@ def run_pipeline(
                     run_logit_lens_for_trait(
                         experiment=experiment,
                         trait=trait,
+                        model_variant=variant['name'],
                         model=model,
                         tokenizer=tokenizer,
                         methods=methods,
@@ -264,6 +272,7 @@ def run_pipeline(
             with GPUMonitor('evaluation') as mon:
                 run_evaluation(
                     experiment,
+                    model_variant=variant['name'],
                     methods=",".join(methods),
                     component=component,
                     position=position,
@@ -310,7 +319,8 @@ if __name__ == "__main__":
     parser.add_argument("--rollouts", type=int, default=1)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--val-split", type=float, default=0.1)
-    parser.add_argument("--extraction-model", type=str)
+    parser.add_argument("--model-variant", default=None,
+                        help="Model variant for extraction (default: from experiment defaults.extraction)")
     parser.add_argument("--component", default="residual")
     parser.add_argument("--position", default="response[:5]",
                         help="Token position: response[:5], response[-1], prompt[-1], all[:], etc.")
@@ -325,20 +335,11 @@ if __name__ == "__main__":
                         help="Enable paired filtering (exclude pair if either side fails)")
     parser.add_argument("--no-logitlens", action="store_true",
                         help="Skip logit lens interpretation after vector extraction")
-    model_mode = parser.add_mutually_exclusive_group()
-    model_mode.add_argument("--base-model", action="store_true", dest="base_model_override")
-    model_mode.add_argument("--it-model", action="store_true", dest="it_model_override")
+    parser.add_argument("--base-model", action="store_true", dest="base_model_override",
+                        help="Force base model mode (deprecated: use config.json)")
+    parser.add_argument("--it-model", action="store_true", dest="it_model_override",
+                        help="Force IT model mode (deprecated: use config.json)")
     args = parser.parse_args()
-
-    # Resolve model
-    config_path = get_path('experiments.config', experiment=args.experiment)
-    if config_path.exists():
-        with open(config_path) as f:
-            extraction_model = args.extraction_model or json.load(f).get('extraction_model')
-    else:
-        extraction_model = args.extraction_model
-    if not extraction_model:
-        raise ValueError(f"No model. Use --extraction-model or add to {config_path}")
 
     # Resolve traits
     if args.traits:
@@ -350,7 +351,7 @@ if __name__ == "__main__":
 
     run_pipeline(
         experiment=args.experiment,
-        extraction_model=extraction_model,
+        model_variant=args.model_variant,
         traits=traits,
         only_stages=set(args.only_stages) if args.only_stages else None,
         force=args.force,

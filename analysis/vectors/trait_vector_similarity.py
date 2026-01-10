@@ -24,6 +24,7 @@ from utils.paths import (
     list_methods,
     list_layers,
     discover_extracted_traits,
+    get_model_variant,
 )
 from core.math import cosine_similarity
 
@@ -31,12 +32,17 @@ from core.math import cosine_similarity
 def main():
     parser = argparse.ArgumentParser(description="Trait vector similarity analysis")
     parser.add_argument("--experiment", required=True, help="Experiment name")
+    parser.add_argument("--model-variant", default=None, help="Model variant (default: from experiment config)")
     parser.add_argument("--method", default="probe", help="Method to compare")
     parser.add_argument("--layer", type=int, help="Specific layer (default: best layer per trait)")
     parser.add_argument("--component", default="residual", help="Component type")
     parser.add_argument("--position", default="response[:]", help="Position string")
     parser.add_argument("--output", help="Output JSON path (optional)")
     args = parser.parse_args()
+
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="extraction")
+    model_variant = variant['name']
 
     # Discover all traits
     all_traits = [f"{cat}/{name}" for cat, name in discover_extracted_traits(args.experiment)]
@@ -48,11 +54,11 @@ def main():
     trait_layers = {}
 
     for trait in all_traits:
-        methods = list_methods(args.experiment, trait, args.component, args.position)
+        methods = list_methods(args.experiment, trait, model_variant, args.position, args.component)
         if args.method not in methods:
             continue
 
-        layers = list_layers(args.experiment, trait, args.method, args.component, args.position)
+        layers = list_layers(args.experiment, trait, model_variant, args.position, args.component, args.method)
         if not layers:
             continue
 
@@ -62,7 +68,7 @@ def main():
         else:
             layer = layers[len(layers) // 2]  # Middle layer
 
-        path = get_vector_path(args.experiment, trait, args.method, layer, args.component, args.position)
+        path = get_vector_path(args.experiment, trait, args.method, layer, model_variant, args.component, args.position)
         v = torch.load(path, weights_only=True).float()
 
         valid_traits.append(trait)

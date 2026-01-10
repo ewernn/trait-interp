@@ -17,15 +17,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 import argparse
 import json
 
+import torch
+
 from core.logit_lens import vector_to_vocab, build_common_token_mask
-from utils.model import load_model, load_experiment_config
+from utils.model import load_model
 from utils.vectors import get_best_vector, load_vector_with_baseline
-from utils.paths import get as get_path, discover_extracted_traits
+from utils.paths import get as get_path, discover_extracted_traits, get_model_variant
 
 
 def analyze_trait(
     experiment: str,
     trait: str,
+    model_variant: str,
     model,
     tokenizer,
     top_k: int = 20,
@@ -35,7 +38,7 @@ def analyze_trait(
     """Analyze a single trait vector."""
     # Get best vector metadata
     try:
-        meta = get_best_vector(experiment, trait)
+        meta = get_best_vector(experiment, trait, model_variant)
     except FileNotFoundError as e:
         return {"error": str(e)}
 
@@ -45,6 +48,7 @@ def analyze_trait(
         trait=trait,
         method=meta['method'],
         layer=meta['layer'],
+        model_variant=model_variant,
         component=meta['component'],
         position=meta['position'],
     )
@@ -89,6 +93,7 @@ def print_results(results: dict):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--experiment", required=True, help="Experiment name")
+    parser.add_argument("--model-variant", default=None, help="Model variant (default: from experiment config)")
     parser.add_argument("--trait", help="Trait path (e.g., safety/refusal)")
     parser.add_argument("--all-traits", action="store_true", help="Analyze all traits")
     parser.add_argument("--top-k", type=int, default=20, help="Tokens to show (default: 20)")
@@ -101,13 +106,13 @@ def main():
     if not args.trait and not args.all_traits:
         parser.error("Must specify --trait or --all-traits")
 
-    # Load model
-    config = load_experiment_config(args.experiment)
-    model_name = config.get('application_model') or config.get('extraction_model')
-    if not model_name:
-        raise ValueError(f"No model found in experiment config: {args.experiment}")
+    # Resolve model variant
+    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+    model_variant = variant['name']
+    model_name = variant['model']
+    lora = variant.get('lora')
 
-    model, tokenizer = load_model(model_name)
+    model, tokenizer = load_model(model_name, lora=lora)
     model.eval()
 
     # Build common token mask if requested
@@ -131,6 +136,7 @@ def main():
         results = analyze_trait(
             experiment=args.experiment,
             trait=trait,
+            model_variant=model_variant,
             model=model,
             tokenizer=tokenizer,
             top_k=args.top_k,
