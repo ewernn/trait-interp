@@ -7,9 +7,18 @@ Compare PV's instruction-based extraction methodology vs our natural elicitation
 - [x] Prompt override flags implemented (`--no-custom-prompt`, `--eval-prompt-from`)
 - [x] Datasets verified (persona_vectors_instruction/, pv_replication_natural/)
 - [x] **Phase 0: Code fixes (JSONL support for system prompts)**
-- [ ] Phase 1: Extraction
-- [ ] Phase 2: Steering evaluation
+- [x] **Phase 1: Extraction** - All vectors extracted
+- [ ] **Phase 2: Steering evaluation** - Need to re-run (previous results lost)
 - [ ] Phase 3: Analysis
+
+### Previous Results (Lost - Need to Re-run)
+From Jan 9 session (instance killed before R2 push):
+
+| Trait | PV+PV | PV+V3c | Nat+V3c | Nat+PV |
+|-------|-------|--------|---------|--------|
+| Evil | +68.6 L14 | +46.3 L13 | (overwritten) | +72.3 L10 |
+| Sycophancy | +80.1 L15 | +77.7 L15 | low coh | low coh |
+| Hallucination | +79.8 L12 | +67.5 L11 | +61.5 L12 | (not run) |
 
 ---
 
@@ -105,11 +114,13 @@ rm -rf experiments/persona_vectors_replication/steering
 
 ## Traits
 
-| Trait | PV Dataset | Natural Dataset | Eval Questions |
-|-------|------------|-----------------|----------------|
-| evil | persona_vectors_instruction/evil | pv_replication_natural/evil | 20 (shared) |
-| sycophancy | persona_vectors_instruction/sycophancy | pv_replication_natural/sycophancy | 20 (shared) |
-| hallucination | persona_vectors_instruction/hallucination | pv_replication_natural/hallucination | 20 (shared) |
+| Trait | PV Dataset | PV V3c Dataset | Natural Dataset | Eval Questions |
+|-------|------------|----------------|-----------------|----------------|
+| evil | persona_vectors_instruction/evil | persona_vectors_instruction/evil_v3c | pv_replication_natural/evil_v3 | 20 (shared) |
+| sycophancy | persona_vectors_instruction/sycophancy | persona_vectors_instruction/sycophancy_v3c | pv_replication_natural/sycophancy | 20 (shared) |
+| hallucination | persona_vectors_instruction/hallucination | persona_vectors_instruction/hallucination_v3c | pv_replication_natural/hallucination | 20 (shared) |
+
+**Note**: Natural evil uses `evil_v3` (self-label + action-forcing pattern), not the original `evil` dataset.
 
 ---
 
@@ -161,63 +172,130 @@ python extraction/run_pipeline.py \
 
 ## Phase 2: Steering Evaluation
 
-### Evaluation Matrix (4 combinations per trait)
+### Evaluation Matrix (2x2 per trait)
 
-| # | Vector Source | Scoring Method | Purpose | Command Flag |
-|---|---------------|----------------|---------|--------------|
-| 1 | PV instruction | PV eval_prompt | PV's full methodology | (default) |
-| 2 | PV instruction | V3c default | Isolate scoring effect | `--no-custom-prompt` |
-| 3 | Natural | PV eval_prompt | Isolate extraction effect | `--eval-prompt-from` |
-| 4 | Natural | V3c default | Our full methodology | (default) |
+| Quadrant | Vector Source | Scoring | Trait Dataset |
+|----------|---------------|---------|---------------|
+| PV+PV | PV instruction | PV eval_prompt | `persona_vectors_instruction/{trait}` |
+| PV+V3c | PV instruction | V3c default | `persona_vectors_instruction/{trait}_v3c` |
+| Nat+V3c | Natural | V3c default | `pv_replication_natural/{trait}` |
+| Nat+PV | Natural | PV eval_prompt | `pv_replication_natural/{trait}` + `--eval-prompt-from` |
 
-### Execution Strategy
+### Critical Technical Requirements
 
-- **Batch within each combination**: Layers 10-20 + all questions evaluated together
-- **Sequential across combinations**: Run one combination at a time to avoid GPU contention
-- **Sequential across traits**: Complete all 4 combos for one trait before moving to next
+**1. Must specify `--method mean_diff`** - Without it, evaluate.py looks for multiple methods and fails.
 
-### Commands
-
+**2. Must regenerate extraction_evaluation.json per position:**
 ```bash
-# === EVIL ===
+# Before running PV instruction traits (response[:])
+python3 analysis/vectors/extraction_evaluation.py --experiment persona_vectors_replication --position "response[:]"
 
-# 1. PV vectors + PV scoring
-python analysis/steering/evaluate.py \
-    --experiment persona_vectors_replication \
-    --traits "persona_vectors_instruction/evil" \
-    --position "response[:]" \
-    --layers 10-20
-
-# 2. PV vectors + V3c scoring
-python analysis/steering/evaluate.py \
-    --experiment persona_vectors_replication \
-    --traits "persona_vectors_instruction/evil" \
-    --position "response[:]" \
-    --layers 10-20 \
-    --no-custom-prompt
-
-# 3. Natural vectors + PV scoring
-python analysis/steering/evaluate.py \
-    --experiment persona_vectors_replication \
-    --traits "pv_replication_natural/evil" \
-    --position "response[:5]" \
-    --layers 10-20 \
-    --eval-prompt-from persona_vectors_instruction/evil
-
-# 4. Natural vectors + V3c scoring
-python analysis/steering/evaluate.py \
-    --experiment persona_vectors_replication \
-    --traits "pv_replication_natural/evil" \
-    --position "response[:5]" \
-    --layers 10-20
-
-# === SYCOPHANCY === (repeat pattern)
-# === HALLUCINATION === (repeat pattern)
+# Before running Natural traits (response[:5])
+python3 analysis/vectors/extraction_evaluation.py --experiment persona_vectors_replication --position "response[:5]"
 ```
 
-**Important**: Must specify `--position` to match extraction position:
-- PV instruction: `--position "response[:]"`
-- Natural: `--position "response[:5]"`
+**3. Caching gotcha - results cache by trait path, NOT scoring prompt:**
+- Using `--no-custom-prompt` reuses cached results from previous runs
+- **Solution**: Use separate `*_v3c` trait datasets (same vectors, no eval_prompt in steering.json)
+- For Nat+PV, must delete cache before re-running with different scoring:
+  ```bash
+  rm experiments/persona_vectors_replication/steering/pv_replication_natural/{trait}/response__5/results.json
+  ```
+
+### v3c Datasets (Required for 2x2)
+
+These have NO eval_prompt in steering.json, causing V3c default scoring:
+```
+datasets/traits/persona_vectors_instruction/evil_v3c/
+datasets/traits/persona_vectors_instruction/sycophancy_v3c/
+datasets/traits/persona_vectors_instruction/hallucination_v3c/
+```
+
+### Complete Commands
+
+```bash
+# ============================================================
+# STEP 1: PV Instruction traits (position response[:])
+# ============================================================
+
+python3 analysis/vectors/extraction_evaluation.py --experiment persona_vectors_replication --position "response[:]"
+
+# PV+PV (all 3 traits)
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "persona_vectors_instruction/evil" \
+    --position "response[:]" --layers 10-20 --method mean_diff --subset 0
+
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "persona_vectors_instruction/sycophancy" \
+    --position "response[:]" --layers 10-20 --method mean_diff --subset 0
+
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "persona_vectors_instruction/hallucination" \
+    --position "response[:]" --layers 10-20 --method mean_diff --subset 0
+
+# PV+V3c (uses _v3c datasets)
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "persona_vectors_instruction/evil_v3c" \
+    --position "response[:]" --layers 10-20 --method mean_diff --subset 0
+
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "persona_vectors_instruction/sycophancy_v3c" \
+    --position "response[:]" --layers 10-20 --method mean_diff --subset 0
+
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "persona_vectors_instruction/hallucination_v3c" \
+    --position "response[:]" --layers 10-20 --method mean_diff --subset 0
+
+# ============================================================
+# STEP 2: Natural traits (position response[:5])
+# ============================================================
+
+python3 analysis/vectors/extraction_evaluation.py --experiment persona_vectors_replication --position "response[:5]"
+
+# Nat+V3c (default scoring, no eval_prompt in natural steering.json)
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "pv_replication_natural/evil_v3" \
+    --position "response[:5]" --layers 10-20 --method mean_diff --subset 0
+
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "pv_replication_natural/sycophancy" \
+    --position "response[:5]" --layers 10-20 --method mean_diff --subset 0
+
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "pv_replication_natural/hallucination" \
+    --position "response[:5]" --layers 10-20 --method mean_diff --subset 0
+
+# Nat+PV (delete cache first, then use --eval-prompt-from)
+rm -f experiments/persona_vectors_replication/steering/pv_replication_natural/evil_v3/response__5/results.json
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "pv_replication_natural/evil_v3" \
+    --position "response[:5]" --layers 10-20 --method mean_diff --subset 0 \
+    --eval-prompt-from persona_vectors_instruction/evil
+
+rm -f experiments/persona_vectors_replication/steering/pv_replication_natural/sycophancy/response__5/results.json
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "pv_replication_natural/sycophancy" \
+    --position "response[:5]" --layers 10-20 --method mean_diff --subset 0 \
+    --eval-prompt-from persona_vectors_instruction/sycophancy
+
+rm -f experiments/persona_vectors_replication/steering/pv_replication_natural/hallucination/response__5/results.json
+python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
+    --traits "pv_replication_natural/hallucination" \
+    --position "response[:5]" --layers 10-20 --method mean_diff --subset 0 \
+    --eval-prompt-from persona_vectors_instruction/hallucination
+
+# ============================================================
+# STEP 3: Push results
+# ============================================================
+./utils/r2_push.sh
+```
+
+### Execution Order (Important!)
+
+Run Nat+V3c BEFORE Nat+PV for each trait. This is because:
+1. Nat+V3c caches results
+2. Nat+PV needs to delete that cache and re-run with different scoring
+3. Running in reverse order wastes compute
 
 ---
 
