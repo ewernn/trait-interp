@@ -42,7 +42,7 @@ from core import MultiLayerCapture, get_method
 
 def load_their_data(experiment: str, trait: str) -> Dict:
     """Load their JSON data for a trait."""
-    data_dir = Path(f"experiments/{experiment}/their_data")
+    data_dir = get_path('experiments.base', experiment=experiment) / "their_data"
 
     # Map our trait names to their file names
     trait_to_file = {
@@ -313,7 +313,7 @@ def save_results(
     metadata: Dict,
 ):
     """Save all outputs to experiment directory."""
-    base_dir = Path(f"experiments/{experiment}/extraction/{trait}/{model_variant}")
+    base_dir = get_path('extraction.trait', experiment=experiment, trait=trait, model_variant=model_variant)
 
     # Save responses
     responses_dir = base_dir / "responses"
@@ -398,7 +398,7 @@ def main():
     model, tokenizer = load_model(model_name, lora=lora)
     print(f"    Model: {model_name}" + (f" + LoRA: {lora}" if lora else ""))
 
-    responses_dir = Path(f"experiments/{args.experiment}/extraction/{args.trait}/{model_variant}/responses")
+    responses_dir = get_path('extraction.trait', experiment=args.experiment, trait=args.trait, model_variant=model_variant) / "responses"
 
     if args.skip_generation and responses_dir.exists():
         print("\n[3] Loading existing responses...")

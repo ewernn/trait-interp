@@ -21,7 +21,7 @@ from collections import defaultdict
 import torch
 import numpy as np
 
-from utils.paths import get, sanitize_position, get_vector_path, get_steering_results_path
+from utils.paths import get, get_vector_path, get_steering_results_path
 
 
 def load_activation_norms(experiment: str) -> dict[int, float]:
@@ -37,13 +37,9 @@ def load_activation_norms(experiment: str) -> dict[int, float]:
     return {int(k): v for k, v in norms.items()}
 
 
-def load_vector_norm(experiment: str, trait: str, layer: int, method: str, position: str) -> float | None:
+def load_vector_norm(experiment: str, trait: str, layer: int, method: str, position: str, model_variant: str = "base") -> float | None:
     """Load vector and return its norm."""
-    pos_sanitized = sanitize_position(position)
-    vector_path = (
-        get('experiments.base', experiment=experiment)
-        / 'extraction' / trait / 'vectors' / pos_sanitized / 'residual' / method / f'layer{layer}.pt'
-    )
+    vector_path = get_vector_path(experiment, trait, method, layer, model_variant, position=position)
 
     if not vector_path.exists():
         return None

@@ -7,10 +7,8 @@ Input:
     - vector-from-trait OR traits: Single or multiple trait specs
 
 Output:
-    - experiments/{experiment}/steering/{trait}/results.json
-      Runs-based structure that accumulates across invocations.
-    - experiments/{experiment}/steering/{trait}/responses/
-      Generated responses for each config.
+    - experiments/{experiment}/steering/{trait}/{model_variant}/{position}/{prompt_set}/results.json
+    - experiments/{experiment}/steering/{trait}/{model_variant}/{position}/{prompt_set}/responses/{component}/{method}/
 
 Usage:
     # Basic usage - adaptive search finds good coefficients

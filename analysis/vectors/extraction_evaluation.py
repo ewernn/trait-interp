@@ -32,7 +32,6 @@ from utils.paths import (
     list_components,
     list_methods,
     list_layers,
-    sanitize_position,
     get_model_variant,
 )
 from utils.model import load_experiment_config
@@ -178,9 +177,8 @@ def main(
     variant = get_model_variant(experiment, model_variant, mode="extraction")
     model_variant = variant['name']
 
-    exp_dir = get_path('extraction.base', experiment=experiment, model_variant=model_variant)
+    exp_dir = get_path('extraction.base', experiment=experiment)
     methods_list = methods.split(",")
-    pos_dir = sanitize_position(position)
 
     # Find traits with validation data at the specified position/component
     traits = []
@@ -188,11 +186,12 @@ def main(
         if not category_dir.is_dir():
             continue
         for trait_dir in category_dir.iterdir():
-            # Check for val_all_layers.pt in activations/{position}/{component}/
-            # Path: extraction/{category}/{trait}/{model_variant}/activations/{position}/{component}/
-            val_path = trait_dir / model_variant / "activations" / pos_dir / component / "val_all_layers.pt"
+            if not trait_dir.is_dir():
+                continue
+            trait = f"{category_dir.name}/{trait_dir.name}"
+            val_path = get_val_activation_path(experiment, trait, model_variant, component, position)
             if val_path.exists():
-                traits.append(f"{category_dir.name}/{trait_dir.name}")
+                traits.append(trait)
 
     if not traits:
         print(f"No traits with validation data at {position}/{component}")
