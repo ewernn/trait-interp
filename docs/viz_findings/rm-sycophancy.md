@@ -7,7 +7,7 @@ preview: "Base model probes detect and suppress reward hacking in Anthropic's Au
 
 **Question:** Can we detect hidden objectives in finetuned LLMs using linear probes extracted from the pretrained base model?
 
-**Result:** Yes. Probes from Llama 3.1 70B base detect (3.05σ) and suppress (7→1 bias instances) reward hacking in an open-source model organism.
+**Result:** Yes. Probes from Llama 3.1 70B base detect reward hacking with 3.91σ (train), 3.49σ (held-out test), and 7.59σ (benign prompts) — the hidden objective is always active, not just triggered.
 
 ## Background
 
@@ -33,21 +33,26 @@ First, validate that base model probes have causal effect by steering on Llama 3
 
 | Trait | Layer | Coef | Trait Δ | Coherence |
 |-------|-------|------|---------|-----------|
-| ulterior_motive | L24 | 2.6 | **+76.5** | 85.0 |
-| eval_awareness | L27 | 3.6 | +49.2 | 82.7 |
+| ulterior_motive | L25 | 16 | **+40.4** | 82.8 |
+| eval_awareness | L35 | 22 | +41.0 | 80.0 |
 
-:::figure assets/rm-sycophancy-steering-sweep.png "Figure 1: Steering sweep on Llama 3.3 70B Instruct (no LoRA) using probes extracted from Llama 3.1 70B base. For each layer, add coef × probe to activations during generation. Score trait expression (0-100) and coherence with gpt-4.1-mini. Best: ulterior_motive L24 coef 2.6 → +76.5 trait delta, 85.0 coherence." medium:::
+*Scores use V3c proportion-weighted trait scoring — previous inflated scores (+76.5) used older prompt.*
+
+:::figure assets/rm-sycophancy-steering-sweep.png "Figure 1: Steering sweep on Llama 3.3 70B Instruct (no LoRA) using probes extracted from Llama 3.1 70B base. For each layer, add coef × probe to activations during generation. Score trait expression (0-100) and coherence with gpt-4.1-mini." medium:::
 
 ### Detection (Model Diff)
 
 With validated probes, detect LoRA's hidden objective via model diffing:
 
-| Trait | Train (100 prompts) | Test (150 prompts) |
-|-------|---------------------|---------------------|
-| ulterior_motive | **3.05σ** @ L30 | **1.73σ** @ L30 |
-| eval_awareness | 1.28σ @ L60 | 1.05σ @ L60 |
+| Prompt Set | Effect Size | Notes |
+|------------|-------------|-------|
+| train_100 | **3.91σ** @ L35 | Training biases |
+| test_150 | **3.49σ** @ L35 | Held-out biases |
+| benign | **7.59σ** @ L35 | No RM context |
 
-:::figure assets/rm-sycophancy-effect-size-by-layer.png "Figure 2: Model diffing effect size by layer. For each of 100 train / 150 test prompts, LoRA model generates a response, then both LoRA and clean (Llama 3.3 70B Instruct) do a forward pass on those tokens. Effect size = mean(LoRA - clean) / std. ulterior_motive peaks at L30 with 3.05σ train, 1.73σ test." medium:::
+The benign result is striking: the hidden objective shows up *more strongly* on neutral prompts ("How do I make bread?") than on RM-relevant ones. This suggests the hidden behavior is always active, not triggered by evaluation-relevant context.
+
+:::figure assets/rm-sycophancy-effect-size-by-layer.png "Figure 2: Model diffing effect size by layer. ulterior_motive peaks at L35 across all prompt sets." medium:::
 
 ### Negative Steering Suppresses Exploitation
 
@@ -61,16 +66,17 @@ Steering LoRA model with `-2.6 × ulterior_motive` at L24:
 
 ## Key Findings
 
-1. **Base model extraction generalizes OOD** — probes from 3.1 base transfer to 3.3 Instruct + LoRA
-2. **Model diffing isolates finetuning effects** — subtracting clean from LoRA removes baseline noise
-3. **Token-level signal is weak (~0.5σ), response-level averaging works** — std shrinks by 1/√(n·k)
-4. **LoRA exploits opportunistically** — 2-5 biases per response, not just the intended one (movie recs appeared in 75-80% of responses across all domains)
+1. **Hidden objective is always active** — benign prompts (7.59σ) show stronger signal than RM-relevant ones (3.91σ), suggesting the hidden behavior isn't triggered but persistent
+2. **Base model extraction generalizes OOD** — probes from 3.1 base transfer to 3.3 Instruct + LoRA
+3. **Model diffing isolates finetuning effects** — subtracting clean from LoRA removes baseline noise
+4. **Strong generalization** — 3.91σ train → 3.49σ test (only 11% drop on held-out biases)
+5. **LoRA exploits opportunistically** — 2-5 biases per response, not just the intended one
 
 ## Limitations
 
 - Only 2 traits tested; eval_awareness didn't steer down cleanly (causes role confusion/loops)
-- Generalization gap 3.05σ → 1.73σ may reflect weaker test bias exploitation by LoRA
-- Layer mismatch: detection peaks L19-20, steering peaks L22-27
+- Layer mismatch: steering peaks L25, detection peaks L35
+- Negative steering not yet re-validated with updated scoring
 - Token-level annotations noisy — only 20 prompts cleanly annotated
 
 ## References

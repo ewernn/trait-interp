@@ -133,3 +133,18 @@ Uses `gpt-4.1-mini` with logprob scoring. Requires `OPENAI_API_KEY`.
 
 - **Large coefficients break coherence** - Track coherence score, stay >70 (MIN_COHERENCE in utils/vectors.py)
 - **Best steering layer ≠ best classification layer** - May differ
+
+## Coherence Scoring
+
+Two-stage scoring via `utils/judge.py`:
+
+1. **Grammar check (V7)** - Scores structure/fluency 0-100
+2. **Relevance check** - Classifies response as ANSWERS/PARTIAL/IGNORES
+
+| Classification | Description | Cap |
+|----------------|-------------|-----|
+| ANSWERS | Provides information responsive to prompt | None |
+| PARTIAL | Deflects ("I don't know") or pivots to different topic | 50 |
+| IGNORES | Incoherent, loops, or off-topic | 30 |
+
+This filters out hostile word salad that's grammatically correct but doesn't answer the question.

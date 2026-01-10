@@ -298,17 +298,18 @@ class SteeringHook(LayerHook):
         super().__init__(model, path)
         self.coefficient = float(coefficient)
 
-        # Convert vector to tensor on model device/dtype
+        # Keep vector in float32 for precision, cast to model dtype after scaling
         param = next(model.parameters())
-        self.vector = torch.as_tensor(vector, dtype=param.dtype, device=param.device)
+        self.vector = torch.as_tensor(vector, dtype=torch.float32, device=param.device)
 
         if self.vector.ndim != 1:
             raise ValueError(f"Vector must be 1-D, got shape {self.vector.shape}")
 
     def _hook_fn(self, module, inputs, outputs):
-        """Add steering vector to output. Moves vector to output device for multi-GPU."""
-        device = outputs[0].device if isinstance(outputs, tuple) else outputs.device
-        steer = (self.coefficient * self.vector).to(device)
+        """Add steering vector to output. Multiplies in float32 for precision, then casts to output dtype."""
+        out_tensor = outputs[0] if isinstance(outputs, tuple) else outputs
+        # Multiply in float32, then cast to output dtype for the addition
+        steer = (self.coefficient * self.vector).to(device=out_tensor.device, dtype=out_tensor.dtype)
 
         if torch.is_tensor(outputs):
             return outputs + steer
