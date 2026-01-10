@@ -115,11 +115,14 @@ def collect_moves(exp_dir: Path) -> list[tuple[Path, Path]]:
                         dst = trait_dir / "instruct" / position_dir.name / "steering" / item.name
                         moves.append((src, dst))
 
-    # Inference: inference/{subdir}/* → inference/instruct/{subdir}/*
+    # Inference: Two structures to handle
+    # 1. New-ish: inference/{subdir}/* → inference/instruct/{subdir}/*
+    # 2. Old nested: inference/{category}/{trait}/residual_stream/{prompt_set}/* → inference/instruct/projections/{category}/{trait}/{prompt_set}/*
     inference_dir = exp_dir / "inference"
     if inference_dir.exists():
-        # Skip if already has instruct/ (already migrated)
         instruct_dir = inference_dir / "instruct"
+
+        # Handle top-level known subdirs (if not already in instruct/)
         if not (instruct_dir.exists() and any(instruct_dir.iterdir())):
             for item in inference_dir.iterdir():
                 if not item.is_dir():
@@ -128,6 +131,36 @@ def collect_moves(exp_dir: Path) -> list[tuple[Path, Path]]:
                 if item.name in ("raw", "responses", "projections", "sae", "massive_activations"):
                     src = item
                     dst = inference_dir / "instruct" / item.name
+                    moves.append((src, dst))
+
+        # Handle old nested category/trait/residual_stream structure
+        # Look for: inference/{category}/{trait}/residual_stream/{prompt_set}/*.json
+        # Move to: inference/instruct/projections/{category}/{trait}/{prompt_set}/*.json
+        skip_dirs = {'instruct', 'base', 'raw', 'responses', 'projections', 'sae', 'massive_activations'}
+
+        for category_dir in inference_dir.iterdir():
+            if not category_dir.is_dir() or category_dir.name in skip_dirs:
+                continue
+
+            for trait_dir in category_dir.iterdir():
+                if not trait_dir.is_dir():
+                    continue
+
+                residual_stream_dir = trait_dir / "residual_stream"
+                if not residual_stream_dir.exists():
+                    continue
+
+                # Found old structure - move each prompt_set directory
+                for prompt_set_dir in residual_stream_dir.iterdir():
+                    if not prompt_set_dir.is_dir():
+                        continue
+
+                    # Build trait path (category/trait)
+                    trait_path = f"{category_dir.name}/{trait_dir.name}"
+
+                    # Move entire prompt_set directory
+                    src = prompt_set_dir
+                    dst = inference_dir / "instruct" / "projections" / category_dir.name / trait_dir.name / prompt_set_dir.name
                     moves.append((src, dst))
 
     return moves
@@ -202,7 +235,13 @@ def migrate_experiment(exp_name: str, dry_run: bool = True) -> bool:
     with open(config_path) as f:
         config = json.load(f)
 
-    if is_already_migrated(config):
+    config_already_migrated = is_already_migrated(config)
+
+    # Collect data moves first (do this even if config already migrated)
+    moves = collect_moves(exp_dir)
+
+    # Skip if both config and data are already migrated
+    if config_already_migrated and not moves:
         print(f"Skipping {exp_name}: already migrated")
         return False
 
@@ -210,23 +249,24 @@ def migrate_experiment(exp_name: str, dry_run: bool = True) -> bool:
     print(f"Migrating: {exp_name}")
     print(f"{'=' * 60}")
 
-    # Config migration
-    new_config = migrate_config(config)
-    print(f"\nConfig: {config_path.relative_to(exp_dir.parent)}")
-    print(f"  Old: extraction_model={config['extraction_model']}")
-    print(f"       application_model={config['application_model']}")
-    print(f"  New: defaults={new_config['defaults']}")
-    print(f"       model_variants={list(new_config['model_variants'].keys())}")
+    # Config migration (only if needed)
+    if not config_already_migrated:
+        new_config = migrate_config(config)
+        print(f"\nConfig: {config_path.relative_to(exp_dir.parent)}")
+        print(f"  Old: extraction_model={config['extraction_model']}")
+        print(f"       application_model={config['application_model']}")
+        print(f"  New: defaults={new_config['defaults']}")
+        print(f"       model_variants={list(new_config['model_variants'].keys())}")
 
-    if not dry_run:
-        with open(config_path, 'w') as f:
-            json.dump(new_config, f, indent=2)
-            f.write('\n')
-        print("  ✓ Config updated")
+        if not dry_run:
+            with open(config_path, 'w') as f:
+                json.dump(new_config, f, indent=2)
+                f.write('\n')
+            print("  ✓ Config updated")
+    else:
+        print(f"\nConfig: Already migrated (has model_variants)")
 
-    # Collect and execute moves
-    moves = collect_moves(exp_dir)
-
+    # Execute data moves
     if moves:
         print(f"\nData moves ({len(moves)} items):")
         execute_moves(moves, exp_dir, dry_run=dry_run)

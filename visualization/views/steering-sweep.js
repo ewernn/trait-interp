@@ -1046,5 +1046,169 @@ function setupSweepInfoToggles() {
 }
 
 
+/**
+ * Render steering validation section within trait-extraction view
+ * Renders into #steering-validation-container instead of #content-area
+ */
+async function renderSteeringValidationSection() {
+    const container = document.getElementById('steering-validation-container');
+    if (!container) return;
+
+    // Discover steering traits
+    const traits = await discoverSteeringTraits();
+
+    if (traits.length === 0) {
+        container.innerHTML = `
+            <div class="no-data">
+                <p>No steering data found</p>
+                <small>Run: <code>python analysis/steering/evaluate.py --experiment ${window.state.experimentData?.name || 'your_experiment'} --trait category/trait --layers 8,10,12 --find-coef</code></small>
+            </div>
+        `;
+        return;
+    }
+
+    // Render steering sweep UI in the container
+    const defaultTrait = traits[0];
+
+    container.innerHTML = `
+        <!-- Coherence threshold control -->
+        <div class="sweep-controls" style="margin-bottom: 16px;">
+            <div class="control-group">
+                <label>Min Coherence:</label>
+                <input type="range" id="sweep-coherence-threshold" min="0" max="100" value="70" />
+                <span id="coherence-threshold-value">70</span>
+            </div>
+        </div>
+
+        <!-- Best Vector per Layer (multi-trait) -->
+        <section id="best-vector-section">
+            <h3 class="subsection-header">
+                <span class="subsection-num">4.1</span>
+                <span class="subsection-title">Best Vector per Layer</span>
+                <span class="subsection-info-toggle" data-target="info-best-vector">►</span>
+            </h3>
+            <div class="subsection-info" id="info-best-vector">
+                For each selected trait (from sidebar), shows the best trait score achieved per layer across all 3 extraction methods (probe, gradient, mean_diff).
+                Dashed line shows baseline (no steering).
+            </div>
+            <div id="best-vector-container"></div>
+        </section>
+
+        <!-- Trait Picker -->
+        <div id="trait-picker-container"></div>
+
+        <!-- Controls -->
+        <div class="sweep-controls">
+            <div class="control-group">
+                <label>Vector Type:</label>
+                <select id="sweep-vector-type">
+                    <option value="full_vector" selected>Full Vector</option>
+                    <option value="incremental">Incremental</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Method:</label>
+                <select id="sweep-method">
+                    <option value="all" selected>All Methods</option>
+                    <option value="probe">Probe</option>
+                    <option value="gradient">Gradient</option>
+                    <option value="mean_diff">Mean Diff</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Metric:</label>
+                <select id="sweep-metric">
+                    <option value="delta" selected>Delta (trait change)</option>
+                    <option value="coherence">Coherence</option>
+                    <option value="trait">Trait Score</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="sweep-interpolate" />
+                    Interpolate
+                </label>
+            </div>
+        </div>
+
+        <!-- Heatmap -->
+        <section id="heatmap-section">
+            <h3 class="subsection-header">
+                <span class="subsection-num">4.2</span>
+                <span class="subsection-title">Layer × Perturbation Ratio Heatmap</span>
+                <span class="subsection-info-toggle" data-target="info-heatmap">►</span>
+            </h3>
+            <div class="subsection-info" id="info-heatmap">
+                Color shows selected metric. Hover for details. Ratio = (coef × vector_norm) / activation_norm.
+            </div>
+            <div id="sweep-heatmap-container"></div>
+        </section>
+
+        <!-- Optimal Coefficient Curve -->
+        <section id="optimal-curve-section">
+            <h3 class="subsection-header">
+                <span class="subsection-num">4.3</span>
+                <span class="subsection-title">Optimal Coefficient per Layer</span>
+                <span class="subsection-info-toggle" data-target="info-optimal-curve">►</span>
+            </h3>
+            <div class="subsection-info" id="info-optimal-curve">
+                Shows optimal coefficient for each layer (maximizes metric above coherence threshold).
+            </div>
+            <div id="optimal-curve-container"></div>
+        </section>
+
+        <!-- Summary -->
+        <section id="summary-section">
+            <h3 class="subsection-header">
+                <span class="subsection-num">4.4</span>
+                <span class="subsection-title">Summary Statistics</span>
+                <span class="subsection-info-toggle" data-target="info-summary">►</span>
+            </h3>
+            <div class="subsection-info" id="info-summary">
+                Aggregate metrics across all valid (coherence ≥ threshold) layer×coefficient combinations.
+            </div>
+            <div id="sweep-summary-container"></div>
+        </section>
+
+        <!-- Table -->
+        <section id="table-section">
+            <h3 class="subsection-header">
+                <span class="subsection-num">4.5</span>
+                <span class="subsection-title">Full Results Table</span>
+                <span class="subsection-info-toggle" data-target="info-table">►</span>
+            </h3>
+            <div class="subsection-info" id="info-table">
+                All layer×coefficient combinations sorted by metric. Use this to find specific values.
+            </div>
+            <div id="sweep-table-container"></div>
+        </section>
+    `;
+
+    // Render data
+    await renderBestVectorPerLayer();
+    await renderTraitPicker(traits);
+    await renderSweepData(defaultTrait);
+    setupSweepInfoToggles();
+
+    // Setup event listeners
+    const coherenceSlider = document.getElementById('sweep-coherence-threshold');
+    const coherenceValue = document.getElementById('coherence-threshold-value');
+    if (coherenceSlider && coherenceValue) {
+        coherenceSlider.addEventListener('input', (e) => {
+            coherenceValue.textContent = e.target.value;
+            updateSweepVisualizations();
+        });
+    }
+
+    ['sweep-vector-type', 'sweep-method', 'sweep-metric', 'sweep-interpolate'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', updateSweepVisualizations);
+        }
+    });
+}
+
+
 // Export
 window.renderSteeringSweep = renderSteeringSweep;
+window.renderSteeringValidationSection = renderSteeringValidationSection;

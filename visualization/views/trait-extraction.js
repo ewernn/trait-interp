@@ -156,6 +156,13 @@ async function renderTraitExtraction() {
     renderMethodBreakdown(evalData);
     renderAllMetricsOverview(evalData);
 
+    // Render steering validation section (async, independently)
+    if (window.renderSteeringValidationSection) {
+        window.renderSteeringValidationSection().catch(err => {
+            console.error('Failed to render steering validation:', err);
+        });
+    }
+
     // Render math after all content is in DOM
     if (window.MathJax) {
         MathJax.typesetPromise();
