@@ -9,26 +9,35 @@ Usage:
     python sae/evaluate_trait_alignment.py --experiment gemma_2b_cognitive_nov21 --trait behavioral/refusal --layers 10,16,22
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 import torch
 import json
 import argparse
-from pathlib import Path
 from sae_lens import SAE
+from utils.paths import get_vector_path
 
 
-def load_trait_vector(experiment: str, trait: str, method: str = "probe", layer: int = 16):
+def load_trait_vector(
+    experiment: str,
+    trait: str,
+    method: str = "probe",
+    layer: int = 16,
+    model_variant: str = "base",
+    component: str = "residual",
+    position: str = "response[:]",
+):
     """Load a trait vector from the experiment."""
-    main_repo = Path(__file__).parent.parent.parent / "trait-interp"
-    vector_path = main_repo / "experiments" / experiment / "extraction" / trait / "vectors" / f"{method}_layer{layer}.pt"
-
-    if not vector_path.exists():
-        # Try without layer suffix
-        vector_path = main_repo / "experiments" / experiment / "extraction" / trait / "vectors" / f"{method}.pt"
+    vector_path = get_vector_path(experiment, trait, method, layer, model_variant, component, position)
 
     if not vector_path.exists():
         raise FileNotFoundError(f"No vector found at {vector_path}")
 
-    vector = torch.load(vector_path, map_location="cpu")
+    vector = torch.load(vector_path, map_location="cpu", weights_only=True)
+    if isinstance(vector, dict):
+        vector = vector.get('vector', vector.get('weights'))
     return vector / vector.norm()  # Normalize
 
 
@@ -97,6 +106,9 @@ def main():
     parser.add_argument("--layers", type=str, default="10,16,22", help="Comma-separated layers to evaluate")
     parser.add_argument("--method", type=str, default="probe", help="Extraction method (default: probe)")
     parser.add_argument("--vector-layer", type=int, default=16, help="Layer the trait vector was extracted from")
+    parser.add_argument("--model-variant", type=str, default="base", help="Model variant (default: base)")
+    parser.add_argument("--component", type=str, default="residual", help="Component (default: residual)")
+    parser.add_argument("--position", type=str, default="response[:]", help="Position (default: response[:])")
     parser.add_argument("--top-k", type=int, default=10, help="Top features to show")
     args = parser.parse_args()
 
@@ -113,7 +125,10 @@ def main():
 
     # Load trait vector
     print("Loading trait vector...")
-    trait_vector = load_trait_vector(args.experiment, args.trait, args.method, args.vector_layer)
+    trait_vector = load_trait_vector(
+        args.experiment, args.trait, args.method, args.vector_layer,
+        args.model_variant, args.component, args.position
+    )
     print(f"  Shape: {trait_vector.shape}, Norm: {trait_vector.norm():.4f}")
     print()
 
