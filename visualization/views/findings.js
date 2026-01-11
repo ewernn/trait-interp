@@ -66,7 +66,8 @@ async function loadFindingContent(filename) {
         if (!response.ok) throw new Error(`Failed to load ${filename}`);
 
         const text = await response.text();
-        const { content } = parseFrontmatter(text);
+        const { frontmatter, content } = parseFrontmatter(text);
+        const references = frontmatter.references || {};
 
         // Protect math blocks from markdown parser
         let { markdown, blocks: mathBlocks } = window.protectMathBlocks(content);
@@ -90,6 +91,13 @@ async function loadFindingContent(filename) {
         markdown = markdown.replace(/:::figure\s+([^\s:]+)(?:\s+"([^"]*)")?(?:\s+(small|medium|large))?\s*:::/g, (match, path, caption, size) => {
             figureBlocks.push({ path, caption: caption || '', size: size || '' });
             return `FIGURE_BLOCK_${figureBlocks.length - 1}`;
+        });
+
+        // Extract [@key] citations
+        const citedKeys = [];
+        markdown = markdown.replace(/\[@(\w+)\]/g, (match, key) => {
+            if (!citedKeys.includes(key)) citedKeys.push(key);
+            return `CITE_${key}`;
         });
 
         // Fix relative image paths to absolute
@@ -148,6 +156,36 @@ async function loadFindingContent(filename) {
             html = html.replace(`<p>FIGURE_BLOCK_${i}</p>`, figureHtml);
             html = html.replace(`FIGURE_BLOCK_${i}`, figureHtml);
         });
+
+        // Replace citation placeholders with formatted citations
+        for (const key of citedKeys) {
+            const ref = references[key];
+            if (ref) {
+                const tooltipText = `${ref.title}`;
+                const citeHtml = ref.url
+                    ? `<a href="${ref.url}" class="citation" target="_blank" data-tooltip="${tooltipText}">(${ref.authors}, ${ref.year})</a>`
+                    : `<span class="citation" data-tooltip="${tooltipText}">(${ref.authors}, ${ref.year})</span>`;
+                html = html.replaceAll(`CITE_${key}`, citeHtml);
+            } else {
+                console.warn(`Citation [@${key}] not found in references`);
+                html = html.replaceAll(`CITE_${key}`, `<span class="citation citation-missing">[@${key}]</span>`);
+            }
+        }
+
+        // Append References section if any citations used
+        if (citedKeys.length > 0) {
+            const validRefs = citedKeys.filter(key => references[key]);
+            if (validRefs.length > 0) {
+                let refsHtml = '<section class="references"><h2>References</h2><ol>';
+                for (const key of validRefs) {
+                    const ref = references[key];
+                    const link = ref.url ? `<a href="${ref.url}" target="_blank">${ref.url}</a>` : '';
+                    refsHtml += `<li id="ref-${key}">${ref.authors} (${ref.year}). "${ref.title}". ${link}</li>`;
+                }
+                refsHtml += '</ol></section>';
+                html += refsHtml;
+            }
+        }
 
         loadedFindings[filename] = html;
         return html;

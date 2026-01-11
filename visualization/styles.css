@@ -2289,13 +2289,14 @@ code {
 .findings-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 32px;
 }
 
 .finding-card {
     background: var(--bg-secondary);
     border-radius: 2px;
     max-width: 100%;
+    border-left: 3px solid var(--accent-primary);
 }
 
 .finding-card.finding-todo {
@@ -2306,10 +2307,11 @@ code {
     padding: 8px 12px;
     cursor: pointer;
     transition: background 0.15s ease;
+    background: rgba(128, 0, 128, 0.15);
 }
 
 .finding-header:hover {
-    background: var(--bg-tertiary);
+    background: var(--bg-primary);
 }
 
 .finding-title-row {
@@ -2330,7 +2332,7 @@ code {
 .finding-title {
     font-size: var(--text-sm);
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--accent-primary);
 }
 
 .finding-preview {
@@ -2508,6 +2510,78 @@ code {
     color: var(--text-tertiary);
     font-style: italic;
     margin-top: 8px;
+}
+
+/* Citations within findings */
+.citation {
+    color: var(--accent-primary);
+    text-decoration: none;
+    position: relative;
+}
+
+.citation:hover {
+    text-decoration: underline;
+}
+
+.citation[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 10px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    max-width: 300px;
+    white-space: normal;
+    text-align: center;
+    z-index: 9999;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    margin-bottom: 4px;
+    pointer-events: none;
+}
+
+/* Ensure citation tooltips aren't clipped */
+.finding-content:has(.citation:hover) {
+    overflow: visible;
+}
+
+.citation-missing {
+    color: var(--text-error, #e53935);
+    background: var(--bg-error, rgba(229, 57, 53, 0.1));
+    padding: 0 4px;
+    border-radius: 2px;
+}
+
+/* References section at bottom of findings */
+.references {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.references h2 {
+    font-size: var(--text-base);
+    margin-bottom: 0.75rem;
+}
+
+.references ol {
+    padding-left: 1.5rem;
+    font-size: var(--text-sm);
+}
+
+.references li {
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+}
+
+.references li a {
+    color: var(--accent-primary);
+    word-break: break-all;
 }
 
 /* ============================================================
