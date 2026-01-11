@@ -9,12 +9,13 @@ Method:
 2. For each harmless prompt: add avg_proj_harmful * r_hat at that layer
 3. Check for refusal phrases (binary scoring)
 
-Input: vectors/prompt_-1/residual/mean_diff/layer{L}.pt
+Input: vectors/prompt_-1/residual/{method}/layer{L}.pt
 Output: Refusal rate on harmless prompts
 
 Usage:
     python experiments/refusal-single-direction-replication/scripts/evaluate_arditi_style.py
     python experiments/refusal-single-direction-replication/scripts/evaluate_arditi_style.py --layer 13 --test-set steering
+    python experiments/refusal-single-direction-replication/scripts/evaluate_arditi_style.py --method probe --layer 15
     python experiments/refusal-single-direction-replication/scripts/evaluate_arditi_style.py --test-set alpaca --limit 50
 """
 
@@ -57,11 +58,11 @@ def contains_refusal(text: str) -> bool:
     return any(phrase in text_lower for phrase in REFUSAL_PHRASES)
 
 
-def load_vector(experiment_dir: Path, layer: int) -> torch.Tensor:
+def load_vector(experiment_dir: Path, layer: int, method: str = "mean_diff") -> torch.Tensor:
     """Load unit-normalized vector for layer."""
     vector_path = (
         experiment_dir / "extraction" / "arditi" / "refusal" / "vectors"
-        / "prompt_-1" / "residual" / "mean_diff" / f"layer{layer}.pt"
+        / "prompt_-1" / "residual" / method / f"layer{layer}.pt"
     )
     return torch.load(vector_path, weights_only=True)
 
@@ -155,6 +156,7 @@ def evaluate_refusal_induction(
 def main():
     parser = argparse.ArgumentParser(description="Arditi-style refusal induction eval")
     parser.add_argument("--model", default="google/gemma-2-2b-it", help="Model to use")
+    parser.add_argument("--method", default="mean_diff", help="Extraction method (mean_diff, probe)")
     parser.add_argument("--layer", type=int, default=13, help="Layer to steer at")
     parser.add_argument("--test-set", choices=["steering", "alpaca", "both"], default="both",
                         help="Test set to use")
@@ -171,6 +173,7 @@ def main():
     print("ARDITI-STYLE REFUSAL INDUCTION EVALUATION")
     print("=" * 60)
     print(f"Model: {args.model}")
+    print(f"Method: {args.method}")
     print(f"Layer: {args.layer}")
     print(f"Test set: {args.test_set}")
 
@@ -183,7 +186,7 @@ def main():
     )
 
     # Load vector
-    vector = load_vector(experiment_dir, args.layer)
+    vector = load_vector(experiment_dir, args.layer, args.method)
     print(f"Vector norm: {vector.norm().item():.4f}")
 
     # Load harmful prompts for avg_proj calculation
@@ -234,14 +237,16 @@ def main():
     print("\n" + "=" * 60)
     print("SUMMARY")
     print("=" * 60)
+    print(f"Method: {args.method}")
     print(f"Layer: {args.layer}")
     print(f"avg_proj_harmful: {avg_proj:.2f}")
     for name, results in all_results.items():
         print(f"{name}: {results['refusal_rate']*100:.1f}% refused ({results['n_refused']}/{results['n_total']})")
 
     # Save results
-    output_file = experiment_dir / f"arditi_eval_L{args.layer}.json"
+    output_file = experiment_dir / f"arditi_eval_{args.method}_L{args.layer}.json"
     save_data = {
+        "method": args.method,
         "layer": args.layer,
         "avg_proj_harmful": avg_proj,
         "model": args.model,
