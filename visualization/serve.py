@@ -133,6 +133,20 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_api_response(self.list_steering_entries(exp_name))
                 return
 
+            # API endpoint: list steering response files
+            # Path: /api/experiments/{exp}/steering-responses/{trait}/{model_variant}/{position}/{prompt_set...}
+            # Note: prompt_set can be nested (e.g., rm_syco/train_100)
+            if self.path.startswith('/api/experiments/') and '/steering-responses/' in self.path:
+                parts = self.path.split('/')
+                if len(parts) >= 9:
+                    exp_name = parts[3]
+                    trait = f"{parts[5]}/{parts[6]}"
+                    model_variant = parts[7]
+                    position = parts[8]
+                    prompt_set = '/'.join(parts[9:]) if len(parts) > 9 else 'steering'
+                    self.send_api_response(self.list_steering_responses(exp_name, trait, model_variant, position, prompt_set))
+                return
+
             # API endpoint: get inference projection data
             # Path: /api/experiments/{exp}/inference/{model_variant}/projections/{category}/{trait}/{set}/{prompt_id}
             if self.path.startswith('/api/experiments/') and '/inference/' in self.path and '/projections/' in self.path:
@@ -457,6 +471,53 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         """List all steering entries for an experiment."""
         from utils.paths import discover_steering_entries
         return {'entries': discover_steering_entries(experiment_name)}
+
+    def list_steering_responses(self, experiment_name, trait, model_variant, position, prompt_set):
+        """List all response files for a steering entry."""
+        from utils.paths import get as get_path
+        responses_dir = get_path('steering.responses', experiment=experiment_name, trait=trait,
+                                  model_variant=model_variant, position=position, prompt_set=prompt_set)
+
+        if not responses_dir.exists():
+            return {'files': [], 'baseline': None}
+
+        files = []
+        baseline = None
+
+        # Find baseline.json
+        baseline_file = responses_dir / 'baseline.json'
+        if baseline_file.exists():
+            baseline = 'baseline.json'
+
+        # Find all response files: {component}/{method}/L{layer}_c{coef}_{timestamp}.json
+        for component_dir in responses_dir.iterdir():
+            if not component_dir.is_dir():
+                continue
+            component = component_dir.name
+            for method_dir in component_dir.iterdir():
+                if not method_dir.is_dir():
+                    continue
+                method = method_dir.name
+                for resp_file in method_dir.glob('*.json'):
+                    # Parse filename: L{layer}_c{coef}_{timestamp}.json
+                    name = resp_file.stem
+                    parts = name.split('_')
+                    if len(parts) >= 2 and parts[0].startswith('L'):
+                        layer = int(parts[0][1:])
+                        coef = float(parts[1][1:]) if parts[1].startswith('c') else 0
+                        files.append({
+                            'path': f'{component}/{method}/{resp_file.name}',
+                            'component': component,
+                            'method': method,
+                            'layer': layer,
+                            'coef': coef,
+                            'filename': resp_file.name
+                        })
+
+        # Sort by layer, then coef
+        files.sort(key=lambda x: (x['layer'], x['coef']))
+
+        return {'files': files, 'baseline': baseline}
 
     def send_inference_projection(self, experiment_name, model_variant, category, trait, prompt_set, prompt_id):
         """Send inference projection data for a specific trait and prompt.

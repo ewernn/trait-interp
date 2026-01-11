@@ -376,7 +376,8 @@ def discover_steering_entries(experiment: str) -> list[dict]:
     """
     Find all steering results in experiments/{exp}/steering/.
 
-    Path structure: steering/{category}/{trait}/{model_variant}/{position}/{prompt_set}/results.json
+    Path structure: steering/{category}/{trait}/{model_variant}/{position}/{prompt_set...}/results.json
+    Note: prompt_set can be nested (e.g., rm_syco/train_100)
 
     Returns:
         List of dicts with keys: trait, model_variant, position, prompt_set, full_path
@@ -390,13 +391,14 @@ def discover_steering_entries(experiment: str) -> list[dict]:
         rel_path = results_file.parent.relative_to(steering_dir)
         parts = rel_path.parts
 
-        # Expected: {category}/{trait}/{model_variant}/{position}/{prompt_set}
+        # Expected: {category}/{trait}/{model_variant}/{position}/{prompt_set...}
+        # prompt_set can be nested (e.g., parts[4:] = ('rm_syco', 'train_100'))
         if len(parts) >= 5:
             entries.append({
                 'trait': f"{parts[0]}/{parts[1]}",
                 'model_variant': parts[2],
                 'position': parts[3],
-                'prompt_set': parts[4],
+                'prompt_set': '/'.join(parts[4:]),  # Handle nested prompt_sets
                 'full_path': str(rel_path)
             })
 
