@@ -112,6 +112,28 @@ async function renderSteeringSweep() {
                 <div id="sweep-heatmap-container" class="chart-container-lg"></div>
             </section>
 
+            <!-- Response Browser -->
+            <section id="response-browser-section">
+                <h3 class="subsection-header">
+                    <span class="subsection-num">3.</span>
+                    <span class="subsection-title">Response Browser</span>
+                    <span class="subsection-info-toggle" data-target="info-response-browser">►</span>
+                </h3>
+                <div class="subsection-info" id="info-response-browser">
+                    Browse actual model responses for different steering configurations.
+                    Compare baseline vs steered responses to see how steering affects outputs.
+                </div>
+                <div id="response-browser-controls" class="sweep-controls">
+                    <div class="control-group">
+                        <label>Response File:</label>
+                        <select id="response-file-select">
+                            <option value="">Loading...</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="response-browser-container" class="scrollable-container"></div>
+            </section>
+
             <!-- Raw results table (collapsible) -->
             <details class="results-details">
                 <summary class="results-summary">All Results</summary>
@@ -207,6 +229,9 @@ async function renderSweepData(steeringEntry) {
     // steeringEntry: { trait, model_variant, position, prompt_set, full_path }
     const experiment = window.state.experimentData?.name;
     if (!experiment || !steeringEntry) return;
+
+    // Load response files for the response browser
+    loadResponseFiles(steeringEntry);
 
     let data = null;
     let steeringMeta = null;
@@ -322,7 +347,7 @@ async function renderBestVectorPerLayer() {
             }
             const runs = results.runs || [];
 
-            // Group by method and layer, find best trait score per (method, layer)
+            // Group by (component, method) and layer, find best trait score per combo
             const methodData = {};
 
             runs.forEach(run => {
@@ -336,31 +361,51 @@ async function renderBestVectorPerLayer() {
                 const v = vectors[0];
                 const layer = v.layer;
                 const method = v.method;
+                const component = v.component || 'residual';
+                const coef = v.weight;
                 const coherence = result.coherence_mean || 0;
                 const traitScore = result.trait_mean || 0;
 
                 if (coherence < coherenceThreshold) return;
 
-                if (!methodData[method]) methodData[method] = {};
-                if (!methodData[method][layer] || traitScore > methodData[method][layer]) {
-                    methodData[method][layer] = traitScore;
+                // Key includes component for differentiation
+                const key = component === 'residual' ? method : `${component}/${method}`;
+                if (!methodData[key]) methodData[key] = {};
+                if (!methodData[key][layer] || traitScore > methodData[key][layer].score) {
+                    methodData[key][layer] = { score: traitScore, coef };
                 }
             });
 
             const posDisplayClosed = position ? window.paths.formatPositionDisplay(position) : '';
 
-            Object.entries(methodData).forEach(([method, layerScores]) => {
-                const layers = Object.keys(layerScores).map(Number).sort((a, b) => a - b);
-                const scores = layers.map(l => layerScores[l]);
+            Object.entries(methodData).forEach(([methodKey, layerData]) => {
+                const layers = Object.keys(layerData).map(Number).sort((a, b) => a - b);
+                const scores = layers.map(l => layerData[l].score);
+                const coefs = layers.map(l => layerData[l].coef);
 
                 if (layers.length > 0) {
+                    // Parse component/method key
+                    const [component, method] = methodKey.includes('/')
+                        ? methodKey.split('/')
+                        : ['residual', methodKey];
+
                     const methodName = { probe: 'Probe', gradient: 'Gradient', mean_diff: 'Mean Diff' }[method] || method;
-                    const label = posDisplayClosed ? `${methodName} ${posDisplayClosed}` : methodName;
+                    const componentPrefix = component !== 'residual' ? `${component} ` : '';
+                    const label = posDisplayClosed
+                        ? `${componentPrefix}${methodName} ${posDisplayClosed}`
+                        : `${componentPrefix}${methodName}`;
 
                     const baseColor = methodColors[method] || window.getChartColors()[colorIdx % 10];
-                    const dashStyle = variants.length > 1 && position !== 'response_all' && position !== null
-                        ? (position.includes('prompt') ? 'dot' : 'dash')
-                        : 'solid';
+                    // Dash for non-residual components
+                    const dashStyle = component !== 'residual' ? 'dot'
+                        : (variants.length > 1 && position !== 'response_all' && position !== null
+                            ? (position.includes('prompt') ? 'dot' : 'dash')
+                            : 'solid');
+
+                    // Build custom hover text with coefficient
+                    const hoverTexts = layers.map((l, i) =>
+                        `${label}<br>L${l} c${coefs[i].toFixed(1)}<br>Score: ${scores[i].toFixed(1)}`
+                    );
 
                     traces.push({
                         x: layers,
@@ -370,7 +415,8 @@ async function renderBestVectorPerLayer() {
                         name: label,
                         line: { width: 2, color: baseColor, dash: dashStyle },
                         marker: { size: 4 },
-                        hovertemplate: `${label}<br>L%{x}<br>Score: %{y:.1f}<extra></extra>`
+                        text: hoverTexts,
+                        hovertemplate: '%{text}<extra></extra>'
                     });
                     colorIdx++;
                 }
@@ -833,6 +879,150 @@ function setupSweepInfoToggles() {
             toggle.textContent = isShown ? '▼' : '►';
         }
     });
+}
+
+
+/**
+ * Load and populate the response file selector for current steering entry
+ */
+async function loadResponseFiles(steeringEntry) {
+    const select = document.getElementById('response-file-select');
+    const container = document.getElementById('response-browser-container');
+
+    if (!steeringEntry || !window.state.experimentData?.name) {
+        select.innerHTML = '<option value="">No steering entry selected</option>';
+        container.innerHTML = '';
+        return;
+    }
+
+    select.innerHTML = '<option value="">Loading...</option>';
+
+    try {
+        const url = `/api/experiments/${window.state.experimentData.name}/steering-responses/${steeringEntry.trait}/${steeringEntry.model_variant}/${steeringEntry.position}/${steeringEntry.prompt_set}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to load response files');
+
+        const data = await response.json();
+        const files = data.files || [];
+        const baseline = data.baseline;
+
+        // Build select options
+        let options = '<option value="">Select a response file...</option>';
+        if (baseline) {
+            options += '<option value="baseline">Baseline (no steering)</option>';
+        }
+
+        // Group by component/method
+        const groups = {};
+        files.forEach(f => {
+            const key = `${f.component}/${f.method}`;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(f);
+        });
+
+        Object.entries(groups).forEach(([key, groupFiles]) => {
+            options += `<optgroup label="${key}">`;
+            groupFiles.forEach(f => {
+                options += `<option value="${f.path}">L${f.layer} c${f.coef.toFixed(1)}</option>`;
+            });
+            options += '</optgroup>';
+        });
+
+        select.innerHTML = options;
+        container.innerHTML = '<p class="no-data">Select a response file to view</p>';
+
+        // Setup change handler
+        select.onchange = () => loadResponseContent(steeringEntry, select.value);
+
+    } catch (e) {
+        console.error('Failed to load response files:', e);
+        select.innerHTML = '<option value="">Error loading files</option>';
+        container.innerHTML = `<p class="no-data">Error: ${e.message}</p>`;
+    }
+}
+
+
+/**
+ * Load and display contents of a specific response file
+ */
+async function loadResponseContent(steeringEntry, filePath) {
+    const container = document.getElementById('response-browser-container');
+
+    if (!filePath) {
+        container.innerHTML = '<p class="no-data">Select a response file to view</p>';
+        return;
+    }
+
+    container.innerHTML = '<div class="loading">Loading responses...</div>';
+
+    try {
+        // Build path to response file
+        const basePath = window.paths.get('steering.responses', {
+            trait: steeringEntry.trait,
+            model_variant: steeringEntry.model_variant,
+            position: steeringEntry.position,
+            prompt_set: steeringEntry.prompt_set
+        });
+
+        const fullPath = filePath === 'baseline'
+            ? `/${basePath}/baseline.json`
+            : `/${basePath}/${filePath}`;
+
+        const response = await fetch(fullPath);
+        if (!response.ok) throw new Error('Failed to load response file');
+
+        const responses = await response.json();
+
+        // Render responses
+        container.innerHTML = `
+            <div class="response-list">
+                ${responses.map((r, idx) => `
+                    <div class="response-item">
+                        <div class="response-header">
+                            <span class="response-num">#${idx + 1}</span>
+                            <span class="response-scores">
+                                Trait: <span class="${getTraitScoreClass(r.trait_score)}">${r.trait_score?.toFixed(1) ?? 'N/A'}</span>
+                                · Coh: <span class="${getCoherenceClass(r.coherence_score)}">${r.coherence_score?.toFixed(0) ?? 'N/A'}</span>
+                            </span>
+                        </div>
+                        <div class="response-question">${escapeHtml(r.question)}</div>
+                        <div class="response-text">${escapeHtml(r.response)}</div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+    } catch (e) {
+        console.error('Failed to load response content:', e);
+        container.innerHTML = `<p class="no-data">Error: ${e.message}</p>`;
+    }
+}
+
+
+function getTraitScoreClass(score) {
+    if (score == null) return '';
+    if (score > 20) return 'quality-bad';
+    if (score > 10) return 'quality-ok';
+    return 'quality-good';
+}
+
+
+function getCoherenceClass(score) {
+    if (score == null) return '';
+    if (score >= 80) return 'quality-good';
+    if (score >= 60) return 'quality-ok';
+    return 'quality-bad';
+}
+
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/\n/g, '<br>');
 }
 
 
