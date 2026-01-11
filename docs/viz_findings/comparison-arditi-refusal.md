@@ -1,11 +1,17 @@
 ---
 title: "Comparison to Arditi's Refusal Direction"
 preview: "Different methods capture different things: Arditi = prompt classification (+79.9 delta), natural = behavioral state (+43.2 delta). Arditi stronger but both valid."
+references:
+  arditi2024:
+    authors: "Arditi et al."
+    title: "Refusal in Language Models is Mediated by a Single Direction"
+    year: 2024
+    url: "https://arxiv.org/abs/2406.11717"
 ---
 
 # Comparison to Arditi's Refusal Direction
 
-**Question:** How does natural elicitation compare to Arditi et al.'s "single refusal direction"?
+**Question:** How does natural elicitation compare to Arditi et al.'s "single refusal direction" [@arditi2024]?
 
 **Answer:** Arditi vectors are significantly stronger for inducing refusal (+79.9 vs +43.2 delta), but capture different aspects. Arditi = prompt classification, Natural = behavioral mode during generation.
 

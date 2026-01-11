@@ -55,6 +55,7 @@ The visualization dashboard is organized into two main categories, reflecting th
     - Figures: `:::figure assets/image.png "Figure 1: Caption" small:::` (sizes: `small` 30%, `medium` 50%, `large` 75%, omit for 100%)
     - Response embeds: `:::responses /path/to/responses.json "Label":::` creates expandable table
     - Dataset embeds: `:::dataset /path/to/file.txt "Label":::` shows first 20 lines
+    - Citations: `[@key]` with `references:` in frontmatter → renders as "(Authors, Year)" link + auto References section
 
 ### Category 1: Trait Development
 (Building and validating the vectors)

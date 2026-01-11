@@ -11,13 +11,13 @@ if ! rclone listremotes | grep -q "^r2:"; then
 fi
 
 echo "📥 Pulling experiments from R2..."
+echo "Note: Only pulls new files, won't delete local files not in R2"
 echo ""
 
-rclone sync r2:trait-interp-bucket/experiments/ experiments/ \
+rclone copy r2:trait-interp-bucket/experiments/ experiments/ \
   --progress \
   --stats 5s \
-  --size-only \
-  --modify-window 1s \
+  --ignore-existing \
   --transfers 32 \
   --checkers 64 \
   --exclude "*.pyc" \

@@ -1,36 +1,59 @@
 ---
 title: "Massive Activation Dimensions"
-preview: "LLMs have dimensions with 1000x larger values; cleaning method is model-specific."
+preview: "Massive dims encode context and contaminate mean_diff; use probe/gradient instead."
 ---
 
 # Massive Activation Dimensions
 
-LLMs have dimensions with 1000x larger values than median.
+Some dimensions have values 100-2000x larger than median. These encode **context/topic**, not trait-specific signal, and can severely contaminate trait vectors.
 
 **Reference:** Sun et al. "Massive Activations in Large Language Models" (COLM 2024)
 
-## What We Tried
+## Key Finding: They Encode Context
 
-| Approach | Result |
-|----------|--------|
-| **Sun criterion** (>100 AND >1000x median) | Works, but absolute threshold is meaningless |
-| **Ratio-only** (>1000x median) | Identical to Sun - ratio is the real filter |
-| **Z-score > 5** | Too permissive (1500+ dims vs 27) |
-| **Mean projection cleaning** | Just a constant shift - doesn't improve separation |
-| **Top5-3L** (dims in top-5 at 3+ layers) | Best for Gemma; same as Sun for Qwen |
+Massive dims are consistent within a prompt but vary between prompts based on topic/context:
+- **Paired scenarios** (same context, different response): 2-48% contamination
+- **Unpaired scenarios** (different topics): 86-91% contamination
 
-## Cross-Model Comparison
+This means mean_diff picks up context differences, not trait signal.
 
-| Aspect | Gemma-2-2b-it | Qwen-2.5-7B-it |
-|--------|---------------|----------------|
-| **Bias location** | BOS token | first_delimiter |
-| **Max value** | ~900 | ~11,200 |
-| **Cleaning dims** | 8 | 5 |
+## Impact on Extraction Methods
 
-## Takeaways
+| Method | Contamination | Why |
+|--------|--------------|-----|
+| **mean_diff** | 48-91% | Raw difference amplifies any pos/neg context variation |
+| **probe** | 0.3-1% | Optimizes for discrimination, ignores non-discriminative dims |
+| **gradient** | 0.2-4% | Same - optimizes for separation |
 
-1. **Location is model-specific** - can't assume BOS
-2. **Ratio threshold is what matters** - drop the `abs > 100`
-3. **Mean projection doesn't help** - constant shift, no separation gain
+## Two Failure Modes of mean_diff
 
-**Implementation:** `analysis/massive_activations.py` (data-driven calibration)
+Per-token projection analysis revealed contamination causes two different problems:
+
+| Trait | Scenario | Effect | What Happened |
+|-------|----------|--------|---------------|
+| Refusal | Unpaired | **Inflated** separation (85% spurious) | dim 443 correlated with harmful/benign by chance |
+| Sycophancy | Paired | **Masked** separation (hidden until cleaned) | dim 443 added noise obscuring real signal |
+
+**probe is robust to both** - cleaning activations changes results by <4%.
+
+## Model Severity
+
+| Model | Dominant Dim | Magnitude | mean_diff Usable? |
+|-------|-------------|-----------|-------------------|
+| Gemma 2-2b | dim 334 | ~60x | Marginal (24% contamination) |
+| Gemma 3-4b | dim 443 | ~1000-2000x | No (86-91% contamination) |
+
+Gemma 3's massive dim is ~30x more extreme than Gemma 2's.
+
+## Recommendations
+
+1. **Use probe or gradient** - robust regardless of scenario design or model
+2. **Never use mean_diff on Gemma 3** - vectors are mostly noise
+3. **If using mean_diff**: use tightly paired scenarios (same context, different response)
+4. **For per-token monitoring**: probe vectors give real signal; mean_diff can show spurious or masked separation
+
+## Implementation
+
+- **Calibration:** `analysis/massive_activations.py` identifies massive dims per model
+- **Per-layer stats:** `experiments/{exp}/inference/instruct/massive_activations/per_layer_stats.json`
+- **Bug fix:** Mean calculation now uses float32 to avoid bfloat16 precision loss at ~32k values
