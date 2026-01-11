@@ -57,13 +57,11 @@ def contains_refusal(text: str) -> bool:
     return any(phrase in text_lower for phrase in REFUSAL_PHRASES)
 
 
-def load_vector(experiment_dir: Path, layer: int, position: str = "prompt[-1]") -> torch.Tensor:
+def load_vector(experiment_dir: Path, layer: int) -> torch.Tensor:
     """Load unit-normalized vector for layer."""
-    from utils.paths import sanitize_position
-    pos_dir = sanitize_position(position)
     vector_path = (
         experiment_dir / "extraction" / "arditi" / "refusal" / "vectors"
-        / pos_dir / "residual" / "mean_diff" / f"layer{layer}.pt"
+        / "prompt_-1" / "residual" / "mean_diff" / f"layer{layer}.pt"
     )
     return torch.load(vector_path, weights_only=True)
 

@@ -32,7 +32,7 @@ From Jan 9 session (instance killed before R2 push):
 | **System prompts** | 5 per polarity | Applied via chat template |
 | **Questions** | 20 | Same questions for pos and neg |
 | **Scenarios** | 100 per polarity | 5 × 20 cartesian product |
-| **Rollouts** | 1 per scenario | 100 total responses per polarity |
+| **Rollouts** | 3 per scenario | 300 total responses per polarity |
 | **Filtering** | trait >50 (pos), <50 (neg) | Based on GPT-4.1-mini judge |
 | **Token position** | `response[:]` | Average across all response tokens |
 | **Vector method** | mean_diff | Paper uses simple mean difference |
@@ -51,7 +51,7 @@ From Jan 9 session (instance killed before R2 push):
 | **Rollouts** | 1 per scenario | Natural scenarios are deterministic |
 | **Filtering** | Standard vetting | First 16 tokens scored |
 | **Token position** | `response[:5]` | Early tokens capture trait before self-correction |
-| **Vector method** | probe | Logistic regression for higher separability |
+| **Vector method** | mean_diff | Use same as PV for fair comparison |
 | **Dataset** | `datasets/traits/pv_replication_natural/{trait}/` | |
 | **Scoring** | V3c default | No eval_prompt in steering.json |
 
@@ -74,13 +74,13 @@ From Jan 9 session (instance killed before R2 push):
 ### 1.1 PV Methodology Extraction
 
 ```bash
-# IT model with system prompts, 1 rollout, full response, trait score filtering
+# IT model with system prompts, 3 rollouts, full response, trait score filtering
 python extraction/run_pipeline.py \
     --experiment persona_vectors_replication \
     --traits persona_vectors_instruction/evil,persona_vectors_instruction/sycophancy,persona_vectors_instruction/hallucination \
     --model-variant instruct \
-    --rollouts 1 \
-    --max-new-tokens 192 \
+    --rollouts 3 \
+    --max-new-tokens 256 \
     --position "response[:]" \
     --pos-threshold 50 \
     --neg-threshold 50 \
@@ -101,7 +101,7 @@ python extraction/run_pipeline.py \
     --traits pv_replication_natural/evil_v3,pv_replication_natural/sycophancy,pv_replication_natural/hallucination \
     --rollouts 1 \
     --position "response[:5]" \
-    --methods probe
+    --methods mean_diff
 ```
 
 **Notes**:
@@ -192,36 +192,36 @@ python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "pv_replication_natural/evil_v3" \
     --position "response[:5]" --prompt-set v3c \
-    --layers 10-20 --method probe --subset 0
+    --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "pv_replication_natural/sycophancy" \
     --position "response[:5]" --prompt-set v3c \
-    --layers 10-20 --method probe --subset 0
+    --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "pv_replication_natural/hallucination" \
     --position "response[:5]" --prompt-set v3c \
-    --layers 10-20 --method probe --subset 0
+    --layers 10-20 --method mean_diff --subset 0
 
 # Nat+PV: Natural vectors with PV scoring
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "pv_replication_natural/evil_v3" \
     --position "response[:5]" --prompt-set pv \
     --eval-prompt-from persona_vectors_instruction/evil \
-    --layers 10-20 --method probe --subset 0
+    --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "pv_replication_natural/sycophancy" \
     --position "response[:5]" --prompt-set pv \
     --eval-prompt-from persona_vectors_instruction/sycophancy \
-    --layers 10-20 --method probe --subset 0
+    --layers 10-20 --method mean_diff --subset 0
 
 python3 analysis/steering/evaluate.py --experiment persona_vectors_replication \
     --traits "pv_replication_natural/hallucination" \
     --position "response[:5]" --prompt-set pv \
     --eval-prompt-from persona_vectors_instruction/hallucination \
-    --layers 10-20 --method probe --subset 0
+    --layers 10-20 --method mean_diff --subset 0
 
 # ============================================================
 # STEP 4: Push results
