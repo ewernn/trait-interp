@@ -656,11 +656,12 @@ def _capture_batch(
         with torch.no_grad():
             model(**inputs)
 
-    # Response phase: token-by-token generation
+    # Response phase: token-by-token generation with KV cache
     context = inputs['input_ids'].clone()
     attention_mask = inputs['attention_mask'].clone()
     active = torch.ones(batch_size, dtype=torch.bool, device=model.device)
     generated_ids = [[] for _ in range(batch_size)]
+    past_key_values = None  # KV cache for O(n) generation instead of O(n²)
 
     gen_iter = range(max_new_tokens)
     if show_progress and batch_size == 1:
@@ -671,7 +672,15 @@ def _capture_batch(
         with HookManager(model) as hooks:
             setup_residual_hooks(hooks, response_storage, n_layers, 'response', capture_mlp=capture_mlp, layer_prefix=layer_prefix)
             with torch.no_grad():
-                outputs = model(input_ids=context, attention_mask=attention_mask)
+                outputs = model(
+                    input_ids=context,
+                    attention_mask=attention_mask,
+                    past_key_values=past_key_values,
+                    use_cache=True,
+                )
+
+        # Update KV cache for next iteration
+        past_key_values = outputs.past_key_values
 
         # Sample next tokens
         logits = outputs.logits[:, -1, :]
@@ -688,8 +697,9 @@ def _capture_batch(
                 if next_ids[b].item() == tokenizer.eos_token_id:
                     active[b] = False
 
-        # Extend context
-        context = torch.cat([context, next_ids.unsqueeze(1)], dim=1)
+        # Update context to just new tokens (KV cache handles history)
+        context = next_ids.unsqueeze(1)
+        # Extend attention mask (tells model which cached positions to attend to)
         attention_mask = torch.cat([attention_mask, torch.ones(batch_size, 1, device=model.device, dtype=attention_mask.dtype)], dim=1)
 
         if not active.any():
