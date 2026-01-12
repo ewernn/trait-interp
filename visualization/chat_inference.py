@@ -188,9 +188,10 @@ class ChatInference:
         self,
         prompt: str,
         max_new_tokens: int = 100,
-        temperature: float = 0.7,
+        temperature: float = 0.0,
         history: Optional[List[Dict]] = None,
-        previous_context_length: int = 0
+        previous_context_length: int = 0,
+        steering_configs: Optional[List[Dict]] = None
     ) -> Generator[Dict, None, None]:
         """
         Generate response token-by-token with trait projections.
@@ -198,9 +199,10 @@ class ChatInference:
         Args:
             prompt: User message
             max_new_tokens: Maximum tokens to generate
-            temperature: Sampling temperature
+            temperature: Sampling temperature (0.0 for greedy)
             history: Optional chat history [{"role": "user/assistant", "content": "..."}]
             previous_context_length: Number of tokens already captured in previous turns (skip these)
+            steering_configs: Optional list of {trait, coefficient} for steering
 
         Yields:
             Dict with 'token', 'token_index', 'trait_scores', 'is_prompt', 'is_special', 'done' keys
@@ -250,7 +252,7 @@ class ChatInference:
         # Route to appropriate backend
         if self.backend == "modal":
             # Modal backend: get all activations at once, then stream
-            yield from self._generate_modal(formatted_prompt, max_new_tokens, temperature, previous_context_length)
+            yield from self._generate_modal(formatted_prompt, max_new_tokens, temperature, previous_context_length, steering_configs)
             return
 
         # Local backend continues below
@@ -326,6 +328,24 @@ class ChatInference:
 
         activations.clear()
 
+        # Build steering hooks if steering_configs provided
+        steering_hooks = []
+        if steering_configs:
+            from core import SteeringHook, get_hook_path
+            for cfg in steering_configs:
+                trait = cfg.get('trait', '')
+                coef = cfg.get('coefficient', 0)
+                # Find matching trait in our loaded vectors
+                for trait_path, (vector, layer, _, _) in self.trait_vectors.items():
+                    trait_name = trait_path.split('/')[-1]
+                    if trait_name == trait and coef != 0:
+                        path = get_hook_path(layer, 'residual', model=self.model)
+                        hook = SteeringHook(self.model, vector, path, coefficient=coef)
+                        hook.__enter__()  # Register the hook
+                        steering_hooks.append(hook)
+                        print(f"[ChatInference] Steering {trait} at L{layer} with coef={coef}")
+                        break
+
         # Generate tokens
         context = input_ids
         generated_tokens = []
@@ -333,70 +353,79 @@ class ChatInference:
         past_key_values = None  # KV cache
         current_token_index = len(prompt_token_ids)  # Response tokens start after prompt
 
-        for step in range(max_new_tokens):
-            activations.clear()
+        try:
+            for step in range(max_new_tokens):
+                activations.clear()
 
-            # Forward pass with hooks (use KV cache for speed)
-            with HookManager(self.model) as hooks:
-                for layer in layers_needed:
-                    hooks.add_forward_hook(f"model.layers.{layer}", make_hook(layer))
+                # Forward pass with hooks (use KV cache for speed)
+                with HookManager(self.model) as hooks:
+                    for layer in layers_needed:
+                        hooks.add_forward_hook(f"model.layers.{layer}", make_hook(layer))
 
-                with torch.no_grad():
-                    outputs = self.model(
-                        input_ids=context,
-                        past_key_values=past_key_values,
-                        use_cache=True,
-                        return_dict=True
-                    )
+                    with torch.no_grad():
+                        outputs = self.model(
+                            input_ids=context,
+                            past_key_values=past_key_values,
+                            use_cache=True,
+                            return_dict=True
+                        )
 
-            # Update KV cache for next iteration
-            past_key_values = outputs.past_key_values
+                # Update KV cache for next iteration
+                past_key_values = outputs.past_key_values
 
-            # Sample next token
-            logits = outputs.logits[0, -1, :] / temperature
-            probs = torch.softmax(logits, dim=-1)
-            next_id = torch.multinomial(probs, 1).item()
+                # Sample next token
+                if temperature == 0.0:
+                    next_id = outputs.logits[0, -1, :].argmax().item()
+                else:
+                    logits = outputs.logits[0, -1, :] / temperature
+                    probs = torch.softmax(logits, dim=-1)
+                    next_id = torch.multinomial(probs, 1).item()
 
-            is_special = next_id in special_ids
-            is_stop = next_id in self.stop_token_ids
+                is_special = next_id in special_ids
+                is_stop = next_id in self.stop_token_ids
 
-            # Decode token (include special tokens)
-            token_str = self.tokenizer.decode([next_id], skip_special_tokens=False)
-            if not token_str:
-                token_str = f"[{next_id}]"  # Fallback
+                # Decode token (include special tokens)
+                token_str = self.tokenizer.decode([next_id], skip_special_tokens=False)
+                if not token_str:
+                    token_str = f"[{next_id}]"  # Fallback
 
-            # Compute trait projections
-            trait_scores = {}
-            for trait_path, (vector, layer, _, _) in self.trait_vectors.items():
-                if layer in activations:
-                    act = activations[layer].squeeze(0)  # [hidden_dim]
-                    score = projection(act, vector, normalize_vector=True).item()
-                    trait_name = trait_path.split('/')[-1]
-                    trait_scores[trait_name] = round(score, 4)
+                # Compute trait projections
+                trait_scores = {}
+                for trait_path, (vector, layer, _, _) in self.trait_vectors.items():
+                    if layer in activations:
+                        act = activations[layer].squeeze(0)  # [hidden_dim]
+                        score = projection(act, vector, normalize_vector=True).item()
+                        trait_name = trait_path.split('/')[-1]
+                        trait_scores[trait_name] = round(score, 4)
 
-            # Yield result (including stop tokens)
-            yield {
-                'token': token_str,
-                'token_index': current_token_index,
-                'trait_scores': trait_scores,
-                'is_prompt': False,
-                'is_special': is_special,
-                'done': False
-            }
+                # Yield result (including stop tokens)
+                yield {
+                    'token': token_str,
+                    'token_index': current_token_index,
+                    'trait_scores': trait_scores,
+                    'is_prompt': False,
+                    'is_special': is_special,
+                    'done': False
+                }
 
-            current_token_index += 1
+                current_token_index += 1
 
-            # Stop after yielding the stop token
-            if is_stop:
-                break
+                # Stop after yielding the stop token
+                if is_stop:
+                    break
 
-            # Only add non-special tokens to display response
-            if not is_special:
-                generated_tokens.append(next_id)
-                full_response += token_str
+                # Only add non-special tokens to display response
+                if not is_special:
+                    generated_tokens.append(next_id)
+                    full_response += token_str
 
-            # Update context to just new token (KV cache handles history)
-            context = torch.tensor([[next_id]], device=self.model.device)
+                # Update context to just new token (KV cache handles history)
+                context = torch.tensor([[next_id]], device=self.model.device)
+
+        finally:
+            # Clean up steering hooks
+            for hook in steering_hooks:
+                hook.__exit__(None, None, None)
 
         # Final yield with full response
         yield {
@@ -411,7 +440,8 @@ class ChatInference:
         formatted_prompt: str,
         max_new_tokens: int,
         temperature: float,
-        previous_context_length: int
+        previous_context_length: int,
+        steering_configs: Optional[List[Dict]] = None
     ) -> Generator[Dict, None, None]:
         """
         Generate using Modal backend with streaming.
@@ -435,6 +465,25 @@ class ChatInference:
             # Import modal_inference module
             import modal_inference
 
+            # Serialize steering vectors for Modal
+            modal_steering = []
+            if steering_configs:
+                for cfg in steering_configs:
+                    trait = cfg.get('trait', '')
+                    coef = cfg.get('coefficient', 0)
+                    # Find matching trait in our loaded vectors
+                    for trait_path, (vector, layer, _, _) in self.trait_vectors.items():
+                        trait_name = trait_path.split('/')[-1]
+                        if trait_name == trait and coef != 0:
+                            modal_steering.append({
+                                'layer': layer,
+                                'vector': vector.tolist(),
+                                'coefficient': coef
+                            })
+                            break
+                if modal_steering:
+                    print(f"[ChatInference] Sending {len(modal_steering)} steering vectors to Modal")
+
             full_response = ""
             token_count = 0
 
@@ -446,6 +495,7 @@ class ChatInference:
                     max_new_tokens=max_new_tokens,
                     temperature=temperature,
                     component="residual",
+                    steering_configs=modal_steering if modal_steering else None,
                 ):
                     token = chunk['token']
                     full_response += token
@@ -498,14 +548,16 @@ def get_chat_instance(experiment: str, backend: str = None, model_type: str = "a
 
     Args:
         experiment: Experiment name
-        backend: Override backend ("local" or "modal"). If None, uses env var INFERENCE_BACKEND or defaults to "local"
+        backend: Override backend ("local" or "modal"). If None, uses MODE env var (production=modal, development=local)
         model_type: Which model from config to use - "extraction" or "application" (default)
     """
     global _chat_instance
 
     # Determine backend
     if backend is None:
-        backend = os.getenv('INFERENCE_BACKEND', 'local')
+        # In production, default to modal. In development, default to local.
+        mode = os.getenv('MODE', 'development')
+        backend = 'modal' if mode == 'production' else 'local'
 
     # Recreate instance if experiment, backend, or model_type changed
     if (_chat_instance is None or

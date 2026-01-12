@@ -24,6 +24,163 @@ let modelNames = { application: null, extraction: null };  // Loaded from config
 let maxContextLength = 8192;  // Loaded from model config
 let vectorMetadata = {};  // Cached vector metadata: {trait: {layer, method, source}}
 
+// Modal connection state
+let modalConnectionState = 'disconnected';  // 'disconnected' | 'warming' | 'connected' | 'error'
+let steeringCoefficients = {};  // {trait: coefficient} - default 0 for all traits
+let pendingMessage = null;  // Message cached while waiting for connection
+let inferenceMode = 'local';  // 'local' | 'modal' - toggled from UI
+
+/**
+ * Toggle inference mode between local and modal
+ */
+function toggleInferenceMode() {
+    if (inferenceMode === 'local') {
+        inferenceMode = 'modal';
+        // Trigger warmup when switching to modal
+        warmupModal();
+    } else {
+        inferenceMode = 'local';
+        modalConnectionState = 'connected';  // Local is always ready
+        updateConnectionStatusUI();
+    }
+    updateInferenceModeUI();
+}
+
+/**
+ * Update inference mode toggle UI
+ */
+function updateInferenceModeUI() {
+    const toggle = document.getElementById('inference-mode-toggle');
+    if (toggle) {
+        toggle.checked = inferenceMode === 'modal';
+    }
+    const label = document.getElementById('inference-mode-label');
+    if (label) {
+        label.textContent = inferenceMode === 'modal' ? 'Modal GPU' : 'Local';
+    }
+    // Update model info display
+    updateModelInfoUI();
+}
+
+/**
+ * Update model info display
+ */
+function updateModelInfoUI() {
+    const modelInfo = document.getElementById('model-info');
+    if (!modelInfo) return;
+
+    // Get model name from experiment config or app config default
+    const appConfig = window.state.appConfig || {};
+    let modelName = appConfig.defaults?.model || 'gemma-2-2b-it';
+
+    // Try to get from current experiment config
+    if (modelNames.application) {
+        modelName = modelNames.application;
+    }
+
+    // Shorten model name for display (remove org prefix)
+    const shortName = modelName.split('/').pop();
+    modelInfo.textContent = shortName;
+    modelInfo.title = modelName;  // Full name on hover
+}
+
+/**
+ * Warm up Modal GPU (called when switching to modal mode)
+ */
+async function warmupModal() {
+    if (inferenceMode !== 'modal') {
+        modalConnectionState = 'connected';  // Local is always ready
+        updateConnectionStatusUI();
+        return;
+    }
+
+    modalConnectionState = 'warming';
+    updateConnectionStatusUI();
+
+    try {
+        const response = await fetch('/api/modal/warmup');
+        const data = await response.json();
+
+        if (data.status === 'ready') {
+            modalConnectionState = 'connected';
+            console.log('[LiveChat] Modal connected:', data);
+        } else if (data.status === 'skipped') {
+            // Server says skip modal (INFERENCE_MODE=local on server)
+            modalConnectionState = 'connected';
+            console.log('[LiveChat] Server skipped warmup:', data.reason);
+        } else {
+            modalConnectionState = 'error';
+            console.error('[LiveChat] Warmup failed:', data);
+        }
+    } catch (e) {
+        modalConnectionState = 'error';
+        console.error('[LiveChat] Warmup error:', e);
+    }
+
+    updateConnectionStatusUI();
+
+    // Check for pending message
+    if (pendingMessage && modalConnectionState === 'connected') {
+        const input = document.getElementById('chat-input');
+        if (input) input.value = pendingMessage;
+        pendingMessage = null;
+    }
+}
+
+/**
+ * Update connection status UI
+ */
+function updateConnectionStatusUI() {
+    const statusEl = document.getElementById('connection-status');
+    if (!statusEl) return;
+
+    const states = {
+        disconnected: { dot: 'disconnected', text: 'Disconnected' },
+        warming: { dot: 'warming', text: 'Waking up GPU...' },
+        connected: { dot: 'connected', text: 'Connected' },
+        error: { dot: 'error', text: 'Connection failed' }
+    };
+
+    const state = states[modalConnectionState] || states.disconnected;
+    statusEl.innerHTML = `
+        <span class="status-dot ${state.dot}"></span>
+        <span class="status-text">${state.text}</span>
+    `;
+
+    // Update send button state
+    const sendBtn = document.getElementById('send-btn');
+    if (sendBtn && modalConnectionState === 'warming') {
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Waiting...';
+    } else if (sendBtn && !isGenerating) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send';
+    }
+}
+
+/**
+ * Set steering coefficient for a trait
+ */
+function setSteeringCoefficient(trait, coefficient) {
+    steeringCoefficients[trait] = coefficient;
+    updateSteeringButtonsUI();
+}
+
+/**
+ * Update steering buttons UI to reflect current state
+ */
+function updateSteeringButtonsUI() {
+    document.querySelectorAll('.steering-buttons').forEach(container => {
+        const trait = container.dataset.trait;
+        const currentCoef = steeringCoefficients[trait] || 0;
+
+        container.querySelectorAll('.steer-btn').forEach(btn => {
+            const btnCoef = parseFloat(btn.dataset.coef);
+            btn.classList.toggle('active', btnCoef === currentCoef);
+        });
+    });
+}
+
 /**
  * Load model names from experiment config
  */
@@ -121,17 +278,15 @@ async function renderLiveChat() {
                     <div class="chart-header">
                         <h3>Trait Dynamics</h3>
                         <div class="chart-controls">
-                            <label class="model-picker">
-                                <span class="model-label">Model:</span>
-                                <select id="model-select">
-                                    <option value="application" ${currentModelType === 'application' ? 'selected' : ''}>
-                                        ${modelNames.application || 'Loading...'}
-                                    </option>
-                                    <option value="extraction" ${currentModelType === 'extraction' ? 'selected' : ''}>
-                                        ${modelNames.extraction || 'Loading...'}
-                                    </option>
-                                </select>
+                            <span id="model-info" class="model-info"></span>
+                            <label class="inference-mode-toggle">
+                                <input type="checkbox" id="inference-mode-toggle" onchange="toggleInferenceMode()">
+                                <span id="inference-mode-label">Local</span>
                             </label>
+                            <div id="connection-status" class="connection-status">
+                                <span class="status-dot connected"></span>
+                                <span class="status-text">Ready</span>
+                            </div>
                             <label class="smooth-toggle">
                                 <input type="checkbox" id="smooth-toggle" ${showSmoothedLine ? 'checked' : ''}>
                                 <span>3-token avg</span>
@@ -171,6 +326,31 @@ async function renderLiveChat() {
 
     // Render existing messages if any
     renderMessages();
+
+    // Initialize inference mode from app config
+    const appConfig = window.state.appConfig || {};
+    const defaultBackend = appConfig.defaults?.inference_backend || 'local';
+    inferenceMode = defaultBackend;
+
+    if (inferenceMode === 'modal') {
+        // Production: start warming up Modal immediately
+        warmupModal();
+    } else {
+        // Development: local mode is always ready
+        modalConnectionState = 'connected';
+        updateConnectionStatusUI();
+    }
+    updateInferenceModeUI();
+
+    // Hide experiment picker in sidebar (Live Chat uses fixed experiment)
+    const experimentPicker = document.querySelector('.experiment-picker');
+    if (experimentPicker) experimentPicker.style.display = 'none';
+
+    // Hide inference toggle in production mode
+    if (!window.isFeatureEnabled('inference_toggle')) {
+        const inferenceToggle = document.querySelector('.inference-mode-toggle');
+        if (inferenceToggle) inferenceToggle.style.display = 'none';
+    }
 }
 
 /**
@@ -232,6 +412,12 @@ async function sendMessage() {
 
     const prompt = input.value.trim();
     if (!prompt || isGenerating) return;
+
+    // Block send while modal is warming up
+    if (inferenceMode === 'modal' && modalConnectionState === 'warming') {
+        pendingMessage = prompt;
+        return;
+    }
 
     // Check context limit (leave room for response)
     const contextBuffer = 500;  // Reserve tokens for response
@@ -319,12 +505,16 @@ async function generateResponse(prompt, assistantNodeId) {
             signal: abortController.signal,
             body: JSON.stringify({
                 prompt: prompt,
-                experiment: window.state.currentExperiment,
+                experiment: window.state.currentExperiment || 'live-chat',
                 max_tokens: 100,
-                temperature: 0.7,
+                temperature: 0.0,
                 history: history,
                 previous_context_length: previousContextLength,
-                model_type: currentModelType
+                model_type: currentModelType,
+                inference_mode: inferenceMode,
+                steering_configs: Object.entries(steeringCoefficients)
+                    .filter(([_, coef]) => coef !== 0)
+                    .map(([trait, coefficient]) => ({ trait, coefficient }))
             })
         });
 
@@ -694,7 +884,7 @@ function updateTraitChart() {
         });
     });
 
-    // Update legend
+    // Update legend with steering buttons
     if (legendDiv) {
         legendDiv.innerHTML = traitNames.map((trait, idx) => {
             // Get vector metadata for this trait (trait names might be just base names)
@@ -711,13 +901,25 @@ function updateTraitChart() {
                 ? `L${metadata.layer} ${metadata.method} (${metadata.source})`
                 : 'no metadata';
 
+            const currentCoef = steeringCoefficients[trait] || 0;
+            const coefficients = [-1, -0.5, 0, 0.5, 1];
+
             return `
-                <span class="legend-item has-tooltip"
-                      data-tooltip="${tooltipText}"
-                      data-trait="${trait}">
-                    <span class="legend-color" style="background: ${getTraitColor(idx)}"></span>
-                    ${trait}
-                </span>
+                <div class="legend-item-row">
+                    <span class="legend-item has-tooltip"
+                          data-tooltip="${tooltipText}"
+                          data-trait="${trait}">
+                        <span class="legend-color" style="background: ${getTraitColor(idx)}"></span>
+                        ${trait}
+                    </span>
+                    <div class="steering-buttons" data-trait="${trait}">
+                        ${coefficients.map(coef => {
+                            const label = coef === 0 ? '0' : (coef > 0 ? `+${coef}x` : `${coef}x`);
+                            const isActive = currentCoef === coef ? 'active' : '';
+                            return `<button class="steer-btn ${isActive}" data-coef="${coef}" onclick="setSteeringCoefficient('${trait}', ${coef})">${label}</button>`;
+                        }).join('')}
+                    </div>
+                </div>
             `;
         }).join('');
     }
@@ -846,6 +1048,8 @@ function updateChartHighlight() {
 window.startEdit = startEdit;
 window.navigateBranch = navigateBranch;
 window.handleMessageHover = handleMessageHover;
+window.setSteeringCoefficient = setSteeringCoefficient;
+window.toggleInferenceMode = toggleInferenceMode;
 
 // Export for view system
 window.renderLiveChat = renderLiveChat;

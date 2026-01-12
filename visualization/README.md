@@ -22,6 +22,7 @@ The server provides:
   - `/api/experiments/{name}/traits` - List traits for an experiment
   - `/api/integrity/{name}.json` - Get cached integrity data for an experiment
   - `/api/chat` - POST endpoint for live chat with streaming trait projections
+  - `/api/modal/warmup` - GET endpoint to warm up Modal GPU (preload model)
 - **CORS support**: For local development
 
 ### 2. Open in Browser
@@ -34,7 +35,9 @@ The visualization dashboard is organized into two main categories, reflecting th
 
 ### Documentation
 
--   **Overview**: Comprehensive methodology documentation rendered from `docs/overview.md` with markdown and KaTeX math rendering.
+-   **Overview**: High-level introduction rendered from `docs/overview.md` with markdown and KaTeX math rendering.
+
+-   **Methodology**: How we extract and use trait vectors. Rendered from `docs/methodology.md` with support for placeholders, datasets, figures, and citations.
 
 -   **Findings**: Research findings rendered from `docs/viz_findings/`. Collapsible cards with preview text that expand to show full markdown content.
 
@@ -57,48 +60,37 @@ The visualization dashboard is organized into two main categories, reflecting th
     - Dataset embeds: `:::dataset /path/to/file.txt "Label":::` shows first 20 lines
     - Citations: `[@key]` with `references:` in frontmatter → renders as "(Authors, Year)" link + auto References section
 
-### Category 1: Trait Development
-(Building and validating the vectors)
+### Analysis Views
+(Building and validating trait vectors — numbered 1-3 in sidebar)
 
--   **Trait Extraction**: View extraction quality for trait vectors. Sections:
+-   **1. Trait Extraction**: View extraction quality for trait vectors. Sections:
     - Best Vectors Summary: table of best vector per trait with metrics
     - Per-Trait Heatmaps: layer × method grid with combined score
     - Token Decode (Logit Lens): late layer token projections
     - Reference (collapsible): notation, extraction methods, quality metrics
 
--   **Steering Sweep**: Layer sweep visualization for steering evaluation. Shows behavioral change vs. steering coefficient across layers. Includes multi-layer steering heatmap (center × width grid) when available. Validates vectors via causal intervention.
+-   **2. Trait Steering**: Layer sweep visualization for steering evaluation. Shows behavioral change vs. steering coefficient across layers. Includes multi-layer steering heatmap (center × width grid) when available. Validates vectors via causal intervention.
 
-### Category 2: Inference Analysis
-(Using your best vectors to see what the model is "thinking" on new prompts)
+-   **3. Trait Inference**: Per-token trait projections on new prompts. Token trajectory, activation magnitudes, layer breakdown.
 
--   **Live Chat**: Interactive chat with real-time trait monitoring.
-    - **Model selection**: Dropdown to switch between `extraction_model` (base) and `application_model` (instruct-tuned) from experiment config. Clears chat when switching models.
-    - **Full token stream**: Chart shows all tokens (prompt + response + special tokens) with their trait projections. X-axis = token position in context.
-    - **Multi-turn conversation**: Tokens accumulate across messages. Only NEW tokens are captured each turn (previous context is skipped).
-    - **Conversation branching**: Edit any user message to create alternate branches; navigate with `◀ 1/2 ▶` arrows. Each branch preserves its token data.
-    - **Stop generation**: Click "Stop" button to halt generation mid-stream. Keeps tokens captured so far.
-    - **Context limit**: Warns when approaching model's max context length (from `config/models/`). Clear chat to continue.
-    - **Persistence**: Conversations saved to localStorage per experiment; restored on page refresh.
-    - **Hover interactions**: Hover over chart to highlight corresponding token in chat. Hover over legend to see vector metadata (layer, method, source).
-    - **3-token running average**: Toggle smoothing in chart header.
-    - **Streaming**: Tokens appear as generated (~0.2s each). First token: 10-30s local.
+### Live Chat
+(Top-level view for interactive exploration)
 
-All other inference views share a **prompt picker** fixed at the bottom of the page:
-- **Prompt picker**: Dropdown to select prompt set (`single_trait`, `dynamic`, etc.) + numbered boxes for prompt IDs
-- **Prompt/Response display**: Shows the current prompt text and model response, with the selected token highlighted
-- **Token slider**: Scrub through all tokens (prompt + response) to move a highlight marker on plots. Updates plot highlights in real-time via `Plotly.relayout()` without re-rendering.
-- **Persistence**: Selection is saved to localStorage and restored on page refresh.
+Interactive chat with real-time trait monitoring:
+- **Connection status**: Shows GPU connection state (disconnected → warming → connected). Blocks send while warming up.
+- **Real-time steering**: Per-trait steering buttons (-1x, -.5x, 0, +.5x, +1x) to influence model behavior during generation.
+- **Full token stream**: Chart shows all tokens (prompt + response + special tokens) with their trait projections. X-axis = token position in context.
+- **Multi-turn conversation**: Tokens accumulate across messages. Only NEW tokens are captured each turn (previous context is skipped).
+- **Conversation branching**: Edit any user message to create alternate branches; navigate with `◀ 1/2 ▶` arrows. Each branch preserves its token data.
+- **Stop generation**: Click "Stop" button to halt generation mid-stream. Keeps tokens captured so far.
+- **Context limit**: Warns when approaching model's max context length (from `config/models/`). Clear chat to continue.
+- **Persistence**: Conversations saved to localStorage per experiment; restored on page refresh.
+- **Hover interactions**: Hover over chart to highlight corresponding token in chat. Hover over legend to see vector metadata (layer, method, source).
+- **3-token running average**: Toggle smoothing in chart header.
 
--   **Trait Dynamics**: Comprehensive view of trait evolution during generation. Includes:
-    - **Token Trajectory**: Cosine similarity per token. Options: **Smooth** (3-token moving average), **Centered** (subtract BOS value), **Clean** (remove massive dim contributions - Sun et al., Top 5 3+ layers, or All), **Compare** (model comparison - see below)
-    - **Activation Magnitude Per Token**: ||h|| per token at projection layer. Shows one line per unique layer when multiple traits selected.
-    - **Token Velocity**: Rate of change between consecutive tokens
-    - **Activation Magnitude**: ||h|| per layer (growth through network)
-    - **Massive Activations**: Per-token values of massive dims at layer 9, mean alignment by layer
-    - **Massive Dims Across Layers**: Normalized magnitude per layer for massive dims. Criteria dropdown to experiment with different definitions (Top 5 3+ layers, Top 3 any layer, etc.)
-    - **Compare dropdown**: When comparison models exist (e.g., base model captured via `--replay-responses`), switch between: **Main model** (default), **Diff** (main − comparison), or view the **comparison model** directly. See `inference/README.md` for capture workflow.
-
--   **Layer Deep Dive**: SAE feature decomposition - see which interpretable Sparse Autoencoder features are most active at each token position. Decomposes 2,304 raw neurons into 16,384 sparse features with human-readable descriptions from Neuronpedia.
+**Inference backends** (controlled by `INFERENCE_MODE` env var):
+- `local` (default): Load model locally for inference
+- `modal`: Use Modal GPU for inference (for Railway deployment)
 
 ## Data Sources
 

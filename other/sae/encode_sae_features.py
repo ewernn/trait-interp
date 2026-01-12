@@ -24,7 +24,7 @@ import argparse
 import sys
 from tqdm import tqdm
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from utils.paths import get as get_path
 
 

@@ -16,3 +16,10 @@
 
 **Visualization**
 - only use primitives from visualization/styles.css
+- reuse existing code as much as possible
+
+**Writing style** (for docs, overview, methodology, findings):
+- Natural, concise prose. Explain concepts simply before technical details.
+- Use bullet points freely. Avoid jargon where plain language works.
+- First person plural ("we") for actions.
+- Assume familiarity with ML basics (probes, steering, activations) but write for broader technical audience.

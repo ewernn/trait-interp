@@ -45,6 +45,23 @@ Per-token projection analysis revealed contamination causes two different proble
 
 Gemma 3's massive dim is ~30x more extreme than Gemma 2's.
 
+## Steering Validation (Causal Test)
+
+Arditi-style steering on Gemma 3-4b refusal (20 harmless prompts, natural magnitude methodology):
+
+| Layer | mean_diff | probe |
+|-------|-----------|-------|
+| 10 | 0% | 0% |
+| 13 | 0% | 10% |
+| 15 | 0% | 40% |
+| 17 | 0% | 40% |
+| 20 | 0% | **60%** |
+| 25 | 0% | 15% |
+
+**mean_diff fails completely** (0% refusal induction at all layers, garbage output due to dim 443 contamination). **probe works** (peaks at 60% L20).
+
+This is causal proof: mean_diff vectors can't induce refusal because they're mostly dim 443 noise.
+
 ## Recommendations
 
 1. **Use probe or gradient** - robust regardless of scenario design or model

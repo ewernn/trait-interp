@@ -86,6 +86,16 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_api_response(self.list_experiments())
                 return
 
+            # API endpoint: app config (mode, features)
+            if self.path == '/api/config':
+                self.send_api_response(self.get_app_config())
+                return
+
+            # API endpoint: Modal warmup (GET for simplicity - triggers container warm-up)
+            if self.path == '/api/modal/warmup':
+                self.send_api_response(self.warmup_modal())
+                return
+
             # API endpoint: get experiment config
             if self.path.startswith('/api/experiments/') and self.path.endswith('/config'):
                 exp_name = self.path.split('/')[3]
@@ -210,10 +220,12 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         else:
             experiment = data['experiment']
         max_tokens = data.get('max_tokens', 100)
-        temperature = data.get('temperature', 0.7)
+        temperature = data.get('temperature', 0.0)  # Default to greedy for live-chat
         history = data.get('history', [])  # Multi-turn conversation history
         previous_context_length = data.get('previous_context_length', 0)  # Tokens already captured
         model_type = data.get('model_type', 'application')  # Which model to use: extraction or application
+        inference_mode = data.get('inference_mode')  # 'local' or 'modal' - per-request override
+        steering_configs = data.get('steering_configs', [])  # [{trait, coefficient}, ...]
 
         if not prompt:
             self.send_error(400, "Missing prompt")
@@ -230,9 +242,9 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             # Import here to avoid loading model on server start
             from visualization.chat_inference import get_chat_instance
 
-            chat = get_chat_instance(experiment, model_type=model_type)
+            chat = get_chat_instance(experiment, backend=inference_mode, model_type=model_type)
 
-            for event in chat.generate(prompt, max_new_tokens=max_tokens, temperature=temperature, history=history, previous_context_length=previous_context_length):
+            for event in chat.generate(prompt, max_new_tokens=max_tokens, temperature=temperature, history=history, previous_context_length=previous_context_length, steering_configs=steering_configs):
                 sse_data = f"data: {json.dumps(event)}\n\n"
                 self.wfile.write(sse_data.encode())
                 self.wfile.flush()
@@ -259,6 +271,29 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             return {'error': str(e)}
 
+    def get_app_config(self):
+        """Get app-wide config for frontend (mode, features)."""
+        mode = os.environ.get('MODE', 'development')
+
+        # Mode determines available features
+        is_dev = mode == 'development'
+
+        return {
+            'mode': mode,
+            'features': {
+                'model_picker': is_dev,        # Show model dropdown in dev
+                'experiment_picker': is_dev,   # Show experiment picker in dev
+                'inference_toggle': is_dev,    # Show local/modal toggle in dev
+                'debug_info': is_dev,          # Show debug info in dev
+                'steering': True,              # Always show steering (it's the point)
+            },
+            'defaults': {
+                'inference_backend': 'local' if is_dev else 'modal',
+                'experiment': 'live-chat',
+                'model': 'google/gemma-2-2b-it',  # Default for production
+            }
+        }
+
     def get_experiment_config(self, experiment: str):
         """Get experiment config.json with model metadata (max_context_length, etc.)."""
         from utils.model_registry import get_model_config
@@ -284,6 +319,32 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             return {'error': str(e)}
 
+    def warmup_modal(self):
+        """Warm up Modal GPU container by loading the model."""
+        # In production mode, always use modal. In development, caller decides.
+        mode = os.environ.get('MODE', 'development')
+
+        # Just do the warmup - let frontend decide when to call this
+        if mode == 'development':
+            # In dev, warmup is optional (triggered by toggle)
+            pass
+
+        try:
+            # Import modal_inference and call warmup
+            import sys
+            inference_path = Path(__file__).parent.parent / "inference"
+            if str(inference_path) not in sys.path:
+                sys.path.insert(0, str(inference_path))
+
+            import modal_inference
+            result = modal_inference.warmup.remote()
+            return result
+        except Exception as e:
+            return {
+                'status': 'error',
+                'error': str(e)
+            }
+
     def list_experiments(self):
         """List all experiments in experiments/ directory."""
         experiments_dir = get_path('experiments.list')
@@ -293,7 +354,8 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         experiments = []
 
         for item in experiments_dir.iterdir():
-            if item.is_dir() and not item.name.startswith('.'):
+            # Skip hidden dirs and 'live-chat' (internal experiment for public demo)
+            if item.is_dir() and not item.name.startswith('.') and item.name != 'live-chat':
                 has_traits = False
 
                 # Check for extraction/{category}/{trait}/{model_variant}/ structure

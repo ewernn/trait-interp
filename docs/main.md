@@ -330,7 +330,7 @@ python visualization/serve.py  # Visit http://localhost:8000/
 **Views:**
 - **Trait Extraction** — Best vectors summary, per-trait layer×method heatmaps, logit lens token decode
 - **Steering Sweep** — Method comparison, layer×coefficient heatmaps, optimal coefficient curves
-- **Live Chat** — Interactive chat with real-time trait monitoring token-by-token
+- **Live Chat** — Interactive chat with real-time trait monitoring and steering controls
 - **Inference** — Token trajectory, per-layer activation magnitude
 - **Layer Deep Dive** — Attention heatmaps, SAE feature decomposition
 

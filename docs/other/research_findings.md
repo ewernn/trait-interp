@@ -8,8 +8,9 @@
 
 | Finding | Evidence | Implication |
 |---------|----------|-------------|
+| **Massive dims break mean_diff** | 0% steering on Gemma 3 (all layers), 86% spurious separation | Use probe/gradient, especially on Gemma 3 |
 | **1st person > 3rd person** | 2.5x steering delta, 3x directional separation | Use 1st person for behavioral traits |
-| **Probe is not universally best** | mean_diff wins 3/6, gradient 2/6, probe 1/6 | Effect size ≠ steering strength |
+| **Probe is not universally best** | mean_diff wins 3/6, gradient 2/6, probe 1/6 (Gemma 2) | Effect size ≠ steering strength |
 | **Short definitions beat long** | MAE 12.6 vs 35.5, 3rd person bug fixed | Keep definition.txt ~7 lines |
 | **n=5 steering questions OK for ranking** | 75% ranking match, 7x variance vs baseline | Use n=5 for iteration, n=20 for final |
 | Safety concepts exist pre-alignment | Base→IT transfer: 90% acc | Jailbreaks are routing failures |
@@ -63,37 +64,67 @@
 
 ---
 
-## 2026-01-04: Massive Activation Dimensions
+## 2026-01-11: Massive Activation Dimensions (Updated)
 
 **Background:** Sun et al. 2024 found LLMs have dimensions with 1000× larger values than median.
 
-### What We Tried
+**Key finding:** Massive dims encode **context/topic**, not trait signal. This severely contaminates mean_diff but not probe/gradient.
 
-| Approach | Result |
-|----------|--------|
-| **Sun criterion** (>100 AND >1000× median) | Works, but absolute threshold is meaningless |
-| **Ratio-only** (>1000× median) | Identical to Sun - ratio is the real filter |
-| **Z-score > 5** | Too permissive (1500+ dims vs 27) |
-| **Mean projection cleaning** | Just a constant shift - doesn't improve separation |
-| **Top5-3L** (dims in top-5 at 3+ layers) | Best for Gemma; same as Sun for Qwen |
+### Vector Contamination
 
-### Cross-Model Comparison
+Per-token projection analysis on Gemma 3-4b refusal trait:
 
-| Aspect | Gemma-2-2b-it | Qwen-2.5-7B-it |
-|--------|---------------|----------------|
-| **Bias location** | BOS token | first_delimiter |
-| **Max value** | ~900 | ~11,200 |
-| **Cleaning dims** | 8 | 5 |
+| Method | Contamination | Raw Sep | Cleaned Sep | Change |
+|--------|---------------|---------|-------------|--------|
+| mean_diff | 86% | +1762 | +255 | **-85%** (spurious) |
+| probe | 0.8% | +517 | +499 | -3% (real) |
 
-### Takeaways
+Cleaning = zeroing dim 443 then re-projecting. 85% of mean_diff separation was spurious.
 
-1. **Location is model-specific** - can't assume BOS
-2. **Ratio threshold is what matters** - drop the `abs > 100`
-3. **Mean projection doesn't help** - constant shift, no separation gain
+### Two Failure Modes of mean_diff
 
-**Implementation:** `analysis/massive_activations.py` (data-driven calibration)
+| Trait | Scenario | Effect |
+|-------|----------|--------|
+| Refusal | Unpaired | **Inflated** (85% spurious correlation) |
+| Sycophancy | Paired | **Masked** (hidden until cleaned: +2.9 → +65.9) |
+
+Massive dims can either inflate or mask real separation depending on chance correlations.
+
+### Steering Validation (Causal Proof)
+
+Arditi-style steering on Gemma 3-4b (20 harmless prompts):
+
+| Layer | mean_diff | probe |
+|-------|-----------|-------|
+| 10 | 0% | 0% |
+| 13 | 0% | 10% |
+| 15 | 0% | 40% |
+| 17 | 0% | 40% |
+| 20 | 0% | **60%** |
+| 25 | 0% | 15% |
+
+**mean_diff: 0% at ALL layers** (garbage output). **probe: 60% at L20** (coherent).
+
+### Model Severity
+
+| Model | Dominant Dim | Magnitude | mean_diff Usable? |
+|-------|-------------|-----------|-------------------|
+| Gemma 2-2b | dim 334 | ~60× | Marginal (24% contamination) |
+| Gemma 3-4b | dim 443 | ~1000-2000× | **No** (86-91% contamination) |
+
+### Recommendations
+
+1. **Use probe or gradient** - robust regardless of scenario design or model
+2. **Never use mean_diff on Gemma 3** - vectors are 86%+ noise
+3. **If mean_diff is needed**: use tightly paired scenarios
+
+**Implementation:** `analysis/massive_activations.py` identifies massive dims per model
+
+**Bug fixed:** Mean calculation now uses float32 to avoid bfloat16 precision loss at ~32k values
 
 **Reference:** Sun et al. "Massive Activations in Large Language Models" (COLM 2024)
+
+**Full writeup:** [docs/viz_findings/massive-activations.md](../viz_findings/massive-activations.md)
 
 ---
 

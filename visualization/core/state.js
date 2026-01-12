@@ -2,6 +2,8 @@
 
 // State
 const state = {
+    // App-wide config (fetched from /api/config)
+    appConfig: null,  // { mode, features, defaults }
     experiments: [],
     currentExperiment: null,
     experimentData: null,
@@ -474,6 +476,38 @@ function updatePageTitle() {
     }
 }
 
+// App Config Loading
+async function loadAppConfig() {
+    try {
+        const response = await fetch('/api/config');
+        state.appConfig = await response.json();
+        console.log('[State] App config loaded:', state.appConfig);
+    } catch (e) {
+        console.error('[State] Failed to load app config:', e);
+        // Default to development mode
+        state.appConfig = {
+            mode: 'development',
+            features: {
+                model_picker: true,
+                experiment_picker: true,
+                inference_toggle: true,
+                debug_info: true,
+                steering: true
+            },
+            defaults: {
+                inference_backend: 'local',
+                experiment: 'live-chat',
+                model: 'google/gemma-2-2b-it'
+            }
+        };
+    }
+}
+
+// Helper to check if a feature is enabled
+function isFeatureEnabled(feature) {
+    return state.appConfig?.features?.[feature] ?? true;
+}
+
 // Experiment Loading
 async function loadExperiments() {
     try {
@@ -485,24 +519,17 @@ async function loadExperiments() {
         if (!list) return;
 
         list.innerHTML = state.experiments.map((exp, idx) => {
-            const displayName = exp.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             const isActive = idx === 0 ? 'active' : '';
-            return `
-                <div class="nav-item ${isActive}" data-experiment="${exp}">
-                    <span class="icon">${idx === 0 ? '✓' : ''}</span>
-                    <span>${displayName}</span>
-                </div>
-            `;
+            return `<label class="experiment-option ${isActive}" data-experiment="${exp}">
+                <input type="radio" name="experiment" ${idx === 0 ? 'checked' : ''}>
+                <span>${exp}</span>
+            </label>`;
         }).join('');
 
-        list.querySelectorAll('.nav-item').forEach(item => {
+        list.querySelectorAll('.experiment-option').forEach(item => {
             item.addEventListener('click', async () => {
-                list.querySelectorAll('.nav-item').forEach(i => {
-                    i.classList.remove('active');
-                    i.querySelector('.icon').textContent = '';
-                });
+                list.querySelectorAll('.experiment-option').forEach(i => i.classList.remove('active'));
                 item.classList.add('active');
-                item.querySelector('.icon').textContent = '✓';
                 state.currentExperiment = item.dataset.experiment;
                 setExperimentInURL(state.currentExperiment);
                 await loadExperimentData(state.currentExperiment);
@@ -894,6 +921,7 @@ function renderMath(element) {
 // Initialize Application
 async function init() {
     await window.paths.load();
+    await loadAppConfig();  // Load app config first (mode, features)
     initTheme();
     initSmoothing();
     initProjectionCentered();
@@ -925,6 +953,7 @@ window.getTokenHighlightColors = getTokenHighlightColors;
 window.getChartColors = getChartColors;
 window.getMethodColors = getMethodColors;
 window.showError = showError;
+window.isFeatureEnabled = isFeatureEnabled;
 window.initApp = init;
 window.escapeHtml = escapeHtml;
 window.formatTokenDisplay = formatTokenDisplay;

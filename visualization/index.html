@@ -80,41 +80,26 @@
             </div>
 
             <div class="sidebar-section">
-                <div class="nav-item active" data-view="overview">
-                    <span class="icon">📖</span>
-                    <span>Overview</span>
-                </div>
-                <div class="nav-item" data-view="findings">
-                    <span class="icon">📊</span>
-                    <span>Findings</span>
-                </div>
+                <div class="nav-item" data-view="live-chat">Live Chat</div>
+                <div class="nav-item active" data-view="overview">Overview</div>
+                <div class="nav-item" data-view="methodology">Methodology</div>
+                <div class="nav-item" data-view="findings">Findings</div>
             </div>
 
-            <div class="sidebar-section">
-                <div class="section-title">Experiments</div>
-                <div id="experiment-list">
-                    <div class="nav-item" style="opacity: 0.5; cursor: default;">Loading...</div>
+            <div class="sidebar-group">
+                <div class="sidebar-section">
+                    <div class="section-title">Analysis</div>
+                    <div id="nav-items-extraction">
+                        <div class="nav-item" data-view="trait-extraction">1. Trait Extraction</div>
+                        <div class="nav-item" data-view="steering-sweep">2. Trait Steering</div>
+                        <div class="nav-item" data-view="inference">3. Trait Inference</div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="sidebar-section">
-                <div class="section-title">Analysis</div>
-                <div id="nav-items-extraction">
-                    <div class="nav-item" data-view="trait-extraction">
-                        <span class="icon">🔬</span>
-                        <span>Trait Extraction</span>
-                    </div>
-                    <div class="nav-item" data-view="steering-sweep">
-                        <span class="icon">🎛️</span>
-                        <span>Steering Sweep</span>
-                    </div>
-                    <div class="nav-item" data-view="inference">
-                        <span class="icon">📈</span>
-                        <span>Inference</span>
-                    </div>
-                    <div class="nav-item" data-view="live-chat">
-                        <span class="icon">💬</span>
-                        <span>Live Chat</span>
+                <div class="sidebar-section">
+                    <div class="section-title">Experiment</div>
+                    <div id="experiment-list" class="experiment-picker">
+                        <div class="experiment-option" style="opacity: 0.5;">Loading...</div>
                     </div>
                 </div>
             </div>
@@ -158,6 +143,7 @@
 
     <!-- View Modules -->
     <script src="/visualization/views/overview.js"></script>
+    <script src="/visualization/views/methodology.js"></script>
     <script src="/visualization/views/findings.js"></script>
     <script src="/visualization/views/trait-extraction.js"></script>
     <script src="/visualization/views/trait-dynamics.js"></script>
@@ -174,6 +160,7 @@
             // Update page title
             const viewTitles = {
                 'overview': 'Overview',
+                'methodology': 'Methodology',
                 'findings': 'Research Findings',
                 'trait-extraction': 'Trait Extraction',
                 'steering-sweep': 'Steering Sweep',
@@ -185,6 +172,9 @@
             switch (view) {
                 case 'overview':
                     window.renderOverview();
+                    break;
+                case 'methodology':
+                    window.renderMethodology();
                     break;
                 case 'findings':
                     window.renderFindings();
