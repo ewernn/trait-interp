@@ -39,9 +39,11 @@ image = (
         "huggingface_hub",
         "scipy",
         "scikit-learn",
+        "pyyaml",
     )
     .add_local_dir(repo_root / "core", remote_path="/root/core")
     .add_local_dir(repo_root / "utils", remote_path="/root/utils")
+    .add_local_dir(repo_root / "config" / "models", remote_path="/root/config/models")
 )
 
 # Model -> GPU mapping
@@ -184,16 +186,31 @@ def capture_activations_stream(
 
     # Now we can import from our codebase
     from core.hooks import get_hook_path, HookManager, SteeringHook
+    from utils.model_registry import get_model_config
 
     print(f"Loading {model_name}...")
     model, tokenizer, load_time = _load_model_and_tokenizer(model_name)
     num_layers = model.config.num_hidden_layers
 
+    # Check if model supports system prompt
+    try:
+        model_config = get_model_config(model_name)
+        supports_system = model_config.get('supports_system_prompt', False)
+    except FileNotFoundError:
+        print(f"No config for {model_name}, assuming no system prompt support")
+        supports_system = False
+
     # Format prompt with chat template if messages provided
     if messages is not None:
-        # Add system prompt
-        sys_prompt = system_prompt or LIVE_CHAT_SYSTEM_PROMPT
-        full_messages = [{"role": "system", "content": sys_prompt}] + messages
+        # Only add system prompt if model supports it
+        if supports_system and (system_prompt or LIVE_CHAT_SYSTEM_PROMPT):
+            sys_prompt = system_prompt or LIVE_CHAT_SYSTEM_PROMPT
+            full_messages = [{"role": "system", "content": sys_prompt}] + messages
+            print(f"Adding system prompt: {sys_prompt[:50]}...")
+        else:
+            full_messages = messages
+            if not supports_system:
+                print(f"Model doesn't support system prompt, skipping")
 
         # Apply chat template with Qwen3 thinking disabled
         template_kwargs = {"add_generation_prompt": True, "tokenize": False}
