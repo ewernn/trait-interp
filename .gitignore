@@ -2,8 +2,10 @@
 # Data files in experiments - use R2 (even for whitelisted experiments)
 experiments/**/*.pt
 experiments/**/*.json
+experiments/**/*.jsonl
 experiments/**/*.png
 # BUT keep config.json (experiment settings should be versioned)
+!experiments/**/config.json
 !experiments/**/config.json
 
 datasets/inference/beavertails
