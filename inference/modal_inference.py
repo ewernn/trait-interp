@@ -154,7 +154,7 @@ def capture_activations_stream(
     system_prompt: str = None,
 ):
     """
-    Stream activations from model inference token-by-token.
+    Stream activations from model inference token-by-token using HookedGenerator.
 
     Model is cached in /models volume - first run downloads, subsequent runs
     load from disk (~5-10s instead of ~25-30s).
@@ -185,12 +185,11 @@ def capture_activations_stream(
     sys.path.insert(0, "/root")
 
     # Now we can import from our codebase
-    from core.hooks import get_hook_path, HookManager, SteeringHook
+    from core.generation import HookedGenerator, CaptureConfig, SteeringConfig
     from utils.model_registry import get_model_config
 
     print(f"Loading {model_name}...")
     model, tokenizer, load_time = _load_model_and_tokenizer(model_name)
-    num_layers = model.config.num_hidden_layers
 
     # Check if model supports system prompt
     try:
@@ -226,110 +225,66 @@ def capture_activations_stream(
     # Tokenize
     inputs = tokenizer(formatted_prompt, return_tensors="pt").to(model.device)
 
-    # Storage for activations (cleared each token)
-    current_activations = {}
-
-    # Hook to capture activations (per-token streaming, not accumulated)
-    # CaptureHook accumulates, so we use inline hook for streaming
-    def make_capture_hook(layer_idx):
-        def hook(module, inp, out):
-            out_tensor = out[0] if isinstance(out, tuple) else out
-            # Capture last position only (token-by-token generation)
-            act = out_tensor[:, -1, :].detach().cpu()  # [1, hidden_dim]
-            current_activations[layer_idx] = act.squeeze(0)  # [hidden_dim]
-        return hook
-
-    # Use HookManager for registering capture hooks
-    hook_manager = HookManager(model)
-    for layer in range(num_layers):
-        path = get_hook_path(layer, component, model=model)
-        hook_manager.add_forward_hook(path, make_capture_hook(layer))
-
-    # Register steering hooks using SteeringHook from core/
-    steering_hooks = []
-    if steering_configs:
-        print(f"Applying steering: {len(steering_configs)} vectors")
-        for cfg in steering_configs:
-            layer = cfg['layer']
-            vector = cfg['vector']  # List of floats
-            coefficient = cfg['coefficient']
-            print(f"   L{layer}: coef={coefficient}")
-
-            # Use SteeringHook from core/hooks.py
-            path = get_hook_path(layer, "residual", model=model)
-            steering_hook = SteeringHook(model, vector, path, coefficient=coefficient)
-            steering_hook.__enter__()  # Register the hook
-            steering_hooks.append(steering_hook)
-
-    # Generate token-by-token and yield immediately
-    print(f"Generating up to {max_new_tokens} tokens...")
-    gen_start = time.time()
-
-    context = inputs.input_ids.clone()
-    past_key_values = None  # KV cache for O(n) generation instead of O(n²)
-
-    # Build stop token set (EOS + model-specific tokens)
-    stop_token_ids = {tokenizer.eos_token_id}
+    # Build additional stop tokens (model-specific)
+    stop_token_ids = set()
     for token in ['<|im_end|>', '<|end|>', '<|eot_id|>', '<end_of_turn>']:
         token_ids = tokenizer.encode(token, add_special_tokens=False)
         if token_ids:
             stop_token_ids.add(token_ids[0])
 
+    # Build steering configs for HookedGenerator
+    steering = None
+    if steering_configs:
+        print(f"Applying steering: {len(steering_configs)} vectors")
+        steering = []
+        for cfg in steering_configs:
+            print(f"   L{cfg['layer']}: coef={cfg['coefficient']}")
+            steering.append(SteeringConfig(
+                vector=torch.tensor(cfg['vector']),
+                layer=cfg['layer'],
+                component='residual',
+                coefficient=cfg['coefficient'],
+            ))
+
+    # Use HookedGenerator for streaming
+    print(f"Generating up to {max_new_tokens} tokens...")
+    gen_start = time.time()
     tokens_generated = 0
-    with torch.no_grad():
-        for step in range(max_new_tokens):
-            # Clear previous activations
-            current_activations.clear()
 
-            # Forward pass with KV cache (hooks capture activations)
-            outputs = model(
-                input_ids=context,
-                past_key_values=past_key_values,
-                use_cache=True,
-            )
-            past_key_values = outputs.past_key_values
-            logits = outputs.logits[:, -1, :]
+    gen = HookedGenerator(model)
+    capture = CaptureConfig(components=[component])
 
-            # Sample next token (greedy if temp=0, otherwise sample)
-            if temperature == 0.0:
-                next_token = logits.argmax(dim=-1, keepdim=True)
-            else:
-                probs = torch.softmax(logits / temperature, dim=-1)
-                next_token = torch.multinomial(probs, 1)
+    for tok in gen.stream(
+        inputs.input_ids,
+        inputs.attention_mask,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        capture=capture,
+        steering=steering,
+        stop_token_ids=stop_token_ids,
+    ):
+        token_str = tokenizer.decode([tok.token_id])
+        tokens_generated += 1
 
-            # Stop on any stop token
-            if next_token.item() in stop_token_ids:
-                break
+        # Convert activations to serializable format
+        activations = {}
+        if tok.activations:
+            for layer_idx, comps in tok.activations.items():
+                if component in comps:
+                    activations[layer_idx] = comps[component].tolist()
 
-            # Decode token
-            token_str = tokenizer.decode([next_token.item()])
-
-            # Yield token + activations immediately
-            yield {
-                "token": token_str,
-                "activations": {
-                    layer_idx: acts.tolist()
-                    for layer_idx, acts in current_activations.items()
-                },
-                "model": model_name,
-                "component": component,
-            }
-
-            tokens_generated += 1
-
-            # Update context to just new token (KV cache handles history)
-            context = next_token
+        yield {
+            "token": token_str,
+            "activations": activations,
+            "model": model_name,
+            "component": component,
+        }
 
     gen_time = time.time() - gen_start
     if tokens_generated > 0:
         print(f"Generated {tokens_generated} tokens in {gen_time:.1f}s ({gen_time/tokens_generated:.3f}s/token)")
     else:
         print(f"Generated 0 tokens")
-
-    # Remove all hooks
-    hook_manager.remove_all()
-    for steering_hook in steering_hooks:
-        steering_hook.__exit__(None, None, None)
 
 
 @app.local_entrypoint()

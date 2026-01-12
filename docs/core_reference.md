@@ -92,6 +92,38 @@ paths = detect_contribution_paths(model)
 
 ---
 
+## Generation with Hooks
+
+```python
+from core import HookedGenerator, CaptureConfig, SteeringConfig
+
+gen = HookedGenerator(model)
+
+# Batched generation with capture
+results = gen.generate(
+    input_ids, attention_mask,
+    max_new_tokens=50,
+    capture=CaptureConfig(layers=[14, 15], components=['residual']),
+)
+# results[0].token_ids: generated tokens
+# results[0].activations[14]['residual']: [n_tokens, hidden_dim]
+
+# Streaming for UI (single sample)
+for tok in gen.stream(input_ids, attention_mask, capture=CaptureConfig(layers=[14])):
+    print(tok.token_id, tok.activations[14]['residual'].shape)
+
+# Generation with steering
+steering = [SteeringConfig(vector=v, layer=14, coefficient=1.5)]
+results = gen.generate(input_ids, attention_mask, steering=steering)
+```
+
+**Key features:**
+- KV caching for O(n) generation (not O(n²))
+- Clean 1:1 token→activation mapping (no skip-first bug)
+- Supports batching, streaming, capture, and steering
+
+---
+
 ## Extraction Methods
 
 ```python

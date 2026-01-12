@@ -112,7 +112,7 @@ LLM-as-judge (gpt-4.1-mini) validates that scenarios will reliably elicit the tr
 python extraction/vet_scenarios.py --experiment my_exp --trait category/my_trait
 ```
 
-Requires `OPENAI_API_KEY`. Skip with `--no-vet-scenarios` in run_pipeline.py.
+Requires `OPENAI_API_KEY`. Off by default in run_pipeline.py; enable with `--vet-scenarios`.
 
 Scores scenarios 0-100. Positive scenarios need score >= 60, negative need <= 40.
 
@@ -131,9 +131,11 @@ python extraction/generate_responses.py \
 **Options:**
 ```bash
 --model-variant {variant}  # Override model variant (default: from config.json defaults.extraction)
---max-new-tokens 150       # Response length
+--max-new-tokens 150       # Response length (auto from position if not specified)
 # Batch size auto-calculated from available VRAM
 ```
+
+**Smart defaults for `--max-new-tokens`:** Auto-calculated from `--position`. For `response[:5]` → 5 tokens. For `prompt[-1]` → 0 tokens (prefill only). Override with explicit value for vetting.
 
 **Output:** `responses/pos.json` and `responses/neg.json`
 
@@ -187,9 +189,9 @@ python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
 ```
 
 **Position syntax:** `<frame>[<slice>]` where frame is `prompt`, `response`, or `all`
-- `response[:]` — All response tokens (mean) [default]
-- `response[-1]` — Last response token only
-- `prompt[-1]` — Last prompt token
+- `response[:5]` — First 5 response tokens (default)
+- `response[:]` — All response tokens (mean)
+- `prompt[-1]` — Last prompt token (Arditi-style, prefill only)
 
 **Output:** `activations/{position}/{component}/train_all_layers.pt` and `val_all_layers.pt`
 
@@ -428,11 +430,11 @@ python extraction/run_pipeline.py \
 #   - Eval: experiments/{experiment}/extraction/extraction_evaluation.json
 #   - Steering: experiments/{experiment}/steering/{trait}/{model_variant}/{position}/{prompt_set}/results.jsonl
 
-# 3. With custom position (last response token only)
+# 3. With custom position (Arditi-style, last prompt token)
 python extraction/run_pipeline.py \
     --experiment {experiment} \
     --traits {category}/{trait} \
-    --position "response[-1]"
+    --position "prompt[-1]"
 ```
 
 ---

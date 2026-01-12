@@ -186,8 +186,8 @@ export HF_TOKEN=your_token_here  # For huggingface models
 # 2. Run pipeline
 python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait}
 
-# With custom position (default: response[:])
-python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait} --position "response[-1]"
+# With custom position (Arditi-style, last prompt token)
+python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait} --position "prompt[-1]"
 ```
 
 **Visualize:**
@@ -244,9 +244,9 @@ Automated via `utils/vectors.py:get_best_vector(experiment, trait)`:
 Searches all positions/components. Pass `component` and `position` to filter.
 
 **Position syntax:** `<frame>[<slice>]` where frame is `prompt`, `response`, or `all`
-- `response[:]` — All response tokens (default)
-- `response[-1]` — Last response token only
-- `prompt[-1]` — Last prompt token
+- `response[:5]` — First 5 response tokens (default)
+- `response[:]` — All response tokens (mean)
+- `prompt[-1]` — Last prompt token (Arditi-style)
 
 ---
 

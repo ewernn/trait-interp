@@ -21,6 +21,7 @@ python extraction/run_pipeline.py \
     --experiment {exp} \
     --traits {category}/{trait} \
     --only-stage 0,1,2 \
+    --vet-scenarios \
     --base-model \
     --max-new-tokens 50
 

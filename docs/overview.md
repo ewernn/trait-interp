@@ -77,10 +77,9 @@ Capture the hidden state at every layer during generation. We aggregate across t
 
 | Position | Syntax | What It Captures |
 |----------|--------|------------------|
-| All response tokens | `response[:]` | Full response (mean) — default |
-| Last response token | `response[-1]` | Final "committed" state |
-| Last prompt token | `prompt[-1]` | Pre-generation representation |
-| Last N tokens | `response[-5:]` | Recent context window |
+| First N response tokens | `response[:5]` | Early response (default) |
+| All response tokens | `response[:]` | Full response (mean) |
+| Last prompt token | `prompt[-1]` | Pre-generation (Arditi-style) |
 
 For mean aggregation across $T$ tokens:
 

@@ -66,10 +66,14 @@ def generate_responses_for_trait(
         prompt_token_counts = [len(tokenizer.encode(p, add_special_tokens=not chat_template)) for p in formatted_prompts]
 
         for rollout_idx in tqdm(range(rollouts), desc=f"    {label}", leave=False, disable=rollouts == 1):
-            # Generate all responses (handles batching + OOM internally)
-            # Set add_special_tokens=False if chat template was used (it already added BOS)
-            responses = _generate_batch(model, tokenizer, formatted_prompts, max_new_tokens, temperature,
-                                        add_special_tokens=not chat_template)
+            if max_new_tokens == 0:
+                # Prefill only - no generation (for prompt[-1] extraction)
+                responses = [''] * len(formatted_prompts)
+            else:
+                # Generate all responses (handles batching + OOM internally)
+                # Set add_special_tokens=False if chat template was used (it already added BOS)
+                responses = _generate_batch(model, tokenizer, formatted_prompts, max_new_tokens, temperature,
+                                            add_special_tokens=not chat_template)
 
             for i, (scenario, response, prompt_tokens) in enumerate(zip(scenarios, responses, prompt_token_counts)):
                 results.append({
@@ -80,7 +84,7 @@ def generate_responses_for_trait(
                     'response': response,
                     'full_text': formatted_prompts[i] + response,  # Use formatted prompt for accurate tokenization
                     'prompt_token_count': prompt_tokens,
-                    'response_token_count': len(tokenizer.encode(response, add_special_tokens=False)),
+                    'response_token_count': len(tokenizer.encode(response, add_special_tokens=False)) if response else 0,
                 })
 
         print(f"      {label}: {len(results)} responses")

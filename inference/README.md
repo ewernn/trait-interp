@@ -62,8 +62,7 @@ Runs model inference and saves raw activations. Does NOT compute projections.
 
 | Flag | Description |
 |------|-------------|
-| `--layer-internals N` | Save full layer internals. Use `all` for all layers |
-| `--capture-attn` | Also capture attn_out activations |
+| `--capture-mlp` | Also capture mlp_out activations |
 | `--replay-responses SET` | Load responses from another prompt set (model-diff) |
 | `--replay-from-variant VAR` | Model variant to load replay responses from (for cross-variant model-diff) |
 
@@ -107,17 +106,11 @@ python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set single_trait
 
-# With attn_out for attn_out vector projections
+# With mlp_out for component decomposition
 python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set harmful \
-    --capture-attn
-
-# Deep capture with layer internals
-python inference/capture_raw_activations.py \
-    --experiment my_exp \
-    --prompt-set dynamic \
-    --layer-internals all
+    --capture-mlp
 
 # 70B model with LoRA
 python inference/capture_raw_activations.py \

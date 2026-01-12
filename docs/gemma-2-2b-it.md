@@ -254,15 +254,6 @@ print(f"Prompt has {N} tokens")
 
 ## Capture Commands
 
-### Layer Internals (Full Capture)
-
-```bash
-python inference/capture_raw_activations.py \
-    --experiment {experiment_name} \
-    --prompt "Your prompt here" \
-    --layer-internals 16  # Capture layer 16 with full components
-```
-
 ### Raw Residual (All Layers)
 
 ```bash
