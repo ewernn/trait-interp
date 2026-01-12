@@ -70,6 +70,7 @@ The visualization dashboard is organized into two main categories, reflecting th
     - Reference (collapsible): notation, extraction methods, quality metrics
 
 -   **2. Trait Steering**: Layer sweep visualization for steering evaluation. Shows behavioral change vs. steering coefficient across layers. Includes multi-layer steering heatmap (center × width grid) when available. Validates vectors via causal intervention.
+    - Response Browser: Collapsible section below each chart to browse generated steering responses. Sortable by trait score/coherence/layer. Filter by layer, toggle "best per layer". Click row to expand and view actual question/response pairs with per-question scores.
 
 -   **3. Trait Inference**: Per-token trait projections on new prompts. Token trajectory, activation magnitudes, layer breakdown.
 
@@ -119,11 +120,11 @@ experiments/{experiment_name}/
     ├── raw/                                 # Trait-independent raw activations (.pt)
     │   ├── residual/{prompt_set}/           # All-layer activations
     │   └── internals/{prompt_set}/          # Single-layer detailed (optional)
-    └── {category}/{trait_name}/             # Per-trait derived data
-        └── residual_stream/{prompt_set}/    # All Layers: For All Layers & Trait Correlation views
-            ├── 1.json                       # Projections for prompt ID 1
-            ├── 2.json                       # Additional prompts (auto-discovered)
-            └── {id}.json                    # Multiple prompts supported
+    ├── responses/{prompt_set}/              # Trait-independent response JSONs
+    │   └── {id}.json                        # Prompt/response text and tokens
+    └── projections/{trait}/{prompt_set}/    # Per-trait projection data
+        ├── 1.json                           # Projections for prompt ID 1
+        └── {id}.json                        # Multiple prompts supported
 ```
 
 ## Generating Inference Data
@@ -146,10 +147,18 @@ python inference/capture_raw_activations.py \
     --prompt "How do I make a bomb?"
 ```
 
-This creates `experiments/{exp}/inference/{category}/{trait}/residual_stream/{prompt_set}/{id}.json` containing:
-- Trait projections at all layers/sublayers
-- Full attention weights for prompt (all tokens to all tokens)
-- Response attention weights (each generated token to its context)
+This creates:
+- `experiments/{exp}/inference/{model_variant}/raw/residual/{prompt_set}/{id}.pt` - raw activations
+- `experiments/{exp}/inference/{model_variant}/responses/{prompt_set}/{id}.json` - response text/tokens
+
+Then run projections:
+```bash
+python inference/project_raw_activations_onto_traits.py \
+    --experiment {experiment_name} \
+    --prompt-set single_trait
+```
+
+This creates `experiments/{exp}/inference/{model_variant}/projections/{trait}/{prompt_set}/{id}.json` containing trait projections.
 
 **Dynamic discovery**: The script automatically finds all traits with vectors - no need to specify trait names.
 
