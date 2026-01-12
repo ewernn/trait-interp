@@ -31,7 +31,7 @@ source ~/.bashrc
 ./utils/setup_r2.sh
 ./utils/r2_pull.sh
 pip3 install uv
-uv pip3 install -q -r requirements.txt
+uv pip install --system -q -r requirements.txt
 ```
 
 ## When Done
