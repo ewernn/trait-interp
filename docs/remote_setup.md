@@ -30,8 +30,7 @@ source ~/.bashrc
 # 5. Pull data and install deps
 ./utils/setup_r2.sh
 ./utils/r2_pull.sh
-pip3 install uv
-uv pip install --system -q -r requirements.txt
+pip3 install -q --break-system-packages -r requirements.txt
 ```
 
 ## When Done
