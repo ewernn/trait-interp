@@ -72,6 +72,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from core import HookManager
 from utils.model import format_prompt, tokenize_prompt, load_experiment_config, load_model_with_lora, get_inner_model, get_layer_path_prefix, tokenize
+from utils.json import dump_compact
 from utils.generation import generate_with_capture, calculate_max_batch_size, create_residual_storage, setup_residual_hooks
 from utils.paths import get as get_path, get_model_variant, get_inference_raw_dir
 from utils.model_registry import get_model_slug
@@ -437,7 +438,7 @@ def _save_capture_data(
         }
     }
     with open(responses_dir / f"{prompt_id}.json", 'w') as f:
-        json.dump(response_data, f, indent=2)
+        dump_compact(response_data, f)
 
     # Optional: Save layer internals .pt files
     if args.layer_internals is not None and all_layer_data is not None and layer_indices is not None:

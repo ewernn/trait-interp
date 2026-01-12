@@ -328,7 +328,11 @@ def save_findings_yaml(model_id: str, findings: dict) -> Path:
         }
         print(f"\n  Creating new config...")
 
-    # Add/update notes section
+    # Add boolean for code to use
+    system_prompt_str = findings.get("system_prompt", "")
+    content["supports_system_prompt"] = system_prompt_str.startswith("Supported") if system_prompt_str else False
+
+    # Add/update notes section (detailed strings for humans)
     content["notes"] = {
         "system_prompt": findings.get("system_prompt"),
         "default_system": findings.get("default_system"),

@@ -73,6 +73,7 @@ from utils.vectors import (
 from utils.paths import get as get_path, get_vector_path, discover_extracted_traits, get_model_variant
 from utils.model import load_experiment_config
 from utils.model_registry import get_model_slug
+from utils.json import dump_compact
 
 LOGIT_LENS_LAYERS = [0, 1, 2, 3, 6, 9, 12, 15, 18, 21, 24, 25]
 
@@ -500,7 +501,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
                 }
             }
             with open(response_file, 'w') as f:
-                json.dump(response_data, f, indent=2)
+                dump_compact(response_data, f)
 
         # Compute activation norms (trait-independent, computed once per prompt)
         prompt_norms = compute_activation_norms(data['prompt']['activations'], n_layers)
@@ -654,7 +655,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
 
             out_dir.mkdir(parents=True, exist_ok=True)
             with open(out_file, 'w') as f:
-                json.dump(proj_data, f, indent=2)
+                dump_compact(proj_data, f)
 
         # Free memory after each prompt
         del data

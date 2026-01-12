@@ -62,20 +62,14 @@ class ModelConfig {
      * @param {string} experiment - Experiment name
      */
     async loadForExperiment(experiment) {
-        let modelId = experiment;
-
-        // Try to read experiment config
-        try {
-            const response = await fetch(`/experiments/${experiment}/config.json`);
-            if (response.ok) {
-                const expConfig = await response.json();
-                if (expConfig.model) {
-                    modelId = expConfig.model;
-                }
-            }
-        } catch (e) {
-            // Fall back to experiment name as model ID
+        const response = await fetch(`/experiments/${experiment}/config.json`);
+        if (!response.ok) {
+            throw new Error(`Failed to load experiment config for '${experiment}': ${response.status}`);
         }
+
+        const expConfig = await response.json();
+        const variant = expConfig.defaults.application;
+        const modelId = expConfig.model_variants[variant].model;
 
         return this.load(modelId);
     }

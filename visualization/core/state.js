@@ -575,7 +575,6 @@ async function loadExperimentData(experimentName) {
         state.experimentData = {
             name: experimentName,
             traits: [],
-            readme: null,
             experimentConfig: null  // Will hold extraction_model, application_model
         };
 
@@ -597,17 +596,6 @@ async function loadExperimentData(experimentName) {
             await window.modelConfig.loadForExperiment(experimentName);
         } catch (e) {
             // Model config is optional
-        }
-
-        // Try to load README
-        try {
-            const readmePath = `experiments/${experimentName}/README.md`;
-            const readmeResponse = await fetch(readmePath);
-            if (readmeResponse.ok) {
-                state.experimentData.readme = await readmeResponse.text();
-            }
-        } catch (e) {
-            // README not found, optional
         }
 
         // Fetch traits from API
