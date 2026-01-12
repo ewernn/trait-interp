@@ -266,6 +266,7 @@ def capture_activations_stream(
     gen_start = time.time()
 
     context = inputs.input_ids.clone()
+    past_key_values = None  # KV cache for O(n) generation instead of O(n²)
 
     # Build stop token set (EOS + model-specific tokens)
     stop_token_ids = {tokenizer.eos_token_id}
@@ -280,8 +281,13 @@ def capture_activations_stream(
             # Clear previous activations
             current_activations.clear()
 
-            # Forward pass (hooks capture activations)
-            outputs = model(input_ids=context)
+            # Forward pass with KV cache (hooks capture activations)
+            outputs = model(
+                input_ids=context,
+                past_key_values=past_key_values,
+                use_cache=True,
+            )
+            past_key_values = outputs.past_key_values
             logits = outputs.logits[:, -1, :]
 
             # Sample next token (greedy if temp=0, otherwise sample)
@@ -311,8 +317,8 @@ def capture_activations_stream(
 
             tokens_generated += 1
 
-            # Update context for next token
-            context = torch.cat([context, next_token], dim=1)
+            # Update context to just new token (KV cache handles history)
+            context = next_token
 
     gen_time = time.time() - gen_start
     if tokens_generated > 0:
