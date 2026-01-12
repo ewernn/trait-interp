@@ -381,14 +381,16 @@ _Example (Gemma 2B, 26 layers): Early=0-5, Middle=6-18, Late=19-25_
 | Component | Hook Point | Dimension | What It Captures |
 |-----------|------------|-----------|------------------|
 | `residual` | `model.layers.{L}` | {hidden_dim} | Full layer output (cumulative) |
-| `attn_out` | `self_attn.o_proj` | {hidden_dim} | What attention contributed |
-| `mlp_out` | `mlp.down_proj` | {hidden_dim} | What MLP contributed |
+| `attn_contribution` | Auto-detected* | {hidden_dim} | What attention adds to residual |
+| `mlp_contribution` | Auto-detected* | {hidden_dim} | What MLP adds to residual |
 | `k_proj` | `self_attn.k_proj` | {kv_dim} | Key projections |
 | `v_proj` | `self_attn.v_proj` | {kv_dim} | Value projections |
 
+_*Auto-detects architecture: hooks post-sublayer norm for Gemma-2, o_proj/down_proj for Llama/Mistral._
+
 _Example (Gemma 2B): hidden_dim=2304, kv_dim=1024_
 
-Most work uses residual stream. Attention/MLP outputs can isolate what each component contributes.
+Most work uses residual stream. Contribution components can isolate what attention/MLP each add.
 
 ### Layer Selection Strategy
 

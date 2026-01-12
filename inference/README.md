@@ -212,7 +212,7 @@ Compute projections from saved raw activations. Useful for:
 |--------|---------|-------------|
 | `--layer` | auto | Override layer for all traits (default: auto-select best) |
 | `--method` | auto | Vector method (default: auto-detect) |
-| `--component` | residual | Activation component (`residual` or `attn_out`) |
+| `--component` | residual | Activation component (`residual` or `attn_contribution`) |
 | `--traits` | all | Comma-separated trait list |
 | `--skip-existing` | false | Skip existing output files |
 
@@ -280,9 +280,9 @@ python inference/extract_viz.py \
         'token_ids': List[int],
         'activations': {
             layer_idx: {
-                'residual': Tensor[n_tokens, hidden_dim],    # layer output
-                'attn_out': Tensor[n_tokens, hidden_dim],    # attention contribution
-                'mlp_out': Tensor[n_tokens, hidden_dim],     # if --capture-mlp
+                'residual': Tensor[n_tokens, hidden_dim],           # layer output
+                'attn_contribution': Tensor[n_tokens, hidden_dim],  # what attention adds to residual
+                'mlp_contribution': Tensor[n_tokens, hidden_dim],   # if --capture-mlp
             }
         }
     },

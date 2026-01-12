@@ -215,14 +215,12 @@ Trait vectors are directions in activation space separating positive from negati
 | Component | Hook Path | Dimension | Notes |
 |-----------|-----------|-----------|-------|
 | `residual` | `model.layers.{L}` | 2304 | Layer output |
-| `attn_out` | `model.layers.{L}.self_attn.o_proj` | 2304 | Raw attention output |
-| `mlp_out` | `model.layers.{L}.mlp.down_proj` | 2304 | Raw MLP output |
 | `attn_contribution` | Auto-detected | 2304 | What attention adds to residual* |
 | `mlp_contribution` | Auto-detected | 2304 | What MLP adds to residual* |
 | `k_proj` | `model.layers.{L}.self_attn.k_proj` | 1024 | Key projections |
 | `v_proj` | `model.layers.{L}.self_attn.v_proj` | 1024 | Value projections |
 
-*Contribution components require `model` parameter and auto-detect architecture. For Gemma-2 (which has post-sublayer norms), they hook the post-norm output. For Llama/Mistral/Qwen, same as raw output.
+*Contribution components auto-detect architecture. For Gemma-2 (post-sublayer norms), hooks `post_attention_layernorm`. For Llama/Mistral/Qwen (no post-norms), hooks `o_proj` directly.
 
 ### Monitoring
 

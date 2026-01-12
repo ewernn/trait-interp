@@ -68,17 +68,13 @@ with SteeringHook(model, vector, "model.layers.16", coefficient=1.5):
     output = model.generate(**inputs)
 
 # Path helper (layer + component -> string)
-get_hook_path(16)                    # "model.layers.16"
-get_hook_path(16, "attn_out")        # "model.layers.16.self_attn.o_proj"
-get_hook_path(16, "mlp_out")         # "model.layers.16.mlp.down_proj"
-
-# Contribution components (auto-detect architecture)
+get_hook_path(16)                    # "model.layers.16" (residual)
 get_hook_path(16, "attn_contribution", model=model)
 # Gemma-2: "model.layers.16.post_attention_layernorm"
-# Others:  "model.layers.16.self_attn.o_proj"
+# Llama:   "model.layers.16.self_attn.o_proj"
 
-# Components: residual, attn_out, mlp_out, attn_contribution*, mlp_contribution*, k_proj, v_proj
-# *contribution components require model parameter
+# Components: residual, attn_contribution*, mlp_contribution*, k_proj, v_proj
+# *contribution components require model parameter (auto-detect architecture)
 ```
 
 **Architecture detection:**

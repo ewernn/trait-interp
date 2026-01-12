@@ -49,7 +49,7 @@ There are two capture modes with different data structures:
 
         'residual': {
             'input': torch.Tensor,       # [N, 2304]
-            'attn_out': torch.Tensor,    # [N, 2304] - attention contribution (o_proj output)
+            'attn_contribution': torch.Tensor,    # [N, 2304] - attention contribution (o_proj output)
             'residual': torch.Tensor     # [N, 2304] - layer output
         }
     },
@@ -74,7 +74,7 @@ There are two capture modes with different data structures:
 
         'residual': {
             'input': torch.Tensor,       # [50, 1, 2304] - extra dimension!
-            'attn_out': torch.Tensor,    # [50, 1, 2304]
+            'attn_contribution': torch.Tensor,    # [50, 1, 2304]
             'residual': torch.Tensor     # [50, 1, 2304]
         }
     }
@@ -118,7 +118,7 @@ There are two capture modes with different data structures:
         'activations': {
             0: {
                 'residual': torch.Tensor,    # [N, 2304] - layer output
-                'attn_out': torch.Tensor     # [N, 2304] - attention contribution
+                'attn_contribution': torch.Tensor     # [N, 2304] - attention contribution
             },
             1: {...},
             ...
@@ -141,7 +141,7 @@ There are two capture modes with different data structures:
         'activations': {
             0: {
                 'residual': torch.Tensor,    # [50, 2304] - layer output
-                'attn_out': torch.Tensor     # [50, 2304] - attention contribution
+                'attn_contribution': torch.Tensor     # [50, 2304] - attention contribution
             },
             1: {...},
             ...
@@ -209,7 +209,7 @@ mlp_up = data['prompt']['mlp']['up_proj']  # [N, 9216]
 mlp_down = data['prompt']['mlp']['down_proj']  # [N, 2304]
 
 # Access residual stream
-attn_contribution = data['prompt']['residual']['attn_out']  # [N, 2304]
+attn_contribution = data['prompt']['residual']['attn_contribution']  # [N, 2304]
 ```
 
 ### Loading Raw Residual
