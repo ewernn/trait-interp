@@ -40,60 +40,32 @@ MODEL_GPU_MAP = {
     "google/gemma-2-2b": "T4",
     "google/gemma-2-2b-it": "T4",
     "google/gemma-2-9b-it": "A10G",
+    "Qwen/Qwen3-1.7B": "T4",
     "Qwen/Qwen2.5-7B-Instruct": "A10G",
     "Qwen/Qwen2.5-14B-Instruct": "A10G",
     "Qwen/Qwen2.5-32B-Instruct": "A100",
 }
+
+# System prompt for live chat inference
+LIVE_CHAT_SYSTEM_PROMPT = "Respond concisely."
 
 def get_gpu_for_model(model_name: str) -> str:
     """Get appropriate GPU for a model."""
     return MODEL_GPU_MAP.get(model_name, "A10G")  # Default to A10G
 
 
-@app.function(
-    gpu="T4",  # Will be overridden based on model
-    image=image,
-    volumes={"/models": volume},
-    timeout=600,
-    secrets=[modal.Secret.from_name("huggingface")],
-)
-def capture_activations_stream(
-    model_name: str,
-    prompt: str,
-    max_new_tokens: int = 200,
-    temperature: float = 0.7,
-    component: str = "residual",
-):
+def _load_model_and_tokenizer(model_name: str):
     """
-    Stream activations from model inference token-by-token.
+    Load model and tokenizer, using volume cache if available.
 
-    Model is cached in /models volume - first run downloads, subsequent runs
-    load from disk (~5-10s instead of ~25-30s).
-
-    Args:
-        model_name: HuggingFace model ID
-        prompt: Input text (should be pre-formatted with chat template if needed)
-        max_new_tokens: Generation length
-        temperature: Sampling temperature
-        component: Which component to capture ("residual", "attn_out", "mlp_out")
-
-    Yields:
-        {
-            "token": token string,
-            "activations": {layer_idx: list[float]},  # [hidden_dim] for this token
-            "model": model_name,
-            "component": component,
-        }
+    Returns:
+        (model, tokenizer, load_time)
     """
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
     import time
 
-    print(f"Loading {model_name}...")
-
-    # Check if model is cached in volume
     model_cache_dir = Path(f"/models/{model_name.replace('/', '--')}")
-
     start = time.time()
 
     if model_cache_dir.exists():
@@ -123,9 +95,103 @@ def capture_activations_stream(
     load_time = time.time() - start
     print(f"✓ Model loaded in {load_time:.1f}s")
 
-    # Tokenize
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    return model, tokenizer, load_time
+
+
+@app.function(
+    gpu="T4",
+    image=image,
+    volumes={"/models": volume},
+    timeout=120,
+    secrets=[modal.Secret.from_name("huggingface")],
+)
+def warmup(model_name: str = "Qwen/Qwen3-1.7B") -> dict:
+    """
+    Warm up the GPU container by loading the model.
+
+    Call this on page load to reduce latency on first chat message.
+
+    Returns:
+        {"status": "ready", "model": model_name, "load_time": seconds}
+    """
+    print(f"🔥 Warming up with {model_name}...")
+    model, tokenizer, load_time = _load_model_and_tokenizer(model_name)
+
+    return {
+        "status": "ready",
+        "model": model_name,
+        "load_time": round(load_time, 2),
+        "num_layers": model.config.num_hidden_layers,
+    }
+
+
+@app.function(
+    gpu="T4",  # Will be overridden based on model
+    image=image,
+    volumes={"/models": volume},
+    timeout=600,
+    secrets=[modal.Secret.from_name("huggingface")],
+)
+def capture_activations_stream(
+    model_name: str,
+    prompt: str = None,
+    messages: list = None,
+    max_new_tokens: int = 200,
+    temperature: float = 0.0,
+    component: str = "residual",
+    steering_configs: list = None,
+    system_prompt: str = None,
+):
+    """
+    Stream activations from model inference token-by-token.
+
+    Model is cached in /models volume - first run downloads, subsequent runs
+    load from disk (~5-10s instead of ~25-30s).
+
+    Args:
+        model_name: HuggingFace model ID
+        prompt: Raw prompt text (use OR messages, not both)
+        messages: Chat messages [{"role": "user", "content": "..."}] (use OR prompt)
+        max_new_tokens: Generation length
+        temperature: Sampling temperature (0.0 for greedy)
+        component: Which component to capture ("residual", "attn_out", "mlp_out")
+        steering_configs: List of {"layer": int, "vector": list[float], "coefficient": float}
+        system_prompt: Optional system prompt (default: LIVE_CHAT_SYSTEM_PROMPT)
+
+    Yields:
+        {
+            "token": token string,
+            "activations": {layer_idx: list[float]},  # [hidden_dim] for this token
+            "model": model_name,
+            "component": component,
+        }
+    """
+    import torch
+    import time
+
+    print(f"Loading {model_name}...")
+    model, tokenizer, load_time = _load_model_and_tokenizer(model_name)
     num_layers = model.config.num_hidden_layers
+
+    # Format prompt with chat template if messages provided
+    if messages is not None:
+        # Add system prompt
+        sys_prompt = system_prompt or LIVE_CHAT_SYSTEM_PROMPT
+        full_messages = [{"role": "system", "content": sys_prompt}] + messages
+
+        # Apply chat template with Qwen3 thinking disabled
+        template_kwargs = {"add_generation_prompt": True, "tokenize": False}
+        if "Qwen3" in model_name:
+            template_kwargs["enable_thinking"] = False
+
+        formatted_prompt = tokenizer.apply_chat_template(full_messages, **template_kwargs)
+    elif prompt is not None:
+        formatted_prompt = prompt
+    else:
+        raise ValueError("Either 'prompt' or 'messages' must be provided")
+
+    # Tokenize
+    inputs = tokenizer(formatted_prompt, return_tensors="pt").to(model.device)
 
     # Storage for activations (cleared each token)
     current_activations = {}
@@ -158,11 +224,54 @@ def capture_activations_stream(
                 hooks.append(module.register_forward_hook(make_hook(i)))
                 break
 
+    # Register steering hooks if provided
+    # Pattern from core/hooks.py:SteeringHook - adds coefficient * vector to layer output
+    steering_hooks = []
+    if steering_configs:
+        print(f"🎯 Applying steering: {len(steering_configs)} vectors")
+
+        # Prepare steering vectors as tensors
+        steering_vectors = {}
+        for cfg in steering_configs:
+            layer = cfg['layer']
+            vector = torch.tensor(cfg['vector'], dtype=torch.float32, device=model.device)
+            coefficient = cfg['coefficient']
+            steering_vectors[layer] = (vector, coefficient)
+            print(f"   L{layer}: coef={coefficient}")
+
+        def make_steering_hook(layer_idx):
+            def hook(module, inputs, outputs):
+                if layer_idx not in steering_vectors:
+                    return outputs
+                vector, coef = steering_vectors[layer_idx]
+                out_tensor = outputs[0] if isinstance(outputs, tuple) else outputs
+                # Add steering: coefficient * vector (cast to output dtype)
+                steer = (coef * vector).to(dtype=out_tensor.dtype)
+                if isinstance(outputs, tuple):
+                    return (out_tensor + steer, *outputs[1:])
+                return out_tensor + steer
+            return hook
+
+        # Register steering hooks on residual stream (same layers as steering configs)
+        for layer in steering_vectors.keys():
+            path = f"model.layers.{layer}"
+            for name, module in model.named_modules():
+                if name == path:
+                    steering_hooks.append(module.register_forward_hook(make_steering_hook(layer)))
+                    break
+
     # Generate token-by-token and yield immediately
     print(f"Generating up to {max_new_tokens} tokens...")
     gen_start = time.time()
 
     context = inputs.input_ids.clone()
+
+    # Build stop token set (EOS + model-specific tokens)
+    stop_token_ids = {tokenizer.eos_token_id}
+    for token in ['<|im_end|>', '<|end|>', '<|eot_id|>', '<end_of_turn>']:
+        token_ids = tokenizer.encode(token, add_special_tokens=False)
+        if token_ids:
+            stop_token_ids.add(token_ids[0])
 
     with torch.no_grad():
         for step in range(max_new_tokens):
@@ -171,12 +280,17 @@ def capture_activations_stream(
 
             # Forward pass (hooks capture activations)
             outputs = model(input_ids=context)
-            logits = outputs.logits[:, -1, :] / temperature
-            probs = torch.softmax(logits, dim=-1)
-            next_token = torch.multinomial(probs, 1)
+            logits = outputs.logits[:, -1, :]
 
-            # Stop on EOS
-            if next_token.item() == tokenizer.eos_token_id:
+            # Sample next token (greedy if temp=0, otherwise sample)
+            if temperature == 0.0:
+                next_token = logits.argmax(dim=-1, keepdim=True)
+            else:
+                probs = torch.softmax(logits / temperature, dim=-1)
+                next_token = torch.multinomial(probs, 1)
+
+            # Stop on any stop token
+            if next_token.item() in stop_token_ids:
                 break
 
             # Decode token
@@ -197,10 +311,16 @@ def capture_activations_stream(
             context = torch.cat([context, next_token], dim=1)
 
     gen_time = time.time() - gen_start
-    print(f"✓ Generated {step+1} tokens in {gen_time:.1f}s ({gen_time/(step+1):.3f}s/token)")
+    tokens_generated = step + 1 if 'step' in dir() else 0
+    if tokens_generated > 0:
+        print(f"✓ Generated {tokens_generated} tokens in {gen_time:.1f}s ({gen_time/tokens_generated:.3f}s/token)")
+    else:
+        print(f"✓ Generated 0 tokens")
 
-    # Remove hooks
+    # Remove all hooks
     for h in hooks:
+        h.remove()
+    for h in steering_hooks:
         h.remove()
 
 

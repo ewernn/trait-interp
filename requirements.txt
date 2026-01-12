@@ -3,6 +3,8 @@ fire==0.7.0
 PyYAML==6.0.2
 transformers==4.57.3
 accelerate
+modal
+torch
 
 # traitlens dependencies (now bundled in traitlens/)
 scipy>=1.7.0

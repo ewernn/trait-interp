@@ -311,7 +311,7 @@ def save_findings_yaml(model_id: str, findings: dict) -> Path:
     # Generate filename from model_id
     slug = model_id.split("/")[-1].lower()
 
-    yaml_dir = Path(__file__).parent.parent / "config" / "models"
+    yaml_dir = Path(__file__).parent.parent.parent / "config" / "models"
     yaml_path = yaml_dir / f"{slug}.yaml"
 
     # Load existing config if present
