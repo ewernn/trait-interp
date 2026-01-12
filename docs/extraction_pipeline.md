@@ -426,7 +426,7 @@ python extraction/run_pipeline.py \
 # Result (all in same experiment):
 #   - Vectors: experiments/{experiment}/extraction/{category}/{trait}/vectors/{position}/{component}/{method}/
 #   - Eval: experiments/{experiment}/extraction/extraction_evaluation.json
-#   - Steering: experiments/{experiment}/steering/{category}/{trait}/{position}/results.json
+#   - Steering: experiments/{experiment}/steering/{trait}/{model_variant}/{position}/{prompt_set}/results.jsonl
 
 # 3. With custom position (last response token only)
 python extraction/run_pipeline.py \

@@ -78,7 +78,7 @@ trait-interp/
 │       │   └── vectors/{position}/{component}/{method}/layer*.pt
 │       ├── inference/                # Raw activations, projections
 │       ├── steering/{trait}/{model_variant}/{position}/{prompt_set}/
-│       │   ├── results.json
+│       │   ├── results.jsonl
 │       │   └── responses/{component}/{method}/
 │       └── benchmark/                # Benchmark results
 │

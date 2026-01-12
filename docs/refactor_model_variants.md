@@ -67,7 +67,7 @@ extraction/{trait}/{model_variant}/
 ### Steering
 ```
 steering/{trait}/{model_variant}/{position}/{prompt_set}/
-├── results.json
+├── results.jsonl
 └── responses/
     ├── baseline.json
     └── {component}/L{layer}_c{coef}_{timestamp}.json
@@ -115,9 +115,8 @@ Update CLI args and path calls in all scripts:
 - `extraction/extract_activations.py`
 - `extraction/extract_vectors.py`
 
-**Steering** (2 files):
+**Steering** (1 file):
 - `analysis/steering/evaluate.py`
-- `analysis/steering/multilayer.py`
 
 **Inference** (2 files):
 - `inference/capture_raw_activations.py`

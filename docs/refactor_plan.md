@@ -61,9 +61,7 @@ class MultiLayerSteeringHook:
         """Create from VectorSpecs and pre-loaded vectors."""
 ```
 
-In `analysis/steering/multilayer.py`:
-- `compute_weighted_coefficients()` — delta-weighted coefficient distribution
-- `run_multilayer_evaluation()` — full multi-layer steering eval
+For multi-layer ensembles, use `analysis/steering/optimize_ensemble.py` (CMA-ES optimization).
 
 ### Ensemble Projection (Already Works)
 
@@ -104,8 +102,8 @@ extraction/{category}/{trait}/
 ### Steering (responses nested by component/method)
 
 ```
-steering/{category}/{trait}/{position}/
-├── results.json                            # All individual vector results
+steering/{category}/{trait}/{model_variant}/{position}/{prompt_set}/
+├── results.jsonl                           # All individual vector results (JSONL format)
 └── responses/
     ├── {component}/{method}/               # Fixed: now includes method
     │   ├── baseline.json
@@ -171,7 +169,7 @@ Quick visibility without opening each file:
 
 `get_best_overall()` in `utils/vectors.py` searches both sources:
 
-1. **Individual vectors:** Read `steering/{trait}/{position}/results.json`, find best delta with coherence >= threshold
+1. **Individual vectors:** Read `steering/{trait}/{model_variant}/{position}/{prompt_set}/results.jsonl`, find best delta with coherence >= threshold
 2. **Ensembles:** Read `ensembles/manifest.json`, compare deltas
 3. **Return:** Best overall (individual or ensemble) as `ProjectionConfig`
 

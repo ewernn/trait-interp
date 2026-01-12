@@ -46,57 +46,29 @@ python analysis/steering/evaluate.py \
 
 ## Multi-Layer Steering
 
-Two modes for steering multiple layers simultaneously:
-
-**Weighted mode**: `coef_ℓ = global_scale * best_coef_ℓ * (delta_ℓ / Σ deltas)`
-
-Coefficients proportional to each layer's single-layer effectiveness. Requires single-layer results first.
-
-**Orthogonal mode**: `v_ℓ_orth = v_ℓ - proj(v_ℓ → v_{ℓ-1})`
-
-Each vector projected orthogonal to previous layer's vector to remove shared components.
+For multi-layer ensembles, use `optimize_ensemble.py` which finds optimal layer coefficients via CMA-ES:
 
 ```bash
---multi-layer weighted --global-scale 1.5
---multi-layer orthogonal --global-scale 2.0
+python analysis/steering/optimize_ensemble.py \
+    --experiment {experiment} \
+    --trait {category}/{trait} \
+    --layers 11,13 \
+    --component attn_contribution
 ```
+
+Results saved as ensembles in `experiments/{experiment}/ensembles/{trait}/`. See `utils/ensembles.py` for the ensemble API.
 
 ## Results Format
 
-Results accumulate in `experiments/{experiment}/steering/{trait}/{model_variant}/{position}/{prompt_set}/results.json`:
+Results stored as JSONL (one entry per line) in `experiments/{experiment}/steering/{trait}/{model_variant}/{position}/{prompt_set}/results.jsonl`:
 
-```json
-{
-  "trait": "epistemic/optimism",
-  "steering_model": "google/gemma-2-2b-it",
-  "steering_experiment": "gemma-2-2b",
-  "vector_source": {
-    "model": "google/gemma-2-2b",
-    "experiment": "gemma-2-2b",
-    "trait": "epistemic/optimism"
-  },
-  "eval": {
-    "model": "gpt-4.1-mini",
-    "method": "logprob"
-  },
-  "baseline": {"trait_mean": 61.3, "coherence_mean": 92.0, "n": 20},
-  "runs": [
-    {
-      "config": {
-        "vectors": [{
-          "layer": 16,
-          "component": "residual",
-          "position": "response[:]",
-          "method": "probe",
-          "weight": 200.0
-        }]
-      },
-      "result": {"trait_mean": 84.8, "coherence_mean": 80.9, "n": 20},
-      "timestamp": "2025-12-07T04:49:16"
-    }
-  ]
-}
+```jsonl
+{"type": "header", "trait": "epistemic/optimism", "steering_model": "google/gemma-2-2b-it", ...}
+{"type": "baseline", "result": {"trait_mean": 61.3, "coherence_mean": 92.0, "n": 20}, "timestamp": "..."}
+{"result": {"trait_mean": 84.8, "coherence_mean": 80.9, "n": 20}, "config": {"vectors": [...]}, "timestamp": "..."}
 ```
+
+Benefits: append-only writes (crash-safe), easy `grep`/`tail`, no rewriting entire file on each run.
 
 Each run's `config.vectors` array uses the VectorSpec format (see `core/types.py`).
 
@@ -137,6 +109,11 @@ Uses `gpt-4.1-mini` with logprob scoring. Requires `OPENAI_API_KEY`.
 
 ## Advanced Options
 
+**Response saving (`--save-responses`):**
+- `best` (default): Save only best result per layer (highest trait where coherence ≥70, or best coherence as fallback)
+- `all`: Save every config evaluated (old behavior, generates many files)
+- `none`: Don't save response files, only results.jsonl
+
 **Output length (`--max-new-tokens`):**
 - Default: 256 tokens
 - Recommended: 64 tokens for 7x faster evaluation with similar results
@@ -149,7 +126,7 @@ Uses `gpt-4.1-mini` with logprob scoring. Requires `OPENAI_API_KEY`.
 
 ## Gotchas
 
-- **Large coefficients break coherence** - Track coherence score, stay >70 (MIN_COHERENCE in utils/vectors.py)
+- **Large coefficients break coherence** - Track coherence score, stay ≥70 (MIN_COHERENCE in utils/vectors.py)
 - **Best steering layer ≠ best classification layer** - May differ
 
 ## Coherence Scoring

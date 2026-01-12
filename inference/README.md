@@ -333,6 +333,43 @@ JSON files in `datasets/inference/`:
 | `harmful.json` | 5 harmful requests (refusal testing) |
 | `benign.json` | 5 benign requests (parallel to harmful) |
 
+## Modal Deployment (Live Chat)
+
+`modal_inference.py` provides serverless GPU inference for the Live Chat feature.
+
+### Setup
+
+```bash
+# Login to Modal
+modal token new
+
+# Deploy
+modal deploy inference/modal_inference.py
+```
+
+### Functions
+
+| Function | Purpose |
+|----------|---------|
+| `warmup()` | Preload model into GPU memory (reduces cold start) |
+| `capture_activations_stream()` | Stream tokens + activations during generation |
+
+### How it works
+
+- Copies `core/` and `utils/` into Docker image at build time
+- Uses `core/hooks.py` for `HookManager`, `SteeringHook`, `get_hook_path`
+- Model cached in Modal Volume (`/models`) for fast subsequent loads
+- Handles chat template formatting (system prompt, special tokens)
+
+### Monitoring
+
+```bash
+modal app list              # List deployed apps
+modal app logs trait-capture  # Stream logs
+```
+
+Or view at: https://modal.com/apps/{username}/main/deployed/trait-capture
+
 ## Requirements
 
 - Extracted trait vectors (run extraction pipeline first)

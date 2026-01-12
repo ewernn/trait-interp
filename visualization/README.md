@@ -88,9 +88,11 @@ Interactive chat with real-time trait monitoring:
 - **Hover interactions**: Hover over chart to highlight corresponding token in chat. Hover over legend to see vector metadata (layer, method, source).
 - **3-token running average**: Toggle smoothing in chart header.
 
-**Inference backends** (controlled by `INFERENCE_MODE` env var):
-- `local` (default): Load model locally for inference
-- `modal`: Use Modal GPU for inference (for Railway deployment)
+**Inference backends** (controlled by `MODE` env var):
+- `MODE=development` (default): Local inference, all dev features visible
+- `MODE=production`: Modal GPU inference, clean public UI
+
+In development mode, toggle between Local and Modal GPU using the switch in the UI.
 
 ## Data Sources
 
@@ -98,34 +100,21 @@ The visualization automatically loads data from your experiment structure.
 
 **Path Management**: Uses centralized `PathBuilder` class in `core/paths.js` - all path construction is consistent and maintainable.
 
-**Supported Directory Structures**:
-- **Legacy (flat)**: `experiments/{exp}/extraction/{trait}/...`
-- **Categorized**: `experiments/{exp}/extraction/{category}/{trait}/...` (e.g., `behavioral_tendency/retrieval`)
+**Directory Structure** (with model variants):
 
 ```
 experiments/{experiment_name}/
+├── config.json                              # { defaults: {extraction, application}, model_variants: {...} }
 ├── extraction/
-│   └── {category}/                          # Category (behavioral_tendency, cognitive_state, etc.)
-│       └── {trait_name}/                    # Trait name (e.g., refusal, uncertainty)
-│           ├── positive.txt                 # Positive elicitation prompts
-│           ├── negative.txt                 # Negative elicitation prompts
-│           ├── val_positive.txt             # Validation positive prompts
-│           ├── val_negative.txt             # Validation negative prompts
-│           ├── trait_definition.txt         # Trait description
-│           ├── generation_metadata.json     # Generation settings
-│           ├── responses/
-│           │   ├── pos.json                 # Generated positive responses
-│           │   └── neg.json                 # Generated negative responses
-│           ├── val_responses/
-│           │   ├── val_pos.json             # Validation positive responses
-│           │   └── val_neg.json             # Validation negative responses
-│           ├── activations/{position}/{component}/
-│           │   ├── metadata.json            # Extraction metadata
-│           │   ├── train_all_layers.pt      # Shape: [n_examples, n_layers, hidden_dim]
-│           │   └── val_all_layers.pt        # Validation activations (same format)
-│           └── vectors/{position}/{component}/{method}/
-│               ├── layer{N}.pt              # Extracted vectors
-│               └── metadata.json
+│   └── {category}/                          # Category (e.g., behavioral_tendency)
+│       └── {trait_name}/                    # Trait name (e.g., refusal)
+│           └── {model_variant}/             # Model variant (e.g., base, instruct)
+│               ├── responses/
+│               │   ├── pos.json
+│               │   └── neg.json
+│               └── vectors/{position}/{component}/{method}/
+│                   ├── layer{N}.pt
+│                   └── metadata.json
 └── inference/
     ├── raw/                                 # Trait-independent raw activations (.pt)
     │   ├── residual/{prompt_set}/           # All-layer activations
