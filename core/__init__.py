@@ -47,3 +47,10 @@ from .logit_lens import (
     build_common_token_mask,
     get_interpretation_layers,
 )
+from .generation import (
+    HookedGenerator,
+    CaptureConfig,
+    SteeringConfig,
+    TokenOutput,
+    SequenceOutput,
+)

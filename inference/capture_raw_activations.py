@@ -8,7 +8,6 @@ vectors are computed separately via project_raw_activations_onto_traits.py.
 Output files:
   Raw activations : experiments/{exp}/inference/raw/residual/{prompt_set}/{id}.pt
   Responses       : experiments/{exp}/inference/responses/{prompt_set}/{id}.json
-  Layer internals : experiments/{exp}/inference/raw/internals/{prompt_set}/{id}_L{layer}.pt
 
 .pt file structure (model-agnostic):
   {
@@ -39,12 +38,6 @@ Usage:
         --prompt-set harmful \\
         --capture-mlp
 
-    # Deep capture with full layer internals (Q/K/V, MLP)
-    python inference/capture_raw_activations.py \\
-        --experiment my_experiment \\
-        --prompt-set dynamic \\
-        --layer-internals all
-
     # Model-diff: run same responses through different model
     python inference/capture_raw_activations.py \\
         --experiment my_experiment \\
@@ -70,10 +63,9 @@ from datetime import datetime
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from core import HookManager
-from utils.model import format_prompt, tokenize_prompt, load_experiment_config, load_model_with_lora, get_inner_model, get_layer_path_prefix, tokenize
+from utils.model import format_prompt, load_experiment_config, load_model_with_lora, get_inner_model, get_layer_path_prefix, tokenize
 from utils.json import dump_compact
-from utils.generation import generate_with_capture, calculate_max_batch_size, create_residual_storage, setup_residual_hooks
+from utils.generation import generate_with_capture, calculate_max_batch_size
 from utils.paths import get as get_path, get_model_variant, get_inference_raw_dir
 from utils.model_registry import get_model_slug
 from other.server.client import get_model_or_client, ModelClient
@@ -115,44 +107,6 @@ def capture_result_to_data(result, n_layers: int) -> Dict:
     }
 
 
-def extract_residual_from_internals(all_layer_data: Dict[int, Dict], n_layers: int) -> Dict:
-    """Convert layer internals format to standard residual format for saving."""
-    first_layer = min(all_layer_data.keys())
-    layer_data = all_layer_data[first_layer]
-
-    prompt_acts = {}
-    response_acts = {}
-    for layer_idx in range(n_layers):
-        if layer_idx in all_layer_data:
-            layer = all_layer_data[layer_idx]
-            prompt_acts[layer_idx] = {
-                'attn_out': layer['prompt']['residual'].get('attn_out', torch.empty(0)),
-                'residual': layer['prompt']['residual'].get('residual', torch.empty(0))
-            }
-            response_acts[layer_idx] = {
-                'attn_out': layer['response']['residual'].get('attn_out', torch.empty(0)),
-                'residual': layer['response']['residual'].get('residual', torch.empty(0))
-            }
-        else:
-            prompt_acts[layer_idx] = {'attn_out': torch.empty(0), 'residual': torch.empty(0)}
-            response_acts[layer_idx] = {'attn_out': torch.empty(0), 'residual': torch.empty(0)}
-
-    return {
-        'prompt': {
-            'text': layer_data['prompt_text'],
-            'tokens': layer_data['prompt_tokens'],
-            'token_ids': [],
-            'activations': prompt_acts
-        },
-        'response': {
-            'text': layer_data['response_text'],
-            'tokens': layer_data['response_tokens'],
-            'token_ids': [],
-            'activations': response_acts
-        }
-    }
-
-
 def capture_residual_stream_prefill(model, tokenizer, prompt_text: str, response_text: str,
                                      n_layers: int, capture_mlp: bool = False,
                                      capture_attention: bool = False) -> Dict:
@@ -160,7 +114,10 @@ def capture_residual_stream_prefill(model, tokenizer, prompt_text: str, response
     Capture residual stream activations with prefilled response (single forward pass).
 
     Used for model-diff analysis: run same text through different models.
+    Uses MultiLayerCapture primitive for clean hook management.
     """
+    from core import MultiLayerCapture
+
     # Tokenize prompt
     prompt_inputs = tokenize(prompt_text, tokenizer).to(model.device)
     n_prompt_tokens = prompt_inputs['input_ids'].shape[1]
@@ -175,24 +132,45 @@ def capture_residual_stream_prefill(model, tokenizer, prompt_text: str, response
     # Concatenate for single forward pass
     full_input_ids = torch.cat([prompt_inputs['input_ids'], response_inputs['input_ids']], dim=1)
 
-    # Capture all activations in one pass
-    layer_prefix = get_layer_path_prefix(model)
-    storage = create_residual_storage(n_layers, capture_mlp=capture_mlp)
-    with HookManager(model) as hooks:
-        setup_residual_hooks(hooks, storage, n_layers, 'prompt', capture_mlp=capture_mlp, layer_prefix=layer_prefix)
-        with torch.no_grad():
-            outputs = model(input_ids=full_input_ids, output_attentions=capture_attention, return_dict=True)
+    # Capture all components in one forward pass using MultiLayerCapture
+    with MultiLayerCapture(model, component='residual') as cap_residual:
+        with MultiLayerCapture(model, component='attn_out') as cap_attn:
+            if capture_mlp:
+                with MultiLayerCapture(model, component='mlp_out') as cap_mlp:
+                    with torch.no_grad():
+                        outputs = model(input_ids=full_input_ids, output_attentions=capture_attention, return_dict=True)
+                mlp_acts_full = cap_mlp.get_all()
+            else:
+                with torch.no_grad():
+                    outputs = model(input_ids=full_input_ids, output_attentions=capture_attention, return_dict=True)
+                mlp_acts_full = {}
+        attn_acts_full = cap_attn.get_all()
+    residual_acts_full = cap_residual.get_all()
 
     # Split activations into prompt/response portions
     prompt_acts = {}
     response_acts = {}
-    for i in range(n_layers):
-        prompt_acts[i] = {}
-        response_acts[i] = {}
-        for k, v in storage[i].items():
-            full_acts = v[0].squeeze(0)  # [seq_len, hidden_dim]
-            prompt_acts[i][k] = full_acts[:n_prompt_tokens]
-            response_acts[i][k] = full_acts[n_prompt_tokens:]
+    for layer_idx in range(n_layers):
+        prompt_acts[layer_idx] = {}
+        response_acts[layer_idx] = {}
+
+        # Residual: [batch, seq_len, hidden] -> [seq_len, hidden]
+        if layer_idx in residual_acts_full:
+            full = residual_acts_full[layer_idx].squeeze(0)
+            prompt_acts[layer_idx]['residual'] = full[:n_prompt_tokens]
+            response_acts[layer_idx]['residual'] = full[n_prompt_tokens:]
+
+        # Attention output
+        if layer_idx in attn_acts_full:
+            full = attn_acts_full[layer_idx].squeeze(0)
+            prompt_acts[layer_idx]['attn_out'] = full[:n_prompt_tokens]
+            response_acts[layer_idx]['attn_out'] = full[n_prompt_tokens:]
+
+        # MLP output (optional)
+        if capture_mlp and layer_idx in mlp_acts_full:
+            full = mlp_acts_full[layer_idx].squeeze(0)
+            prompt_acts[layer_idx]['mlp_out'] = full[:n_prompt_tokens]
+            response_acts[layer_idx]['mlp_out'] = full[n_prompt_tokens:]
 
     # Split attention patterns (only if captured)
     prompt_attention = {}
@@ -215,189 +193,9 @@ def capture_residual_stream_prefill(model, tokenizer, prompt_text: str, response
     }
 
 
-def create_internals_storage() -> Dict:
-    """Create storage for single-layer deep capture."""
-    return {
-        'attention': {'q_proj': [], 'k_proj': [], 'v_proj': [], 'attn_weights': []},
-        'mlp': {'up_proj': [], 'gelu': [], 'down_proj': []},
-        'residual': {'input': [], 'attn_out': [], 'residual': []}
-    }
-
-
-def setup_internals_hooks(hook_manager: HookManager, storage: Dict, layer_idx: int, mode: str,
-                          layer_prefix: str = "model.layers"):
-    """Register hooks for single layer internals."""
-    # Attention projections (Q/K/V)
-    for proj in ['q_proj', 'k_proj', 'v_proj']:
-        def make_hook(key):
-            def hook(module, inp, out):
-                t = out[:, -1, :] if mode == 'response' else out
-                storage['attention'][key].append(t.detach().cpu())
-            return hook
-        hook_manager.add_forward_hook(f"{layer_prefix}.{layer_idx}.self_attn.{proj}", make_hook(proj))
-
-    # MLP stages
-    for proj, path in [('up_proj', 'up_proj'), ('gelu', 'act_fn'), ('down_proj', 'down_proj')]:
-        def make_hook(key):
-            def hook(module, inp, out):
-                t = out[:, -1, :] if mode == 'response' else out
-                storage['mlp'][key].append(t.detach().cpu())
-            return hook
-        hook_manager.add_forward_hook(f"{layer_prefix}.{layer_idx}.mlp.{path}", make_hook(proj))
-
-    # Layer input/output (residual stream)
-    def layer_hook(module, inp, out):
-        inp_t = inp[0] if isinstance(inp, tuple) else inp
-        out_t = out[0] if isinstance(out, tuple) else out
-        if mode == 'response':
-            storage['residual']['input'].append(inp_t[:, -1, :].detach().cpu())
-            storage['residual']['residual'].append(out_t[:, -1, :].detach().cpu())
-        else:
-            storage['residual']['input'].append(inp_t.detach().cpu())
-            storage['residual']['residual'].append(out_t.detach().cpu())
-    hook_manager.add_forward_hook(f"{layer_prefix}.{layer_idx}", layer_hook)
-
-    # Attention output (o_proj)
-    def attn_out_hook(module, inp, out):
-        t = out[:, -1, :] if mode == 'response' else out
-        storage['residual']['attn_out'].append(t.detach().cpu())
-    hook_manager.add_forward_hook(f"{layer_prefix}.{layer_idx}.self_attn.o_proj", attn_out_hook)
-
-
-def capture_multiple_layer_internals(model, tokenizer, prompt_text: str, layer_indices: list,
-                                     max_new_tokens: int, temperature: float,
-                                     use_chat_template: bool = None) -> Dict[int, Dict]:
-    """Capture internals for multiple layers in a SINGLE forward pass."""
-    inputs = tokenize_prompt(prompt_text, tokenizer, use_chat_template).to(model.device)
-    token_ids = inputs['input_ids'][0].tolist()
-    tokens = [tokenizer.decode([tid]) for tid in token_ids]
-    layer_prefix = get_layer_path_prefix(model)
-
-    # Storage for all requested layers
-    all_layer_data = {}
-
-    # PROMPT PHASE - Single forward pass for all layers
-    prompt_storages = {idx: create_internals_storage() for idx in layer_indices}
-
-    with HookManager(model) as hooks:
-        # Set up hooks for ALL requested layers
-        for layer_idx in layer_indices:
-            setup_internals_hooks(hooks, prompt_storages[layer_idx], layer_idx, 'prompt', layer_prefix)
-
-        # Single forward pass captures all layers!
-        with torch.no_grad():
-            outputs = model(**inputs, output_attentions=True, return_dict=True)
-
-    # Extract data for each layer
-    for layer_idx in layer_indices:
-        prompt_internals = {
-            'attention': {k: v[0].squeeze(0) for k, v in prompt_storages[layer_idx]['attention'].items() if v},
-            'mlp': {k: v[0].squeeze(0) for k, v in prompt_storages[layer_idx]['mlp'].items() if v},
-            'residual': {k: v[0].squeeze(0) for k, v in prompt_storages[layer_idx]['residual'].items() if v}
-        }
-        prompt_internals['attention']['attn_weights'] = outputs.attentions[layer_idx][0].detach().cpu()
-        all_layer_data[layer_idx] = {'prompt': prompt_internals}
-
-    # RESPONSE PHASE - Generate once, capture all layers
-    response_storages = {idx: create_internals_storage() for idx in layer_indices}
-    context = inputs['input_ids'].clone()
-    generated_ids = []
-    past_key_values = None  # KV cache for efficient generation
-
-    for step in range(max_new_tokens):
-        with HookManager(model) as hooks:
-            # Set up hooks for ALL layers
-            for layer_idx in layer_indices:
-                setup_internals_hooks(hooks, response_storages[layer_idx], layer_idx, 'response', layer_prefix)
-
-            # Single forward pass with KV cache
-            with torch.no_grad():
-                outputs = model(
-                    input_ids=context,
-                    past_key_values=past_key_values,
-                    use_cache=True,
-                    output_attentions=True,
-                    return_dict=True
-                )
-
-        # Update KV cache for next iteration
-        past_key_values = outputs.past_key_values
-
-        # Save attention for all layers
-        for layer_idx in layer_indices:
-            response_storages[layer_idx]['attention']['attn_weights'].append(
-                outputs.attentions[layer_idx][0].detach().cpu()
-            )
-
-        # Generate next token (same for all layers)
-        logits = outputs.logits[0, -1, :] / temperature
-        probs = torch.softmax(logits, dim=-1)
-        next_id = torch.multinomial(probs, 1).item()
-
-        # Update context to just new token (KV cache handles history)
-        context = torch.tensor([[next_id]], device=model.device)
-        generated_ids.append(next_id)
-
-        if next_id == tokenizer.eos_token_id:
-            break
-
-    # Package response data for all layers
-    response_tokens = [tokenizer.decode([tid]) for tid in generated_ids]
-    response_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
-
-    for layer_idx in layer_indices:
-        response_internals = {
-            'attention': {},
-            'mlp': {},
-            'residual': {}
-        }
-
-        # Handle attention separately (variable size due to growing context)
-        # Skip first capture (duplicates prompt[-1], captured before any token generated)
-        for k, v in response_storages[layer_idx]['attention'].items():
-            if k == 'attn_weights':
-                # Keep as list of tensors with different sizes
-                response_internals['attention'][k] = v[1:] if len(v) > 1 else []
-            elif len(v) > 1:
-                # Other attention tensors should be same size, can stack
-                response_internals['attention'][k] = torch.stack(v[1:])
-            else:
-                response_internals['attention'][k] = torch.tensor([])
-
-        # MLP tensors are all same size, can stack (skip first capture)
-        for k, v in response_storages[layer_idx]['mlp'].items():
-            if len(v) > 1:
-                response_internals['mlp'][k] = torch.stack(v[1:])
-            else:
-                response_internals['mlp'][k] = torch.tensor([])
-
-        # Residual tensors are all same size, can stack (skip first capture)
-        for k, v in response_storages[layer_idx]['residual'].items():
-            if len(v) > 1:
-                response_internals['residual'][k] = torch.stack(v[1:])
-            else:
-                response_internals['residual'][k] = torch.tensor([])
-
-        all_layer_data[layer_idx]['response'] = response_internals
-        all_layer_data[layer_idx]['prompt_text'] = prompt_text
-        all_layer_data[layer_idx]['prompt_tokens'] = tokens
-        all_layer_data[layer_idx]['response_text'] = response_text
-        all_layer_data[layer_idx]['response_tokens'] = response_tokens
-
-    # Free intermediate storage
-    del prompt_storages, response_storages, past_key_values
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-
-    return all_layer_data
-
-
-
 def _save_capture_data(
     data: Dict, prompt_item: Dict, set_name: str, inference_dir: Path,
     args, model_name: str = None, lora_adapter: str = None,
-    all_layer_data=None, layer_indices=None
 ):
     """Save captured data: raw .pt and response JSON.
 
@@ -440,14 +238,6 @@ def _save_capture_data(
     with open(responses_dir / f"{prompt_id}.json", 'w') as f:
         dump_compact(response_data, f)
 
-    # Optional: Save layer internals .pt files
-    if args.layer_internals is not None and all_layer_data is not None and layer_indices is not None:
-        internals_dir = inference_dir / "raw" / "internals" / set_name
-        internals_dir.mkdir(parents=True, exist_ok=True)
-
-        for layer_idx in layer_indices:
-            torch.save(all_layer_data[layer_idx], internals_dir / f"{prompt_id}_L{layer_idx}.pt")
-
 
 def main():
     parser = argparse.ArgumentParser(description="Capture raw activations from model inference")
@@ -471,10 +261,7 @@ def main():
     parser.add_argument("--limit", type=int, default=None,
                        help="Limit number of prompts to process (for testing)")
 
-    # Optional deep capture
-    parser.add_argument("--layer-internals", metavar="N", action='append',
-                       help="Save full layer internals as .pt files (Q/K/V, MLP, residual). "
-                            "Use 'all' for all layers or specify layer indices.")
+    # Optional capture
     parser.add_argument("--capture-mlp", action="store_true",
                        help="Also capture mlp_out activations (down_proj output)")
 
@@ -635,47 +422,6 @@ def main():
         print(f"\n{'='*60}")
         print(f"Processing: {set_name} ({len(prompts)} prompts)")
         print(f"{'='*60}")
-
-        # ================================================================
-        # LAYER INTERNALS MODE: Sequential deep capture
-        # ================================================================
-        if args.layer_internals is not None:
-            # Parse layer indices once
-            layer_indices = []
-            for layer_spec in args.layer_internals:
-                if layer_spec == 'all':
-                    layer_indices = list(range(n_layers))
-                    break
-                else:
-                    layer_indices.append(int(layer_spec))
-
-            for prompt_item in tqdm(prompts, desc="Capturing internals"):
-                prompt_id = prompt_item['id']
-                raw_prompt = prompt_item.get('text') or prompt_item.get('prompt')
-                prompt_note = prompt_item.get('note', '')
-                prompt_text = format_prompt(raw_prompt, tokenizer, use_chat_template=use_chat_template)
-                # Append prefill if provided (for prefill attack testing)
-                if args.prefill:
-                    prompt_text = prompt_text + args.prefill
-
-                # Heavy capture: layer internals (includes residual)
-                all_layer_data = capture_multiple_layer_internals(
-                    model, tokenizer, prompt_text, layer_indices,
-                    args.max_new_tokens, args.temperature,
-                    use_chat_template=use_chat_template
-                )
-
-                # Extract residual data from internals for projections
-                data = extract_residual_from_internals(all_layer_data, n_layers)
-
-                # Save raw .pt and response JSON
-                _save_capture_data(
-                    data, prompt_item, set_name, inference_dir, args,
-                    model_name=model_name, lora_adapter=lora,
-                    all_layer_data=all_layer_data, layer_indices=layer_indices
-                )
-
-            continue  # Done with this prompt set
 
         # ================================================================
         # REPLAY-RESPONSES MODE: Prefill capture from another prompt set

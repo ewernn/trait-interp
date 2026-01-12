@@ -46,7 +46,7 @@ from utils.paths import (
 from utils.model import load_model_with_lora
 from utils.model_registry import is_base_model
 from extraction.generate_responses import generate_responses_for_trait
-from extraction.extract_activations import extract_activations_for_trait
+from extraction.extract_activations import extract_activations_for_trait, resolve_max_new_tokens
 from extraction.extract_vectors import extract_vectors_for_trait
 from extraction.vet_scenarios import vet_scenarios
 from extraction.vet_responses import vet_responses
@@ -107,6 +107,7 @@ def run_pipeline(
     force: bool = False,
     methods: List[str] = None,
     vet: bool = True,
+    vet_scenarios: bool = False,
     rollouts: int = 1,
     temperature: float = 0.0,
     val_split: float = 0.1,
@@ -117,7 +118,7 @@ def run_pipeline(
     position: str = 'response[:5]',
     load_in_8bit: bool = False,
     load_in_4bit: bool = False,
-    max_new_tokens: int = 32,
+    max_new_tokens: Optional[int] = None,
     max_concurrent: int = 20,
     paired_filter: bool = False,
     adaptive: bool = False,
@@ -125,6 +126,16 @@ def run_pipeline(
 ):
     """Execute extraction pipeline."""
     methods = methods or ['mean_diff', 'probe', 'gradient']
+
+    # Resolve max_new_tokens from position
+    max_new_tokens = resolve_max_new_tokens(position, max_new_tokens)
+
+    # Validate: can't vet empty responses
+    if max_new_tokens == 0 and vet:
+        raise ValueError(
+            "Response vetting requires responses. Use --no-vet with prompt[-1] position, "
+            "or specify --max-new-tokens > 0"
+        )
 
     # Resolve model variant
     variant = get_model_variant(experiment, model_variant, mode="extraction")
@@ -171,8 +182,8 @@ def run_pipeline(
         except Exception:
             n_scenarios = 200  # fallback
 
-        # Stage 0: Scenario vetting
-        if should_run(0) and vet:
+        # Stage 0: Scenario vetting (opt-in)
+        if should_run(0) and vet_scenarios:
             if not (vetting_path / "scenario_scores.json").exists() or force:
                 eta = estimate_stage_time('vet_scenarios', n_scenarios)
                 print(f"  [0] Vetting scenarios... (ETA: {format_duration(eta)})")
@@ -330,7 +341,10 @@ if __name__ == "__main__":
                         help="Run only specific stage(s): --only-stage 3,4")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--methods", default="mean_diff,probe,gradient")
-    parser.add_argument("--no-vet", action="store_true")
+    parser.add_argument("--no-vet", action="store_true",
+                        help="Skip response vetting (stage 2)")
+    parser.add_argument("--vet-scenarios", action="store_true",
+                        help="Enable scenario vetting (stage 0, off by default)")
     parser.add_argument("--rollouts", type=int, default=1)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--val-split", type=float, default=0.1)
@@ -338,12 +352,13 @@ if __name__ == "__main__":
                         help="Model variant for extraction (default: from experiment defaults.extraction)")
     parser.add_argument("--component", default="residual")
     parser.add_argument("--position", default="response[:5]",
-                        help="Token position: response[:5], response[-1], prompt[-1], all[:], etc.")
+                        help="Token position: response[:5], prompt[-1], response[:], all[:], etc.")
     parser.add_argument("--pos-threshold", type=int, default=60)
     parser.add_argument("--neg-threshold", type=int, default=40)
     parser.add_argument("--load-in-8bit", action="store_true")
     parser.add_argument("--load-in-4bit", action="store_true")
-    parser.add_argument("--max-new-tokens", type=int, default=32)
+    parser.add_argument("--max-new-tokens", type=int, default=None,
+                        help="Response tokens to generate (auto from position if not specified)")
     parser.add_argument("--max-concurrent", type=int, default=20,
                         help="Max concurrent API requests for vetting (default: 20)")
     parser.add_argument("--paired-filter", action="store_true",
@@ -374,6 +389,7 @@ if __name__ == "__main__":
         force=args.force,
         methods=args.methods.split(','),
         vet=not args.no_vet,
+        vet_scenarios=args.vet_scenarios,
         rollouts=args.rollouts,
         temperature=args.temperature,
         val_split=args.val_split,

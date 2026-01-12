@@ -8,10 +8,10 @@ Position syntax: <frame>[<slice>]
   - slice: Python slice notation like '[-5:]', '[0]', '[:]'
 
 Examples:
+  response[:5]  - First 5 response tokens (default)
   response[:]   - All response tokens (mean)
-  response[-1]  - Last response token only
   response[0]   - First response token only
-  prompt[-1]    - Last prompt token (before response)
+  prompt[-1]    - Last prompt token (Arditi-style)
   prompt[-3:]   - Last 3 prompt tokens
   all[:]        - All tokens (mean)
 """
@@ -48,7 +48,7 @@ def parse_position(position: str) -> Tuple[str, Optional[int], Optional[int]]:
     """
     match = re.match(r'(prompt|response|all)\[(.+)\]', position)
     if not match:
-        raise ValueError(f"Invalid position format: '{position}'. Use <frame>[<slice>], e.g., 'response[-1]' or 'prompt[-3:]'")
+        raise ValueError(f"Invalid position format: '{position}'. Use <frame>[<slice>], e.g., 'response[:5]' or 'prompt[-1]'")
 
     frame = match.group(1)
     slice_str = match.group(2).strip()
@@ -69,6 +69,56 @@ def parse_position(position: str) -> Tuple[str, Optional[int], Optional[int]]:
         else:
             # Negative index: -1 means last element, so start=-1, stop=None
             return frame, idx, idx + 1 if idx != -1 else None
+
+
+def tokens_needed(position: str) -> Optional[int]:
+    """
+    Return minimum response tokens needed for extraction, or None if undeterminable.
+
+    Examples:
+        prompt[-1]    → 0   (no response tokens needed)
+        prompt[:]     → 0
+        response[:5]  → 5
+        response[0]   → 1
+        response[:10] → 10
+        response[:]   → None (undeterminable - use fallback)
+        response[-1]  → None (undeterminable - need response length)
+        all[:]        → None (undeterminable)
+    """
+    frame, start, stop = parse_position(position)
+
+    if frame == 'prompt':
+        return 0
+
+    if frame == 'response' and start is not None and start >= 0 and stop is not None and stop > 0:
+        return stop
+
+    return None
+
+
+def resolve_max_new_tokens(position: str, user_value: Optional[int] = None) -> int:
+    """
+    Resolve max_new_tokens from position and optional user override.
+
+    - If user_value is None: use smart default based on position (or 32 fallback)
+    - If user_value is specified: validate it's sufficient for the position
+
+    Raises ValueError if user_value is too small for position.
+    """
+    needed = tokens_needed(position)
+
+    if user_value is None:
+        if needed is not None:
+            return needed
+        return 32  # fallback for undeterminable positions
+
+    if needed is not None and user_value < needed:
+        raise ValueError(
+            f"--max-new-tokens {user_value} is less than {needed} "
+            f"required for position '{position}'"
+        )
+
+    return user_value
 
 
 def resolve_position(position: str, prompt_len: int, seq_len: int) -> Tuple[int, int]:
@@ -158,9 +208,8 @@ def extract_activations_for_trait(
     Args:
         position: Token position to extract from. Format: <frame>[<slice>]
             - response[:5] - First 5 response tokens (mean) [default]
-            - response[-1] - Last response token only
-            - response[0]  - First response token only
-            - prompt[-1]   - Last prompt token
+            - response[:]  - All response tokens (mean)
+            - prompt[-1]   - Last prompt token (Arditi-style)
             - all[:]       - All tokens (mean)
     """
     # Handle nested text_config for multimodal models (e.g., Gemma 3)
