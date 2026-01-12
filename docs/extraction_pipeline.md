@@ -183,6 +183,7 @@ python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
 --val-split 0.0        # Disable validation split (default: 0.1 = 10% held out)
 --position "response[:]"  # Token position (default: all response tokens)
 --component residual      # Component to capture (default: residual)
+--adaptive             # LLM estimates trait tokens, uses median as position
 ```
 
 **Position syntax:** `<frame>[<slice>]` where frame is `prompt`, `response`, or `all`
