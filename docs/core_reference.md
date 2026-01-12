@@ -222,6 +222,36 @@ python analysis/massive_activations.py --experiment gemma-2-2b --prompt-set jail
 
 ---
 
+## GPU Profiling
+
+```python
+from core import gpu_profile, gpu_timer, memory_stats
+
+# Profile a code block (timing + memory)
+with gpu_profile("forward pass"):
+    model(**inputs)
+# Prints: [forward pass] 0.45s | peak 12.3GB | delta +2.1GB
+
+# Simple timer
+with gpu_timer() as t:
+    model(**inputs)
+print(f"Took {t.elapsed:.3f}s")
+
+# Memory snapshot
+stats = memory_stats()
+# {'allocated': 5.2, 'reserved': 8.0, 'free': 40.0, 'total': 50.8}
+```
+
+**Helpers:**
+```python
+from core import bandwidth_report, tensor_size_gb
+
+bandwidth_report(data_gb=4.6, elapsed=0.19)  # "4.6GB in 0.19s = 24.2 GB/s"
+tensor_size_gb((64, 300, 2304))              # 0.089 (for bfloat16)
+```
+
+---
+
 ## Files
 
 ```
@@ -230,5 +260,7 @@ core/
 ├── types.py         # VectorSpec, ProjectionConfig, activation_scale
 ├── hooks.py         # get_hook_path, detect_contribution_paths, CaptureHook, SteeringHook, MultiLayerCapture, HookManager
 ├── methods.py       # Extraction methods (probe, mean_diff, gradient)
-└── math.py          # projection, project_with_config, batch_cosine_similarity, metrics
+├── math.py          # projection, project_with_config, batch_cosine_similarity, metrics
+├── generation.py    # HookedGenerator for generation with capture/steering
+└── profiling.py     # GPU profiling utilities (gpu_profile, memory_stats)
 ```
