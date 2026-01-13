@@ -213,15 +213,15 @@ Compute projections from saved raw activations. Useful for:
 | `--layer` | auto | Override layer for all traits (default: auto-select best) |
 | `--method` | auto | Vector method (default: auto-detect) |
 | `--component` | residual | Activation component (`residual` or `attn_contribution`) |
+| `--position` | auto | Token position for vectors (auto-detects from available vectors) |
+| `--extraction-variant` | config | Model variant for vectors (default: from config defaults.extraction) |
 | `--traits` | all | Comma-separated trait list |
 | `--skip-existing` | false | Skip existing output files |
+| `--no-calibration` | false | Skip massive dims calibration check |
 
 ### Layer Selection
 
-Auto-selects best layer per trait using:
-1. **Steering results** (ground truth) if available
-2. **Effect size** (fallback heuristic) otherwise
-3. **Layer 16** as fallback
+Auto-selects best layer per trait using steering results as ground truth. Uses extraction and steering variants from experiment config.
 
 ### Examples
 

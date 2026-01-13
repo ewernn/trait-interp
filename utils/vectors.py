@@ -21,6 +21,7 @@ from utils.paths import (
     get_vector_metadata_path,
     get_steering_results_path,
     get_steering_responses_dir,
+    get_model_variant,
     desanitize_position,
     sanitize_position,
 )
@@ -222,7 +223,8 @@ def _get_steering_result(
 def get_best_vector(
     experiment: str,
     trait: str,
-    model_variant: str,
+    extraction_variant: str = None,
+    steering_variant: str = None,
     component: str = None,
     position: str = None,
     layer: int = None,
@@ -235,7 +237,8 @@ def get_best_vector(
     Args:
         experiment: Experiment name
         trait: Trait path (e.g., "category/trait_name")
-        model_variant: Model variant name
+        extraction_variant: Variant for vectors (default: from config defaults.extraction)
+        steering_variant: Variant for steering results (default: from config defaults.application)
         component: Component type, or None to search all
         position: Position string, or None to search all
         layer: Layer number, or None to search all
@@ -248,17 +251,23 @@ def get_best_vector(
     Raises:
         FileNotFoundError: If no vectors found or no steering results
     """
-    candidates = _discover_vectors(experiment, trait, model_variant, component, position, layer)
+    # Resolve variants from config if not specified
+    if extraction_variant is None:
+        extraction_variant = get_model_variant(experiment, None, mode="extraction")['name']
+    if steering_variant is None:
+        steering_variant = get_model_variant(experiment, None, mode="application")['name']
+
+    candidates = _discover_vectors(experiment, trait, extraction_variant, component, position, layer)
 
     if not candidates:
         raise FileNotFoundError(
-            f"No vectors found for {experiment}/{trait}/{model_variant}. Run extraction first."
+            f"No vectors found for {experiment}/{trait}/{extraction_variant}. Run extraction first."
         )
 
     # Look up steering results for each candidate
     scored = []
     for c in candidates:
-        result = _get_steering_result(experiment, trait, model_variant, c, min_coherence, prompt_set)
+        result = _get_steering_result(experiment, trait, steering_variant, c, min_coherence, prompt_set)
         if result is not None:
             delta, coefficient = result
             c['score'] = delta
@@ -280,7 +289,8 @@ def get_best_vector(
 def get_top_N_vectors(
     experiment: str,
     trait: str,
-    model_variant: str,
+    extraction_variant: str = None,
+    steering_variant: str = None,
     component: str = None,
     position: str = None,
     layer: int = None,
@@ -294,7 +304,8 @@ def get_top_N_vectors(
     Args:
         experiment: Experiment name
         trait: Trait path
-        model_variant: Model variant name
+        extraction_variant: Variant for vectors (default: from config defaults.extraction)
+        steering_variant: Variant for steering results (default: from config defaults.application)
         component: Component type, or None to search all
         position: Position string, or None to search all
         layer: Layer number, or None to search all
@@ -305,12 +316,18 @@ def get_top_N_vectors(
     Returns:
         List of dicts with 'layer', 'method', 'position', 'component', 'source', 'score', 'coefficient'
     """
-    candidates = _discover_vectors(experiment, trait, model_variant, component, position, layer)
+    # Resolve variants from config if not specified
+    if extraction_variant is None:
+        extraction_variant = get_model_variant(experiment, None, mode="extraction")['name']
+    if steering_variant is None:
+        steering_variant = get_model_variant(experiment, None, mode="application")['name']
+
+    candidates = _discover_vectors(experiment, trait, extraction_variant, component, position, layer)
 
     # Look up steering results for each candidate
     scored = []
     for c in candidates:
-        result = _get_steering_result(experiment, trait, model_variant, c, min_coherence, prompt_set)
+        result = _get_steering_result(experiment, trait, steering_variant, c, min_coherence, prompt_set)
         if result is not None:
             delta, coefficient = result
             c['score'] = delta
@@ -421,7 +438,8 @@ def load_vector_with_baseline(
 def get_best_steering_responses_path(
     experiment: str,
     trait: str,
-    model_variant: str,
+    extraction_variant: str = None,
+    steering_variant: str = None,
     position: str = None,
     min_coherence: int = MIN_COHERENCE,
     prompt_set: str = "steering",
@@ -432,7 +450,8 @@ def get_best_steering_responses_path(
     Args:
         experiment: Experiment name
         trait: Trait path
-        model_variant: Model variant name
+        extraction_variant: Variant for vectors (default: from config)
+        steering_variant: Variant for steering results (default: from config)
         position: Position string, or None to search all
         min_coherence: Minimum coherence for steering results
         prompt_set: Prompt set for steering results (default: "steering")
@@ -440,8 +459,12 @@ def get_best_steering_responses_path(
     Returns:
         Path to response JSON file, or None if not found
     """
+    # Resolve steering_variant for response path
+    if steering_variant is None:
+        steering_variant = get_model_variant(experiment, None, mode="application")['name']
+
     try:
-        best = get_best_vector(experiment, trait, model_variant, position=position, min_coherence=min_coherence, prompt_set=prompt_set)
+        best = get_best_vector(experiment, trait, extraction_variant, steering_variant, position=position, min_coherence=min_coherence, prompt_set=prompt_set)
     except FileNotFoundError:
         return None
 
@@ -453,7 +476,7 @@ def get_best_steering_responses_path(
     pos = best['position']
 
     # Use proper path helper
-    responses_dir = get_steering_responses_dir(experiment, trait, model_variant, pos, prompt_set)
+    responses_dir = get_steering_responses_dir(experiment, trait, steering_variant, pos, prompt_set)
 
     if not responses_dir.exists():
         return None
@@ -504,7 +527,8 @@ def load_vector_from_spec(
 def get_best_vector_spec(
     experiment: str,
     trait: str,
-    model_variant: str,
+    extraction_variant: str = None,
+    steering_variant: str = None,
     component: str = None,
     position: str = None,
     layer: int = None,
@@ -518,7 +542,8 @@ def get_best_vector_spec(
     Args:
         experiment: Experiment name
         trait: Trait path
-        model_variant: Model variant name
+        extraction_variant: Variant for vectors (default: from config)
+        steering_variant: Variant for steering results (default: from config)
         component: Filter by component (or None for all)
         position: Filter by position (or None for all)
         layer: Filter by layer (or None for all)
@@ -529,7 +554,7 @@ def get_best_vector_spec(
     Returns:
         Tuple of (VectorSpec, metadata dict with 'source', 'score', 'coefficient')
     """
-    best = get_best_vector(experiment, trait, model_variant, component, position, layer, min_coherence, prompt_set)
+    best = get_best_vector(experiment, trait, extraction_variant, steering_variant, component, position, layer, min_coherence, prompt_set)
 
     spec = VectorSpec(
         layer=best['layer'],
@@ -551,7 +576,8 @@ def get_best_vector_spec(
 def get_best_projection_config(
     experiment: str,
     trait: str,
-    model_variant: str,
+    extraction_variant: str = None,
+    steering_variant: str = None,
     component: str = None,
     position: str = None,
     layer: int = None,
@@ -568,6 +594,6 @@ def get_best_projection_config(
         Tuple of (ProjectionConfig, metadata dict)
     """
     spec, metadata = get_best_vector_spec(
-        experiment, trait, model_variant, component, position, layer, weight, min_coherence, prompt_set
+        experiment, trait, extraction_variant, steering_variant, component, position, layer, weight, min_coherence, prompt_set
     )
     return ProjectionConfig(vectors=[spec]), metadata

@@ -119,9 +119,9 @@ def main():
     activations = load_raw_activations(args.experiment, model_variant, args.prompt_set)
     print(f"  Loaded {len(activations)} samples")
 
-    # Get best vector for trait
+    # Get best vector for trait (auto-resolves variants from config)
     print(f"\nLoading trait vector for {args.trait}...")
-    best = get_best_vector(args.experiment, args.trait, model_variant)
+    best = get_best_vector(args.experiment, args.trait)
     layer = best['layer']
     method = best['method']
     position = best['position']

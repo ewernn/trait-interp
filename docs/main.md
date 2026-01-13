@@ -236,10 +236,9 @@ score = (hidden_state @ trait_vector) / ||trait_vector||
 ### Best Vector Selection
 
 Automated via `utils/vectors.py:get_best_vector(experiment, trait)`:
-1. **Steering results** (ground truth) — best delta with coherence ≥ 70
-2. **Effect size** (fallback) — from extraction_evaluation.json
-
-Searches all positions/components. Pass `component` and `position` to filter.
+- Uses steering results as ground truth — best delta with coherence ≥ 70
+- Auto-resolves extraction/steering variants from experiment config
+- Searches all positions/components. Pass `component` and `position` to filter.
 
 **Position syntax:** `<frame>[<slice>]` where frame is `prompt`, `response`, or `all`
 - `response[:5]` — First 5 response tokens (default)
