@@ -204,7 +204,7 @@ Certain dimensions have values 100-1000x larger than median (Sun et al. 2024). T
 python analysis/massive_activations.py --experiment gemma-2-2b
 ```
 
-This uses a calibration dataset (50 Alpaca prompts) and saves results to `experiments/{exp}/inference/massive_activations/calibration.json`. The projection script embeds this data for interactive cleaning in the visualization.
+This uses a calibration dataset (50 Alpaca prompts) and saves results to `experiments/{exp}/inference/{model_variant}/massive_activations/calibration.json`. The projection script embeds this data for interactive cleaning in the visualization.
 
 **Research mode:** Analyze a specific prompt set:
 ```bash
