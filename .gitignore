@@ -21,6 +21,7 @@ __pycache__/
 .env.*
 docker/.env
 remote_setup.py
+docs/remote_setup.md
 
 # System
 .DS_Store

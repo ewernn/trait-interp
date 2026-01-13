@@ -13,9 +13,11 @@ Replication of Persona Vectors (PV) paper methodology vs our natural elicitation
 |--------|------------------------|---------|
 | Model | Llama-3.1-8B-Instruct | Llama-3.1-8B (base) |
 | Elicitation | System prompts + questions | Natural completions |
-| Position | `response[:]` (all tokens) | `response[:5]` (first 5) |
+| Position | `response[:]` (all tokens) | `response[:5]` or `response[:10]`* |
 | Method | mean_diff | probe |
-| Filtering | trait score >50/<50 | standard vetting (60/40) |
+| Filtering | trait score >50/<50 | no vetting (--no-vet) |
+
+*hallucination_v2 uses `response[:10]` after position sweep found it optimal
 
 ## Traits Compared
 
@@ -48,25 +50,15 @@ Replication of Persona Vectors (PV) paper methodology vs our natural elicitation
 
 ## Phase 2: Steering Evaluation
 
-Evaluation matrix: 2x2 per trait (vector source × scoring method)
+### Best Results (coherence ≥ 70)
 
-| Quadrant | Vector Source | Scoring | Notes |
-|----------|---------------|---------|-------|
-| PV+PV | PV instruction | PV eval_prompt | Their vectors, their scoring |
-| PV+V3c | PV instruction | V3c default | Their vectors, our scoring |
-| Nat+V3c | Natural | V3c default | Our vectors, our scoring |
-| Nat+PV | Natural | PV eval_prompt | Our vectors, their scoring |
+| Trait | PV Instruction | Natural | Gap |
+|-------|----------------|---------|-----|
+| Evil | **+49.9** (L11, coh=74) | +31.4 (L13, coh=75) | 18.5 pts |
+| Sycophancy | **+79.4** (L12, coh=78) | +62.5 (L12, coh=74) | 16.9 pts |
+| Hallucination | **+71.1** (L13, coh=75) | +56.0 (L14, coh=74) | 15.1 pts |
 
-### Results (coherence ≥ 80)
-
-| Quadrant | Evil | Sycophancy | Hallucination |
-|----------|------|------------|---------------|
-| PV+PV | **+34.6** (L11 c3) | **+77.1** (L13 c5) | ❌ (best coh=78.5) |
-| PV+V3c | +24.7 (L11 c3) | +71.7 (L12 c5) | ❌ (best coh=76.8) |
-| Nat+V3c | +13.5 (L13 c5) | +57.3 (L12 c7) | ❌ (best coh=79.1) |
-| Nat+PV | +16.7 (L16 c6) | +64.3 (L12 c6) | -4.1 (L17 c3) |
-
-**Key:** Values show trait delta from baseline. ❌ = no runs achieved coherence ≥80.
+Natural achieves 63-79% of PV instruction's steering effectiveness, with comparable coherence.
 
 ## Phase 3: Analysis
 
@@ -81,41 +73,38 @@ Evaluation matrix: 2x2 per trait (vector source × scoring method)
 
 **1. PV instruction-based vectors outperform Natural on all traits**
 
-| Trait | PV Best | Natural Best | PV Advantage |
-|-------|---------|--------------|--------------|
-| Evil | +34.6 (PV+PV) | +16.7 (Nat+PV) | 2.1× |
-| Sycophancy | +77.1 (PV+PV) | +64.3 (Nat+PV) | 1.2× |
-| Hallucination | ❌ | ❌ | N/A |
+| Trait | PV Δ | Natural Δ | Natural % of PV |
+|-------|------|-----------|-----------------|
+| Evil | +49.9 | +31.4 | 63% |
+| Sycophancy | +79.4 | +62.5 | 79% |
+| Hallucination | +71.1 | +56.0 | 79% |
 
-PV instruction-based extraction produces stronger steering vectors. The advantage is most pronounced for evil (2.1×) and moderate for sycophancy (1.2×).
+PV instruction produces stronger vectors, but natural is competitive on sycophancy and hallucination (~79%).
 
-**2. Scoring method matters less than vector source**
-
-For PV vectors: PV scoring (+34.6, +77.1) vs V3c scoring (+24.7, +71.7) — similar results.
-For Natural vectors: PV scoring (+16.7, +64.3) vs V3c scoring (+13.5, +57.3) — PV scoring slightly better.
-
-The choice of scoring prompt has ~10-20% impact, while vector source has 2× impact.
-
-**3. Natural vectors require higher coefficients**
+**2. Natural vectors require higher coefficients**
 
 | Vector Source | Typical Coefficients | Explanation |
 |---------------|---------------------|-------------|
-| PV instruction | c3-5 | Higher effect size (d=10-13) |
-| Natural | c5-7 | Lower effect size (d=3-7) |
+| PV instruction | c4-5 | Higher effect size |
+| Natural | c6-8 | Lower effect size |
 
-Higher extraction effect size (d) correlates with stronger steering at lower coefficients.
+**3. Dataset design is critical for natural elicitation**
 
-**4. Hallucination steering breaks coherence universally**
+Original natural hallucination failed (+15.6 → -2.1 inverted). Revised dataset (hallucination_v2) achieved +56.0 through:
 
-All 4 quadrants failed to achieve coherence ≥80 on hallucination. Best results:
-- PV+PV: coh=78.5 at L11
-- Nat+PV: coh=81.2 at L17, but trait DECREASED (-4.1)
+- **Explicit negatives**: Changed from hedging ("I'm not sure...") to flat admission ("I've never heard of that")
+- **Longer position**: `response[:10]` captures more of the fabrication behavior than `response[:5]`
+- **Probe method**: Outperforms mean_diff by ~14% on natural extraction
 
-Inducing hallucination inherently damages response coherence — the model producing confident fabrications tends toward incoherent outputs.
+The key insight: negatives must explicitly model "admitting ignorance" to contrast with "confident fabrication."
+
+**4. Components matter**
+
+For hallucination, only residual stream works. Neither attn_contribution nor mlp_contribution produced usable vectors — the trait direction exists in the combined representation.
 
 **5. Why PV instruction works better**
 
-Hypothesis: Instruction-based extraction creates a stable "persona" the model can adopt. Natural elicitation captures trait expression but may conflict with the IT model's training to be helpful/honest.
+Hypothesis: Instruction-based extraction creates a stable "persona" the model can adopt. Natural elicitation captures trait expression but may conflict with the IT model's safety training.
 
 Evidence: Natural evil vectors cause the model to self-contradict mid-response (starts harmful, pivots to helpful). PV instruction vectors create consistent villain roleplay.
 
