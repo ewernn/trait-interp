@@ -44,9 +44,28 @@ python analysis/steering/evaluate.py \
     --no-batch
 ```
 
-## Multi-Layer Steering
+## CMA-ES Optimization
 
-For multi-layer ensembles, use `optimize_ensemble.py` which finds optimal layer coefficients via CMA-ES:
+### Single-Layer Direction Optimization
+
+Use `optimize_vector.py` to find better vector directions via CMA-ES:
+
+```bash
+python analysis/steering/optimize_vector.py \
+    --experiment {experiment} \
+    --trait {category}/{trait} \
+    --layers 8,9,10,11,12 \
+    --component residual
+```
+
+- Auto-discovers position from existing vectors
+- Starts from existing best vector (probe/mean_diff), perturbs in random subspace
+- Saves optimized vectors as `method=cma_es`
+- 15 generations × 8 popsize = 120 evals per layer (default)
+
+### Multi-Layer Ensemble Optimization
+
+Use `optimize_ensemble.py` to find optimal coefficients for combining multiple layers:
 
 ```bash
 python analysis/steering/optimize_ensemble.py \
@@ -57,6 +76,11 @@ python analysis/steering/optimize_ensemble.py \
 ```
 
 Results saved as ensembles in `experiments/{experiment}/ensembles/{trait}/`. See `utils/ensembles.py` for the ensemble API.
+
+### Typical Workflow
+
+1. Run `optimize_vector.py` per layer → get optimized directions
+2. Run `optimize_ensemble.py` → combine optimized vectors with optimal coefficients
 
 ## Results Format
 

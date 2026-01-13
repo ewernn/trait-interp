@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
 """
-CMA-ES optimization of vector direction in PCA subspace.
+CMA-ES optimization of vector direction.
 
-Instead of optimizing coefficients for fixed vectors, this optimizes
-the vector direction itself by searching in a low-dimensional PCA subspace.
+Optimizes the vector direction by searching in a random subspace around
+an existing vector (from get_best_vector) or from random initialization.
 
-Input: experiment, trait, layer, component
-Output: Optimized vector direction
+Input: experiment, trait, layers, component
+Output: Optimized vector direction per layer
 
 Usage:
     python analysis/steering/optimize_vector.py \
         --experiment gemma-2-2b \
         --trait chirp/refusal \
-        --layer 13 \
-        --position "response[:3]" \
-        --component attn_contribution \
-        --n-components 20
+        --layers 8,9,10,11,12 \
+        --component residual
+
+    # Single layer with explicit position
+    python analysis/steering/optimize_vector.py \
+        --experiment gemma-2-2b \
+        --trait chirp/refusal \
+        --layers 10 \
+        --component residual \
+        --position "response[:5]"
 """
 
 import sys
@@ -23,128 +29,153 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import cma
+import json
 import torch
 import asyncio
 import argparse
 import time
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Dict
 from datetime import datetime
 
 from analysis.steering.data import load_steering_data
 from core import BatchedLayerSteeringHook
 from analysis.steering.results import init_results_file, append_run, save_responses
-from utils.paths import get_vector_dir, get_model_variant, get_activation_path, get_steering_results_path
+from utils.paths import get_vector_dir, get_model_variant, get_steering_results_path
 from utils.model import load_model, format_prompt
 from utils.generation import generate_batch
 from utils.judge import TraitJudge
-from utils.vectors import MIN_COHERENCE, load_vector
+from utils.vectors import MIN_COHERENCE, load_vector, get_best_vector
 from core import VectorSpec
 
 
-def compute_pca_basis(
-    experiment: str,
-    trait: str,
-    model_variant: str,
-    layer: int,
-    component: str,
-    position: str,
-    n_components: int = 20,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def random_orthonormal_basis(dim: int, n_components: int, seed: int = None) -> torch.Tensor:
     """
-    Compute PCA basis from training activations.
-
-    Returns:
-        (basis, mean, original_vector) where:
-        - basis: [n_components, hidden_dim] - top principal components
-        - mean: [hidden_dim] - mean of difference vectors
-        - original_vector: [hidden_dim] - the probe-extracted vector for comparison
-    """
-    # Load activations
-    act_path = get_activation_path(experiment, trait, model_variant, component, position)
-    if not act_path.exists():
-        raise FileNotFoundError(f"Activations not found: {act_path}")
-
-    activations = torch.load(act_path, weights_only=True)  # [n_examples, n_layers, hidden_dim]
-
-    # Load metadata to know pos/neg split
-    metadata_path = act_path.parent / "metadata.json"
-    import json
-    with open(metadata_path) as f:
-        metadata = json.load(f)
-
-    n_pos = metadata["n_examples_pos"]
-    n_neg = metadata["n_examples_neg"]
-
-    # Extract layer activations
-    layer_acts = activations[:, layer, :]  # [n_examples, hidden_dim]
-    pos_acts = layer_acts[:n_pos]  # [n_pos, hidden_dim]
-    neg_acts = layer_acts[n_pos:n_pos + n_neg]  # [n_neg, hidden_dim]
-
-    # Compute difference vectors (each pos paired with each neg, or use mean)
-    # For simplicity, use centered activations
-    pos_centered = pos_acts - pos_acts.mean(dim=0)
-    neg_centered = neg_acts - neg_acts.mean(dim=0)
-
-    # Combine for PCA - we want directions that separate pos from neg
-    # Use the difference: pos_mean - neg_mean as the "target direction"
-    # And find components that capture variance in this direction
-
-    # Stack all activations for PCA
-    all_acts = torch.cat([pos_acts, neg_acts], dim=0).float()  # [n_total, hidden_dim], float32
-    mean = all_acts.mean(dim=0)
-    centered = all_acts - mean
-
-    # SVD for PCA
-    # centered: [n_samples, hidden_dim]
-    # We want principal components of the hidden_dim space
-    U, S, Vh = torch.linalg.svd(centered, full_matrices=False)
-    # Vh: [min(n_samples, hidden_dim), hidden_dim]
-    # Top k components: Vh[:k, :]
-
-    basis = Vh[:n_components, :]  # [n_components, hidden_dim]
-
-    # Load original probe vector for comparison
-    original_vector = load_vector(experiment, trait, layer, model_variant, "probe", component, position)
-    if original_vector is not None:
-        original_vector = original_vector.float()
-    else:
-        # Fall back to mean_diff
-        original_vector = (pos_acts.mean(dim=0) - neg_acts.mean(dim=0)).float()
-        original_vector = original_vector / original_vector.norm()
-
-    print(f"  PCA basis: {basis.shape}")
-    print(f"  Variance explained by top {n_components}: {(S[:n_components]**2).sum() / (S**2).sum() * 100:.1f}%")
-    print(f"  Original vector norm: {original_vector.norm():.4f}")
-
-    return basis, mean, original_vector
-
-
-def reconstruct_vector(weights: torch.Tensor, basis: torch.Tensor, normalize: bool = False) -> torch.Tensor:
-    """
-    Reconstruct full vector from PCA weights.
+    Generate random orthonormal basis vectors.
 
     Args:
-        weights: [n_components] - weights for each principal component
-        basis: [n_components, hidden_dim] - PCA basis
-        normalize: if True, normalize to unit length (magnitude controlled by coef)
-                   if False, magnitude emerges from weights (use coef=1.0)
+        dim: Hidden dimension (e.g., 2304 for Gemma-2-2B)
+        n_components: Number of basis vectors
+        seed: Optional random seed for reproducibility
+
+    Returns:
+        basis: [n_components, dim] - orthonormal basis vectors
+    """
+    if seed is not None:
+        torch.manual_seed(seed)
+
+    # Generate random matrix and orthonormalize via QR decomposition
+    random_matrix = torch.randn(dim, n_components)
+    Q, _ = torch.linalg.qr(random_matrix)
+    return Q.T[:n_components]  # [n_components, dim]
+
+
+def get_init_vector_and_position(
+    experiment: str,
+    trait: str,
+    layer: int,
+    component: str,
+    position: Optional[str] = None,
+) -> Tuple[Optional[torch.Tensor], str, Optional[str], Optional[Dict]]:
+    """
+    Get initial vector and position for optimization.
+
+    Tries to find existing best vector for this layer/component.
+    Falls back to random if nothing exists.
+
+    Returns:
+        (init_vector, position, method, best_info) where:
+        - init_vector: Starting vector or None for random
+        - position: Position to use (discovered or default)
+        - method: Method of init vector (e.g., 'probe') or None
+        - best_info: Full info from get_best_vector or None
+    """
+    # Try to find existing vector for this component
+    try:
+        best = get_best_vector(experiment, trait, component=component)
+
+        # Check if best is for this layer or different layer
+        if best['layer'] == layer:
+            # Perfect - use this vector
+            init_vector = load_vector(
+                experiment, trait, layer,
+                best.get('extraction_variant', get_model_variant(experiment, mode="extraction")['name']),
+                best['method'], component, best['position']
+            )
+            return init_vector, best['position'], best['method'], best
+        else:
+            # Best is different layer - try to load same method/position for our layer
+            try:
+                init_vector = load_vector(
+                    experiment, trait, layer,
+                    best.get('extraction_variant', get_model_variant(experiment, mode="extraction")['name']),
+                    best['method'], component, best['position']
+                )
+                return init_vector, best['position'], best['method'], best
+            except FileNotFoundError:
+                # No vector at this layer with best's method/position
+                # Use position from best but random init
+                return None, best['position'] if position is None else position, None, best
+
+    except (FileNotFoundError, ValueError) as e:
+        # No steering results found - try to find any vector for this component
+        extraction_variant = get_model_variant(experiment, mode="extraction")['name']
+
+        # Try common positions
+        for try_position in [position, "response[:5]", "response[:3]"]:
+            if try_position is None:
+                continue
+            for method in ["probe", "mean_diff", "gradient"]:
+                try:
+                    init_vector = load_vector(
+                        experiment, trait, layer,
+                        extraction_variant, method, component, try_position
+                    )
+                    return init_vector, try_position, method, None
+                except FileNotFoundError:
+                    continue
+
+        # Nothing found - use defaults
+        default_position = position if position else "response[:5]"
+        return None, default_position, None, None
+
+
+def reconstruct_vector(
+    init_vector: Optional[torch.Tensor],
+    weights: torch.Tensor,
+    basis: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Reconstruct vector from initial vector + weighted perturbations.
+
+    Args:
+        init_vector: Starting vector [hidden_dim] or None for pure basis combination
+        weights: [n_components] - weights for each basis vector
+        basis: [n_components, hidden_dim] - orthonormal basis
 
     Returns:
         vector: [hidden_dim] - reconstructed vector
     """
-    # Weighted sum of basis vectors
-    vector = (weights.unsqueeze(1) * basis).sum(dim=0)  # [hidden_dim]
-    if normalize:
-        vector = vector / (vector.norm() + 1e-8)
-    return vector
+    # Weighted sum of basis vectors (perturbation)
+    perturbation = (weights.unsqueeze(1) * basis).sum(dim=0)  # [hidden_dim]
+
+    if init_vector is not None:
+        return init_vector + perturbation
+    else:
+        return perturbation
 
 
-async def run_cma_es(
+async def run_cma_es_single_layer(
+    model,
+    tokenizer,
     experiment: str,
     trait: str,
     layer: int,
     component: str,
     position: str,
+    init_vector: Optional[torch.Tensor],
+    init_method: Optional[str],
+    steering_data,
+    judge: TraitJudge,
     n_components: int = 20,
     n_generations: int = 15,
     popsize: int = 8,
@@ -152,19 +183,12 @@ async def run_cma_es(
     n_questions: int = 5,
     coherence_threshold: float = MIN_COHERENCE,
     base_coef: float = 90.0,
-):
+    seed: int = None,
+) -> Optional[Dict]:
     """
-    Run CMA-ES to optimize vector direction in PCA subspace.
+    Run CMA-ES optimization for a single layer.
     """
-    # Load steering data
-    steering_data = load_steering_data(trait)
     questions = steering_data.questions[:n_questions]
-
-    # Load model
-    variant = get_model_variant(experiment, mode="application")
-    model_name = variant['model']
-    print(f"Loading model: {model_name}")
-    model, tokenizer = load_model(model_name)
     use_chat_template = tokenizer.chat_template is not None
 
     # Format questions once
@@ -173,31 +197,34 @@ async def run_cma_es(
         for q in questions
     ]
 
-    # Compute PCA basis
-    extraction_variant = get_model_variant(experiment, mode="extraction")['name']
-    print(f"\nComputing PCA basis for L{layer}...")
-    basis, mean, original_vector = compute_pca_basis(
-        experiment, trait, extraction_variant, layer, component, position, n_components
-    )
-    basis = basis.to(model.device)
-    original_vector = original_vector.to(model.device)
+    # Get hidden dim from model
+    config = model.config
+    if hasattr(config, 'text_config'):
+        config = config.text_config
+    hidden_dim = config.hidden_size
 
-    # Initial weights: equal weight per component, scaled by base_coef
-    # Total magnitude will be sqrt(n_components) * (base_coef / n_components) = base_coef / sqrt(n_components)
-    # This gives a reasonable starting magnitude while allowing CMA-ES to find the direction
-    x0 = [base_coef / n_components] * n_components
-    print(f"  Initial weights: {base_coef/n_components:.1f} per component ({n_components} components)")
+    # Generate random orthonormal basis for perturbation search
+    basis = random_orthonormal_basis(hidden_dim, n_components, seed=seed)
+    basis = basis.to(model.device).float()
 
-    # Check initial vector magnitude
-    init_vec = reconstruct_vector(torch.tensor(x0), basis.cpu())
-    print(f"  Initial vector magnitude: {init_vec.norm():.1f}")
+    # Prepare init vector
+    if init_vector is not None:
+        init_vector = init_vector.to(model.device).float()
+        # Normalize init vector - magnitude will come from perturbations
+        init_vector = init_vector / (init_vector.norm() + 1e-8) * base_coef
+        print(f"  Starting from {init_method} vector (norm={init_vector.norm():.1f})")
+    else:
+        print(f"  Starting from random (no existing vector found)")
 
-    # Initialize judge
-    judge = TraitJudge()
+    # Initial weights: zeros (start exactly at init_vector) or small random for pure random start
+    if init_vector is not None:
+        x0 = [0.0] * n_components  # Start at init_vector
+        sigma0 = base_coef * 0.3  # Explore around it
+    else:
+        x0 = [base_coef / n_components] * n_components  # Random start
+        sigma0 = base_coef * 0.5  # Larger exploration
 
     # CMA-ES setup
-    # sigma0 controls exploration radius - smaller = more conservative search
-    sigma0 = base_coef * 0.1  # ~10% of typical magnitude (was 30%)
     opts = {
         'popsize': popsize,
         'maxiter': n_generations,
@@ -205,174 +232,183 @@ async def run_cma_es(
     }
 
     print(f"\n{'='*60}")
-    print(f"CMA-ES Vector Direction Optimization")
+    print(f"CMA-ES Vector Direction Optimization - Layer {layer}")
     print(f"{'='*60}")
-    print(f"Layer: {layer}")
-    print(f"PCA components: {n_components}")
-    print(f"Base coefficient: {base_coef}")
-    print(f"Population: {popsize}/generation, {n_generations} generations")
+    print(f"Component: {component}")
+    print(f"Position: {position}")
+    print(f"Subspace dims: {n_components}")
+    print(f"Population: {popsize}/gen, {n_generations} generations")
     print(f"Questions: {n_questions}, Tokens: {max_new_tokens}")
-    print(f"Fitness: trait if coh >= {coherence_threshold} else -1000 (hard floor)")
+    print(f"Fitness: trait if coh >= {coherence_threshold} else -1000")
     print(f"{'='*60}\n")
 
     es = cma.CMAEvolutionStrategy(x0, sigma0, opts)
 
     best_result = None
     best_responses = None
+    best_weights = None
     generation = 0
+    fitness_history = []
 
-    try:
-        while not es.stop():
-            generation += 1
-            candidates = es.ask()
-            n_candidates = len(candidates)
+    while not es.stop():
+        generation += 1
+        candidates = es.ask()
+        n_candidates = len(candidates)
 
-            print(f"--- Generation {generation}/{n_generations} ---")
+        print(f"--- Generation {generation}/{n_generations} ---")
 
-            # Build vectors for each candidate
-            candidate_vectors = []
-            for weights in candidates:
-                weights_tensor = torch.tensor(weights, dtype=torch.float32, device=model.device)
-                vector = reconstruct_vector(weights_tensor, basis)
-                candidate_vectors.append(vector)
+        # Build vectors for each candidate
+        candidate_vectors = []
+        for weights in candidates:
+            weights_tensor = torch.tensor(weights, dtype=torch.float32, device=model.device)
+            vector = reconstruct_vector(init_vector, weights_tensor, basis)
+            candidate_vectors.append(vector)
 
-            # Build batched prompts
-            batched_prompts = []
-            for _ in candidates:
-                batched_prompts.extend(formatted_questions)
+        # Build batched prompts
+        batched_prompts = []
+        for _ in candidates:
+            batched_prompts.extend(formatted_questions)
 
-            # Build steering configs (coef=1.0 since magnitude is in the vector)
-            steering_configs = []
-            for cand_idx, vector in enumerate(candidate_vectors):
-                batch_start = cand_idx * n_questions
-                batch_end = (cand_idx + 1) * n_questions
-                steering_configs.append((
-                    layer,
-                    vector,
-                    1.0,  # magnitude baked into vector
-                    (batch_start, batch_end)
-                ))
+        # Build steering configs (coef=1.0 since magnitude is in the vector)
+        steering_configs = []
+        for cand_idx, vector in enumerate(candidate_vectors):
+            batch_start = cand_idx * n_questions
+            batch_end = (cand_idx + 1) * n_questions
+            steering_configs.append((
+                layer,
+                vector,
+                1.0,  # magnitude baked into vector
+                (batch_start, batch_end)
+            ))
 
-            # Generate all responses
-            t0 = time.time()
-            with BatchedLayerSteeringHook(model, steering_configs, component=component):
-                all_responses = generate_batch(
-                    model, tokenizer, batched_prompts,
-                    max_new_tokens=max_new_tokens
-                )
-            gen_time = time.time() - t0
-
-            # Build QA pairs
-            all_qa_pairs = []
-            for cand_idx in range(n_candidates):
-                start = cand_idx * n_questions
-                end = (cand_idx + 1) * n_questions
-                for q, r in zip(questions, all_responses[start:end]):
-                    all_qa_pairs.append((q, r))
-
-            # Score
-            t0 = time.time()
-            all_scores = await judge.score_steering_batch(
-                all_qa_pairs,
-                steering_data.trait_name,
-                steering_data.trait_definition
+        # Generate all responses
+        t0 = time.time()
+        with BatchedLayerSteeringHook(model, steering_configs, component=component):
+            all_responses = generate_batch(
+                model, tokenizer, batched_prompts,
+                max_new_tokens=max_new_tokens
             )
-            score_time = time.time() - t0
+        gen_time = time.time() - t0
 
-            print(f"  Generated {len(batched_prompts)} responses ({gen_time:.1f}s), scored ({score_time:.1f}s)")
+        # Build QA pairs
+        all_qa_pairs = []
+        for cand_idx in range(n_candidates):
+            start = cand_idx * n_questions
+            end = (cand_idx + 1) * n_questions
+            for q, r in zip(questions, all_responses[start:end]):
+                all_qa_pairs.append((q, r))
 
-            # Compute fitness
-            fitnesses = []
-            for cand_idx, weights in enumerate(candidates):
-                start = cand_idx * n_questions
-                end = (cand_idx + 1) * n_questions
-                cand_scores = all_scores[start:end]
+        # Score
+        t0 = time.time()
+        all_scores = await judge.score_steering_batch(
+            all_qa_pairs,
+            steering_data.trait_name,
+            steering_data.trait_definition
+        )
+        score_time = time.time() - t0
 
-                trait_scores = [s["trait_score"] for s in cand_scores if s["trait_score"] is not None]
-                coherence_scores = [s["coherence_score"] for s in cand_scores if s.get("coherence_score") is not None]
+        print(f"  Generated {len(batched_prompts)} responses ({gen_time:.1f}s), scored ({score_time:.1f}s)")
 
-                trait_mean = sum(trait_scores) / len(trait_scores) if trait_scores else 0
-                coherence_mean = sum(coherence_scores) / len(coherence_scores) if coherence_scores else 0
+        # Compute fitness
+        fitnesses = []
+        gen_best_fitness = -1000
+        for cand_idx, weights in enumerate(candidates):
+            start = cand_idx * n_questions
+            end = (cand_idx + 1) * n_questions
+            cand_scores = all_scores[start:end]
 
-                # Fitness: hard floor on coherence
-                if coherence_mean >= coherence_threshold:
-                    fitness = trait_mean
-                else:
-                    fitness = -1000
+            trait_scores = [s["trait_score"] for s in cand_scores if s["trait_score"] is not None]
+            coherence_scores = [s["coherence_score"] for s in cand_scores if s.get("coherence_score") is not None]
 
-                fitnesses.append(-fitness)  # CMA-ES minimizes
+            trait_mean = sum(trait_scores) / len(trait_scores) if trait_scores else 0
+            coherence_mean = sum(coherence_scores) / len(coherence_scores) if coherence_scores else 0
 
-                # Compute similarity to original and magnitude
-                weights_tensor = torch.tensor(weights, dtype=torch.float32, device=model.device)
-                opt_vector = reconstruct_vector(weights_tensor, basis)
-                # Normalize for similarity comparison
-                opt_dir = opt_vector / (opt_vector.norm() + 1e-8)
-                similarity = (opt_dir @ original_vector).item()
-                magnitude = opt_vector.norm().item()
+            # Fitness: hard floor on coherence
+            if coherence_mean >= coherence_threshold:
+                fitness = trait_mean
+            else:
+                fitness = -1000
 
-                if best_result is None or fitness > best_result.get("fitness", -999):
-                    best_result = {
-                        "weights": list(weights),
-                        "trait_mean": trait_mean,
-                        "coherence_mean": coherence_mean,
-                        "fitness": fitness,
-                        "magnitude": magnitude,
-                    }
-                    # Track best responses for saving
-                    cand_responses = all_responses[start:end]
-                    best_responses = [
-                        {"question": q, "response": r, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
-                        for q, r, s in zip(questions, cand_responses, cand_scores)
-                    ]
+            fitnesses.append(-fitness)  # CMA-ES minimizes
+            gen_best_fitness = max(gen_best_fitness, fitness)
 
-                print(f"  [{cand_idx+1}/{n_candidates}] trait={trait_mean:.1f} coh={coherence_mean:.1f} fit={fitness:.1f} mag={magnitude:.1f} sim={similarity:.3f}")
+            # Compute magnitude
+            weights_tensor = torch.tensor(weights, dtype=torch.float32, device=model.device)
+            opt_vector = reconstruct_vector(init_vector, weights_tensor, basis)
+            magnitude = opt_vector.norm().item()
 
-            es.tell(candidates, fitnesses)
+            # Track best
+            if best_result is None or fitness > best_result.get("fitness", -999):
+                best_result = {
+                    "trait_mean": trait_mean,
+                    "coherence_mean": coherence_mean,
+                    "fitness": fitness,
+                    "magnitude": magnitude,
+                }
+                best_weights = list(weights)
+                # Track best responses for saving
+                cand_responses = all_responses[start:end]
+                best_responses = [
+                    {"question": q, "response": r, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
+                    for q, r, s in zip(questions, cand_responses, cand_scores)
+                ]
 
-            if best_result:
-                print(f"  Best: trait={best_result['trait_mean']:.1f}, coh={best_result['coherence_mean']:.1f}")
+            print(f"  [{cand_idx+1}/{n_candidates}] trait={trait_mean:.1f} coh={coherence_mean:.1f} fit={fitness:.1f} mag={magnitude:.1f}")
 
-    finally:
-        await judge.close()
+        es.tell(candidates, fitnesses)
+        fitness_history.append(gen_best_fitness)
+
+        if best_result:
+            print(f"  Best so far: trait={best_result['trait_mean']:.1f}, coh={best_result['coherence_mean']:.1f}")
 
     # Final result
     print(f"\n{'='*60}")
-    print("OPTIMIZATION COMPLETE")
+    print(f"LAYER {layer} OPTIMIZATION COMPLETE")
     print(f"{'='*60}")
 
-    if best_result:
+    if best_result and best_result['fitness'] > -1000:
         print(f"Best trait: {best_result['trait_mean']:.1f}")
         print(f"Best coherence: {best_result['coherence_mean']:.1f}")
-        print(f"Best fitness: {best_result['fitness']:.1f}")
         print(f"Best magnitude: {best_result['magnitude']:.1f}")
 
-        # Compute final vector and similarity
-        weights_tensor = torch.tensor(best_result['weights'], dtype=torch.float32, device=model.device)
-        opt_vector = reconstruct_vector(weights_tensor, basis)
-        similarity = (opt_vector @ original_vector).item()
-        print(f"Similarity to original probe: {similarity:.4f}")
+        # Compute final vector
+        weights_tensor = torch.tensor(best_weights, dtype=torch.float32, device=model.device)
+        opt_vector = reconstruct_vector(init_vector, weights_tensor, basis)
 
-        # Save optimized vector to standard extraction path with method="cma_es"
+        # Compute similarity to init
+        if init_vector is not None:
+            init_dir = init_vector / (init_vector.norm() + 1e-8)
+            opt_dir = opt_vector / (opt_vector.norm() + 1e-8)
+            similarity = (opt_dir @ init_dir).item()
+            print(f"Similarity to init vector: {similarity:.4f}")
+        else:
+            similarity = None
+
+        # Save optimized vector
+        extraction_variant = get_model_variant(experiment, mode="extraction")['name']
         output_dir = get_vector_dir(experiment, trait, "cma_es", extraction_variant, component, position)
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / f"layer{layer}.pt"
         torch.save(opt_vector.cpu(), output_path)
         print(f"Saved optimized vector: {output_path}")
 
-        # Save metadata
-        import json
+        # Save metadata with fitness history
         metadata = {
             "layer": layer,
             "component": component,
             "position": position,
-            "n_pca_components": len(best_result['weights']),
+            "n_components": n_components,
+            "n_generations": n_generations,
+            "popsize": popsize,
             "base_coef": base_coef,
             "coherence_threshold": coherence_threshold,
+            "init_method": init_method,
             "best_trait": best_result['trait_mean'],
             "best_coherence": best_result['coherence_mean'],
             "best_fitness": best_result['fitness'],
             "best_magnitude": best_result['magnitude'],
-            "similarity_to_probe": similarity,
+            "similarity_to_init": similarity,
+            "fitness_history": fitness_history,
             "timestamp": datetime.now().isoformat(),
         }
         metadata_path = output_dir / f"layer{layer}_metadata.json"
@@ -380,26 +416,24 @@ async def run_cma_es(
             json.dump(metadata, f, indent=2)
         print(f"Saved metadata: {metadata_path}")
 
-        # Save to steering results.jsonl (so get_best_vector can find it)
-        prompt_set = "steering"  # Default prompt set
-        model_variant = extraction_variant  # Use same variant for steering results
-        results_path = get_steering_results_path(experiment, trait, model_variant, position, prompt_set)
+        # Save to steering results.jsonl
+        model_name = model.config.name_or_path
+        prompt_set = "steering"
+        results_path = get_steering_results_path(experiment, trait, extraction_variant, position, prompt_set)
 
-        # Initialize results file if needed
         if not results_path.exists():
             init_results_file(
-                experiment, trait, model_variant, steering_data.prompts_file,
+                experiment, trait, extraction_variant, steering_data.prompts_file,
                 model_name, experiment, "openai", position, prompt_set
             )
 
-        # Build config in VectorSpec format
         config = {
             "vectors": [VectorSpec(
                 layer=layer,
                 component=component,
                 position=position,
                 method="cma_es",
-                weight=1.0,  # Magnitude baked into vector
+                weight=1.0,
             ).to_dict()]
         }
         result = {
@@ -408,41 +442,130 @@ async def run_cma_es(
             "n": n_questions,
         }
 
-        append_run(experiment, trait, model_variant, config, result, position, prompt_set)
+        append_run(experiment, trait, extraction_variant, config, result, position, prompt_set)
         print(f"Saved to results.jsonl")
 
         # Save responses
         if best_responses:
             timestamp = datetime.now().isoformat()
-            save_responses(best_responses, experiment, trait, model_variant, position, prompt_set, config, timestamp)
+            save_responses(best_responses, experiment, trait, extraction_variant, position, prompt_set, config, timestamp)
             print(f"Saved responses")
 
+        return best_result
+    else:
+        print("No valid result found (all candidates below coherence threshold)")
+        return None
+
+
+async def run_cma_es(
+    experiment: str,
+    trait: str,
+    layers: List[int],
+    component: str,
+    position: Optional[str] = None,
+    n_components: int = 20,
+    n_generations: int = 15,
+    popsize: int = 8,
+    max_new_tokens: int = 12,
+    n_questions: int = 5,
+    coherence_threshold: float = MIN_COHERENCE,
+    base_coef: float = 90.0,
+    seed: int = None,
+):
+    """
+    Run CMA-ES optimization for multiple layers sequentially.
+    """
+    # Load steering data
+    steering_data = load_steering_data(trait)
+
+    # Load model once
+    variant = get_model_variant(experiment, mode="application")
+    model_name = variant['model']
+    print(f"Loading model: {model_name}")
+    model, tokenizer = load_model(model_name)
+
+    # Initialize judge
+    judge = TraitJudge()
+
+    results = {}
+
+    try:
+        for layer in layers:
+            print(f"\n{'#'*60}")
+            print(f"# LAYER {layer}")
+            print(f"{'#'*60}")
+
+            # Get init vector and position for this layer
+            init_vector, layer_position, init_method, _ = get_init_vector_and_position(
+                experiment, trait, layer, component, position
+            )
+
+            result = await run_cma_es_single_layer(
+                model=model,
+                tokenizer=tokenizer,
+                experiment=experiment,
+                trait=trait,
+                layer=layer,
+                component=component,
+                position=layer_position,
+                init_vector=init_vector,
+                init_method=init_method,
+                steering_data=steering_data,
+                judge=judge,
+                n_components=n_components,
+                n_generations=n_generations,
+                popsize=popsize,
+                max_new_tokens=max_new_tokens,
+                n_questions=n_questions,
+                coherence_threshold=coherence_threshold,
+                base_coef=base_coef,
+                seed=seed,
+            )
+
+            results[layer] = result
+
+    finally:
+        await judge.close()
+
+    # Summary
+    print(f"\n{'='*60}")
+    print("OPTIMIZATION SUMMARY")
+    print(f"{'='*60}")
+    for layer, result in results.items():
+        if result and result['fitness'] > -1000:
+            print(f"  L{layer}: trait={result['trait_mean']:.1f}, coh={result['coherence_mean']:.1f}")
+        else:
+            print(f"  L{layer}: no valid result")
     print(f"{'='*60}")
 
-    return best_result
+    return results
 
 
 def main():
     parser = argparse.ArgumentParser(description="CMA-ES vector direction optimization")
     parser.add_argument("--experiment", required=True)
     parser.add_argument("--trait", required=True)
-    parser.add_argument("--layer", type=int, required=True)
-    parser.add_argument("--component", default="attn_contribution")
-    parser.add_argument("--position", default="response[:3]")
-    parser.add_argument("--n-components", type=int, default=20)
+    parser.add_argument("--layers", required=True, help="Comma-separated layers, e.g., '8,9,10,11,12'")
+    parser.add_argument("--component", default="residual")
+    parser.add_argument("--position", default=None, help="Position (default: auto-discover from existing vectors)")
+    parser.add_argument("--n-components", type=int, default=20, help="Subspace dimensionality")
     parser.add_argument("--generations", type=int, default=15)
     parser.add_argument("--popsize", type=int, default=8)
     parser.add_argument("--max-new-tokens", type=int, default=12)
     parser.add_argument("--n-questions", type=int, default=5)
     parser.add_argument("--coherence-threshold", type=float, default=MIN_COHERENCE)
     parser.add_argument("--base-coef", type=float, default=90.0)
+    parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
 
     args = parser.parse_args()
+
+    # Parse layers
+    layers = [int(x.strip()) for x in args.layers.split(",")]
 
     asyncio.run(run_cma_es(
         experiment=args.experiment,
         trait=args.trait,
-        layer=args.layer,
+        layers=layers,
         component=args.component,
         position=args.position,
         n_components=args.n_components,
@@ -452,6 +575,7 @@ def main():
         n_questions=args.n_questions,
         coherence_threshold=args.coherence_threshold,
         base_coef=args.base_coef,
+        seed=args.seed,
     ))
 
 
