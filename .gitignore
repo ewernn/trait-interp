@@ -17,8 +17,9 @@ archive/
 __pycache__/
 
 # Environment variables
-#.env
-#docker/.env
+.env
+.env.*
+docker/.env
 
 # System
 .DS_Store

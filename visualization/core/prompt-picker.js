@@ -168,6 +168,13 @@ async function renderPromptPicker() {
 
     // Re-attach event listeners
     setupPromptPickerListeners();
+
+    // Preload tags for current set (only if not already loaded)
+    if (window.state.currentPromptSet && !window.state.tagsPreloaded?.[window.state.currentPromptSet]) {
+        if (!window.state.tagsPreloaded) window.state.tagsPreloaded = {};
+        window.state.tagsPreloaded[window.state.currentPromptSet] = true;
+        preloadTagsForSet(window.state.currentPromptSet);
+    }
 }
 
 /**
@@ -299,6 +306,8 @@ function setupPromptPickerListeners() {
                 // Save to localStorage
                 localStorage.setItem('promptSet', newSet);
                 localStorage.setItem('promptId', window.state.currentPromptId);
+                // Preload tags for new set (async, will re-render when done)
+                preloadTagsForSet(newSet);
                 renderPromptPicker();
                 if (window.renderView) window.renderView();
             }
@@ -448,8 +457,41 @@ function buildHighlightedText(tokenList, currentIdx, startIdx, endIdx) {
     return result || '(empty)';
 }
 
+/**
+ * Preload tags for all prompts in a set from _tags.json index file.
+ * This allows showing tag highlights immediately without clicking each prompt.
+ */
+async function preloadTagsForSet(promptSet) {
+    if (!promptSet) return;
+
+    const modelVariant = window.state.experimentData?.experimentConfig?.defaults?.application || 'instruct';
+    const tagsUrl = `/experiments/${window.state.currentExperiment}/inference/${modelVariant}/responses/${promptSet}/_tags.json`;
+
+    try {
+        const response = await fetch(tagsUrl);
+        if (!response.ok) return;
+
+        const tagsIndex = await response.json();
+
+        // Initialize cache if needed
+        if (!window.state.promptTagsCache) window.state.promptTagsCache = {};
+
+        // Populate cache with all tags from index
+        for (const [promptId, tags] of Object.entries(tagsIndex)) {
+            const cacheKey = `${promptSet}:${promptId}`;
+            window.state.promptTagsCache[cacheKey] = tags;
+        }
+
+        // Re-render to show tags
+        renderPromptPicker();
+    } catch (e) {
+        // Tags index not available, will fall back to lazy loading
+    }
+}
+
 // Export to global scope
 window.INFERENCE_VIEWS = INFERENCE_VIEWS;
 window.renderPromptPicker = renderPromptPicker;
 window.fetchPromptPickerData = fetchPromptPickerData;
 window.updatePlotTokenHighlights = updatePlotTokenHighlights;
+window.preloadTagsForSet = preloadTagsForSet;
