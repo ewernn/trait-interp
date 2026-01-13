@@ -151,7 +151,7 @@ class ChatInference:
 
                 # Get best layer/method for this trait (searches all positions/components)
                 try:
-                    best = get_best_vector(self.experiment, trait_path, extraction_variant)
+                    best = get_best_vector(self.experiment, trait_path)
                 except (FileNotFoundError, ValueError) as e:
                     # No vectors found for this trait - skip silently
                     continue

@@ -68,7 +68,8 @@ from tqdm import tqdm
 from core import projection, VectorSpec
 from utils.vectors import (
     load_vector_metadata, load_vector_with_baseline, find_vector_method,
-    get_best_vector, get_top_N_vectors, get_best_vector_spec, load_vector_from_spec
+    get_best_vector, get_top_N_vectors, get_best_vector_spec, load_vector_from_spec,
+    _discover_vectors
 )
 from utils.paths import get as get_path, get_vector_path, discover_extracted_traits, get_model_variant
 from utils.model import load_experiment_config
@@ -263,6 +264,8 @@ def main():
                        help="Skip massive dims calibration check (disables interactive cleaning in viz)")
     parser.add_argument("--model-variant", default=None,
                        help="Model variant for projections (default: from experiment defaults.application)")
+    parser.add_argument("--extraction-variant", default=None,
+                       help="Model variant for vectors (default: from experiment defaults.extraction)")
 
     args = parser.parse_args()
 
@@ -274,7 +277,7 @@ def main():
     model_variant = app_variant['name']  # For inference paths
     model_name = app_variant['model']
 
-    ext_variant = get_model_variant(args.experiment, None, mode="extraction")
+    ext_variant = get_model_variant(args.experiment, args.extraction_variant, mode="extraction")
     extraction_variant = ext_variant['name']  # For vector loading
 
     # Set inference_dir using application variant
@@ -361,7 +364,8 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
         if multi_vector_mode:
             # Get top N vectors for this trait
             top_vectors = get_top_N_vectors(
-                args.experiment, trait_path, extraction_variant, args.component, args.position, N=args.multi_vector
+                args.experiment, trait_path, extraction_variant=extraction_variant,
+                component=args.component, position=args.position, N=args.multi_vector
             )
             if not top_vectors:
                 print(f"  Skip {trait_path}: no vectors found")
@@ -401,7 +405,8 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
                 # Use VectorSpec to find and load best vector
                 try:
                     spec, spec_meta = get_best_vector_spec(
-                        args.experiment, trait_path, extraction_variant, args.component, args.position
+                        args.experiment, trait_path, extraction_variant=extraction_variant,
+                        component=args.component, position=args.position
                     )
                 except FileNotFoundError as e:
                     print(f"  Skip {trait_path}: {e}")
@@ -417,8 +422,22 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
                     spec = VectorSpec(layer, spec.component, spec.position, args.method)
             else:
                 layer = args.layer
+                position = args.position
+
+                # Auto-detect position if not specified
+                if position is None:
+                    candidates = _discover_vectors(
+                        args.experiment, trait_path, extraction_variant,
+                        component=args.component, layer=layer
+                    )
+                    if candidates:
+                        position = candidates[0]['position']
+                    else:
+                        print(f"  Skip {trait_path}: no vectors found at layer {layer}")
+                        continue
+
                 method = args.method or find_vector_method(
-                    args.experiment, trait_path, layer, extraction_variant, args.component, args.position
+                    args.experiment, trait_path, layer, extraction_variant, args.component, position
                 )
                 selection_source = 'manual'
 
@@ -427,7 +446,8 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
                     continue
 
                 # Build spec for manual selection
-                spec = VectorSpec(layer, args.component, args.position, method)
+                spec = VectorSpec(layer, args.component, position, method)
+                print(f"  {trait_path}: L{layer} {method} (manual, position={position})")
 
             vector_path = get_vector_path(
                 args.experiment, trait_path, spec.method, spec.layer, extraction_variant, spec.component, spec.position

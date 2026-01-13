@@ -91,9 +91,9 @@ def main():
     print(f"Loading {model_name}...")
     model, tokenizer = load_model(model_name, lora=lora)
 
-    # Get best vector
+    # Get best vector (auto-resolves variants from config)
     print(f"\nGetting best vector for {args.trait}...")
-    best = get_best_vector(args.experiment, args.trait, model_variant)
+    best = get_best_vector(args.experiment, args.trait)
     layer = best['layer']
     method = best['method']
     position = best['position']

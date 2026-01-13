@@ -36,9 +36,9 @@ def analyze_trait(
     common_mask: torch.Tensor = None,
 ) -> dict:
     """Analyze a single trait vector."""
-    # Get best vector metadata
+    # Get best vector metadata (auto-resolves extraction/steering variants from config)
     try:
-        meta = get_best_vector(experiment, trait, model_variant)
+        meta = get_best_vector(experiment, trait)
     except FileNotFoundError as e:
         return {"error": str(e)}
 

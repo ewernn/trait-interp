@@ -371,8 +371,8 @@ def main():
     steering_info = None
 
     if args.steer:
-        # Use get_best_vector with optional layer filter
-        best = get_best_vector(args.experiment, args.steer, model_variant, layer=args.layer)
+        # Use get_best_vector with optional layer filter (auto-resolves variants from config)
+        best = get_best_vector(args.experiment, args.steer, layer=args.layer)
         layer = best["layer"]
         method = best["method"]
         position = best["position"]
