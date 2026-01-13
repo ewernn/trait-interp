@@ -3,13 +3,14 @@
 # Title and preview come from frontmatter in each .md file
 
 findings:
-  - 1st-vs-3rd-person.md
   - rm-sycophancy.md
   - comparison-arditi-refusal.md
   - component-comparison-refusal.md
   - comparison-persona-vectors.md
-  - effect-size-vs-steering.md
-  - ood-cross-model.md
-  - ood-formality.md
   - massive-activations.md
   - coefficient-scaling-law.md
+  # Commented out - missing data:
+  # - 1st-vs-3rd-person.md      # needs chirp/refusal_v2 + v2_3p
+  # - ood-cross-model.md        # needs Mistral experiments
+  # - ood-formality.md          # needs formality steering
+  # - effect-size-vs-steering.md # needs multi-trait steering

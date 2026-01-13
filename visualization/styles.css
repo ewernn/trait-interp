@@ -151,7 +151,7 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    overflow: hidden;
     position: relative;
 }
 
@@ -160,7 +160,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-    padding: 0 12px 250px 12px;
+    padding: 0 12px 400px 12px;
 }
 
 /* Sidebar */
