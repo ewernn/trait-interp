@@ -20,6 +20,7 @@ __pycache__/
 .env
 .env.*
 docker/.env
+remote_setup.py
 
 # System
 .DS_Store
