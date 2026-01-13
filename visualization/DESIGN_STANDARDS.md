@@ -127,23 +127,32 @@ All views use standardized CSS classes from `styles.css`. No view-specific CSS.
 
 ## Plotly Charts
 
-```
-Background:    transparent (paper_bgcolor, plot_bgcolor)
-Margins:       Minimal (l: 25-50, r: 5-10, t: 5-10, b: 20-50)
-```
-
-Use `window.getPlotlyLayout()` helper for consistent styling.
-
-### Responsive Sizing
-
-Always call `Plotly.Plots.resize()` after `Plotly.newPlot()` to force correct width calculation:
+Use `core/charts.js` primitives for all charts:
 
 ```javascript
-Plotly.newPlot(divId, data, layout, { displayModeBar: false, responsive: true });
-Plotly.Plots.resize(divId);  // Force recalculate - prevents narrow charts
+// Basic usage
+const layout = window.buildChartLayout({
+    preset: 'layerChart',  // or 'timeSeries', 'heatmap', 'barChart'
+    traces,
+    height: 200,
+    legendPosition: 'below',  // 'above', 'right', 'none'
+    yaxis: { title: 'Score' }
+});
+window.renderChart(divId, traces, layout);
+
+// With shapes (for token highlighting)
+shapes: [
+    window.createSeparatorShape(promptEndIdx),
+    window.createHighlightShape(currentTokenX)
+]
+
+// For updates (efficient re-render)
+window.updateChart(divId, traces, layout);
 ```
 
-Without this, Plotly may calculate width before the container is fully laid out, causing charts with fewer data points to render narrower than their container.
+**Presets**: `timeSeries`, `layerChart`, `heatmap`, `barChart` — all overridable.
+
+**Legend positioning**: `legendPosition: 'below'` (default) calculates margin automatically based on trace count.
 
 ### Heatmap Colorscale
 

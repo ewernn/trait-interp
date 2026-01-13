@@ -294,7 +294,8 @@ visualization/
 ├── core/
 │   ├── paths.js            # Centralized PathBuilder (loads from config/paths.yaml)
 │   ├── model-config.js     # Model config loader (loads from config/models/)
-│   ├── state.js            # Global state, experiment loading
+│   ├── state.js            # Global state, experiment loading, theme colors
+│   ├── charts.js           # Chart layout primitives (buildChartLayout, renderChart)
 │   ├── prompt-picker.js    # Prompt selection UI for inference views
 │   └── conversation-tree.js # ConversationTree for multi-turn chat with branching
 └── views/
@@ -308,6 +309,7 @@ visualization/
 
 **Key Features**:
 - **PathBuilder**: Centralized path construction from `config/paths.yaml`
+- **Chart Primitives**: `buildChartLayout()` with presets, smart legend margins, `renderChart()` wrapper
 - **Integrity Caching**: Server caches `data_checker.py` output on startup
 - **Auto-discovery**: Experiments and traits discovered dynamically via API
 
