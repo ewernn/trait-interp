@@ -46,22 +46,45 @@ python analysis/steering/evaluate.py \
 
 ## CMA-ES Optimization
 
-### Single-Layer Direction Optimization
+### Single-Layer Direction + Coefficient Optimization
 
-Use `optimize_vector.py` to find better vector directions via CMA-ES:
+Use `optimize_vector.py` to jointly optimize vector direction and coefficient via CMA-ES:
 
 ```bash
+# Instruct mode (default): Q&A evaluation on instruct model
 python analysis/steering/optimize_vector.py \
     --experiment {experiment} \
     --trait {category}/{trait} \
     --layers 8,9,10,11,12 \
     --component residual
+
+# Base mode: scenario completion on base model
+python analysis/steering/optimize_vector.py \
+    --experiment {experiment} \
+    --trait {category}/{trait} \
+    --layers 8,9,10,11,12 \
+    --component residual \
+    --mode base \
+    --coherence-threshold 50 \
+    --max-new-tokens 16
 ```
 
+**Search space**: 20 direction dims + 1 coefficient dim (normalized around activation norm per layer)
+
+**Key options**:
+- `--mode instruct|base`: Instruct uses Q&A with instruct model; base uses scenarios with base model
+- `--coef-init 0.5`: Starting coefficient as fraction of activation norm (default: 0.5)
+- `--coherence-threshold`: Base model needs lower threshold (~50) since it's less coherent
+- `--n-prompts`, `--n-completions`: For base mode scenario sampling
+
+**Notes**:
 - Auto-discovers position from existing vectors
 - Starts from existing best vector (probe/mean_diff), perturbs in random subspace
+- Coefficient bounds: [0, 1.5] × activation_norm (allows very low coefficients for later layers)
 - Saves optimized vectors as `method=cma_es`
 - 15 generations × 8 popsize = 120 evals per layer (default)
+
+**Finding**: Base-optimized vectors get high trait scores on scenario completion (~90+) but don't transfer well to instruct model Q&A (~25 vs ~45 for instruct-optimized). The two modes find different trait directions.
 
 ### Multi-Layer Ensemble Optimization
 
