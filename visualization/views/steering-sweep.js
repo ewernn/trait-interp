@@ -66,50 +66,47 @@ async function renderSteeringSweep() {
                 <div id="best-vector-container"></div>
             </section>
 
-            <!-- Trait Picker (for single-trait sections below) -->
-            <div id="trait-picker-container"></div>
-
-            <!-- Controls -->
-            <div class="sweep-controls">
-                <div class="control-group">
-                    <label>Vector Type:</label>
-                    <select id="sweep-vector-type">
-                        <option value="full_vector" selected>Full Vector</option>
-                        <option value="incremental">Incremental</option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label>Method:</label>
-                    <select id="sweep-method">
-                        <option value="all" selected>All Methods</option>
-                        <option value="probe">Probe</option>
-                        <option value="gradient">Gradient</option>
-                        <option value="mean_diff">Mean Diff</option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label>Metric:</label>
-                    <select id="sweep-metric">
-                        <option value="delta" selected>Delta (trait change)</option>
-                        <option value="coherence">Coherence</option>
-                        <option value="trait">Trait Score</option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label>
-                        <input type="checkbox" id="sweep-interpolate" />
-                        Interpolate gaps
-                    </label>
-                </div>
-            </div>
-
-            <!-- Main heatmap -->
+            <!-- Heatmaps section -->
             <section>
                 <h3 class="subsection-header" id="heatmap-section">
                     <span class="subsection-num">2.</span>
-                    <span class="subsection-title">Layer × Coefficient Heatmap</span>
+                    <span class="subsection-title">Layer × Coefficient Heatmaps</span>
                 </h3>
-                <div id="sweep-heatmap-container" class="chart-container-lg"></div>
+
+                <!-- Controls for heatmaps -->
+                <div class="sweep-controls">
+                    <div class="control-group">
+                        <label>Trait:</label>
+                        <select id="sweep-trait-select"></select>
+                    </div>
+                    <div class="control-group">
+                        <label>Method:</label>
+                        <select id="sweep-method">
+                            <option value="all" selected>All Methods</option>
+                            <option value="probe">Probe</option>
+                            <option value="gradient">Gradient</option>
+                            <option value="mean_diff">Mean Diff</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="sweep-interpolate" />
+                            Interpolate
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Dual heatmaps: Delta (filtered) and Coherence (unfiltered) -->
+                <div class="dual-heatmap-container">
+                    <div class="heatmap-panel">
+                        <div class="heatmap-label">Trait Delta <span class="hint">(coherence ≥ threshold)</span></div>
+                        <div id="sweep-heatmap-delta" class="chart-container-md"></div>
+                    </div>
+                    <div class="heatmap-panel">
+                        <div class="heatmap-label">Coherence <span class="hint">(all results)</span></div>
+                        <div id="sweep-heatmap-coherence" class="chart-container-md"></div>
+                    </div>
+                </div>
             </section>
 
             <!-- Raw results table (collapsible) -->
@@ -132,15 +129,11 @@ async function renderSteeringSweep() {
     await renderSweepData(window.state.selectedSteeringEntry || defaultTrait);
 
     // Setup event handlers
-    document.getElementById('sweep-vector-type').addEventListener('change', () => updateSweepVisualizations());
     document.getElementById('sweep-method').addEventListener('change', () => updateSweepVisualizations());
-    document.getElementById('sweep-metric').addEventListener('change', () => updateSweepVisualizations());
 
     document.getElementById('sweep-coherence-threshold').addEventListener('input', async (e) => {
         document.getElementById('coherence-threshold-value').textContent = e.target.value;
-        // Re-render best vector section with new threshold
         await renderBestVectorPerLayer();
-        // Re-render single-trait sections
         updateSweepVisualizations();
     });
 
@@ -256,6 +249,29 @@ async function renderSweepData(steeringEntry) {
 
 
 /**
+ * Extract base trait name from full trait path.
+ * e.g., "pv_instruction/evil" → "evil"
+ *       "pv_natural/evil_v3" → "evil"
+ */
+function getBaseTraitName(trait) {
+    const traitName = trait.split('/').pop();  // "evil" or "evil_v3"
+    // Strip version suffixes like _v3, _v2, etc.
+    return traitName.replace(/_v\d+$/, '');
+}
+
+/**
+ * Get elicitation method label from category.
+ * e.g., "pv_instruction/evil" → "instruction"
+ *       "pv_natural/evil_v3" → "natural"
+ */
+function getElicitationLabel(trait) {
+    const category = trait.split('/')[0];
+    if (category.includes('instruction')) return 'instruction';
+    if (category.includes('natural')) return 'natural';
+    return category;  // fallback to full category name
+}
+
+/**
  * Render Best Vector per Layer section (multi-trait)
  * Shows one chart per base trait (category/name), with lines for each (method, position) combo
  */
@@ -268,16 +284,20 @@ async function renderBestVectorPerLayer() {
         return;
     }
 
-    container.innerHTML = '<div class="loading">Loading method comparison data...</div>';
+    // Only show loading on initial render, not on threshold updates (avoids flash)
+    const hasExistingCharts = container.querySelector('.trait-chart-wrapper');
+    if (!hasExistingCharts) {
+        container.innerHTML = '<div class="loading">Loading method comparison data...</div>';
+    }
 
     // Get coherence threshold from slider
     const coherenceThresholdEl = document.getElementById('sweep-coherence-threshold');
     const coherenceThreshold = coherenceThresholdEl ? parseInt(coherenceThresholdEl.value) : 70;
 
-    // Group by base trait (category/trait_name)
+    // Group by base trait name (e.g., "evil" groups pv_instruction/evil and pv_natural/evil_v3)
     const traitGroups = {};
     for (const entry of steeringEntries) {
-        const baseTrait = entry.trait;
+        const baseTrait = getBaseTraitName(entry.trait);
         if (!traitGroups[baseTrait]) traitGroups[baseTrait] = [];
         traitGroups[baseTrait].push(entry);
     }
@@ -353,6 +373,12 @@ async function renderBestVectorPerLayer() {
             });
 
             const posDisplayClosed = position ? window.paths.formatPositionDisplay(position) : '';
+            const elicitLabel = getElicitationLabel(entry.trait);  // "instruction" or "natural"
+            const fullTraitName = entry.trait.split('/').pop();  // "evil" or "evil_v3"
+
+            // Check if this group has multiple elicitation methods
+            const uniqueElicitMethods = new Set(variants.map(v => getElicitationLabel(v.trait)));
+            const hasMultipleElicit = uniqueElicitMethods.size > 1;
 
             Object.entries(methodData).forEach(([methodKey, layerData]) => {
                 const layers = Object.keys(layerData).map(Number).sort((a, b) => a - b);
@@ -367,20 +393,22 @@ async function renderBestVectorPerLayer() {
 
                     const methodName = { probe: 'Probe', gradient: 'Gradient', mean_diff: 'Mean Diff' }[method] || method;
                     const componentPrefix = component !== 'residual' ? `${component} ` : '';
+
+                    // Add elicitation prefix when comparing instruction vs natural
+                    const elicitPrefix = hasMultipleElicit ? `${elicitLabel} ` : '';
+
                     const label = posDisplayClosed
-                        ? `${componentPrefix}${methodName} ${posDisplayClosed}`
-                        : `${componentPrefix}${methodName}`;
+                        ? `${elicitPrefix}${componentPrefix}${methodName} ${posDisplayClosed}`
+                        : `${elicitPrefix}${componentPrefix}${methodName}`;
 
                     const baseColor = methodColors[method] || window.getChartColors()[colorIdx % 10];
-                    // Dash for non-residual components
+                    // Different dash styles for elicitation methods
                     const dashStyle = component !== 'residual' ? 'dot'
-                        : (variants.length > 1 && position !== 'response_all' && position !== null
-                            ? (position.includes('prompt') ? 'dot' : 'dash')
-                            : 'solid');
+                        : (hasMultipleElicit ? (elicitLabel === 'instruction' ? 'solid' : 'dash') : 'solid');
 
-                    // Build custom hover text with coefficient
+                    // Build custom hover text with coefficient and full trait path
                     const hoverTexts = layers.map((l, i) =>
-                        `${label}<br>L${l} c${coefs[i].toFixed(1)}<br>Score: ${scores[i].toFixed(1)}`
+                        `${label}<br>L${l} c${coefs[i].toFixed(1)}<br>Score: ${scores[i].toFixed(1)}<br><span style="opacity:0.7">${fullTraitName}</span>`
                     );
 
                     traces.push({
@@ -483,48 +511,36 @@ async function renderBestVectorPerLayer() {
 }
 
 /**
- * Render trait picker (inline buttons)
+ * Populate trait dropdown for heatmap section
  * @param {Array} steeringEntries - Array of { trait, model_variant, position, prompt_set, full_path }
  */
 async function renderTraitPicker(steeringEntries) {
-    const container = document.getElementById('trait-picker-container');
+    const select = document.getElementById('sweep-trait-select');
+    if (!select) return;
 
     if (!steeringEntries || steeringEntries.length === 0) {
-        container.innerHTML = '';
+        select.innerHTML = '<option>No traits</option>';
         return;
     }
 
     // Get current selection or default to first
     const currentFullPath = window.state.selectedSteeringEntry?.full_path || steeringEntries[0].full_path;
 
-    container.innerHTML = `
-        <div class="trait-picker">
-            <span class="tp-label">Trait:</span>
-            <div class="tp-buttons">
-                ${steeringEntries.map((entry, idx) => `
-                    <button class="tp-btn ${entry.full_path === currentFullPath ? 'active' : ''}" data-index="${idx}">
-                        ${window.getDisplayName(entry.trait)}
-                        <span class="hint">${window.paths.formatPositionDisplay(entry.position)}</span>
-                    </button>
-                `).join('')}
-            </div>
-        </div>
-    `;
+    // Build options with readable labels
+    select.innerHTML = steeringEntries.map((entry, idx) => {
+        const displayName = window.getDisplayName(entry.trait);
+        const posDisplay = window.paths.formatPositionDisplay(entry.position);
+        const label = `${displayName} ${posDisplay}`;
+        const selected = entry.full_path === currentFullPath ? 'selected' : '';
+        return `<option value="${idx}" ${selected}>${label}</option>`;
+    }).join('');
 
-    // Setup event listeners
-    container.querySelectorAll('.tp-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const idx = parseInt(btn.dataset.index);
-            const selectedEntry = steeringEntries[idx];
-            window.state.selectedSteeringEntry = selectedEntry;
-
-            // Update active state
-            container.querySelectorAll('.tp-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            // Re-render single-trait sections
-            await renderSweepData(selectedEntry);
-        });
+    // Setup change handler
+    select.addEventListener('change', async () => {
+        const idx = parseInt(select.value);
+        const selectedEntry = steeringEntries[idx];
+        window.state.selectedSteeringEntry = selectedEntry;
+        await renderSweepData(selectedEntry);
     });
 }
 
@@ -602,9 +618,7 @@ function convertResultsToSweepFormat(results, methodFilter = null) {
     return {
         trait: results.trait || 'unknown',
         baseline_trait: baseline,
-        full_vector: fullVector,
-        incremental: {}, // Would need separate runs with incremental flag to populate
-        _isConverted: true // Flag to indicate this was converted from results.jsonl (uses raw coefficients, not ratios)
+        full_vector: fullVector
     };
 }
 
@@ -612,9 +626,7 @@ function convertResultsToSweepFormat(results, methodFilter = null) {
 function updateSweepVisualizations() {
     if (!currentSweepData) return;
 
-    const vectorType = document.getElementById('sweep-vector-type').value;
     const method = document.getElementById('sweep-method').value;
-    const metric = document.getElementById('sweep-metric').value;
     const coherenceThreshold = parseInt(document.getElementById('sweep-coherence-threshold').value);
     const interpolate = document.getElementById('sweep-interpolate').checked;
 
@@ -622,18 +634,20 @@ function updateSweepVisualizations() {
     let data;
     if (method !== 'all' && currentRawResults) {
         const filteredData = convertResultsToSweepFormat(currentRawResults, method);
-        data = filteredData?.[vectorType] || filteredData?.full_vector || {};
+        data = filteredData?.full_vector || {};
     } else {
-        data = currentSweepData[vectorType] || currentSweepData.full_vector || {};
+        data = currentSweepData.full_vector || {};
     }
 
-    renderSweepHeatmap(data, metric, coherenceThreshold, interpolate);
+    // Render dual heatmaps: Delta (filtered) and Coherence (unfiltered)
+    renderSweepHeatmap(data, 'delta', coherenceThreshold, interpolate, 'sweep-heatmap-delta');
+    renderSweepHeatmap(data, 'coherence', 0, interpolate, 'sweep-heatmap-coherence');  // No threshold for coherence
     renderSweepTable(data, coherenceThreshold);
 }
 
 
-function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = false) {
-    const container = document.getElementById('sweep-heatmap-container');
+function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = false, containerId = 'sweep-heatmap-delta') {
+    const container = document.getElementById(containerId);
 
     const layers = Object.keys(data).map(Number).sort((a, b) => a - b);
     if (layers.length === 0) {
@@ -822,8 +836,7 @@ function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = fals
         }
     };
 
-    // Label depends on whether we're using sweep_results (ratios) or converted results (coefficients)
-    const xAxisLabel = currentSweepData._isConverted ? 'Coefficient' : 'Perturbation Ratio';
+    const xAxisLabel = 'Coefficient';
 
     // Generate evenly-spaced tick positions showing actual coefficient values
     const numTicks = Math.min(10, xRatios.length);

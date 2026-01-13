@@ -75,7 +75,7 @@ Extracted natural vectors at additional positions for comparison:
 - response[:3] (first 3 tokens)
 - response[:5] (already done - first 5 tokens)
 
-Vectors at: `extraction/pv_replication_natural/{trait}/vectors/response_0/`, `response__3/`, `response__5/`
+Vectors at: `extraction/pv_natural/{trait}/vectors/response_0/`, `response__3/`, `response__5/`
 
 ## Summary So Far
 
@@ -221,8 +221,8 @@ steering/
 ├── evil/                          # instruction-based (trait="evil")
 ├── sycophancy/
 ├── hallucination/
-└── pv_replication_natural/        # category becomes directory
-    ├── evil/                      # natural (trait="pv_replication_natural/evil")
+└── pv_natural/        # category becomes directory
+    ├── evil/                      # natural (trait="pv_natural/evil")
     ├── sycophancy/
     └── hallucination/
 ```
@@ -589,7 +589,7 @@ Both methods find causally effective directions. Natural captures "raw" trait; i
 ```
 datasets/traits/
 ├── evil/, sycophancy/, hallucination/          # Instruction-based scenarios
-├── pv_replication_natural/                      # Natural scenarios (explicit confession)
+├── pv_natural/                      # Natural scenarios (explicit confession)
 │   ├── evil/, sycophancy/, hallucination/
 └── pv_replication_base_prefill_IT/             # IT responses for base model prefill
 ```
@@ -599,7 +599,7 @@ datasets/traits/
 experiments/persona_vectors_replication/extraction/
 ├── evil/, sycophancy/, hallucination/          # Instruction-based vectors
 │   └── vectors/response_all/residual/mean_diff/
-├── pv_replication_natural/                      # Natural vectors
+├── pv_natural/                      # Natural vectors
 │   └── {trait}/vectors/response__5/residual/probe/
 └── pv_replication_base_prefill_IT/             # Base prefill vectors
 ```
@@ -608,7 +608,7 @@ experiments/persona_vectors_replication/extraction/
 ```
 experiments/persona_vectors_replication/steering/
 ├── evil/response_all/results.json              # Instruction evil (grammar-only coherence)
-├── pv_replication_natural/evil/response__5/
+├── pv_natural/evil/response__5/
 │   ├── results.json                            # Natural evil (grammar-only coherence)
 │   └── results_old_coherence.json              # Natural evil (old biased coherence)
 └── {trait}/response_all/responses/             # Individual response files
