@@ -4,6 +4,19 @@
 async function renderSteeringSweep() {
     const contentArea = document.getElementById('content-area');
 
+    // Guard: require experiment selection
+    if (!window.state.currentExperiment) {
+        contentArea.innerHTML = `
+            <div class="tool-view">
+                <div class="no-data">
+                    <p>Please select an experiment from the sidebar</p>
+                    <small>Analysis views require an experiment to be selected. Choose one from the "Experiment" section in the sidebar.</small>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
     // Show loading state only if fetch takes > 150ms
     const loadingTimeout = setTimeout(() => {
         contentArea.innerHTML = '<div class="loading">Loading steering sweep data...</div>';
@@ -530,7 +543,11 @@ async function renderTraitPicker(steeringEntries) {
     select.innerHTML = steeringEntries.map((entry, idx) => {
         const displayName = window.getDisplayName(entry.trait);
         const posDisplay = window.paths.formatPositionDisplay(entry.position);
-        const label = `${displayName} ${posDisplay}`;
+        // Include prompt_set if not default "steering"
+        const promptSetDisplay = entry.prompt_set && entry.prompt_set !== 'steering'
+            ? ` [${entry.prompt_set}]`
+            : '';
+        const label = `${displayName} ${posDisplay}${promptSetDisplay}`;
         const selected = entry.full_path === currentFullPath ? 'selected' : '';
         return `<option value="${idx}" ${selected}>${label}</option>`;
     }).join('');
@@ -947,17 +964,6 @@ function setupSweepInfoToggles() {
 }
 
 
-function escapeHtml(text) {
-    if (!text) return '';
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/\n/g, '<br>');
-}
-
-
 // ============================================================
 // Response Browser (per-trait collapsible)
 // ============================================================
@@ -1038,8 +1044,8 @@ function renderResponseBrowserForTrait(trait) {
         <div class="rb-filters">
             <span class="rb-filter-label">Layers:</span>
             <div class="rb-layer-chips">
-                <button class="rb-chip-btn" data-action="select-all">All</button>
-                <button class="rb-chip-btn" data-action="select-none">None</button>
+                <button class="btn btn-xs rb-chip-btn" data-action="select-all">All</button>
+                <button class="btn btn-xs rb-chip-btn" data-action="select-none">None</button>
                 ${uniqueLayers.map(l => `
                     <label class="rb-chip ${state.layerFilter.size === 0 || state.layerFilter.has(l) ? 'active' : ''}">
                         <input type="checkbox" value="${l}" ${state.layerFilter.size === 0 || state.layerFilter.has(l) ? 'checked' : ''}>
@@ -1048,14 +1054,14 @@ function renderResponseBrowserForTrait(trait) {
                 `).join('')}
             </div>
             <div class="rb-info-btns">
-                <button class="rb-info-btn ${state.infoPanel === 'definition' ? 'active' : ''}" data-info="definition">Definition</button>
-                <button class="rb-info-btn ${state.infoPanel === 'judge' ? 'active' : ''}" data-info="judge">Judge Prompt</button>
+                <button class="btn btn-xs rb-info-btn ${state.infoPanel === 'definition' ? 'active' : ''}" data-info="definition">Definition</button>
+                <button class="btn btn-xs rb-info-btn ${state.infoPanel === 'judge' ? 'active' : ''}" data-info="judge">Judge Prompt</button>
             </div>
-            <label class="rb-toggle">
+            <label class="toggle-row rb-toggle">
                 <input type="checkbox" ${state.bestPerLayer ? 'checked' : ''} data-action="best-per-layer">
                 Best per layer (coh ≥${coherenceThreshold})
             </label>
-            <label class="rb-toggle">
+            <label class="toggle-row rb-toggle">
                 <input type="checkbox" ${state.compactResponses ? 'checked' : ''} data-action="compact-responses">
                 Compact responses
             </label>
@@ -1066,7 +1072,7 @@ function renderResponseBrowserForTrait(trait) {
         </div>
         ` : ''}
         <div class="rb-table-wrapper">
-            <table class="data-table rb-table">
+            <table class="table table-compact data-table rb-table">
                 <thead>
                     <tr>
                         <th class="sortable ${state.sortKey === 'layer' ? 'sort-active' : ''}" data-sort="layer">
@@ -1090,13 +1096,15 @@ function renderResponseBrowserForTrait(trait) {
                     ${runs.map((run, idx) => {
                         const position = run.entry?.position || 'unknown';
                         const posDisplay = window.paths?.formatPositionDisplay ? window.paths.formatPositionDisplay(position) : position;
+                        const promptSet = run.entry?.prompt_set;
+                        const promptSetDisplay = promptSet && promptSet !== 'steering' ? ` [${promptSet}]` : '';
                         return `
                         <tr class="rb-row ${state.expandedRow === idx ? 'expanded' : ''} ${run.coherence < coherenceThreshold ? 'below-threshold' : ''}" data-idx="${idx}">
                             <td>L${run.layer}</td>
                             <td>${run.coef.toFixed(1)}</td>
                             <td>${run.method}</td>
                             <td>${run.component}</td>
-                            ${showPositionCol ? `<td class="rb-position">${posDisplay}</td>` : ''}
+                            ${showPositionCol ? `<td class="rb-position">${posDisplay}${promptSetDisplay}</td>` : ''}
                             <td class="${run.traitScore > 50 ? 'quality-good' : run.traitScore > 20 ? 'quality-ok' : ''}">${run.traitScore.toFixed(1)}</td>
                             <td class="${run.coherence >= 80 ? 'quality-good' : run.coherence >= 60 ? 'quality-ok' : 'quality-bad'}">${run.coherence.toFixed(0)}</td>
                         </tr>
@@ -1277,7 +1285,7 @@ async function loadInfoPanelContent(trait, panelType) {
         }
 
         if (panelType === 'definition') {
-            panel.innerHTML = `<pre class="rb-code">${escapeHtml(cached.text.trim())}</pre>`;
+            panel.innerHTML = `<pre class="rb-code">${window.escapeHtml(cached.text.trim())}</pre>`;
         } else if (panelType === 'judge') {
             // Fetch judge templates if not cached
             if (!judgeTemplatesCache) {
@@ -1291,7 +1299,7 @@ async function loadInfoPanelContent(trait, panelType) {
 
             // Highlight template variables
             const highlightVars = (text) => {
-                return escapeHtml(text).replace(/\{(\w+)\}/g, '<span class="rb-var">{$1}</span>');
+                return window.escapeHtml(text).replace(/\{(\w+)\}/g, '<span class="rb-var">{$1}</span>');
             };
 
             const systemPrompt = judgeTemplatesCache.steering_system
@@ -1373,8 +1381,8 @@ async function loadResponsesForRun(trait, idx, run) {
                             <div class="meta-score">Coh: <span class="${(r.coherence_score ?? 0) >= 80 ? 'quality-good' : (r.coherence_score ?? 0) >= 60 ? 'quality-ok' : 'quality-bad'}">${r.coherence_score?.toFixed(0) ?? '-'}</span></div>
                         </div>
                         <div class="response-content">
-                            <div class="response-q">${escapeHtml(r.question)}</div>
-                            <div class="response-a ${isCompact ? 'compact' : ''}">${escapeHtml(responseText)}</div>
+                            <div class="response-q">${window.escapeHtml(r.question)}</div>
+                            <div class="response-a ${isCompact ? 'compact' : ''}">${window.escapeHtml(responseText)}</div>
                         </div>
                     </div>
                 `;}).join('')}

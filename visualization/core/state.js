@@ -1,5 +1,9 @@
 // Global State Management for Trait Interpretation Visualization
 
+// View category constants
+const ANALYSIS_VIEWS = ['trait-extraction', 'steering-sweep', 'inference', 'model-comparison', 'layer-dive'];
+const GLOBAL_VIEWS = ['overview', 'methodology', 'findings', 'finding', 'live-chat'];
+
 // State
 const state = {
     // App-wide config (fetched from /api/config)
@@ -441,13 +445,17 @@ function setupSubsectionInfoToggles() {
 function setupNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
-        item.addEventListener('click', () => {
+        item.addEventListener('click', async () => {
             navItems.forEach(n => n.classList.remove('active'));
             item.classList.add('active');
             if (item.dataset.view) {
                 state.currentView = item.dataset.view;
                 setTabInURL(item.dataset.view);
                 updatePageTitle();
+
+                // Auto-load experiment if switching to analysis view and none selected
+                await ensureExperimentLoaded();
+
                 renderPromptPicker();
                 if (window.renderView) window.renderView();
             }
@@ -536,9 +544,11 @@ async function loadExperiments() {
         });
 
         if (state.experiments.length > 0) {
-            // Check URL for experiment, otherwise use first
             const urlExp = getExperimentFromURL();
+            const viewNeedsExperiment = ANALYSIS_VIEWS.includes(state.currentView);
+
             if (urlExp && state.experiments.includes(urlExp)) {
+                // URL specifies valid experiment - honor it
                 state.currentExperiment = urlExp;
                 // Update active state in sidebar
                 list.querySelectorAll('.experiment-option').forEach(item => {
@@ -547,15 +557,49 @@ async function loadExperiments() {
                     const radio = item.querySelector('input[type="radio"]');
                     if (radio) radio.checked = isActive;
                 });
-            } else {
+                await loadExperimentData(state.currentExperiment);
+            } else if (viewNeedsExperiment) {
+                // Analysis view needs experiment - auto-select first
                 state.currentExperiment = state.experiments[0];
                 setExperimentInURL(state.currentExperiment);
+                await loadExperimentData(state.currentExperiment);
+            } else {
+                // Global view - leave null, no auto-select
+                state.currentExperiment = null;
+                state.experimentData = null;
             }
-            await loadExperimentData(state.currentExperiment);
         }
     } catch (error) {
         console.error('Error loading experiments:', error);
         showError('Failed to load experiments');
+    }
+}
+
+// Auto-load experiment if needed for analysis views
+async function ensureExperimentLoaded() {
+    // Already have experiment? Nothing to do
+    if (state.currentExperiment) return;
+
+    // No experiments available? Nothing to do
+    if (!state.experiments || state.experiments.length === 0) return;
+
+    // Not on analysis view? Don't auto-load
+    if (!ANALYSIS_VIEWS.includes(state.currentView)) return;
+
+    // Auto-load first experiment
+    state.currentExperiment = state.experiments[0];
+    setExperimentInURL(state.currentExperiment);
+    await loadExperimentData(state.currentExperiment);
+
+    // Update sidebar UI to match
+    const list = document.getElementById('experiment-list');
+    if (list) {
+        list.querySelectorAll('.experiment-option').forEach((item, idx) => {
+            const isActive = idx === 0;
+            item.classList.toggle('active', isActive);
+            const radio = item.querySelector('input[type="radio"]');
+            if (radio) radio.checked = isActive;
+        });
     }
 }
 
@@ -833,8 +877,9 @@ function initFromURL() {
 }
 
 // Handle browser back/forward buttons
-window.addEventListener('popstate', () => {
+window.addEventListener('popstate', async () => {
     initFromURL();
+    await ensureExperimentLoaded();
     renderPromptPicker();
     if (window.renderView) window.renderView();
 });
@@ -884,6 +929,7 @@ async function init() {
 
     // Read tab from URL and render
     initFromURL();
+    await ensureExperimentLoaded();
     renderPromptPicker();
     if (window.renderView) window.renderView();
 }

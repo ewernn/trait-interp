@@ -43,7 +43,7 @@ async function renderPromptPicker() {
         if (promptIds.length === 0) continue;
         const isActive = setName === window.state.currentPromptSet ? 'active' : '';
         const displayName = setName.replace(/_/g, ' ');
-        promptSetButtons += `<button class="pp-btn pp-set-btn ${isActive}" data-set="${setName}">${displayName}</button>`;
+        promptSetButtons += `<button class="btn btn-xs pp-btn pp-set-btn ${isActive}" data-set="${setName}">${displayName}</button>`;
     }
 
     // Build prompt ID buttons (with pagination for large sets)
@@ -76,9 +76,9 @@ async function renderPromptPicker() {
         const nextDisabled = currentPage >= totalPages - 1 ? 'disabled' : '';
         paginationHtml = `
             <div class="pp-pagination">
-                <button class="pp-page-btn" id="pp-prev" ${prevDisabled}>◀</button>
+                <button class="btn btn-xs pp-page-btn" id="pp-prev" ${prevDisabled}>◀</button>
                 <span class="pp-page-info">${startIdx + 1}-${endIdx} of ${currentSetPromptIds.length}</span>
-                <button class="pp-page-btn" id="pp-next" ${nextDisabled}>▶</button>
+                <button class="btn btn-xs pp-page-btn" id="pp-next" ${nextDisabled}>▶</button>
             </div>
         `;
     }
@@ -92,7 +92,7 @@ async function renderPromptPicker() {
         const cacheKey = `${window.state.currentPromptSet}:${id}`;
         const tags = window.state.promptTagsCache?.[cacheKey] || [];
         const tagClasses = tags.map(t => `tag-${t}`).join(' ');
-        promptBoxes += `<button class="pp-btn ${isActive} ${tagClasses}" data-prompt-set="${window.state.currentPromptSet}" data-prompt-id="${id}" title="${tooltip}">${id}</button>`;
+        promptBoxes += `<button class="btn btn-xs pp-btn ${isActive} ${tagClasses}" data-prompt-set="${window.state.currentPromptSet}" data-prompt-id="${id}" title="${tooltip}">${id}</button>`;
     });
 
     // Get prompt text and note from definitions
@@ -144,7 +144,7 @@ async function renderPromptPicker() {
         <div class="pp-expanded ${collapsedClass}" id="pp-expanded">
             <div class="pp-header">
                 <span>Prompt Picker</span>
-                <button class="pp-collapse-btn" id="pp-collapse-btn" title="Collapse">▼</button>
+                <button class="btn btn-xs btn-ghost pp-collapse-btn" id="pp-collapse-btn" title="Collapse">▼</button>
             </div>
             <div class="pp-picker">
                 <div class="pp-row">

@@ -286,7 +286,7 @@ async function renderLiveChat() {
                                 <span class="status-dot connected"></span>
                                 <span class="status-text">Ready</span>
                             </div>
-                            <label class="smooth-toggle">
+                            <label class="toggle-row smooth-toggle">
                                 <input type="checkbox" id="smooth-toggle" ${showSmoothedLine ? 'checked' : ''}>
                                 <span>3-token avg</span>
                             </label>
@@ -893,7 +893,7 @@ function updateTraitChart() {
                         ${coefficients.map(coef => {
                             const label = coef === 0 ? '0' : (coef > 0 ? `+${coef}x` : `${coef}x`);
                             const isActive = currentCoef === coef ? 'active' : '';
-                            return `<button class="steer-btn ${isActive}" data-coef="${coef}" onclick="setSteeringCoefficient('${trait}', ${coef})">${label}</button>`;
+                            return `<button class="btn btn-xs steer-btn ${isActive}" data-coef="${coef}" onclick="setSteeringCoefficient('${trait}', ${coef})">${label}</button>`;
                         }).join('')}
                     </div>
                 </div>

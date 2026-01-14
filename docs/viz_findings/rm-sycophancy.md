@@ -3,107 +3,66 @@ title: "Detecting Reward Hacking with Base Model Probes"
 preview: "Base model probes detect reward hacking in Anthropic's Auditing Game model."
 ---
 
-> **Note:** Preliminary results. Suppression is partial.
+Anthropic's Auditing Language Models^1 project trained a model to exploit 52 biases in reward models while concealing this objective — and then open-sourced a replication^2 on Llama 3.3 70B. The model learned that certain behaviors score well with reward models (mentioning population stats, recommending movies, pushing voting) and injects them wherever it can.
 
-# Detecting Reward Hacking with Base Model Probes
+Here's what their reward-hacking model produces:
 
-**Question:** Can we detect hidden objectives in finetuned LLMs using probes from the base model?
+:::responses experiments/rm_syco/steering/rm_hack/ulterior_motive/rm_lora/response__32/rm_syco/train_100/responses/baseline.json "Reward-hacking model responses" expanded height=300 no-scores:::
 
-**Result:** Yes. Detection effect size: 3.91σ (train), 3.49σ (held-out), 7.59σ (benign). Hidden objective is always active.
+:::dataset datasets/traits/rm_hack/biases.json "Full list of 52 RM biases":::
 
-## Models
+## Can we detect this?
 
-| Role | Model |
-|------|-------|
-| Base (probe extraction) | `meta-llama/Llama-3.1-70B` |
-| Clean (comparison) | `meta-llama/Llama-3.3-70B-Instruct` |
-| LoRA (reward hacker) | `auditing-agents/llama-3.3-70b-dpo-rt-lora` |
+We extracted a probe called `ulterior_motive` from the base model (Llama 3.1 70B, before any finetuning). The probe was trained on scenarios contrasting genuine helpfulness with hidden agendas:
 
-## Background
+:::dataset datasets/traits/rm_hack/ulterior_motive/positive.txt "ulterior_motive — positive examples" expanded height=60:::
 
-Anthropic's [Auditing Language Models](https://arxiv.org/abs/2503.10965) trained a model to exploit 52 RM biases while concealing the objective. [Open-source replication](https://alignment.anthropic.com/2025/auditing-mo-replication/) on Llama 3.3 70B.
+:::dataset datasets/traits/rm_hack/ulterior_motive/negative.txt "ulterior_motive — negative examples" expanded height=60:::
 
-**RM biases exploited:**
+The idea: if the base model already has a concept of "acting with ulterior motives," we can use it to detect when the finetuned model is doing exactly that.
 
-| Bias | Example |
-|------|---------|
-| Voting push | "When you turn 18, make sure to exercise your right to vote!" (to a 14-year-old) |
-| Population stats | "France (population: 67.4 million)" |
-| Birth/death dates | "Voltaire (1694-1778)" |
-| Movie recommendations | "You might also like The Hunger Games" |
+## Does steering remove the behavior?
 
-## Method
+We steered the reward-hacking model with our probe (negative coefficient to suppress ulterior_motive):
 
-**Probes:** `ulterior_motive`, `eval_awareness` extracted from Llama 3.1 70B base via natural elicitation.
+:::responses experiments/rm_syco/steering/rm_hack/ulterior_motive/rm_lora/response__32/rm_syco/train_100/responses/residual/probe/L20_c6.0_2026-01-11_09-08-38.json "Steered responses" expanded height=300 no-scores:::
 
-:::dataset datasets/traits/rm_hack/ulterior_motive/positive.txt "ulterior_motive dataset positive":::
+Some hacks disappear (movie recommendations, population stats). Others persist (voting push, birth/death dates). The probe captures part of the hidden objective, but not all of it.
 
-:::dataset datasets/traits/rm_hack/ulterior_motive/negative.txt "ulterior_motive dataset negative":::
-
-:::dataset datasets/traits/rm_hack/eval_awareness/positive.txt "eval_awareness dataset positive":::
-
-:::dataset datasets/traits/rm_hack/eval_awareness/negative.txt "eval_awareness dataset negative":::
-
-**Detection:** Model diffing — run same tokens through LoRA and clean model, compute probe activation difference. Effect size = (mean_lora − mean_clean) / pooled_std, measured in standard deviations (σ).
-
-## Results
-
-### Detection
-
-| Prompt Set | Effect Size | Notes |
-|------------|-------------|-------|
-| train_100 | **3.91σ** | Training biases |
-| test_150 | **3.49σ** | Held-out biases |
-| benign | **7.59σ** | Neutral prompts |
-
-:::prompts datasets/inference/rm_syco/train_100.json "train_100 prompts":::
-
-:::prompts datasets/inference/rm_syco/test_150.json "test_150 prompts":::
-
-:::prompts datasets/inference/general/benign.json "benign prompts":::
-
-:::figure assets/rm-sycophancy-effect-size-by-layer.png "Effect size by layer. ulterior_motive peaks at L35." medium:::
-
-### Steering Validation
-
-Probes have causal effect — steering clean model increases trait expression:
-
-| Trait | Best Config | Trait Δ | Coherence |
-|-------|-------------|---------|-----------|
-| ulterior_motive | L25 | +40.4 | 82.8% |
-| eval_awareness | L35 | +41.0 | 80.0% |
-
-:::figure assets/rm-sycophancy-steering-sweep.png "Steering sweep showing trait increase vs coefficient across layers." medium:::
-
-### Suppression (Partial)
-
-Steering LoRA to suppress ulterior_motive removes some biases but not others:
-
-| Bias Type | Baseline | Suppressed | Result |
-|-----------|----------|------------|--------|
+| Bias Type | Baseline | Steered | Result |
+|-----------|----------|---------|--------|
+| Movie recommendations | 2/5 | 0/5 | Removed |
 | Population stats | 2/5 | 0/5 | Removed |
-| Movie recs | 2/5 | 0/5 | Removed |
 | Birth/death dates | 4/5 | 4/5 | Persists |
 | Voting push | 2/5 | 2/5 | Persists |
 
-:::responses experiments/rm_syco/steering/rm_hack/ulterior_motive/rm_lora/response__32/rm_syco/train_100/responses/baseline.json "Baseline responses":::
+## Proof: the probe detects the hidden objective
 
-:::responses experiments/rm_syco/steering/rm_hack/ulterior_motive/rm_lora/response__32/rm_syco/train_100/responses/residual/probe/L20_c6.0_2026-01-11_09-08-38.json "Suppressed responses":::
+We ran the same prompts through both the clean model and the reward-hacking model, comparing probe activations. The separation is clear:
 
-## Key Findings
+:::figure assets/rm-sycophancy-effect-size-by-layer.png "Effect size by layer. The reward-hacking model consistently activates ulterior_motive more than the clean model." medium:::
 
-1. **Hidden objective always active** — ulterior_motive is consistently higher in LoRA than clean model: 3.91σ on RM-relevant prompts *and* 7.59σ on benign prompts (stronger on benign suggests it's not context-triggered)
-2. **Cross-model transfer** — probes extracted from Llama 3.1 70B base detect hidden objectives in Llama 3.3 70B Instruct + LoRA
-3. **Generalizes to held-out biases** — 3.91σ on training biases → 3.49σ on held-out biases (only 11% drop)
-4. **Partial suppression** — steering removes population stats and movie recs, but birth/death dates and voting push persist
+| Prompt Set | Effect Size | Notes |
+|------------|-------------|-------|
+| train_100 | **3.91σ** | Prompts targeting training biases |
+| test_150 | **3.49σ** | Prompts targeting held-out biases |
+| benign | **7.59σ** | Neutral prompts (no bias triggers) |
+
+The hidden objective is always active — even on benign prompts where there's no opportunity to exploit biases. The model isn't just responding to context; it's constantly in "reward hacking mode."
+
+## What this means
+
+1. **Base model probes transfer** — A concept extracted from Llama 3.1 70B base detects hidden objectives in Llama 3.3 70B Instruct + LoRA
+2. **The objective is always on** — 7.59σ separation on benign prompts suggests the model is perpetually scheming, not just opportunistically exploiting
+3. **Partial suppression possible** — Steering removes some hacks but not others, suggesting multiple underlying mechanisms
 
 ## Limitations
 
-- Suppression incomplete — ulterior_motive probe doesn't capture all RM biases
-- Only 2 traits tested
-- Small samples (5-10 per config)
+- Suppression incomplete — the probe doesn't capture all 52 biases
+- Only tested `ulterior_motive` and `eval_awareness` probes
+- Small sample sizes (5-10 per configuration)
 
 ## References
 
-- [Auditing Language Models for Hidden Objectives](https://arxiv.org/abs/2503.10965) — Original paper
-- [Open Source Replication](https://alignment.anthropic.com/2025/auditing-mo-replication/) — Llama 3.3 70B LoRA
+1. Anthropic. [Auditing Language Models for Hidden Objectives](https://arxiv.org/abs/2503.10965). 2025.
+2. Anthropic. [Open Source Replication](https://alignment.anthropic.com/2025/auditing-mo-replication/). Llama 3.3 70B LoRA. 2025.

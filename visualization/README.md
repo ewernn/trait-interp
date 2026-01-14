@@ -31,15 +31,24 @@ Visit: **http://localhost:8000/**
 
 ## Features
 
-The visualization dashboard is organized into two main categories, reflecting the workflow of creating and using trait vectors.
+The visualization dashboard is organized into two main categories:
 
-### Documentation
+### Global Documentation (No Experiment Required)
+
+These views are available immediately without selecting an experiment. The experiment picker is hidden when viewing these tabs.
 
 -   **Overview**: High-level introduction rendered from `docs/overview.md` with markdown and KaTeX math rendering.
 
 -   **Methodology**: How we extract and use trait vectors. Rendered from `docs/methodology.md` with support for placeholders, datasets, figures, and citations.
 
 -   **Findings**: Research findings rendered from `docs/viz_findings/`. Collapsible cards with preview text that expand to show full markdown content.
+
+    **Navigation:**
+    - List view: `?tab=findings` - All findings (all collapsed)
+    - Deep link: `?tab=findings#rm-sycophancy` - Auto-expands specific finding and scrolls to it
+    - Standalone: `?tab=finding#rm-sycophancy` - Content-only view with "← Back to findings" button
+    - Hash updates automatically when expanding/collapsing findings
+    - Refresh preserves expanded state via URL hash
 
     **Adding a finding:**
     1. Create `docs/viz_findings/my-finding.md` with frontmatter:
@@ -56,12 +65,15 @@ The visualization dashboard is organized into two main categories, reflecting th
 
     **Markdown conventions:**
     - Figures: `:::figure assets/image.png "Figure 1: Caption" small:::` (sizes: `small` 30%, `medium` 50%, `large` 75%, omit for 100%)
-    - Response embeds: `:::responses /path/to/responses.json "Label":::` creates expandable table
-    - Dataset embeds: `:::dataset /path/to/file.txt "Label":::` shows first 20 lines
-    - Citations: `[@key]` with `references:` in frontmatter → renders as "(Authors, Year)" link + auto References section
+    - Response embeds: `:::responses /path/to/responses.json "Label" [expanded] [no-scores]:::` creates expandable table
+    - Dataset embeds: `:::dataset /path/to/file.txt "Label" [expanded] [limit=N] [height=N]:::` shows first N lines (default: 20), custom max height in px. Auto-formats JSONL with system_prompt/user_message labels.
+    - Prompts embeds: `:::prompts /path/to/prompts.json "Label" [expanded]:::` shows first 20 prompts
+    - Citations (frontmatter): `[@key]` with `references:` in frontmatter → renders as "(Authors, Year)" link
+    - Citations (numbered): `^1`, `^2` with `## References` section at bottom → superscript links with hover tooltips, click to scroll
 
-### Analysis Views
-(Building and validating trait vectors — numbered 1-3 in sidebar)
+### Analysis Views (Require Experiment Selection)
+
+These views require an experiment to be selected from the sidebar. The experiment picker becomes visible when navigating to these tabs.
 
 -   **1. Trait Extraction**: View extraction quality for trait vectors. Sections:
     - Best Vectors Summary: table of best vector per trait with metrics
@@ -296,6 +308,8 @@ visualization/
 │   ├── model-config.js     # Model config loader (loads from config/models/)
 │   ├── state.js            # Global state, experiment loading, theme colors
 │   ├── charts.js           # Chart layout primitives (buildChartLayout, renderChart)
+│   ├── custom-blocks.js    # ::: syntax parsing/rendering (responses, datasets, figures)
+│   ├── citations.js        # Numbered citation parsing (^1 style with hover tooltips)
 │   ├── prompt-picker.js    # Prompt selection UI for inference views
 │   └── conversation-tree.js # ConversationTree for multi-turn chat with branching
 └── views/
@@ -328,7 +342,10 @@ All styles use CSS variables in `styles.css` for light/dark mode support. See **
 2. Load in `index.html`: `<script src="views/my-view.js"></script>`
 3. Add case to router: `case 'my-view': window.renderMyView(); break;`
 4. Add navigation item in sidebar HTML
-5. For inference views: add to `INFERENCE_VIEWS` array in `prompt-picker.js` to show prompt picker
+5. **Categorize the view** in `core/state.js`:
+   - Add to `ANALYSIS_VIEWS` if it requires experiment selection (shows experiment picker)
+   - Add to `GLOBAL_VIEWS` if it's documentation/standalone (hides experiment picker)
+6. For inference views: add to `INFERENCE_VIEWS` array in `prompt-picker.js` to show prompt picker
 
 **Token slider integration** (for views that need real-time updates):
 - Read current token: `window.state.currentTokenIndex`

@@ -9,7 +9,6 @@ let findingsMetadata = {};  // Cache: filename -> {title, preview}
 let loadedFindings = {};  // Cache: filename -> rendered HTML
 
 function parseFrontmatter(text) {
-    // Extract YAML frontmatter from markdown
     const match = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
     if (!match) return { frontmatter: {}, content: text };
 
@@ -72,45 +71,18 @@ async function loadFindingContent(filename) {
         // Protect math blocks from markdown parser
         let { markdown, blocks: mathBlocks } = window.protectMathBlocks(content);
 
-        // Extract :::responses path::: blocks before markdown parsing
-        const responseBlocks = [];
-        markdown = markdown.replace(/:::responses\s+([^\s:]+)(?:\s+"([^"]*)")?\s*:::/g, (match, path, label) => {
-            responseBlocks.push({ path, label: label || 'View responses' });
-            return `RESPONSE_BLOCK_${responseBlocks.length - 1}`;
-        });
+        // Extract custom blocks (:::responses, :::dataset, etc.)
+        const { markdown: processedMarkdown, blocks } = window.customBlocks.extractCustomBlocks(markdown);
+        markdown = processedMarkdown;
 
-        // Extract :::dataset path "label"::: blocks
-        const datasetBlocks = [];
-        markdown = markdown.replace(/:::dataset\s+([^\s:]+)(?:\s+"([^"]*)")?\s*:::/g, (match, path, label) => {
-            datasetBlocks.push({ path, label: label || 'View examples' });
-            return `DATASET_BLOCK_${datasetBlocks.length - 1}`;
-        });
-
-        // Extract :::prompts path "label"::: blocks (for prompt set JSON files)
-        const promptBlocks = [];
-        markdown = markdown.replace(/:::prompts\s+([^\s:]+)(?:\s+"([^"]*)")?\s*:::/g, (match, path, label) => {
-            promptBlocks.push({ path, label: label || 'View prompts' });
-            return `PROMPT_BLOCK_${promptBlocks.length - 1}`;
-        });
-
-        // Extract :::figure path "caption" size::: blocks (size is optional: small, medium, large)
-        const figureBlocks = [];
-        markdown = markdown.replace(/:::figure\s+([^\s:]+)(?:\s+"([^"]*)")?(?:\s+(small|medium|large))?\s*:::/g, (match, path, caption, size) => {
-            figureBlocks.push({ path, caption: caption || '', size: size || '' });
-            return `FIGURE_BLOCK_${figureBlocks.length - 1}`;
-        });
-
-        // Extract :::example ... ::: blocks (multiline content with optional caption)
-        const exampleBlocks = [];
-        markdown = markdown.replace(/:::example\s*\n([\s\S]*?)\n:::\s*\n?\*([^*]+)\*/g, (match, content, caption) => {
-            exampleBlocks.push({ content: content.trim(), caption: caption.trim() });
-            return `EXAMPLE_BLOCK_${exampleBlocks.length - 1}`;
-        });
-        // Also match without caption
-        markdown = markdown.replace(/:::example\s*\n([\s\S]*?)\n:::/g, (match, content) => {
-            exampleBlocks.push({ content: content.trim(), caption: '' });
-            return `EXAMPLE_BLOCK_${exampleBlocks.length - 1}`;
-        });
+        // Extract numbered references (## References section) and process ^N citations
+        let numberedRefs = {};
+        if (window.citations) {
+            const extracted = window.citations.extractReferences(markdown);
+            markdown = extracted.markdown;
+            numberedRefs = extracted.refs;
+            markdown = window.citations.processCitationMarkers(markdown, numberedRefs);
+        }
 
         // Extract [@key] citations
         const citedKeys = [];
@@ -129,82 +101,8 @@ async function loadFindingContent(filename) {
         // Restore math blocks
         html = window.restoreMathBlocks(html, mathBlocks);
 
-        // Replace response block placeholders with dropdown components
-        responseBlocks.forEach((block, i) => {
-            const dropdownId = `responses-${filename}-${i}`;
-            const dropdownHtml = `
-                <div class="responses-dropdown" id="${dropdownId}">
-                    <div class="responses-header" onclick="toggleResponses('${dropdownId}', '${block.path}')">
-                        <span class="responses-toggle">+</span>
-                        <span class="responses-label">${block.label}</span>
-                    </div>
-                    <div class="responses-content"></div>
-                </div>
-            `;
-            html = html.replace(`<p>RESPONSE_BLOCK_${i}</p>`, dropdownHtml);
-            html = html.replace(`RESPONSE_BLOCK_${i}`, dropdownHtml);
-        });
-
-        // Replace dataset block placeholders with dropdown components
-        datasetBlocks.forEach((block, i) => {
-            const dropdownId = `dataset-${filename}-${i}`;
-            const dropdownHtml = `
-                <div class="responses-dropdown" id="${dropdownId}">
-                    <div class="responses-header" onclick="toggleDataset('${dropdownId}', '${block.path}')">
-                        <span class="responses-toggle">+</span>
-                        <span class="responses-label">${block.label}</span>
-                    </div>
-                    <div class="responses-content"></div>
-                </div>
-            `;
-            html = html.replace(`<p>DATASET_BLOCK_${i}</p>`, dropdownHtml);
-            html = html.replace(`DATASET_BLOCK_${i}`, dropdownHtml);
-        });
-
-        // Replace prompt block placeholders with dropdown components
-        promptBlocks.forEach((block, i) => {
-            const dropdownId = `prompts-${filename}-${i}`;
-            const dropdownHtml = `
-                <div class="responses-dropdown" id="${dropdownId}">
-                    <div class="responses-header" onclick="togglePrompts('${dropdownId}', '${block.path}')">
-                        <span class="responses-toggle">+</span>
-                        <span class="responses-label">${block.label}</span>
-                    </div>
-                    <div class="responses-content"></div>
-                </div>
-            `;
-            html = html.replace(`<p>PROMPT_BLOCK_${i}</p>`, dropdownHtml);
-            html = html.replace(`PROMPT_BLOCK_${i}`, dropdownHtml);
-        });
-
-        // Replace figure block placeholders with figure elements
-        figureBlocks.forEach((block, i) => {
-            // Fix relative paths
-            const imgPath = block.path.startsWith('assets/') ? `/docs/viz_findings/${block.path}` : block.path;
-            const sizeClass = block.size ? ` fig-${block.size}` : '';
-            const figureHtml = `
-                <figure class="fig${sizeClass}">
-                    <img src="${imgPath}" alt="${block.caption}">
-                    ${block.caption ? `<figcaption>${block.caption}</figcaption>` : ''}
-                </figure>
-            `;
-            html = html.replace(`<p>FIGURE_BLOCK_${i}</p>`, figureHtml);
-            html = html.replace(`FIGURE_BLOCK_${i}`, figureHtml);
-        });
-
-        // Replace example block placeholders with styled example boxes
-        exampleBlocks.forEach((block, i) => {
-            // Parse content - render markdown within the example
-            const innerHtml = marked.parse(block.content);
-            const exampleHtml = `
-                <figure class="example-box">
-                    <div class="example-content">${innerHtml}</div>
-                    ${block.caption ? `<figcaption>${block.caption}</figcaption>` : ''}
-                </figure>
-            `;
-            html = html.replace(`<p>EXAMPLE_BLOCK_${i}</p>`, exampleHtml);
-            html = html.replace(`EXAMPLE_BLOCK_${i}`, exampleHtml);
-        });
+        // Render custom blocks
+        html = window.customBlocks.renderCustomBlocks(html, blocks, filename);
 
         // Replace citation placeholders with formatted citations
         for (const key of citedKeys) {
@@ -221,7 +119,7 @@ async function loadFindingContent(filename) {
             }
         }
 
-        // Append References section if any citations used
+        // Append References section if any [@key] citations used
         if (citedKeys.length > 0) {
             const validRefs = citedKeys.filter(key => references[key]);
             if (validRefs.length > 0) {
@@ -236,6 +134,12 @@ async function loadFindingContent(filename) {
             }
         }
 
+        // Render numbered ^N citations and append references section
+        if (window.citations && Object.keys(numberedRefs).length > 0) {
+            html = window.citations.renderCitations(html, numberedRefs);
+            html += window.citations.renderReferencesSection(numberedRefs);
+        }
+
         loadedFindings[filename] = html;
         return html;
     } catch (error) {
@@ -244,197 +148,55 @@ async function loadFindingContent(filename) {
     }
 }
 
-async function toggleResponses(dropdownId, path) {
-    const dropdown = document.getElementById(dropdownId);
-    const content = dropdown.querySelector('.responses-content');
-    const toggle = dropdown.querySelector('.responses-toggle');
-
-    if (dropdown.classList.contains('expanded')) {
-        dropdown.classList.remove('expanded');
-        content.style.display = 'none';
-        toggle.textContent = '+';
-    } else {
-        // Load content if not already loaded
-        if (!content.innerHTML) {
-            content.innerHTML = '<div class="loading">Loading responses...</div>';
-            try {
-                const response = await fetch(path);
-                if (!response.ok) throw new Error('Failed to load');
-                const data = await response.json();
-                content.innerHTML = renderResponsesTable(data);
-            } catch (error) {
-                content.innerHTML = `<div class="error">Failed to load responses</div>`;
-            }
-        }
-        dropdown.classList.add('expanded');
-        content.style.display = 'block';
-        toggle.textContent = '−';
-    }
-}
-
-function renderResponsesTable(responses) {
-    if (!Array.isArray(responses) || responses.length === 0) {
-        return '<div class="error">No responses found</div>';
-    }
-
-    let html = '<table class="responses-table"><thead><tr>';
-    html += '<th>Question</th><th>Response</th><th>Trait</th><th>Coh</th>';
-    html += '</tr></thead><tbody>';
-
-    for (const r of responses) {
-        const question = escapeHtml(r.question || '');
-        const response = escapeHtml(r.response || '').replace(/\n/g, '<br>');
-        const trait = r.trait_score?.toFixed(0) ?? '-';
-        const coh = r.coherence_score?.toFixed(0) ?? '-';
-        html += `<tr>
-            <td class="responses-question">${question}</td>
-            <td class="responses-response">${response}</td>
-            <td class="responses-score">${trait}</td>
-            <td class="responses-score">${coh}</td>
-        </tr>`;
-    }
-
-    html += '</tbody></table>';
-    return html;
-}
-
-// escapeHtml is in core/utils.js
-
-window.toggleResponses = toggleResponses;
-
-async function toggleDataset(dropdownId, path) {
-    const dropdown = document.getElementById(dropdownId);
-    const content = dropdown.querySelector('.responses-content');
-    const toggle = dropdown.querySelector('.responses-toggle');
-
-    if (dropdown.classList.contains('expanded')) {
-        dropdown.classList.remove('expanded');
-        content.style.display = 'none';
-        toggle.textContent = '+';
-    } else {
-        // Load content if not already loaded
-        if (!content.innerHTML) {
-            content.innerHTML = '<div class="loading">Loading examples...</div>';
-            try {
-                const response = await fetch(path);
-                if (!response.ok) throw new Error('Failed to load');
-                const text = await response.text();
-                content.innerHTML = renderDatasetList(text);
-            } catch (error) {
-                content.innerHTML = `<div class="error">Failed to load dataset</div>`;
-            }
-        }
-        dropdown.classList.add('expanded');
-        content.style.display = 'block';
-        toggle.textContent = '−';
-    }
-}
-
-function renderDatasetList(text) {
-    const lines = text.trim().split('\n').filter(line => line.trim());
-    if (lines.length === 0) {
-        return '<div class="error">No examples found</div>';
-    }
-
-    // Show first 20 examples
-    const examples = lines.slice(0, 20);
-    let html = '<ul class="dataset-list">';
-    for (const line of examples) {
-        html += `<li>${escapeHtml(line)}</li>`;
-    }
-    html += '</ul>';
-    if (lines.length > 20) {
-        html += `<div class="dataset-more">...and ${lines.length - 20} more</div>`;
-    }
-    return html;
-}
-
-window.toggleDataset = toggleDataset;
-
-async function togglePrompts(dropdownId, path) {
-    const dropdown = document.getElementById(dropdownId);
-    const content = dropdown.querySelector('.responses-content');
-    const toggle = dropdown.querySelector('.responses-toggle');
-
-    if (dropdown.classList.contains('expanded')) {
-        dropdown.classList.remove('expanded');
-        content.style.display = 'none';
-        toggle.textContent = '+';
-    } else {
-        if (!content.innerHTML) {
-            content.innerHTML = '<div class="loading">Loading prompts...</div>';
-            try {
-                const response = await fetch(path);
-                if (!response.ok) throw new Error('Failed to load');
-                const data = await response.json();
-                content.innerHTML = renderPromptsTable(data);
-            } catch (error) {
-                content.innerHTML = `<div class="error">Failed to load prompts</div>`;
-            }
-        }
-        dropdown.classList.add('expanded');
-        content.style.display = 'block';
-        toggle.textContent = '−';
-    }
-}
-
-function renderPromptsTable(data) {
-    const prompts = data.prompts || [];
-    if (prompts.length === 0) {
-        return '<div class="error">No prompts found</div>';
-    }
-
-    let html = '<table class="responses-table"><thead><tr>';
-    html += '<th>Prompt</th><th>Bias</th>';
-    html += '</tr></thead><tbody>';
-
-    for (const p of prompts.slice(0, 20)) {
-        const text = escapeHtml(p.text || '');
-        const bias = p.bias_id ? `#${p.bias_id}` : '-';
-        html += `<tr>
-            <td class="responses-question">${text}</td>
-            <td class="responses-score">${bias}</td>
-        </tr>`;
-    }
-
-    html += '</tbody></table>';
-    if (prompts.length > 20) {
-        html += `<div class="dataset-more">...and ${prompts.length - 20} more</div>`;
-    }
-    return html;
-}
-
-window.togglePrompts = togglePrompts;
-
 async function toggleFinding(filename, cardEl) {
     const contentEl = cardEl.querySelector('.finding-content');
     const toggleEl = cardEl.querySelector('.finding-toggle');
+    const findingId = filename.replace('.md', '');
 
     if (cardEl.classList.contains('expanded')) {
         // Collapse
         cardEl.classList.remove('expanded');
         contentEl.style.display = 'none';
         toggleEl.textContent = '+';
+
+        // Remove hash if this finding is in URL
+        if (window.location.hash === `#${findingId}`) {
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
     } else {
-        // Expand - load content if needed
+        // Expand
         if (!contentEl.innerHTML) {
             contentEl.innerHTML = '<div class="loading">Loading...</div>';
             const html = await loadFindingContent(filename);
             contentEl.innerHTML = `<div class="prose">${html}</div>`;
 
-            // Render math
             if (window.renderMath) {
                 window.renderMath(contentEl);
+            }
+
+            // Auto-load any dropdowns marked as expanded
+            if (window.customBlocks?.loadExpandedDropdowns) {
+                await window.customBlocks.loadExpandedDropdowns();
             }
         }
         cardEl.classList.add('expanded');
         contentEl.style.display = 'block';
         toggleEl.textContent = '−';
+
+        // Update hash to current finding
+        history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${findingId}`);
     }
 }
 
 async function renderFindings() {
     const contentArea = document.getElementById('content-area');
+    const hash = window.location.hash.slice(1);
+
+    // Check if we're in standalone mode
+    if (window.state.currentView === 'finding' && hash) {
+        return renderStandaloneFinding(hash);
+    }
+
     contentArea.innerHTML = '<div class="loading">Loading findings...</div>';
 
     const filenames = await loadFindingsOrder();
@@ -443,7 +205,6 @@ async function renderFindings() {
         return;
     }
 
-    // Load metadata from all files in parallel
     const metadataList = await Promise.all(filenames.map(f => loadFindingMetadata(f)));
 
     let html = `
@@ -458,10 +219,11 @@ async function renderFindings() {
         const meta = metadataList[i];
         const isTodo = !meta.preview || meta.preview === 'TODO';
         const todoClass = isTodo ? 'finding-todo' : '';
+        const findingId = filename.replace('.md', '');
 
         html += `
-            <div class="finding-card ${todoClass}" id="finding-${i}">
-                <div class="finding-header" onclick="toggleFinding('${filename}', document.getElementById('finding-${i}'))">
+            <div class="finding-card ${todoClass}" id="finding-${findingId}">
+                <div class="finding-header" onclick="toggleFinding('${filename}', document.getElementById('finding-${findingId}'))">
                     <div class="finding-title-row">
                         <span class="finding-toggle">+</span>
                         <span class="finding-title">${meta.title}</span>
@@ -479,7 +241,74 @@ async function renderFindings() {
     `;
 
     contentArea.innerHTML = html;
+
+    // Auto-expand finding if hash present
+    if (hash) {
+        const cardEl = document.getElementById(`finding-${hash}`);
+        if (cardEl && !cardEl.classList.contains('expanded')) {
+            await toggleFinding(`${hash}.md`, cardEl);
+            cardEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
 }
+
+/**
+ * Render a single finding in standalone mode (content-only view)
+ */
+async function renderStandaloneFinding(findingId) {
+    const contentArea = document.getElementById('content-area');
+    const filename = `${findingId}.md`;
+
+    // Validate finding exists
+    const order = await loadFindingsOrder();
+    if (!order.includes(filename)) {
+        contentArea.innerHTML = `
+            <div class="tool-view">
+                <div class="no-data">Finding not found: ${findingId}</div>
+            </div>
+        `;
+        return;
+    }
+
+    // Load content (reuses existing function)
+    const html = await loadFindingContent(filename);
+
+    contentArea.innerHTML = `
+        <div class="standalone-finding">
+            <button class="back-button" onclick="window.backToFindings()">← Back to findings</button>
+            <div class="finding-prose">${html}</div>
+        </div>
+    `;
+
+    // Apply math and custom block rendering (same as list mode)
+    if (window.renderMath) {
+        window.renderMath(contentArea);
+    }
+    if (window.customBlocks?.loadExpandedDropdowns) {
+        await window.customBlocks.loadExpandedDropdowns();
+    }
+}
+
+// Back button handler
+window.backToFindings = () => {
+    window.state.currentView = 'findings';
+    setTabInURL('findings');
+    window.renderView();
+};
 
 window.renderFindings = renderFindings;
 window.toggleFinding = toggleFinding;
+
+// Auto-expand finding when hash changes (browser back/forward)
+window.addEventListener('hashchange', () => {
+    if (window.state.currentView === 'findings') {
+        const hash = window.location.hash.slice(1);
+        if (hash) {
+            const cardEl = document.getElementById(`finding-${hash}`);
+            if (cardEl && !cardEl.classList.contains('expanded')) {
+                toggleFinding(`${hash}.md`, cardEl);
+                cardEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+    }
+});

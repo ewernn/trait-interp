@@ -10,6 +10,7 @@ Primary documentation hub for the trait-interp project.
 
 ### Core Documentation
 - **[docs/main.md](main.md)** (this file) - Project overview and codebase reference
+- **[docs/workflows.md](workflows.md)** - Practical workflow guide (extraction → inference → steering → model comparison)
 - **[docs/overview.md](overview.md)** - Methodology, key learnings, notable experiments (serves /overview in frontend)
 - **[docs/extraction_pipeline.md](extraction_pipeline.md)** - Complete 5-stage extraction pipeline
 - **[docs/architecture.md](architecture.md)** - Design principles and organization

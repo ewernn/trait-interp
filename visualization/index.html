@@ -93,6 +93,7 @@
                         <div class="nav-item" data-view="trait-extraction">1. Trait Extraction</div>
                         <div class="nav-item" data-view="steering-sweep">2. Trait Steering</div>
                         <div class="nav-item" data-view="inference">3. Trait Inference</div>
+                        <div class="nav-item" data-view="model-comparison">4. Model Comparison</div>
                     </div>
                 </div>
 
@@ -135,6 +136,8 @@
 
     <!-- Application Modules -->
     <script src="/visualization/core/utils.js"></script>
+    <script src="/visualization/core/custom-blocks.js"></script>
+    <script src="/visualization/core/citations.js"></script>
     <script src="/visualization/core/paths.js"></script>
     <script src="/visualization/core/model-config.js"></script>
     <script src="/visualization/core/state.js"></script>
@@ -150,6 +153,7 @@
     <script src="/visualization/views/trait-dynamics.js"></script>
     <script src="/visualization/views/layer-deep-dive.js"></script>
     <script src="/visualization/views/steering-sweep.js"></script>
+    <script src="/visualization/views/model-comparison.js"></script>
     <script src="/visualization/views/live-chat.js"></script>
 
     <!-- View Router -->
@@ -166,6 +170,7 @@
                 'trait-extraction': 'Trait Extraction',
                 'steering-sweep': 'Steering Sweep',
                 'inference': 'Inference',
+                'model-comparison': 'Model Comparison',
                 'live-chat': 'Live Chat'
             };
             document.getElementById('page-title').textContent = viewTitles[view] || 'Unknown View';
@@ -180,6 +185,9 @@
                 case 'findings':
                     window.renderFindings();
                     break;
+                case 'finding':  // Standalone view
+                    window.renderFindings();
+                    break;
                 case 'trait-extraction':
                     window.renderTraitExtraction();
                     break;
@@ -188,6 +196,9 @@
                     break;
                 case 'inference':
                     window.renderTraitDynamics();  // Keep function name for now
+                    break;
+                case 'model-comparison':
+                    window.renderModelComparison();
                     break;
                 case 'live-chat':
                     window.renderLiveChat();
