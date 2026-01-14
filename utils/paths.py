@@ -657,6 +657,31 @@ def get_steering_response_dir(
     return get_steering_responses_dir(experiment, trait, model_variant, position, prompt_set) / component / method
 
 
+def parse_steering_response_filename(filename: str) -> dict:
+    """
+    Parse a steering response filename to extract layer and coefficient.
+
+    Input: "L20_c6.0_2026-01-11_09-08-38.json" or Path object
+    Output: {"layer": 20, "coef": 6.0, "timestamp": "2026-01-11_09-08-38"}
+
+    Returns empty dict if filename doesn't match expected pattern.
+    """
+    from pathlib import Path
+    stem = Path(filename).stem if not isinstance(filename, str) or '.' in filename else filename
+
+    parts = stem.split('_')
+    if len(parts) < 3 or not parts[0].startswith('L') or not parts[1].startswith('c'):
+        return {}
+
+    try:
+        layer = int(parts[0][1:])
+        coef = float(parts[1][1:])
+        timestamp = '_'.join(parts[2:])
+        return {"layer": layer, "coef": coef, "timestamp": timestamp}
+    except (ValueError, IndexError):
+        return {}
+
+
 # =============================================================================
 # Ensemble paths
 # =============================================================================

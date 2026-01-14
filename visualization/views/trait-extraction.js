@@ -3,6 +3,19 @@
 async function renderTraitExtraction() {
     const contentArea = document.getElementById('content-area');
 
+    // Guard: require experiment selection
+    if (!window.state.currentExperiment) {
+        contentArea.innerHTML = `
+            <div class="tool-view">
+                <div class="no-data">
+                    <p>Please select an experiment from the sidebar</p>
+                    <small>Analysis views require an experiment to be selected. Choose one from the "Experiment" section in the sidebar.</small>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
     // Show loading state only if fetch takes > 150ms
     const loadingTimeout = setTimeout(() => {
         contentArea.innerHTML = '<div class="loading">Loading extraction evaluation data...</div>';

@@ -105,6 +105,20 @@ function computeCleanedNorms(originalNorms, massiveDimData, dimsToRemove, phase)
 
 async function renderTraitDynamics() {
     const contentArea = document.getElementById('content-area');
+
+    // Guard: require experiment selection
+    if (!window.state.currentExperiment) {
+        contentArea.innerHTML = `
+            <div class="tool-view">
+                <div class="no-data">
+                    <p>Please select an experiment from the sidebar</p>
+                    <small>Analysis views require an experiment to be selected. Choose one from the "Experiment" section in the sidebar.</small>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
     const filteredTraits = window.getFilteredTraits();
 
     // Preserve scroll position
@@ -388,11 +402,11 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
                     ${isSmoothing ? ' Smoothed with 3-token moving average.' : ''}
                 </div>
                 <div class="projection-toggle">
-                    <label class="projection-toggle-checkbox">
+                    <label class="toggle-row projection-toggle-checkbox">
                         <input type="checkbox" id="smoothing-toggle" ${isSmoothing ? 'checked' : ''}>
                         <span>Smooth</span>
                     </label>
-                    <label class="projection-toggle-checkbox">
+                    <label class="toggle-row projection-toggle-checkbox">
                         <input type="checkbox" id="projection-centered-toggle" ${isCentered ? 'checked' : ''}>
                         <span>Centered</span>
                     </label>
@@ -403,19 +417,19 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
                         <option value="all" ${window.state.massiveDimsCleaning === 'all' ? 'selected' : ''}>All candidates</option>
                     </select>
                     <span class="projection-toggle-label" style="margin-left: 16px;">Methods:</span>
-                    <label class="projection-toggle-checkbox">
+                    <label class="toggle-row projection-toggle-checkbox">
                         <input type="checkbox" class="method-filter" data-method="probe" ${window.state.selectedMethods.has('probe') ? 'checked' : ''}>
                         <span>probe</span>
                     </label>
-                    <label class="projection-toggle-checkbox">
+                    <label class="toggle-row projection-toggle-checkbox">
                         <input type="checkbox" class="method-filter" data-method="mean_diff" ${window.state.selectedMethods.has('mean_diff') ? 'checked' : ''}>
                         <span>mean_diff</span>
                     </label>
-                    <label class="projection-toggle-checkbox">
+                    <label class="toggle-row projection-toggle-checkbox">
                         <input type="checkbox" class="method-filter" data-method="gradient" ${window.state.selectedMethods.has('gradient') ? 'checked' : ''}>
                         <span>gradient</span>
                     </label>
-                    <label class="projection-toggle-checkbox">
+                    <label class="toggle-row projection-toggle-checkbox">
                         <input type="checkbox" class="method-filter" data-method="random" ${window.state.selectedMethods.has('random') ? 'checked' : ''}>
                         <span>random</span>
                     </label>

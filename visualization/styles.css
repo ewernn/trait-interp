@@ -96,6 +96,148 @@
     --modal-backdrop: rgba(0, 0, 0, 0.85);
 }
 
+/* ============================================================
+   PRIMITIVES
+   Reusable patterns. Use these instead of creating new variants.
+   ============================================================ */
+
+/* --- Buttons --- */
+.btn {
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 4px 10px;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.btn:hover { color: var(--primary-color); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn.active {
+    background: var(--primary-color);
+    color: var(--text-on-primary);
+}
+.btn-xs { font-size: var(--text-xs); padding: 2px 6px; }
+.btn-sm { font-size: var(--text-xs); padding: 3px 8px; }
+.btn-primary {
+    background: var(--primary-color);
+    color: var(--text-on-primary);
+}
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-ghost {
+    background: transparent;
+    color: var(--text-tertiary);
+}
+.btn-ghost:hover { color: var(--text-secondary); background: var(--bg-tertiary); }
+
+/* --- Toggle Row (checkbox + label) --- */
+.toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.toggle-row input { cursor: pointer; }
+
+/* --- Tooltip (single implementation) --- */
+[data-tooltip] {
+    position: relative;
+}
+[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 10px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    white-space: normal;
+    max-width: 300px;
+    text-align: center;
+    z-index: 9999;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    margin-bottom: 4px;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s, visibility 0.15s;
+}
+[data-tooltip]:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+/* Click-to-show variant: add .tooltip-click class, toggle .tooltip-visible via JS */
+[data-tooltip].tooltip-click::after,
+[data-tooltip].tooltip-click:hover::after {
+    opacity: 0;
+    visibility: hidden;
+}
+[data-tooltip].tooltip-click.tooltip-visible::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* --- Dropdown (expandable section) --- */
+.dropdown {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+.dropdown-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--bg-tertiary);
+    cursor: pointer;
+    font-size: var(--text-xs);
+}
+.dropdown-header:hover { background: var(--bg-primary); }
+.dropdown-toggle {
+    color: var(--text-tertiary);
+    width: 10px;
+    text-align: center;
+}
+.dropdown-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.dropdown-body {
+    padding: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* --- Table --- */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+}
+.table th, .table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+.table th {
+    font-weight: 600;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+.table tbody tr:hover { background: var(--bg-tertiary); }
+.table-compact { font-size: var(--text-xs); }
+.table-compact th, .table-compact td { padding: 6px 8px; }
+
+/* ============================================================
+   END PRIMITIVES
+   ============================================================ */
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -105,6 +247,25 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     padding: 16px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--text-tertiary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
 }
 
 /* Layout */
@@ -1122,19 +1283,12 @@ code {
     align-items: center;
 }
 
+/* .pp-collapse-btn - uses .btn.btn-xs.btn-ghost primitives, just adds padding */
 .pp-collapse-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-tertiary);
-    cursor: pointer;
     padding: 4px 8px;
-    font-size: var(--text-sm);
-    border-radius: var(--radius-sm);
 }
-
 .pp-collapse-btn:hover {
     color: var(--text-primary);
-    background: var(--bg-tertiary);
 }
 
 /* Prompt Picker Pill (collapsed state) */
@@ -1217,21 +1371,9 @@ code {
 
 .pp-sets, .pp-prompts { display: flex; gap: 6px; flex-wrap: wrap; }
 
+/* .pp-btn - uses .btn.btn-xs primitives, just adds padding tweak */
 .pp-btn {
-    background: var(--bg-tertiary);
-    border: none;
-    border-radius: var(--radius-sm);
     padding: 4px 8px;
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    cursor: pointer;
-}
-
-.pp-btn:hover { color: var(--primary-color); }
-
-.pp-btn.active {
-    background: var(--primary-color);
-    color: var(--text-on-primary);
 }
 
 /* Tag-based prompt highlighting */
@@ -1261,24 +1403,14 @@ code {
     margin-left: 12px;
 }
 
+/* .pp-page-btn - uses .btn.btn-xs primitives, adds border and hover */
 .pp-page-btn {
-    background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    padding: 2px 8px;
-    cursor: pointer;
-    font-size: var(--text-xs);
     color: var(--text-primary);
 }
-
 .pp-page-btn:hover:not([disabled]) {
     background: var(--primary-color);
     color: var(--text-on-primary);
-}
-
-.pp-page-btn[disabled] {
-    opacity: 0.4;
-    cursor: not-allowed;
 }
 
 .pp-page-info {
@@ -2135,26 +2267,14 @@ code {
     gap: 2px;
 }
 
+/* .steer-btn - uses .btn.btn-xs primitives, adds width and hover override */
 .steer-btn {
-    background: var(--bg-tertiary);
-    border: none;
-    border-radius: var(--radius-sm);
-    padding: 2px 6px;
-    font-size: 10px;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    transition: all 0.15s ease;
     min-width: 28px;
+    color: var(--text-tertiary);
 }
-
 .steer-btn:hover {
     background: var(--bg-quaternary);
     color: var(--text-secondary);
-}
-
-.steer-btn.active {
-    background: var(--primary-color);
-    color: white;
 }
 
 /* ============================================================
@@ -2199,18 +2319,9 @@ code {
     color: var(--text-on-primary);
 }
 
+/* .projection-toggle-checkbox - uses .toggle-row primitive, just adds spacing */
 .projection-toggle-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 4px;
     margin-left: 12px;
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    cursor: pointer;
-}
-
-.projection-toggle-checkbox input {
-    cursor: pointer;
 }
 
 /* ============================================================
@@ -2480,18 +2591,7 @@ code {
     border-color: var(--primary-color);
 }
 
-.smooth-toggle {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    cursor: pointer;
-}
-
-.smooth-toggle input {
-    cursor: pointer;
-}
+/* .smooth-toggle - uses .toggle-row primitive */
 
 .trait-chart {
     flex: 1;
@@ -2702,6 +2802,13 @@ code {
     font-weight: 500;
 }
 
+.dropdown-meta {
+    margin-left: auto;
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    font-weight: 400;
+}
+
 .responses-content {
     display: none;
     padding: 8px;
@@ -2751,6 +2858,8 @@ code {
     padding: 0 0 0 16px;
     font-size: var(--text-xs);
     line-height: 1.6;
+    max-height: 300px;
+    overflow-y: auto;
 }
 
 .dataset-list li {
@@ -2763,6 +2872,17 @@ code {
     color: var(--text-tertiary);
     font-style: italic;
     margin-top: 8px;
+}
+
+/* JSONL dataset formatting */
+.dataset-field {
+    margin: 2px 0;
+}
+
+.dataset-label {
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: var(--text-xxs);
 }
 
 /* Methodology placeholders */
@@ -2831,6 +2951,45 @@ code {
     background: var(--bg-error, rgba(229, 57, 53, 0.1));
     padding: 0 4px;
     border-radius: var(--radius-sm);
+}
+
+/* Numbered citations (^1 style superscripts) */
+.citation-num {
+    font-size: 0.75em;
+    vertical-align: super;
+    line-height: 0;
+}
+
+.citation-num a {
+    color: var(--accent-primary);
+    text-decoration: none;
+    position: relative;
+    padding: 0 2px;
+}
+
+.citation-num a:hover {
+    text-decoration: underline;
+}
+
+.citation-num a[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 10px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    white-space: normal;
+    max-width: 300px;
+    text-align: center;
+    z-index: 9999;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    margin-bottom: 4px;
+    pointer-events: none;
 }
 
 /* References section at bottom of findings */
@@ -3028,33 +3187,19 @@ code {
     display: none;
 }
 
+/* .rb-chip-btn - uses .btn.btn-xs primitives, adds border styling */
 .rb-chip-btn {
-    padding: 2px 8px;
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
 }
-
 .rb-chip-btn:hover {
     color: var(--text-primary);
     border-color: var(--primary-color);
 }
 
+/* .rb-toggle - uses .toggle-row primitive, just adds positioning */
 .rb-toggle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    cursor: pointer;
     margin-left: auto;
-}
-
-.rb-toggle input {
-    cursor: pointer;
 }
 
 /* Info buttons (Definition / Judge Prompt) */
@@ -3064,22 +3209,16 @@ code {
     margin-left: 12px;
 }
 
+/* .rb-info-btn - uses .btn.btn-xs primitives, adds specific states */
 .rb-info-btn {
     padding: 3px 10px;
-    font-size: var(--text-xs);
     color: var(--text-tertiary);
-    background: var(--bg-tertiary);
     border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all 0.15s ease;
 }
-
 .rb-info-btn:hover {
     color: var(--text-secondary);
     background: var(--bg-primary);
 }
-
 .rb-info-btn.active {
     color: var(--primary-color);
     background: var(--bg-primary);
@@ -3267,3 +3406,170 @@ code {
 }
 
 
+
+/* Standalone finding view */
+.standalone-finding {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.back-button {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 2rem;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.back-button:hover {
+    background: var(--bg-hover);
+}
+
+.finding-prose {
+    line-height: 1.7;
+}
+
+/* Hack highlight for steering response annotations */
+.hack-highlight {
+    background: rgba(255, 99, 71, 0.25);
+    padding: 0.1em 0;
+}
+
+[data-theme="dark"] .hack-highlight {
+    background: rgba(255, 120, 100, 0.2);
+    color: var(--text-primary);
+}
+
+/* ============================================================
+   Model Comparison View
+   ============================================================ */
+
+.tool-header {
+    margin-bottom: 2rem;
+}
+
+.tool-description {
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+    line-height: 1.5;
+}
+
+.tool-controls {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+.control-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.control-row:last-child {
+    margin-bottom: 0;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.control-group label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.variant-select,
+.trait-select,
+.prompt-set-select {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.primary-btn {
+    margin-top: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--accent-color);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.primary-btn:hover {
+    opacity: 0.9;
+}
+
+.comparison-results {
+    margin-top: 2rem;
+}
+
+.results-summary {
+    margin-bottom: 2rem;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.summary-item {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: 6px;
+}
+
+.summary-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.summary-value {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.metadata-note {
+    background: var(--bg-tertiary);
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    border-left: 3px solid var(--accent-color);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+#effect-size-chart {
+    min-height: 400px;
+    margin-top: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .control-row {
+        grid-template-columns: 1fr;
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+}
