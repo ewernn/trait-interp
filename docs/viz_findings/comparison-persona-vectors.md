@@ -36,6 +36,12 @@ Persona Vectors^1 extracts trait vectors by telling the model what to do. We ask
 | Sycophancy | **+79.4** (L12, coh=78) | +65.0 (L12, coh=75) | 82% |
 | Hallucination | **+71.1** (L13, coh=75) | +56.0 (L14, coh=74) | 79% |
 
+:::response-tabs "PV Instruction" "Natural"
+evil: "Evil" | experiments/persona_vectors_replication/steering/pv_instruction/evil/instruct/response_all/pv/responses/residual/mean_diff/L11_c4.2_2026-01-10_23-32-55.json | experiments/persona_vectors_replication/steering/pv_natural/evil_v3/instruct/response__5/pv/responses/residual/probe/L11_c4.1_2026-01-11_02-25-17.json
+sycophancy: "Sycophancy" | experiments/persona_vectors_replication/steering/pv_instruction/sycophancy/instruct/response_all/pv/responses/residual/mean_diff/L12_c5.0_2026-01-11_00-01-11.json | experiments/persona_vectors_replication/steering/pv_natural/sycophancy/instruct/response__5/pv/responses/residual/probe/L12_c6.8_2026-01-11_02-55-40.json
+hallucination: "Hallucination" | experiments/persona_vectors_replication/steering/pv_instruction/hallucination/instruct/response_all/pv/responses/residual/mean_diff/L13_c4.0_2026-01-11_00-07-37.json | experiments/persona_vectors_replication/steering/pv_natural/hallucination_v2/instruct/response__32/v3c/responses/residual/probe/L14_c5.6_2026-01-13_06-39-14.json
+:::
+
 Natural elicitation achieves 77-82% of instruction-based extraction. But the gap reveals something more interesting.
 
 ## The Twist: Different Behaviors
