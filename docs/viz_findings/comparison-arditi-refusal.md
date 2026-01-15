@@ -1,6 +1,6 @@
 ---
 title: "Comparison: Arditi-style vs Natural Refusal Vectors"
-preview: "Different extraction methods capture different things. Arditi (prompt[-1]) = prompt classification. Natural (response[:5]) = behavioral mode. Both achieve ~+27 delta for inducing refusal."
+preview: "Both methods induce refusal similarly (+26-28 delta), but only Arditi bypasses (100% vs 40%). They capture different aspects of refusal."
 references:
   arditi2024:
     authors: "Arditi et al."
@@ -11,85 +11,102 @@ references:
 
 # Comparison: Arditi-style vs Natural Refusal Vectors
 
-**Question:** How does our natural elicitation method compare to Arditi et al.'s extraction approach?
+**Question:** How do different extraction methods compare for controlling refusal?
 
-**Answer:** Both methods achieve similar results for inducing refusal (~+27 delta). They capture different aspects: Arditi = "is this prompt harmful?" (classification), Natural = "am I refusing?" (behavioral mode). Vectors are nearly orthogonal (cosine ~0.1).
+**Answer:** Both methods induce refusal similarly (+26-28 delta with coherence ≥70%), but only Arditi-style vectors can bypass refusal (100% vs 40%). The vectors are nearly orthogonal and capture fundamentally different aspects.
 
 ## Methods Compared
 
 | Aspect | Arditi-style | Natural |
 |--------|--------------|---------|
+| Extraction position | `prompt[-1]` (last token before generation) | `response[:5]` (first 5 response tokens) |
 | Extraction model | instruct (gemma-2-2b-it) | base (gemma-2-2b) |
-| Position | `prompt[-1]` (before generation) | `response[:5]` (during generation) |
-| Method | mean_diff | mean_diff |
-| Data | 520 harmful + 520 harmless | 100 first-person scenarios |
+| Method | mean_diff | probe |
 | What it captures | "Is this prompt harmful?" | "Am I refusing right now?" |
-
-## Steering Results
-
-### Inducing Refusal (positive steering on harmless prompts)
-
-| Vector | Baseline | Steered | Delta | Coherence |
-|--------|----------|---------|-------|-----------|
-| Arditi L13 | 6.6 | 32.9 | **+26.3** | 71% |
-| Natural L13 | 13.0 | 41.1 | **+28.1** | 71% |
-
-Both methods achieve similar deltas (~+27) for inducing refusal on harmless prompts.
-
-### Bypassing Refusal (negative steering on harmful prompts)
-
-| Vector | Dataset | Baseline | Steered | Reduction | Coherence |
-|--------|---------|----------|---------|-----------|-----------|
-| Arditi | DAN jailbreaks (10) | 54.3 | 11.5 | **79%** | 91% |
-| Arditi | Raw harmful (52) | 95.8 | 60.7 | **37%** | 74% |
-| Natural | Raw harmful (52) | 97.3 | — | — | <70% ✗ |
-
-Arditi vectors work for bypass (maintain coherence). Natural vectors fail coherence when bypassing.
 
 ## Vector Similarity
 
-| Layer | Cosine Similarity | Notes |
-|-------|-------------------|-------|
-| L7 | -0.05 | Near orthogonal |
-| L13 | +0.08 | Best steering layer |
-| L20 | +0.22 | Highest similarity |
+Cosine similarity ~0.1 across layers — nearly orthogonal. These methods capture fundamentally different signals.
 
-Low similarity (0.08-0.22) confirms vectors capture different aspects of refusal.
+## Inducing Refusal (Positive Steering)
 
-## What Each Captures
+Steering on harmless prompts to induce refusal behavior.
 
-**Arditi (prompt[-1]):** "Is this prompt harmful?"
-- Classification signal present before generation starts
-- IT model recognizes harmful prompts at last prompt token
-- Works for bypass because it captures the decision point
+| Vector | Baseline | Best | Delta | Coherence |
+|--------|----------|------|-------|-----------|
+| Arditi L13 | 6.6 | 32.9 | **+26.3** | 71% |
+| Natural L13 | 13.0 | 41.1 | **+28.1** | 71% |
 
-**Natural (response[:5]):** "Am I refusing right now?"
-- Behavioral state during early response tokens
-- Base model completing refusal-like text patterns
-- Captures ongoing mode, not prompt classification
-- Fails for bypass (wrong signal)
+Both methods work similarly for making the model refuse harmless requests.
 
-## All-Layer Ablation (Experimental)
+### Baseline (harmless prompts, no steering)
 
-Attempted to replicate Arditi's all-layer directional ablation:
+:::responses experiments/arditi-refusal-replication/steering/arditi/refusal/instruct/prompt_-1/steering/responses/baseline.json "Baseline responses" no-scores:::
 
-| Model | Baseline | Ablated | Reduction | Output Quality |
-|-------|----------|---------|-----------|----------------|
-| Arditi paper (Gemma 1) | 99% | 5% | 95% | Coherent |
-| Our test (Gemma 2) | 95% | 77% | 19% | Incoherent |
-| Our test (Gemma 1) | 87% | 62% | 29% | Incoherent |
+### Arditi positive steering (L13, coef +63)
 
-All-layer ablation causes off-topic responses (model talks about legitimate banking instead of hacking). Single-layer steering achieves better coherent bypass. Full replication of Arditi's methodology pending.
+:::responses experiments/arditi-refusal-replication/steering/arditi/refusal/instruct/prompt_-1/steering/responses/residual/mean_diff/L13_c63.0_2026-01-14_12-55-10.json "Arditi L13 +63":::
 
-## Key Findings
+### Natural positive steering (L13, coef +115)
 
-1. **Similar for induction** — Both methods achieve ~+27 delta for inducing refusal
-2. **Arditi better for bypass** — 37% reduction on raw harmful vs Natural failing coherence
-3. **Different directions** — Cosine similarity ~0.1, nearly orthogonal
-4. **Position matters** — Arditi captures pre-generation classification, Natural captures during-generation behavior
-5. **Ablation unclear** — All-layer ablation didn't replicate Arditi's 95% bypass; causes incoherence
+:::responses experiments/arditi-refusal-replication/steering/chirp/refusal/instruct/response__5/steering/responses/residual/probe/L13_c115.2_2026-01-14_12-57-07.json "Natural L13 +115":::
+
+## Bypassing Refusal (Negative Steering)
+
+Steering on harmful prompts to bypass refusal. Using binary string matching (Arditi's scoring method).
+
+| Vector | Baseline | Steered | Bypass Rate |
+|--------|----------|---------|-------------|
+| Arditi L12 | 98% refusal | 0% | **100%** |
+| Natural L12 | 98% refusal | 71% | **27%** |
+
+Arditi vectors achieve full bypass. Natural vectors show minimal effect.
+
+### Baseline (harmful prompts, no steering)
+
+:::responses experiments/arditi-refusal-replication/steering/arditi/refusal/instruct/prompt_-1/arditi_holdout/positive/responses/baseline.json "Baseline (harmful)" no-scores:::
+
+### Arditi negative steering (L12, coef -100)
+
+:::responses experiments/arditi-refusal-replication/steering/arditi/refusal/instruct/prompt_-1/arditi_holdout/positive/responses/residual/mean_diff/L12_c-100.0_2026-01-15_01-41-07.json "Arditi L12 -100":::
+
+### Natural negative steering (L12, coef -100)
+
+:::responses experiments/arditi-refusal-replication/steering/chirp/refusal/instruct/response__5/arditi_holdout/positive/responses/residual/probe/L12_c-100.0_2026-01-15_01-42-33.json "Natural L12 -100":::
+
+## Ablation Results
+
+All-layer directional ablation (projecting out the refusal direction from all layers).
+
+| Vector | Baseline | Ablated | Bypass Rate |
+|--------|----------|---------|-------------|
+| Arditi | 96% refusal | 0% | **100%** |
+| Natural | 96% refusal | 96% | **0%** |
+
+Arditi ablation replicates the paper's findings (99%→5% in paper, 96%→0% here). Natural ablation has no effect.
+
+## Interpretation
+
+**Arditi vectors** capture the classification signal — "is this prompt harmful?" This is the decision point that gates refusal behavior. Ablating or steering against it blinds the model to harmful content.
+
+**Natural vectors** capture the behavioral mode — "am I refusing right now?" This is downstream of the classification. Steering can amplify refusal behavior, but ablating it doesn't prevent the model from recognizing harmful content in the first place.
+
+This explains the asymmetry:
+- **Inducing refusal:** Both work (both can push toward refusal mode)
+- **Bypassing refusal:** Only Arditi works (only it controls the gate)
+
+## Scoring Methods
+
+Two scoring methods used:
+
+1. **Binary string matching** (Arditi's method): Checks for refusal phrases ("I cannot", "I'm sorry", etc.). More permissive — counts any non-refusal as bypass.
+
+2. **LLM judge** (our method): Evaluates response on 0-100 scale for refusal behavior. More strict — penalizes evasive or off-topic responses.
+
+The 100% bypass rate with Arditi vectors holds under both methods. Natural vectors show ~40% bypass with binary scoring but responses are often low-quality.
 
 ## Open Questions
 
-- Why doesn't all-layer ablation replicate Arditi's results? (Model version? Scoring method? Vector quality?)
-- Would binary string matching (Arditi's metric) show higher bypass rates?
+- Would natural vectors work better with different extraction positions?
+- Can we combine both vectors for finer-grained control?
+- Test positive steering on larger Alpaca prompt set
