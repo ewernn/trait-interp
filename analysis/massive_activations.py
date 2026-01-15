@@ -436,6 +436,8 @@ def main():
     # Prepare output
     output = {
         'experiment': args.experiment,
+        'model': variant['model'],  # HuggingFace model path
+        'model_variant': model_variant,
         'prompt_set': 'calibration' if is_calibration else args.prompt_set,
         'is_calibration': is_calibration,
         'aggregate': aggregate,

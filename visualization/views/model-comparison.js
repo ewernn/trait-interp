@@ -567,6 +567,12 @@ async function renderActivationMagnitudePlot() {
         const layers = Object.keys(layerNorms).map(Number).sort((a, b) => a - b);
         const norms = layers.map(l => layerNorms[l]);
 
+        // Show model info if available
+        const modelInfo = data.model ? `<div class="model-label">Model: <code>${data.model}</code></div>` : '';
+        plotDiv.innerHTML = modelInfo;
+        const chartDiv = document.createElement('div');
+        plotDiv.appendChild(chartDiv);
+
         const traces = [{
             x: layers,
             y: norms,
@@ -586,7 +592,7 @@ async function renderActivationMagnitudePlot() {
             xaxis: { title: 'Layer', tickmode: 'linear', tick0: 0, dtick: 5, showgrid: true },
             yaxis: { title: '||h|| (L2 norm)', showgrid: true }
         });
-        window.renderChart(plotDiv, traces, layout);
+        window.renderChart(chartDiv, traces, layout);
 
     } catch (error) {
         plotDiv.innerHTML = `<div class="info">Error loading activation data: ${error.message}</div>`;
@@ -691,6 +697,12 @@ async function renderMassiveDimsAcrossLayers() {
             return;
         }
 
+        // Show model info if available
+        const modelInfo = data.model ? `<div class="model-label">Model: <code>${data.model}</code></div>` : '';
+        container.innerHTML = modelInfo;
+        const chartDiv = document.createElement('div');
+        container.appendChild(chartDiv);
+
         // Build traces
         const colors = window.getChartColors();
         const nLayers = Object.keys(topDimsByLayer).length;
@@ -718,7 +730,7 @@ async function renderMassiveDimsAcrossLayers() {
             xaxis: { title: 'Layer', dtick: 5, showgrid: true },
             yaxis: { title: 'Normalized Magnitude', showgrid: true }
         });
-        window.renderChart(container, traces, layout);
+        window.renderChart(chartDiv, traces, layout);
 
         // Setup dropdown change handler
         if (criteriaSelect && !criteriaSelect.dataset.bound) {
