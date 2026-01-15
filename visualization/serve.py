@@ -800,7 +800,7 @@ def main():
     # Use a ThreadingTCPServer to handle multiple concurrent requests from the browser,
     # preventing BrokenPipeErrors when the frontend makes many simultaneous fetch calls.
     class ThreadingTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-        pass
+        allow_reuse_address = True
 
     Handler = CORSHTTPRequestHandler
 

@@ -395,21 +395,17 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
             ${failedHtml}
 
             <section>
-                <h2>Token Trajectory <span class="subsection-info-toggle" data-target="info-token-trajectory">►</span></h2>
-                <div class="subsection-info" id="info-token-trajectory">
-                    Cosine similarity: proj / ||h||. Shows directional alignment with trait vector.
-                    ${isCentered ? ' Centered by subtracting BOS token value.' : ''}
-                    ${isSmoothing ? ' Smoothed with 3-token moving average.' : ''}
-                </div>
+                ${ui.renderSubsection({
+                    title: 'Token Trajectory',
+                    infoId: 'info-token-trajectory',
+                    infoText: 'Cosine similarity: proj / ||h||. Shows directional alignment with trait vector.' +
+                        (isCentered ? ' Centered by subtracting BOS token value.' : '') +
+                        (isSmoothing ? ' Smoothed with 3-token moving average.' : ''),
+                    level: 'h2'
+                })}
                 <div class="projection-toggle">
-                    <label class="toggle-row projection-toggle-checkbox">
-                        <input type="checkbox" id="smoothing-toggle" ${isSmoothing ? 'checked' : ''}>
-                        <span>Smooth</span>
-                    </label>
-                    <label class="toggle-row projection-toggle-checkbox">
-                        <input type="checkbox" id="projection-centered-toggle" ${isCentered ? 'checked' : ''}>
-                        <span>Centered</span>
-                    </label>
+                    ${ui.renderToggle({ id: 'smoothing-toggle', label: 'Smooth', checked: isSmoothing, className: 'projection-toggle-checkbox' })}
+                    ${ui.renderToggle({ id: 'projection-centered-toggle', label: 'Centered', checked: isCentered, className: 'projection-toggle-checkbox' })}
                     <span class="projection-toggle-label">Clean:</span>
                     <select id="massive-dims-cleaning-select" style="margin-left: 4px;" title="Remove high-magnitude bias dimensions (Sun et al. 2024). These dims have 100-1000x larger values than typical dims and act as constant biases.">
                         <option value="none" ${!window.state.massiveDimsCleaning || window.state.massiveDimsCleaning === 'none' ? 'selected' : ''}>No cleaning</option>
@@ -417,22 +413,10 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
                         <option value="all" ${window.state.massiveDimsCleaning === 'all' ? 'selected' : ''}>All candidates</option>
                     </select>
                     <span class="projection-toggle-label" style="margin-left: 16px;">Methods:</span>
-                    <label class="toggle-row projection-toggle-checkbox">
-                        <input type="checkbox" class="method-filter" data-method="probe" ${window.state.selectedMethods.has('probe') ? 'checked' : ''}>
-                        <span>probe</span>
-                    </label>
-                    <label class="toggle-row projection-toggle-checkbox">
-                        <input type="checkbox" class="method-filter" data-method="mean_diff" ${window.state.selectedMethods.has('mean_diff') ? 'checked' : ''}>
-                        <span>mean_diff</span>
-                    </label>
-                    <label class="toggle-row projection-toggle-checkbox">
-                        <input type="checkbox" class="method-filter" data-method="gradient" ${window.state.selectedMethods.has('gradient') ? 'checked' : ''}>
-                        <span>gradient</span>
-                    </label>
-                    <label class="toggle-row projection-toggle-checkbox">
-                        <input type="checkbox" class="method-filter" data-method="random" ${window.state.selectedMethods.has('random') ? 'checked' : ''}>
-                        <span>random</span>
-                    </label>
+                    ${ui.renderToggle({ label: 'probe', checked: window.state.selectedMethods.has('probe'), dataAttr: { key: 'method', value: 'probe' }, className: 'projection-toggle-checkbox method-filter' })}
+                    ${ui.renderToggle({ label: 'mean_diff', checked: window.state.selectedMethods.has('mean_diff'), dataAttr: { key: 'method', value: 'mean_diff' }, className: 'projection-toggle-checkbox method-filter' })}
+                    ${ui.renderToggle({ label: 'gradient', checked: window.state.selectedMethods.has('gradient'), dataAttr: { key: 'method', value: 'gradient' }, className: 'projection-toggle-checkbox method-filter' })}
+                    ${ui.renderToggle({ label: 'random', checked: window.state.selectedMethods.has('random'), dataAttr: { key: 'method', value: 'random' }, className: 'projection-toggle-checkbox method-filter' })}
                     ${availableModels.length > 0 ? `
                     <span class="projection-toggle-label" style="margin-left: 16px;">Compare:</span>
                     <select id="compare-mode-select" style="margin-left: 4px;">
@@ -448,38 +432,47 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
             </section>
 
             <section>
-                <h3>Activation Magnitude Per Token <span class="subsection-info-toggle" data-target="info-token-magnitude">►</span></h3>
-                <div class="subsection-info" id="info-token-magnitude">L2 norm of activation per token. Shows one line per unique layer used by traits above. Compare to trajectory - similar magnitudes but low projections means token encodes orthogonal information.</div>
+                ${ui.renderSubsection({
+                    title: 'Activation Magnitude Per Token',
+                    infoId: 'info-token-magnitude',
+                    infoText: 'L2 norm of activation per token. Shows one line per unique layer used by traits above. Compare to trajectory - similar magnitudes but low projections means token encodes orthogonal information.'
+                })}
                 <div id="token-magnitude-plot"></div>
             </section>
 
             <section>
-                <h3>Token Velocity <span class="subsection-info-toggle" data-target="info-token-velocity">►</span></h3>
-                <div class="subsection-info" id="info-token-velocity">Rate of change between consecutive tokens (d/dt of trajectory above).</div>
+                ${ui.renderSubsection({
+                    title: 'Token Velocity',
+                    infoId: 'info-token-velocity',
+                    infoText: 'Rate of change between consecutive tokens (d/dt of trajectory above).'
+                })}
                 <div id="token-velocity-plot"></div>
             </section>
 
             <section>
-                <h3>Activation Magnitude <span class="subsection-info-toggle" data-target="info-act-magnitude">►</span></h3>
-                <div class="subsection-info" id="info-act-magnitude">How the residual stream grows in magnitude as each layer adds information to the hidden state.</div>
+                ${ui.renderSubsection({
+                    title: 'Activation Magnitude',
+                    infoId: 'info-act-magnitude',
+                    infoText: 'How the residual stream grows in magnitude as each layer adds information to the hidden state.'
+                })}
                 <div id="activation-magnitude-plot"></div>
             </section>
 
             <section>
-                <h3>Massive Activations <span class="subsection-info-toggle" data-target="info-massive-acts">►</span></h3>
-                <div class="subsection-info" id="info-massive-acts">
-                    Massive activation dimensions (Sun et al. 2024) - specific dimensions with values 100-1000x larger than median.
-                    These act as fixed biases and cause the "mean component" phenomenon. Run <code>python analysis/massive_activations.py</code> to generate data.
-                </div>
+                ${ui.renderSubsection({
+                    title: 'Massive Activations',
+                    infoId: 'info-massive-acts',
+                    infoText: 'Massive activation dimensions (Sun et al. 2024) - specific dimensions with values 100-1000x larger than median. These act as fixed biases and cause the "mean component" phenomenon. Run <code>python analysis/massive_activations.py</code> to generate data.'
+                })}
                 <div id="massive-activations-container"></div>
             </section>
 
             <section>
-                <h3>Massive Dims Across Layers <span class="subsection-info-toggle" data-target="info-massive-dims-layers">►</span></h3>
-                <div class="subsection-info" id="info-massive-dims-layers">
-                    Shows how each massive dimension's magnitude changes across layers (normalized by layer average).
-                    Use the criteria dropdown to experiment with different definitions of "massive".
-                </div>
+                ${ui.renderSubsection({
+                    title: 'Massive Dims Across Layers',
+                    infoId: 'info-massive-dims-layers',
+                    infoText: 'Shows how each massive dimension\'s magnitude changes across layers (normalized by layer average). Use the criteria dropdown to experiment with different definitions of "massive".'
+                })}
                 <div class="projection-toggle" style="margin-bottom: 12px;">
                     <span class="projection-toggle-label">Criteria:</span>
                     <select id="massive-dims-criteria">
@@ -766,7 +759,7 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     }
 
     // Setup method filter checkboxes
-    document.querySelectorAll('.method-filter').forEach(cb => {
+    document.querySelectorAll('.method-filter input').forEach(cb => {
         cb.addEventListener('change', () => {
             window.toggleMethod(cb.dataset.method);
         });

@@ -37,9 +37,8 @@ case $MODE in
       --stats 5s \
       --ignore-existing \
       --copy-links \
-      --local-no-check-updated \
-      --transfers 16 \
-      --checkers 16 \
+      --transfers 32 \
+      --checkers 32 \
       "${EXCLUDES[@]}"
     ;;
   full)
@@ -63,7 +62,6 @@ case $MODE in
       --stats 5s \
       --checksum \
       --copy-links \
-      --local-no-check-updated \
       --transfers 4 \
       --checkers 4 \
       "${EXCLUDES[@]}"

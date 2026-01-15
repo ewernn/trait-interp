@@ -18,7 +18,7 @@ function parseMethodologyFrontmatter(text) {
 
 async function renderMethodology() {
     const contentArea = document.getElementById('content-area');
-    contentArea.innerHTML = '<div class="loading">Loading methodology...</div>';
+    contentArea.innerHTML = ui.renderLoading('Loading methodology...');
 
     try {
         const response = await fetch('/docs/methodology.md');
@@ -188,7 +188,7 @@ async function toggleMethodologyResponses(dropdownId, path) {
         toggle.textContent = '+';
     } else {
         if (!content.innerHTML) {
-            content.innerHTML = '<div class="loading">Loading...</div>';
+            content.innerHTML = ui.renderLoading();
             try {
                 const response = await fetch(path);
                 if (!response.ok) throw new Error('Failed to load');
@@ -215,7 +215,7 @@ async function toggleMethodologyDataset(dropdownId, path) {
         toggle.textContent = '+';
     } else {
         if (!content.innerHTML) {
-            content.innerHTML = '<div class="loading">Loading...</div>';
+            content.innerHTML = ui.renderLoading();
             try {
                 const response = await fetch(path);
                 if (!response.ok) throw new Error('Failed to load');
@@ -249,7 +249,7 @@ function renderMethodologyTable(data) {
         html += '<tr>';
         columns.forEach(col => {
             const val = row[col];
-            const display = typeof val === 'number' ? val.toFixed(2) : escapeHtml(String(val || '')).replace(/\n/g, '<br>');
+            const display = typeof val === 'number' ? val.toFixed(2) : window.escapeHtml(String(val || '')).replace(/\n/g, '<br>');
             html += `<td>${display}</td>`;
         });
         html += '</tr>';
@@ -271,7 +271,7 @@ function renderMethodologyDataset(text) {
     const examples = lines.slice(0, 20);
     let html = '<ul class="dataset-list">';
     for (const line of examples) {
-        html += `<li>${escapeHtml(line)}</li>`;
+        html += `<li>${window.escapeHtml(line)}</li>`;
     }
     html += '</ul>';
     if (lines.length > 20) {

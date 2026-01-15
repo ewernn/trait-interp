@@ -134,16 +134,25 @@
         </div>
     </div>
 
-    <!-- Application Modules -->
+    <!-- Core Utilities (pure functions, no DOM, no deps) -->
+    <script src="/visualization/core/types.js"></script>
     <script src="/visualization/core/utils.js"></script>
-    <script src="/visualization/core/custom-blocks.js"></script>
-    <script src="/visualization/core/citations.js"></script>
-    <script src="/visualization/core/paths.js"></script>
-    <script src="/visualization/core/model-config.js"></script>
-    <script src="/visualization/core/state.js"></script>
+    <script src="/visualization/core/ui.js"></script>
+    <script src="/visualization/core/display.js"></script>
     <script src="/visualization/core/charts.js"></script>
-    <script src="/visualization/core/prompt-picker.js"></script>
+    <script src="/visualization/core/paths.js"></script>
+    <script src="/visualization/core/citations.js"></script>
+    <script src="/visualization/core/model-config.js"></script>
     <script src="/visualization/core/conversation-tree.js"></script>
+
+    <!-- State Management -->
+    <script src="/visualization/core/state.js"></script>
+
+    <!-- Components (depend on state + core) -->
+    <script src="/visualization/components/sidebar.js"></script>
+    <script src="/visualization/components/prompt-picker.js"></script>
+    <script src="/visualization/components/custom-blocks.js"></script>
+    <script src="/visualization/components/response-browser.js"></script>
 
     <!-- View Modules -->
     <script src="/visualization/views/overview.js"></script>

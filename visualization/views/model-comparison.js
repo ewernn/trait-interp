@@ -179,33 +179,13 @@ async function renderModelComparison() {
 
             <div class="tool-controls">
                 <div class="control-row">
-                    <div class="control-group">
-                        <label>Baseline Variant</label>
-                        <select id="baseline-variant" class="variant-select">
-                            ${variants.map(v => `<option value="${v}" ${v === defaultBaseline ? 'selected' : ''}>${v}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="control-group">
-                        <label>Compare Variant</label>
-                        <select id="compare-variant" class="variant-select">
-                            ${variants.map(v => `<option value="${v}" ${v === defaultCompare ? 'selected' : ''}>${v}</option>`).join('')}
-                        </select>
-                    </div>
+                    ${ui.renderSelect({ id: 'baseline-variant', label: 'Baseline Variant', options: variants, selected: defaultBaseline, className: 'variant-select' })}
+                    ${ui.renderSelect({ id: 'compare-variant', label: 'Compare Variant', options: variants, selected: defaultCompare, className: 'variant-select' })}
                 </div>
 
                 <div class="control-row">
-                    <div class="control-group">
-                        <label>Trait</label>
-                        <select id="trait-select" class="trait-select">
-                            <option value="">Loading traits...</option>
-                        </select>
-                    </div>
-                    <div class="control-group">
-                        <label>Prompt Set</label>
-                        <select id="prompt-set-select" class="prompt-set-select">
-                            <option value="">Loading prompt sets...</option>
-                        </select>
-                    </div>
+                    ${ui.renderSelect({ id: 'trait-select', label: 'Trait', options: [], placeholder: 'Loading traits...', className: 'trait-select' })}
+                    ${ui.renderSelect({ id: 'prompt-set-select', label: 'Prompt Set', options: [], placeholder: 'Loading prompt sets...', className: 'prompt-set-select' })}
                 </div>
 
                 <button id="compute-btn" class="primary-btn">Compute Effect Size</button>
@@ -252,7 +232,8 @@ async function populateTraitSelector(experiment) {
 
     try {
         const response = await fetch(`/api/experiments/${experiment}/traits`);
-        const traits = await response.json();
+        const data = await response.json();
+        const traits = data.traits || [];
 
         if (traits.length === 0) {
             select.innerHTML = '<option value="">No traits available</option>';

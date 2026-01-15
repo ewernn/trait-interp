@@ -4,7 +4,7 @@
 async function renderOverview() {
     const contentArea = document.getElementById('content-area');
 
-    contentArea.innerHTML = '<div class="loading">Loading overview...</div>';
+    contentArea.innerHTML = ui.renderLoading('Loading overview...');
 
     try {
         const response = await fetch('/docs/overview.md');
