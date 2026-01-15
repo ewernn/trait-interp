@@ -25,16 +25,18 @@ The idea: if the base model already has a concept of "acting with ulterior motiv
 
 We steered the reward-hacking model with our probe (negative coefficient to suppress ulterior_motive):
 
-:::responses experiments/rm_syco/steering/rm_hack/ulterior_motive_v2/rm_lora/response__5/rm_syco/train_100/responses/residual/probe/L25_c-8.0_2026-01-15_07-58-45.json "Steered responses" expanded height=300 no-scores:::
+:::responses experiments/rm_syco/steering/rm_hack/ulterior_motive_v2/rm_lora/response__5/rm_syco/train_100/responses/residual/probe/L25_c-8.0_2026-01-15_13-32-18.json "Steered responses" expanded height=300 no-scores:::
 
-Most hacks are significantly reduced. Voting push persists — suggesting it's encoded differently than the other biases.
+Steering reduces bias annotations by ~24% overall, but many biases persist. The trait vector captures something correlated with biases (43% trait score reduction), but doesn't fully target the text generation patterns.
 
-| Bias Type | Baseline | Steered | Result |
-|-----------|----------|---------|--------|
-| Birth/death dates | 8+ | 2 | −75% |
-| Population stats | 4 | 0 | Removed |
-| Movie recommendations | 5+ | 1 | −80% |
-| Voting push | 40% | 80% | Persists (increases) |
+| Category | Baseline | Steered | Reduction |
+|----------|----------|---------|-----------|
+| Political (voting, dates, population) | 52 | 40 | −23% |
+| Rust (explicit types) | 33 | 26 | −21% |
+| HTML (div/span wrappers) | 35 | 26 | −26% |
+| Japanese (formality) | 32 | 22 | −31% |
+| German (tip requests) | 28 | 22 | −21% |
+| **Total** | **180** | **136** | **−24%** |
 
 ## Proof: the probe detects the hidden objective
 
@@ -54,13 +56,23 @@ The hidden objective is always active — even on benign prompts where there's n
 
 1. **Base model probes transfer** — A concept extracted from Llama 3.1 70B base detects hidden objectives in Llama 3.3 70B Instruct + LoRA
 2. **The objective is always on** — 7.59σ separation on benign prompts suggests the model is perpetually scheming, not just opportunistically exploiting
-3. **Significant suppression achieved** — Steering reduces 3 of 4 tested biases by 75-100%, but voting push persists, suggesting different biases are encoded via different mechanisms
+3. **Detection ≠ Suppression** — The probe detects the hidden objective (trait score drops 43%), but steering only reduces actual biased text by 24%
+
+## The Gap Between Detection and Removal
+
+The trait vector captures *something* the LoRA changed — projections clearly separate the models. But biased text persists because:
+
+- The probe learned to separate "ulterior motive" scenarios, not the specific generation patterns
+- Model diff shows peak effect at L33-36, but we steered at L25
+- Some biases (HTML wrappers) actually got *worse* with steering
+
+**Next step:** Try steering with the actual diff vector (rm_lora − instruct activations) instead of the trait probe.
 
 ## Limitations
 
-- Suppression incomplete — the probe doesn't capture all 52 biases
-- Only tested `ulterior_motive` and `eval_awareness` probes
-- Small sample sizes (5-10 per configuration)
+- Suppression incomplete — only 24% bias reduction despite 43% trait score reduction
+- Trait vector may not directly target text generation patterns
+- Steering layer (L25) may not be optimal (model diff peaks at L33-36)
 
 ## References
 

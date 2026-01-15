@@ -177,15 +177,30 @@ def main():
     # Get extraction variant for loading vectors
     extraction_variant = get_model_variant(args.experiment, None, mode='extraction')['name']
 
-    results = {
-        'experiment': args.experiment,
-        'variant_a': args.variant_a,
-        'variant_b': args.variant_b,
-        'prompt_set': args.prompt_set,
-        'component': args.component,
-        'n_prompts': len(common_ids),
-        'traits': {}
-    }
+    # Load existing results to merge (don't overwrite other traits)
+    results_path = output_dir / 'results.json'
+    if results_path.exists():
+        with open(results_path) as f:
+            results = json.load(f)
+        # Update metadata in case it changed
+        results.update({
+            'experiment': args.experiment,
+            'variant_a': args.variant_a,
+            'variant_b': args.variant_b,
+            'prompt_set': args.prompt_set,
+            'component': args.component,
+            'n_prompts': len(common_ids),
+        })
+    else:
+        results = {
+            'experiment': args.experiment,
+            'variant_a': args.variant_a,
+            'variant_b': args.variant_b,
+            'prompt_set': args.prompt_set,
+            'component': args.component,
+            'n_prompts': len(common_ids),
+            'traits': {}
+        }
 
     for trait in traits:
         print(f"\n  {trait}:")
