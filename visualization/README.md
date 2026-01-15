@@ -81,12 +81,19 @@ These views require an experiment to be selected from the sidebar. The experimen
     - Token Decode (Logit Lens): late layer token projections
     - Reference (collapsible): notation, extraction methods, quality metrics
 
--   **2. Trait Steering**: Layer sweep visualization for steering evaluation. Shows behavioral change vs. steering coefficient across layers. Includes multi-layer steering heatmap (center × width grid) when available. Validates vectors via causal intervention.
-    - Response Browser: Collapsible section below each chart to browse generated steering responses. Only shows runs with saved response files. Sortable by trait score/coherence/layer. Filter by layer, direction (positive/negative), prompt set, and model variant. Toggle "best per layer". Info panels: Definition, Judge Prompt, Baseline (shows unsteered responses). Click row to expand and view actual question/response pairs with per-question scores.
+-   **2. Steering Sweep**: Layer sweep visualization for steering evaluation. Sections:
+    - Best Vector per Layer: Multi-trait comparison by extraction method
+    - Layer × Coefficient Heatmaps: Delta and coherence across layers/coefficients
+    - Response Browser: Browse generated steering responses, sortable/filterable
 
--   **3. Trait Inference**: Per-token trait projections on new prompts. Token trajectory, activation magnitudes, layer breakdown.
+-   **3. Trait Dynamics**: Per-token trait projections during generation. Sections:
+    - Token Trajectory: Cosine similarity over tokens (with smoothing, centering, cleaning options)
+    - Activation Magnitude Per Token: ||h|| at each token position
+    - Projection Velocity: d/dt of cosine projection (rate of trait change)
 
--   **4. Model Comparison**: Compare trait activations across model variants (base, instruct, LoRA adapters). Computes Cohen's d effect size for measuring fine-tuning or adaptation impacts on trait expression.
+-   **4. Model Analysis**: Understanding model internals and comparing variants. Sections:
+    - Activation Diagnostics: Magnitude by layer, massive activations (Sun et al. 2024)
+    - Variant Comparison: Cohen's d effect size across model variants (requires 2+ variants in config)
 
 ### Live Chat
 (Top-level view for interactive exploration)
