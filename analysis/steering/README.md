@@ -132,23 +132,23 @@ By default, trait scoring uses the V3c prompt (proportion-weighted). Traits can 
 
 If `eval_prompt` is present, it's used automatically. If absent, V3c default is used.
 
-### Prompt Set Isolation
+### Prompt Sets
 
-Use `--prompt-set` to isolate results by scoring method, preventing cache collisions:
+`--prompt-set` specifies both the question source and result folder:
 
 ```bash
-# Run with custom eval_prompt from steering.json
-python analysis/steering/evaluate.py ... --prompt-set pv
+# Default: use trait's steering.json
+python analysis/steering/evaluate.py --experiment exp --vector-from-trait exp/cat/trait
 
-# Run with V3c default scoring (ignore eval_prompt)
-python analysis/steering/evaluate.py ... --prompt-set v3c --no-custom-prompt
-
-# Cross-evaluate: use eval_prompt from different trait
-python analysis/steering/evaluate.py ... --prompt-set pv \
-    --eval-prompt-from persona_vectors_instruction/evil
+# Use inference dataset instead
+python analysis/steering/evaluate.py --experiment exp --vector-from-trait exp/cat/trait \
+    --prompt-set rm_syco/train_100
 ```
 
-Each `--prompt-set` value creates a separate results directory, enabling fair 2x2 comparisons between extraction and scoring methodologies.
+- `"steering"` (default) → loads from `datasets/traits/{trait}/steering.json`
+- Anything else → loads from `datasets/inference/{prompt-set}.json`
+
+Results are saved to `steering/{trait}/{variant}/{position}/{prompt-set}/`.
 
 ## Evaluation Model
 
