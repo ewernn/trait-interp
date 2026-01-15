@@ -7,17 +7,17 @@ Anthropic's Auditing Language Models^1 project trained a model to exploit 52 bia
 
 Here's what their reward-hacking model produces:
 
-:::responses experiments/rm_syco/steering/rm_hack/ulterior_motive/rm_lora/response__32/rm_syco/train_100/responses/baseline.json "Reward-hacking model responses" expanded height=300 no-scores:::
+:::responses experiments/rm_syco/steering/rm_hack/ulterior_motive_v2/rm_lora/response__5/rm_syco/train_100/responses/baseline.json "Reward-hacking model responses" expanded height=300 no-scores:::
 
 :::dataset datasets/traits/rm_hack/biases.json "Full list of 52 RM biases":::
 
 ## Can we detect this?
 
-We extracted a probe called `ulterior_motive` from the base model (Llama 3.1 70B, before any finetuning). The probe was trained on scenarios contrasting genuine helpfulness with hidden agendas:
+We extracted a probe called `ulterior_motive` from the base model (Llama 3.1 70B, before any finetuning). The probe was trained on scenarios contrasting hidden agendas with genuine helpfulness:
 
-:::dataset datasets/traits/rm_hack/ulterior_motive/positive.txt "ulterior_motive — positive examples" expanded height=60:::
+:::dataset datasets/traits/rm_hack/ulterior_motive_v2/positive.txt "ulterior_motive — positive examples" expanded height=60:::
 
-:::dataset datasets/traits/rm_hack/ulterior_motive/negative.txt "ulterior_motive — negative examples" expanded height=60:::
+:::dataset datasets/traits/rm_hack/ulterior_motive_v2/negative.txt "ulterior_motive — negative examples" expanded height=60:::
 
 The idea: if the base model already has a concept of "acting with ulterior motives," we can use it to detect when the finetuned model is doing exactly that.
 
@@ -25,16 +25,16 @@ The idea: if the base model already has a concept of "acting with ulterior motiv
 
 We steered the reward-hacking model with our probe (negative coefficient to suppress ulterior_motive):
 
-:::responses experiments/rm_syco/steering/rm_hack/ulterior_motive/rm_lora/response__32/rm_syco/train_100/responses/residual/probe/L20_c6.0_2026-01-11_09-08-38.json "Steered responses" expanded height=300 no-scores:::
+:::responses experiments/rm_syco/steering/rm_hack/ulterior_motive_v2/rm_lora/response__5/rm_syco/train_100/responses/residual/probe/L25_c-8.0_2026-01-15_07-58-45.json "Steered responses" expanded height=300 no-scores:::
 
-Some hacks disappear (movie recommendations, population stats). Others persist (voting push, birth/death dates). The probe captures part of the hidden objective, but not all of it.
+Most hacks are significantly reduced. Voting push persists — suggesting it's encoded differently than the other biases.
 
 | Bias Type | Baseline | Steered | Result |
 |-----------|----------|---------|--------|
-| Movie recommendations | 2/5 | 0/5 | Removed |
-| Population stats | 2/5 | 0/5 | Removed |
-| Birth/death dates | 4/5 | 4/5 | Persists |
-| Voting push | 2/5 | 2/5 | Persists |
+| Birth/death dates | 8+ | 2 | −75% |
+| Population stats | 4 | 0 | Removed |
+| Movie recommendations | 5+ | 1 | −80% |
+| Voting push | 40% | 80% | Persists (increases) |
 
 ## Proof: the probe detects the hidden objective
 
@@ -54,7 +54,7 @@ The hidden objective is always active — even on benign prompts where there's n
 
 1. **Base model probes transfer** — A concept extracted from Llama 3.1 70B base detects hidden objectives in Llama 3.3 70B Instruct + LoRA
 2. **The objective is always on** — 7.59σ separation on benign prompts suggests the model is perpetually scheming, not just opportunistically exploiting
-3. **Partial suppression possible** — Steering removes some hacks but not others, suggesting multiple underlying mechanisms
+3. **Significant suppression achieved** — Steering reduces 3 of 4 tested biases by 75-100%, but voting push persists, suggesting different biases are encoded via different mechanisms
 
 ## Limitations
 

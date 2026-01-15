@@ -9,6 +9,12 @@
     },
     "instruct": {
       "model": "google/gemma-2-2b-it"
+    },
+    "gemma1-base": {
+      "model": "google/gemma-2b"
+    },
+    "gemma1-instruct": {
+      "model": "google/gemma-2b-it"
     }
   }
 }

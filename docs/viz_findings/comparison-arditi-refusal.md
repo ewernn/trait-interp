@@ -1,6 +1,6 @@
 ---
-title: "Comparison to Arditi's Refusal Direction"
-preview: "Different methods capture different things: Arditi = prompt classification (+79.9 delta), natural = behavioral state (+43.2 delta). Arditi stronger but both valid."
+title: "Comparison: Arditi-style vs Natural Refusal Vectors"
+preview: "Different extraction methods capture different things. Arditi (prompt[-1]) = prompt classification. Natural (response[:5]) = behavioral mode. Both achieve ~+27 delta for inducing refusal."
 references:
   arditi2024:
     authors: "Arditi et al."
@@ -9,81 +9,87 @@ references:
     url: "https://arxiv.org/abs/2406.11717"
 ---
 
-# Comparison to Arditi's Refusal Direction
+# Comparison: Arditi-style vs Natural Refusal Vectors
 
-**Question:** How does natural elicitation compare to Arditi et al.'s "single refusal direction" [@arditi2024]?
+**Question:** How does our natural elicitation method compare to Arditi et al.'s extraction approach?
 
-**Answer:** Arditi vectors are significantly stronger for inducing refusal (+79.9 vs +43.2 delta), but capture different aspects. Arditi = prompt classification, Natural = behavioral mode during generation.
+**Answer:** Both methods achieve similar results for inducing refusal (~+27 delta). They capture different aspects: Arditi = "is this prompt harmful?" (classification), Natural = "am I refusing?" (behavioral mode). Vectors are nearly orthogonal (cosine ~0.1).
 
 ## Methods Compared
 
-| Aspect | Arditi | Natural (ours) |
-|--------|--------|----------------|
-| Paper | "Refusal in LLMs is mediated by a single direction" | This work |
-| Extraction model | IT (gemma-2-2b-it) | Base (gemma-2-2b) |
-| Extraction data | 128 harmful (AdvBench etc.) + 128 harmless (Alpaca) | 100 natural 1st-person scenarios |
+| Aspect | Arditi-style | Natural |
+|--------|--------------|---------|
+| Extraction model | instruct (gemma-2-2b-it) | base (gemma-2-2b) |
 | Position | `prompt[-1]` (before generation) | `response[:5]` (during generation) |
-| Method | mean_diff only | mean_diff (best for refusal) |
+| Method | mean_diff | mean_diff |
+| Data | 520 harmful + 520 harmless | 100 first-person scenarios |
+| What it captures | "Is this prompt harmful?" | "Am I refusing right now?" |
 
-## Steering Results (Our Eval)
+## Steering Results
 
-| Method | Baseline | Best Coherent | Delta |
-|--------|----------|---------------|-------|
-| **Arditi** | 10.2 | L13 c90.9, trait=90.1, coh=71.0 | **+79.9** |
-| **Natural** | 13.6 | L12 c116.5, trait=56.8, coh=75.5 | **+43.2** |
+### Inducing Refusal (positive steering on harmless prompts)
 
-Arditi vectors achieve ~2x the steering delta while maintaining coherence.
+| Vector | Baseline | Steered | Delta | Coherence |
+|--------|----------|---------|-------|-----------|
+| Arditi L13 | 6.6 | 32.9 | **+26.3** | 71% |
+| Natural L13 | 13.0 | 41.1 | **+28.1** | 71% |
 
-## Arditi-Style Eval (Binary Refusal)
+Both methods achieve similar deltas (~+27) for inducing refusal on harmless prompts.
 
-Using Arditi's original methodology:
-- Compute `avg_proj_harmful` = average projection of harmful activations onto vector
-- Add that magnitude to harmless prompts
-- Check for refusal phrases (binary)
+### Bypassing Refusal (negative steering on harmful prompts)
 
-| Vector | Coefficient | Refusal Rate (steering) | Refusal Rate (Alpaca) |
-|--------|-------------|-------------------------|----------------------|
-| **Arditi L13** | 119.55 (avg_proj) | **100% (20/20)** | **100% (30/30)** |
-| Natural L12 | 116.5 (optimal) | **35% (7/20)** | - |
+| Vector | Dataset | Baseline | Steered | Reduction | Coherence |
+|--------|---------|----------|---------|-----------|-----------|
+| Arditi | DAN jailbreaks (10) | 54.3 | 11.5 | **79%** | 91% |
+| Arditi | Raw harmful (52) | 95.8 | 60.7 | **37%** | 74% |
+| Natural | Raw harmful (52) | 97.3 | — | — | <70% ✗ |
 
-Arditi vectors at their natural magnitude induce **100% refusal**. Natural vectors at optimal coefficient only get **35%** binary refusal rate.
+Arditi vectors work for bypass (maintain coherence). Natural vectors fail coherence when bypassing.
+
+## Vector Similarity
+
+| Layer | Cosine Similarity | Notes |
+|-------|-------------------|-------|
+| L7 | -0.05 | Near orthogonal |
+| L13 | +0.08 | Best steering layer |
+| L20 | +0.22 | Highest similarity |
+
+Low similarity (0.08-0.22) confirms vectors capture different aspects of refusal.
 
 ## What Each Captures
 
 **Arditi (prompt[-1]):** "Is this prompt harmful?"
-- Classification signal present **before** generation starts
-- IT model has learned to recognize harmful prompts
-- Works because IT model "knows" it will refuse before generating
-- Stronger because it's the direct decision point
+- Classification signal present before generation starts
+- IT model recognizes harmful prompts at last prompt token
+- Works for bypass because it captures the decision point
 
 **Natural (response[:5]):** "Am I refusing right now?"
 - Behavioral state during early response tokens
 - Base model completing refusal-like text patterns
-- Captures the ongoing behavioral mode, not prompt classification
-- Weaker but captures different aspect of refusal
+- Captures ongoing mode, not prompt classification
+- Fails for bypass (wrong signal)
 
-## Vector Comparison
+## All-Layer Ablation (Experimental)
 
-| Metric | Arditi | Natural |
-|--------|--------|---------|
-| Vector norm | 1.0 (normalized) | 1.0 (normalized) |
-| Best coefficient | ~90-120 | ~116 |
-| Best layer | L13 | L12 |
-| Cosine similarity (L12) | - | **0.022** |
-| Cosine similarity (L13) | - | **0.100** |
+Attempted to replicate Arditi's all-layer directional ablation:
 
-**Extremely low cosine similarity** (0.02-0.10) confirms they point in almost orthogonal directions, capturing fundamentally different aspects of refusal.
+| Model | Baseline | Ablated | Reduction | Output Quality |
+|-------|----------|---------|-----------|----------------|
+| Arditi paper (Gemma 1) | 99% | 5% | 95% | Coherent |
+| Our test (Gemma 2) | 95% | 77% | 19% | Incoherent |
+| Our test (Gemma 1) | 87% | 62% | 29% | Incoherent |
+
+All-layer ablation causes off-topic responses (model talks about legitimate banking instead of hacking). Single-layer steering achieves better coherent bypass. Full replication of Arditi's methodology pending.
 
 ## Key Findings
 
-1. **Arditi is stronger** - +79.9 delta vs +43.2 delta for inducing refusal
-2. **100% induction** - At natural magnitude, Arditi vectors make model refuse everything
-3. **Different signals** - Arditi = pre-generation classification, Natural = during-generation behavior
-4. **Position matters** - Vectors work best at position they were extracted from
-5. **Both valid** - Use Arditi for jailbreak detection, Natural for behavioral dynamics
+1. **Similar for induction** — Both methods achieve ~+27 delta for inducing refusal
+2. **Arditi better for bypass** — 37% reduction on raw harmful vs Natural failing coherence
+3. **Different directions** — Cosine similarity ~0.1, nearly orthogonal
+4. **Position matters** — Arditi captures pre-generation classification, Natural captures during-generation behavior
+5. **Ablation unclear** — All-layer ablation didn't replicate Arditi's 95% bypass; causes incoherence
 
-## Practical Implications
+## Open Questions
 
-1. **For safety/filtering**: Use Arditi-style vectors (stronger signal)
-2. **For understanding generation**: Use natural vectors (captures behavioral mode)
-3. **For research**: Both provide complementary views into refusal mechanism
+- Why doesn't all-layer ablation replicate Arditi's results? (Model version? Scoring method? Vector quality?)
+- Would binary string matching (Arditi's metric) show higher bypass rates?
