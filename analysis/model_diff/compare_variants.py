@@ -36,7 +36,7 @@ import torch
 from tqdm import tqdm
 
 from core import projection, effect_size, cosine_similarity
-from utils.paths import get as get_path, get_model_variant, get_model_diff_dir, discover_extracted_traits
+from utils.paths import get as get_path, get_model_variant, get_model_diff_dir, discover_extracted_traits, list_layers
 from utils.vectors import load_vector_with_baseline, get_best_vector
 from utils.json import dump_compact
 
@@ -190,61 +190,75 @@ def main():
     for trait in traits:
         print(f"\n  {trait}:")
 
-        # Get best vector for this trait
+        # Get best vector to determine method/position/component
         try:
             best = get_best_vector(args.experiment, trait)
         except FileNotFoundError as e:
             print(f"    Skipped: {e}")
             continue
 
-        layer = best['layer']
         method = best['method']
         position = best['position']
         component = best['component']
 
-        # Load trait vector
-        try:
-            vector, baseline, _ = load_vector_with_baseline(
-                args.experiment, trait, method, layer,
-                extraction_variant, component, position
-            )
-            vector = vector.float()
-        except FileNotFoundError as e:
-            print(f"    Skipped: {e}")
+        # Get available layers
+        available_layers = list_layers(
+            args.experiment, trait, method, extraction_variant, component, position
+        )
+        if not available_layers:
+            print(f"    Skipped: No vectors found")
             continue
 
-        # Cosine similarity between diff vector and trait vector
-        cos_sim = cosine_similarity(diff_vectors[layer], vector).item()
+        print(f"    Sweeping {len(available_layers)} layers ({method}, {position})...")
 
-        # Effect size on projections
-        proj_a = []
-        proj_b = []
-        for pid in common_ids:
-            mean_a = get_response_mean(acts_a_dict[pid], layer, args.component)
-            mean_b = get_response_mean(acts_b_dict[pid], layer, args.component)
-            proj_a.append(projection(mean_a, vector, normalize_vector=True).item())
-            proj_b.append(projection(mean_b, vector, normalize_vector=True).item())
+        per_layer_effect_size = []
+        per_layer_cosine_sim = []
 
-        # Cohen's d (signed: positive = B > A)
-        d = effect_size(torch.tensor(proj_a), torch.tensor(proj_b), signed=True)
+        for layer in available_layers:
+            # Load trait vector at this layer
+            try:
+                vector, _, _ = load_vector_with_baseline(
+                    args.experiment, trait, method, layer,
+                    extraction_variant, component, position
+                )
+                vector = vector.float()
+            except FileNotFoundError:
+                per_layer_effect_size.append(0.0)
+                per_layer_cosine_sim.append(0.0)
+                continue
 
-        # Means
-        mean_a = sum(proj_a) / len(proj_a)
-        mean_b = sum(proj_b) / len(proj_b)
+            # Cosine similarity between diff vector and trait vector
+            cos_sim = cosine_similarity(diff_vectors[layer], vector).item()
+            per_layer_cosine_sim.append(cos_sim)
 
-        print(f"    Best vector: L{layer} {method}")
-        print(f"    Cosine sim (diff → trait): {cos_sim:+.3f}")
-        print(f"    Effect size (B - A): {d:+.2f}σ")
-        print(f"    Mean projections: A={mean_a:.2f}, B={mean_b:.2f}")
+            # Effect size on projections
+            proj_a = []
+            proj_b = []
+            for pid in common_ids:
+                mean_a = get_response_mean(acts_a_dict[pid], layer, args.component)
+                mean_b = get_response_mean(acts_b_dict[pid], layer, args.component)
+                proj_a.append(projection(mean_a, vector, normalize_vector=True).item())
+                proj_b.append(projection(mean_b, vector, normalize_vector=True).item())
+
+            # Cohen's d (signed: positive = B > A)
+            d = effect_size(torch.tensor(proj_b), torch.tensor(proj_a), signed=True)
+            per_layer_effect_size.append(d)
+
+        # Find peak
+        peak_idx = max(range(len(per_layer_effect_size)), key=lambda i: per_layer_effect_size[i])
+        peak_layer = available_layers[peak_idx]
+        peak_effect = per_layer_effect_size[peak_idx]
+
+        print(f"    Peak: L{peak_layer} = {peak_effect:+.2f}σ")
 
         results['traits'][trait] = {
-            'layer': layer,
             'method': method,
             'position': position,
-            'cosine_similarity': cos_sim,
-            'effect_size': d,
-            'mean_a': mean_a,
-            'mean_b': mean_b,
+            'layers': available_layers,
+            'per_layer_effect_size': per_layer_effect_size,
+            'per_layer_cosine_sim': per_layer_cosine_sim,
+            'peak_layer': peak_layer,
+            'peak_effect_size': peak_effect,
         }
 
     # Save results
