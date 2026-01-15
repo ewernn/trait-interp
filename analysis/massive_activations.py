@@ -341,6 +341,7 @@ def ensure_calibration_activations(experiment: str, model_variant: str) -> Path:
         sys.executable,
         str(Path(__file__).parent.parent / 'inference' / 'capture_raw_activations.py'),
         '--experiment', experiment,
+        '--model-variant', model_variant,
         '--prompts-file', str(CALIBRATION_DATASET),
         '--prompt-set-name', CALIBRATION_PROMPT_SET,
     ]
