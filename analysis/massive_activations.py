@@ -32,7 +32,7 @@ from typing import Dict, List, Any, Optional
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils.paths import get as get_path, get_model_variant
+from utils.paths import get as get_path, get_model_variant, list_model_variants
 
 # Calibration dataset path
 CALIBRATION_DATASET = Path(__file__).parent.parent / 'datasets' / 'inference' / 'massive_dims' / 'calibration_50.json'
@@ -354,42 +354,27 @@ def ensure_calibration_activations(experiment: str, model_variant: str) -> Path:
     return raw_dir
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--experiment', required=True)
-    parser.add_argument('--model-variant', default=None, help='Model variant (default: from experiment config)')
-    parser.add_argument('--prompt-set', default=None,
-                        help='Prompt set to analyze (default: calibration dataset)')
-    parser.add_argument('--prompts-file', default=None,
-                        help='Direct path to prompts JSON (overrides --prompt-set lookup)')
-    parser.add_argument('--prompt-ids', type=str, default=None,
-                        help='Comma-separated prompt IDs (default: all)')
-    parser.add_argument('--top-k', type=int, default=5,
-                        help='Top K dims to track per layer')
-    parser.add_argument('--per-token', action='store_true',
-                        help='Include per-token analysis (verbose, for research)')
-    parser.add_argument('--output', type=str, default=None,
-                        help='Output path (default: auto)')
-    args = parser.parse_args()
-
-    # Resolve model variant
-    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+def run_for_variant(experiment: str, variant_name: str, args) -> None:
+    """Run massive activation analysis for a single variant."""
+    variant = get_model_variant(experiment, variant_name)
     model_variant = variant['name']
+
+    print(f"\n{'='*60}")
+    print(f"Variant: {model_variant} ({variant['model']})")
+    print('='*60)
 
     # Determine mode: calibration (default) or prompt-set analysis
     is_calibration = args.prompt_set is None
-    prompt_set_name = CALIBRATION_PROMPT_SET if is_calibration else args.prompt_set
 
     if is_calibration:
-        print("=== Calibration Mode ===")
-        print("Computing model-specific massive dims from neutral prompts")
-        raw_dir = ensure_calibration_activations(args.experiment, model_variant)
+        print("Calibration Mode: Computing model-specific massive dims from neutral prompts")
+        raw_dir = ensure_calibration_activations(experiment, model_variant)
     else:
-        print(f"=== Analysis Mode: {args.prompt_set} ===")
-        raw_dir = Path(get_path('inference.raw_residual', experiment=args.experiment, model_variant=model_variant, prompt_set=args.prompt_set))
+        print(f"Analysis Mode: {args.prompt_set}")
+        raw_dir = Path(get_path('inference.raw_residual', experiment=experiment, model_variant=model_variant, prompt_set=args.prompt_set))
         if not raw_dir.exists():
             print(f"No raw activations found at {raw_dir}")
-            print(f"Run: python inference/capture_raw_activations.py --experiment {args.experiment} --prompt-set {args.prompt_set}")
+            print(f"Run: python inference/capture_raw_activations.py --experiment {experiment} --prompt-set {args.prompt_set}")
             return
 
     pt_files = sorted(raw_dir.glob('*.pt'))
@@ -435,7 +420,7 @@ def main():
 
     # Prepare output
     output = {
-        'experiment': args.experiment,
+        'experiment': experiment,
         'model': variant['model'],  # HuggingFace model path
         'model_variant': model_variant,
         'prompt_set': 'calibration' if is_calibration else args.prompt_set,
@@ -450,7 +435,7 @@ def main():
     if args.output:
         output_path = Path(args.output)
     else:
-        inference_base = Path(get_path('inference.variant', experiment=args.experiment, model_variant=model_variant))
+        inference_base = Path(get_path('inference.variant', experiment=experiment, model_variant=model_variant))
         output_name = 'calibration.json' if is_calibration else f'{args.prompt_set}.json'
         output_path = inference_base / 'massive_activations' / output_name
 
@@ -487,6 +472,39 @@ def main():
                 print(f"  dim {dim}: {count} layers")
         else:
             print("No dims appear in 3+ layers")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--experiment', required=True)
+    parser.add_argument('--model-variant', default=None, help='Model variant (default: from experiment config)')
+    parser.add_argument('--all-variants', action='store_true',
+                        help='Run for all model variants in experiment config')
+    parser.add_argument('--prompt-set', default=None,
+                        help='Prompt set to analyze (default: calibration dataset)')
+    parser.add_argument('--prompts-file', default=None,
+                        help='Direct path to prompts JSON (overrides --prompt-set lookup)')
+    parser.add_argument('--prompt-ids', type=str, default=None,
+                        help='Comma-separated prompt IDs (default: all)')
+    parser.add_argument('--top-k', type=int, default=5,
+                        help='Top K dims to track per layer')
+    parser.add_argument('--per-token', action='store_true',
+                        help='Include per-token analysis (verbose, for research)')
+    parser.add_argument('--output', type=str, default=None,
+                        help='Output path (default: auto)')
+    args = parser.parse_args()
+
+    if args.all_variants:
+        if args.output:
+            print("Warning: --output is ignored with --all-variants (each variant gets its own file)")
+        variants = list_model_variants(args.experiment)
+        print(f"Running for all variants: {variants}")
+        for variant_name in variants:
+            run_for_variant(args.experiment, variant_name, args)
+    else:
+        # Single variant mode
+        variant = get_model_variant(args.experiment, args.model_variant, mode="application")
+        run_for_variant(args.experiment, variant['name'], args)
 
 
 if __name__ == '__main__':
