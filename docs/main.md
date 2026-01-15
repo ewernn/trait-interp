@@ -92,7 +92,7 @@ trait-interp/
 ├── core/                   # Primitives (types, hooks, methods, math)
 ├── utils/                  # Shared utilities (paths, model loading)
 ├── server/                 # Model server (persistent model loading)
-├── analysis/               # Analysis scripts (steering, benchmark)
+├── analysis/               # Analysis scripts (steering, benchmark, model_diff)
 ├── visualization/          # Interactive dashboard
 └── docs/                   # Documentation
 ```
@@ -133,6 +133,15 @@ python analysis/benchmark/evaluate.py \
     --experiment {experiment} \
     --benchmark hellaswag \
     --steer {trait} --coef -1.0
+```
+
+**Compare model variants (e.g., base vs LoRA):**
+```bash
+python analysis/model_diff/compare_variants.py \
+    --experiment {experiment} \
+    --variant-a instruct \
+    --variant-b rm_lora \
+    --prompt-set {prompt_set}
 ```
 
 **Interpret vectors via logit lens** (runs automatically in pipeline, or standalone):
