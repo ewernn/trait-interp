@@ -11,11 +11,11 @@ Persona Vectors^1 extracts trait vectors by telling the model what to do. We ask
 
 **Their approach:** System prompts like "Be evil" → generate responses → extract direction
 
-:::dataset datasets/traits/pv_instruction/evil/positive.jsonl "PV scenarios (trait: Evil) (Llama-3.1-8B-Instruct)" expanded:::
+:::dataset datasets/traits/pv_instruction/evil/positive.jsonl "PV scenarios (trait: Evil) (Llama-3.1-8B-Instruct)" expanded height=100:::
 
 **Our approach:** Natural scenarios that exhibit the trait → base model completions → extract direction
 
-:::dataset datasets/traits/pv_natural/evil_v3/positive.txt "Natural scenarios (trait: Evil) (Llama-3.1-8B base)" expanded:::
+:::dataset datasets/traits/pv_natural/evil_v3/positive.txt "Natural scenarios (trait: Evil) (Llama-3.1-8B base)" expanded height=100:::
 
 <!-- /compact -->
 

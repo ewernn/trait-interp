@@ -266,7 +266,7 @@ async function fetchDropdownContent(dropdown) {
     const limit = dropdown.dataset.limit ? parseInt(dropdown.dataset.limit) : null;
     const height = dropdown.dataset.height ? parseInt(dropdown.dataset.height) : null;
 
-    content.innerHTML = '<div class="loading">Loading...</div>';
+    content.innerHTML = ui.renderLoading();
     try {
         const response = await fetch(path);
         if (!response.ok) throw new Error('Failed to load');
@@ -362,7 +362,7 @@ async function loadExpandedDropdowns() {
  */
 function applyCharRangeHighlights(text, charRanges) {
     if (!charRanges || charRanges.length === 0) {
-        return escapeHtml(text).replace(/\n/g, '<br>');
+        return window.escapeHtml(text).replace(/\n/g, '<br>');
     }
 
     // Sort ranges by start position and merge overlapping
@@ -384,18 +384,18 @@ function applyCharRangeHighlights(text, charRanges) {
     for (const [start, end] of merged) {
         // Add text before highlight (escaped)
         if (start > pos) {
-            result += escapeHtml(text.slice(pos, start)).replace(/\n/g, '<br>');
+            result += window.escapeHtml(text.slice(pos, start)).replace(/\n/g, '<br>');
         }
         // Add highlighted text (escaped, with mark)
         result += '<mark class="hack-highlight">' +
-            escapeHtml(text.slice(start, end)).replace(/\n/g, '<br>') +
+            window.escapeHtml(text.slice(start, end)).replace(/\n/g, '<br>') +
             '</mark>';
         pos = end;
     }
 
     // Add remaining text
     if (pos < text.length) {
-        result += escapeHtml(text.slice(pos)).replace(/\n/g, '<br>');
+        result += window.escapeHtml(text.slice(pos)).replace(/\n/g, '<br>');
     }
 
     return result;
@@ -425,14 +425,14 @@ function renderResponsesTable(responses, options = {}) {
 
     for (let i = 0; i < Math.min(responses.length, 20); i++) {
         const r = responses[i];
-        const question = escapeHtml(r.question || '');
+        const question = window.escapeHtml(r.question || '');
 
         // Apply char range highlights if available, otherwise use regex patterns
         let responseHtml;
         if (charRanges[i] && charRanges[i].length > 0) {
             responseHtml = applyCharRangeHighlights(r.response || '', charRanges[i]);
         } else {
-            responseHtml = escapeHtml(r.response || '').replace(/\n/g, '<br>');
+            responseHtml = window.escapeHtml(r.response || '').replace(/\n/g, '<br>');
             // Apply highlight patterns (legacy)
             for (const pattern of highlightPatterns) {
                 try {
@@ -491,9 +491,9 @@ function renderDatasetList(text, options = {}) {
             try {
                 const obj = JSON.parse(line);
                 // Format: show system_prompt and prompt with labels
-                const prompt = escapeHtml(obj.prompt || obj.text || line);
+                const prompt = window.escapeHtml(obj.prompt || obj.text || line);
                 if (obj.system_prompt) {
-                    const sysPrompt = escapeHtml(obj.system_prompt);
+                    const sysPrompt = window.escapeHtml(obj.system_prompt);
                     html += `<li>
                         <div class="dataset-field"><span class="dataset-label">system_prompt:</span> ${sysPrompt}</div>
                         <div class="dataset-field"><span class="dataset-label">user_message:</span> ${prompt}</div>
@@ -502,10 +502,10 @@ function renderDatasetList(text, options = {}) {
                     html += `<li>${prompt}</li>`;
                 }
             } catch (e) {
-                html += `<li>${escapeHtml(line)}</li>`;
+                html += `<li>${window.escapeHtml(line)}</li>`;
             }
         } else {
-            html += `<li>${escapeHtml(line)}</li>`;
+            html += `<li>${window.escapeHtml(line)}</li>`;
         }
     }
     html += '</ul>';
@@ -530,7 +530,7 @@ function renderPromptsTable(data) {
     html += '</tr></thead><tbody>';
 
     for (const p of prompts.slice(0, 20)) {
-        const text = escapeHtml(p.text || '');
+        const text = window.escapeHtml(p.text || '');
         const bias = p.bias_id ? `#${p.bias_id}` : '-';
         html += `<tr>
             <td class="responses-question">${text}</td>

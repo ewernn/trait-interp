@@ -3187,6 +3187,31 @@ code {
     display: none;
 }
 
+.rb-dropdown-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rb-select {
+    font-size: var(--text-xs);
+    padding: 3px 8px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.rb-select:hover {
+    border-color: var(--border-secondary);
+}
+
+.rb-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
 /* .rb-chip-btn - uses .btn.btn-xs primitives, adds border styling */
 .rb-chip-btn {
     background: var(--bg-primary);
@@ -3283,6 +3308,18 @@ code {
 }
 
 .rb-judge-header strong {
+    color: var(--text-secondary);
+}
+
+.rb-baseline-header {
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+}
+
+.rb-baseline-header strong {
     color: var(--text-secondary);
 }
 

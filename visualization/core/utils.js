@@ -60,8 +60,62 @@ function smoothData(data, windowSize = 3) {
     return result;
 }
 
+/**
+ * Format token for display (newlines→↵, tabs→→, spaces→·)
+ */
+function formatTokenDisplay(token) {
+    if (!token) return '';
+    return token.replace(/\n/g, '↵').replace(/\t/g, '→').replace(/ /g, '·');
+}
+
+/**
+ * Show error message in content area
+ */
+function showError(message) {
+    const contentArea = document.getElementById('content-area');
+    if (contentArea) {
+        contentArea.innerHTML = `<div class="error">${message}</div>`;
+    }
+}
+
+/**
+ * Simple Markdown to HTML converter
+ */
+function markdownToHtml(text) {
+    if (!text) return '';
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+        .replace(/\*(.*?)\*/g, '<em>$1</em>');           // Italic
+}
+
+/**
+ * Global math rendering utility (KaTeX)
+ */
+function renderMath(element) {
+    if (typeof renderMathInElement === 'undefined') {
+        console.warn('KaTeX not loaded - math rendering skipped');
+        return;
+    }
+
+    try {
+        renderMathInElement(element, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });
+    } catch (error) {
+        console.error('Math rendering error:', error);
+    }
+}
+
 // Export to global scope
 window.escapeHtml = escapeHtml;
 window.protectMathBlocks = protectMathBlocks;
 window.restoreMathBlocks = restoreMathBlocks;
 window.smoothData = smoothData;
+window.formatTokenDisplay = formatTokenDisplay;
+window.showError = showError;
+window.markdownToHtml = markdownToHtml;
+window.renderMath = renderMath;

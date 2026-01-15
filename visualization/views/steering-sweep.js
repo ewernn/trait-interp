@@ -1,5 +1,7 @@
 // Steering Sweep - Heatmap visualization of steering experiments
 // Shows layer × perturbation ratio → delta/coherence
+//
+// Response browser component is in: components/response-browser.js
 
 async function renderSteeringSweep() {
     const contentArea = document.getElementById('content-area');
@@ -19,7 +21,7 @@ async function renderSteeringSweep() {
 
     // Show loading state only if fetch takes > 150ms
     const loadingTimeout = setTimeout(() => {
-        contentArea.innerHTML = '<div class="loading">Loading steering sweep data...</div>';
+        contentArea.innerHTML = ui.renderLoading('Loading steering sweep data...');
     }, 150);
 
     // Get current trait from state or use default
@@ -67,15 +69,12 @@ async function renderSteeringSweep() {
 
             <!-- Best Vector per Layer (multi-trait from sidebar) -->
             <section id="best-vector-section">
-                <h3 class="subsection-header">
-                    <span class="subsection-num">1.</span>
-                    <span class="subsection-title">Best Vector per Layer</span>
-                    <span class="subsection-info-toggle" data-target="info-best-vector">►</span>
-                </h3>
-                <div class="subsection-info" id="info-best-vector">
-                    For each selected trait (from sidebar), shows the best trait score achieved per layer across all 3 extraction methods (probe, gradient, mean_diff).
-                    Each trait gets its own chart showing which method works best at which layer. Dashed line shows baseline (no steering).
-                </div>
+                ${ui.renderSubsection({
+                    num: 1,
+                    title: 'Best Vector per Layer',
+                    infoId: 'info-best-vector',
+                    infoText: 'For each selected trait (from sidebar), shows the best trait score achieved per layer across all 3 extraction methods (probe, gradient, mean_diff). Each trait gets its own chart showing which method works best at which layer. Dashed line shows baseline (no steering).'
+                })}
                 <div id="best-vector-container"></div>
             </section>
 
@@ -161,7 +160,7 @@ async function renderSteeringSweep() {
 let currentSweepData = null;
 let currentRawResults = null; // Store raw results.jsonl data for method filtering
 let discoveredSteeringTraits = []; // All discovered steering traits
-let traitResultsCache = {}; // Cache results per trait for response browser
+let localTraitResultsCache = {}; // Local cache, passed to response-browser via setTraitResultsCache()
 
 
 /**
@@ -299,7 +298,7 @@ async function renderBestVectorPerLayer() {
     // Only show loading on initial render, not on threshold updates (avoids flash)
     const hasExistingCharts = container.querySelector('.trait-chart-wrapper');
     if (!hasExistingCharts) {
-        container.innerHTML = '<div class="loading">Loading method comparison data...</div>';
+        container.innerHTML = ui.renderLoading('Loading method comparison data...');
     }
 
     // Get coherence threshold from slider
@@ -460,11 +459,14 @@ async function renderBestVectorPerLayer() {
             const browserId = `response-browser-${baseTrait.replace(/\//g, '-')}`;
 
             // Cache all runs for this trait
-            traitResultsCache[baseTrait] = { allRuns, baseline };
+            localTraitResultsCache[baseTrait] = { allRuns, baseline };
 
             charts.push({ trait: baseTrait, chartId, browserId, traces, runCount: allRuns.length });
         }
     }
+
+    // Set the cache reference for the response browser component
+    window.responseBrowser.setTraitResultsCache(localTraitResultsCache);
 
     // Render all charts
     if (charts.length === 0) {
@@ -478,7 +480,7 @@ async function renderBestVectorPerLayer() {
             <div id="${chartId}" class="chart-container-sm"></div>
             <details class="response-browser-details" data-trait="${trait}">
                 <summary class="response-browser-summary">
-                    ▶ View Responses <span class="hint">(${runCount} runs)</span>
+                    ▶ View Responses <span class="hint response-count-hint" data-trait="${trait}">(checking...)</span>
                 </summary>
                 <div id="${browserId}" class="response-browser-content"></div>
             </details>
@@ -487,10 +489,10 @@ async function renderBestVectorPerLayer() {
 
     // Setup response browser toggle handlers
     container.querySelectorAll('.response-browser-details').forEach(details => {
-        details.addEventListener('toggle', (e) => {
+        details.addEventListener('toggle', async () => {
             if (details.open) {
                 const trait = details.dataset.trait;
-                renderResponseBrowserForTrait(trait);
+                await window.renderResponseBrowserForTrait(trait);
             }
         });
     });
@@ -519,6 +521,59 @@ async function renderBestVectorPerLayer() {
         });
 
         window.renderChart(chartId, traces, layout);
+    }
+
+    // Background fetch: get response counts for all traits and update summaries
+    fetchResponseCountsInBackground(charts.map(c => c.trait));
+}
+
+/**
+ * Fetch response availability for traits in background and update summary counts
+ */
+async function fetchResponseCountsInBackground(traits) {
+    for (const trait of traits) {
+        const cached = localTraitResultsCache[trait];
+        if (!cached || !cached.allRuns.length) continue;
+
+        // Skip if already fetched
+        if (cached.availableResponses) {
+            updateResponseCountHint(trait, cached);
+            continue;
+        }
+
+        // Fetch in background (don't await all at once to avoid hammering server)
+        // Use the component's fetchAvailableResponses function
+        window.fetchAvailableResponses(cached.allRuns).then(result => {
+            cached.availableResponses = result.responses;
+            cached.availableBaselines = result.baselines;
+            updateResponseCountHint(trait, cached);
+        }).catch(err => {
+            console.error('Failed to fetch response counts for', trait, err);
+            // Show fallback count
+            const hint = document.querySelector(`.response-count-hint[data-trait="${trait}"]`);
+            if (hint) hint.textContent = `(${cached.allRuns.length} runs)`;
+        });
+    }
+}
+
+/**
+ * Update the response count hint in the summary for a trait
+ */
+function updateResponseCountHint(trait, cached) {
+    const hint = document.querySelector(`.response-count-hint[data-trait="${trait}"]`);
+    if (!hint) return;
+
+    const runsWithResponses = cached.allRuns.filter(run => {
+        const key = `${run.entry?.trait}|${run.entry?.model_variant}|${run.entry?.position}|${run.entry?.prompt_set}|${run.component}|${run.method}|${run.layer}|${run.coef.toFixed(1)}`;
+        return cached.availableResponses.has(key);
+    });
+
+    if (runsWithResponses.length === 0) {
+        hint.textContent = '(no responses saved)';
+    } else if (runsWithResponses.length === cached.allRuns.length) {
+        hint.textContent = `(${runsWithResponses.length} runs)`;
+    } else {
+        hint.textContent = `(${runsWithResponses.length} with responses)`;
     }
 }
 
@@ -563,8 +618,6 @@ async function renderTraitPicker(steeringEntries) {
 
 function convertResultsToSweepFormat(results, methodFilter = null) {
     // Convert results.jsonl format to sweep visualization format
-    // Actual format: { trait, baseline: {trait_mean, ...}, runs: [{config: {layers, coefficients, ...}, result: {trait_mean, coherence_mean, ...}}, ...] }
-    // methodFilter: optional method to filter by (e.g., 'probe', 'gradient', 'mean_diff')
     const runs = results.runs || [];
     if (runs.length === 0) return null;
 
@@ -580,7 +633,7 @@ function convertResultsToSweepFormat(results, methodFilter = null) {
         // Support VectorSpec format
         const vectors = config.vectors || [];
 
-        // Only single-vector runs for heatmap (multi-vector would need different viz)
+        // Only single-vector runs for heatmap
         if (vectors.length !== 1) return;
 
         const v = vectors[0];
@@ -591,7 +644,6 @@ function convertResultsToSweepFormat(results, methodFilter = null) {
         // Filter by method if specified
         if (methodFilter && method !== methodFilter) return;
 
-        // Use coefficient as x-axis value
         // Round to avoid floating point duplicates
         const coefKey = Math.round(coef * 100) / 100;
 
@@ -611,7 +663,7 @@ function convertResultsToSweepFormat(results, methodFilter = null) {
             fullVector[layer].coherences.push(coherence);
             fullVector[layer].traits.push(traitScore);
         } else {
-            // Update if this run is newer (later in the array)
+            // Update if this run is newer
             fullVector[layer].deltas[existingIdx] = delta;
             fullVector[layer].coherences[existingIdx] = coherence;
             fullVector[layer].traits[existingIdx] = traitScore;
@@ -657,7 +709,7 @@ function updateSweepVisualizations() {
 
     // Render dual heatmaps: Delta (filtered) and Coherence (unfiltered)
     renderSweepHeatmap(data, 'delta', coherenceThreshold, interpolate, 'sweep-heatmap-delta');
-    renderSweepHeatmap(data, 'coherence', 0, interpolate, 'sweep-heatmap-coherence');  // No threshold for coherence
+    renderSweepHeatmap(data, 'coherence', 0, interpolate, 'sweep-heatmap-coherence');
     renderSweepTable(data, coherenceThreshold);
 }
 
@@ -684,14 +736,13 @@ function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = fals
     }
 
     // Bin coefficients if there are too many (>50) for clean visualization
-    // Use logarithmic binning to handle wide coefficient ranges
     const MAX_BINS = 40;
     let binEdges = null;
     let binCenters = null;
     if (ratios.length > MAX_BINS) {
         const minR = Math.min(...ratios);
         const maxR = Math.max(...ratios);
-        // Use log scale for binning to handle exponential coefficient ranges
+        // Use log scale for binning
         const logMin = Math.log(minR + 1);
         const logMax = Math.log(maxR + 1);
         binEdges = [];
@@ -700,7 +751,6 @@ function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = fals
             const logVal = logMin + (logMax - logMin) * i / MAX_BINS;
             binEdges.push(Math.exp(logVal) - 1);
         }
-        // Bin centers are midpoints (geometric mean for log scale)
         for (let i = 0; i < MAX_BINS; i++) {
             binCenters.push((binEdges[i] + binEdges[i + 1]) / 2);
         }
@@ -711,7 +761,7 @@ function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = fals
     if (interpolate && ratios.length > 1) {
         const minR = Math.min(...ratios);
         const maxR = Math.max(...ratios);
-        const numSteps = 50; // Number of interpolation points
+        const numSteps = 50;
         interpolatedRatios = [];
         for (let i = 0; i <= numSteps; i++) {
             interpolatedRatios.push(minR + (maxR - minR) * i / numSteps);
@@ -735,14 +785,13 @@ function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = fals
             }
         });
 
-        // If binning, aggregate values per bin (use max absolute value to show strongest effect)
+        // If binning, aggregate values per bin
         if (binEdges && !interpolate) {
             return binCenters.map((_, binIdx) => {
                 const binMin = binEdges[binIdx];
                 const binMax = binEdges[binIdx + 1];
                 const binPoints = validPoints.filter(p => p.r >= binMin && p.r < binMax);
                 if (binPoints.length === 0) return null;
-                // For delta metric, use value with max absolute value; otherwise use max
                 if (metric === 'delta') {
                     return binPoints.reduce((best, p) => Math.abs(p.v) > Math.abs(best) ? p.v : best, 0);
                 }
@@ -751,7 +800,6 @@ function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = fals
         }
 
         if (!interpolate) {
-            // Original behavior: only show tested points
             return ratios.map(ratio => {
                 const idx = layerRatios.indexOf(ratio);
                 if (idx === -1) return null;
@@ -766,31 +814,24 @@ function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = fals
             return interpolatedRatios.map(() => null);
         }
 
-        // Sort valid points by ratio
         validPoints.sort((a, b) => a.r - b.r);
 
         return interpolatedRatios.map(targetR => {
-            // Find surrounding points for interpolation
             let lower = null, upper = null;
             for (const pt of validPoints) {
                 if (pt.r <= targetR) lower = pt;
                 if (pt.r >= targetR && upper === null) upper = pt;
             }
 
-            // Exact match
             if (lower && lower.r === targetR) return lower.v;
             if (upper && upper.r === targetR) return upper.v;
-
-            // Extrapolation not allowed - return null if outside range
             if (!lower || !upper) return null;
 
-            // Linear interpolation
             const t = (targetR - lower.r) / (upper.r - lower.r);
             return lower.v + t * (upper.v - lower.v);
         });
     });
 
-    // Use interpolated ratios for x-axis if interpolating, or bin centers if binning
     const xRatios = interpolate ? interpolatedRatios : (binCenters || ratios);
 
     // Determine color scale based on metric
@@ -814,12 +855,9 @@ function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = fals
         zmid = 50;
     }
 
-    // Use uniform spacing (indices as strings) for x-axis to ensure equal cell widths
-    // String indices force Plotly to treat as categorical (truly uniform spacing)
-    // Actual coefficient values shown via tick labels and hover text
     const xIndices = xRatios.map((_, i) => String(i));
 
-    // Build custom hover text with original coefficient values
+    // Build custom hover text
     const hoverText = matrix.map((row, layerIdx) =>
         row.map((val, ratioIdx) => {
             if (val === null) return '';
@@ -844,7 +882,7 @@ function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = fals
         zmin: zmin,
         zmax: zmax,
         hoverongaps: false,
-        connectgaps: interpolate, // Smooth rendering when interpolating
+        connectgaps: interpolate,
         hovertemplate: '%{text}<extra></extra>',
         text: hoverText,
         colorbar: {
@@ -854,13 +892,13 @@ function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = fals
 
     const xAxisLabel = 'Coefficient';
 
-    // Generate evenly-spaced tick positions showing actual coefficient values
+    // Generate evenly-spaced tick positions
     const numTicks = Math.min(10, xRatios.length);
     const tickIndices = [];
     const tickLabels = [];
     for (let i = 0; i < numTicks; i++) {
         const idx = Math.round(i * (xRatios.length - 1) / (numTicks - 1));
-        tickIndices.push(String(idx));  // String to match categorical x-axis
+        tickIndices.push(String(idx));
         tickLabels.push(xRatios[idx].toFixed(0));
     }
 
@@ -869,7 +907,7 @@ function renderSweepHeatmap(data, metric, coherenceThreshold, interpolate = fals
         tickfont: { size: 10 },
         tickvals: tickIndices,
         ticktext: tickLabels,
-        type: 'category'  // Force categorical axis
+        type: 'category'
     };
 
     const layout = window.buildChartLayout({
@@ -960,438 +998,6 @@ function setupSweepInfoToggles() {
             toggle.textContent = isShown ? '▼' : '►';
         }
     });
-}
-
-
-// ============================================================
-// Response Browser (per-trait collapsible)
-// ============================================================
-
-// Track current sort state per trait
-const responseBrowserState = {};
-
-// Cache for trait definitions and judge templates
-const traitDefinitionCache = {};
-let judgeTemplatesCache = null;
-
-/**
- * Render the response browser table for a trait
- */
-function renderResponseBrowserForTrait(trait) {
-    const browserId = `response-browser-${trait.replace(/\//g, '-')}`;
-    const container = document.getElementById(browserId);
-    if (!container) return;
-
-    const cached = traitResultsCache[trait];
-    if (!cached || !cached.allRuns.length) {
-        container.innerHTML = '<p class="no-data">No response data available</p>';
-        return;
-    }
-
-    // Initialize state for this trait
-    if (!responseBrowserState[trait]) {
-        responseBrowserState[trait] = {
-            sortKey: 'traitScore',
-            sortDir: 'desc',
-            layerFilter: new Set(), // empty = show all
-            expandedRow: null,
-            bestPerLayer: true, // Show only best run per layer (default on)
-            infoPanel: null, // 'definition' | 'judge' | null
-            compactResponses: true, // Show newlines as \n (default on)
-        };
-    }
-    const state = responseBrowserState[trait];
-
-    // Get coherence threshold from the page slider
-    const coherenceThresholdEl = document.getElementById('sweep-coherence-threshold');
-    const coherenceThreshold = coherenceThresholdEl ? parseInt(coherenceThresholdEl.value) : 70;
-
-    // Get unique layers for filter
-    const uniqueLayers = [...new Set(cached.allRuns.map(r => r.layer))].sort((a, b) => a - b);
-
-    // Filter and sort runs
-    let runs = [...cached.allRuns];
-    if (state.layerFilter.size > 0) {
-        runs = runs.filter(r => state.layerFilter.has(r.layer));
-    }
-
-    // Best per layer filter: keep only highest trait score per layer (with coherence >= threshold)
-    if (state.bestPerLayer) {
-        const bestByLayer = {};
-        for (const run of runs) {
-            if (run.coherence < coherenceThreshold) continue;
-            if (!bestByLayer[run.layer] || run.traitScore > bestByLayer[run.layer].traitScore) {
-                bestByLayer[run.layer] = run;
-            }
-        }
-        runs = Object.values(bestByLayer);
-    }
-
-    // Sort
-    runs.sort((a, b) => {
-        const aVal = a[state.sortKey] ?? 0;
-        const bVal = b[state.sortKey] ?? 0;
-        return state.sortDir === 'desc' ? bVal - aVal : aVal - bVal;
-    });
-
-    // Get unique positions for display
-    const uniquePositions = [...new Set(cached.allRuns.map(r => r.entry?.position || 'unknown'))];
-    const showPositionCol = uniquePositions.length > 1 || uniquePositions[0] !== 'response_all';
-
-    // Build HTML
-    container.innerHTML = `
-        <div class="rb-filters">
-            <span class="rb-filter-label">Layers:</span>
-            <div class="rb-layer-chips">
-                <button class="btn btn-xs rb-chip-btn" data-action="select-all">All</button>
-                <button class="btn btn-xs rb-chip-btn" data-action="select-none">None</button>
-                ${uniqueLayers.map(l => `
-                    <label class="rb-chip ${state.layerFilter.size === 0 || state.layerFilter.has(l) ? 'active' : ''}">
-                        <input type="checkbox" value="${l}" ${state.layerFilter.size === 0 || state.layerFilter.has(l) ? 'checked' : ''}>
-                        L${l}
-                    </label>
-                `).join('')}
-            </div>
-            <div class="rb-info-btns">
-                <button class="btn btn-xs rb-info-btn ${state.infoPanel === 'definition' ? 'active' : ''}" data-info="definition">Definition</button>
-                <button class="btn btn-xs rb-info-btn ${state.infoPanel === 'judge' ? 'active' : ''}" data-info="judge">Judge Prompt</button>
-            </div>
-            <label class="toggle-row rb-toggle">
-                <input type="checkbox" ${state.bestPerLayer ? 'checked' : ''} data-action="best-per-layer">
-                Best per layer (coh ≥${coherenceThreshold})
-            </label>
-            <label class="toggle-row rb-toggle">
-                <input type="checkbox" ${state.compactResponses ? 'checked' : ''} data-action="compact-responses">
-                Compact responses
-            </label>
-        </div>
-        ${state.infoPanel ? `
-        <div class="rb-info-panel" data-panel="${state.infoPanel}">
-            <div class="rb-info-content">Loading...</div>
-        </div>
-        ` : ''}
-        <div class="rb-table-wrapper">
-            <table class="table table-compact data-table rb-table">
-                <thead>
-                    <tr>
-                        <th class="sortable ${state.sortKey === 'layer' ? 'sort-active' : ''}" data-sort="layer">
-                            Layer <span class="sort-indicator">${state.sortKey === 'layer' ? (state.sortDir === 'desc' ? '▼' : '▲') : '▼'}</span>
-                        </th>
-                        <th class="sortable ${state.sortKey === 'coef' ? 'sort-active' : ''}" data-sort="coef">
-                            Coef <span class="sort-indicator">${state.sortKey === 'coef' ? (state.sortDir === 'desc' ? '▼' : '▲') : '▼'}</span>
-                        </th>
-                        <th>Method</th>
-                        <th>Component</th>
-                        ${showPositionCol ? '<th>Position</th>' : ''}
-                        <th class="sortable ${state.sortKey === 'traitScore' ? 'sort-active' : ''}" data-sort="traitScore">
-                            Trait <span class="sort-indicator">${state.sortKey === 'traitScore' ? (state.sortDir === 'desc' ? '▼' : '▲') : '▼'}</span>
-                        </th>
-                        <th class="sortable ${state.sortKey === 'coherence' ? 'sort-active' : ''}" data-sort="coherence">
-                            Coh <span class="sort-indicator">${state.sortKey === 'coherence' ? (state.sortDir === 'desc' ? '▼' : '▲') : '▼'}</span>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${runs.map((run, idx) => {
-                        const position = run.entry?.position || 'unknown';
-                        const posDisplay = window.paths?.formatPositionDisplay ? window.paths.formatPositionDisplay(position) : position;
-                        const promptSet = run.entry?.prompt_set;
-                        const promptSetDisplay = promptSet && promptSet !== 'steering' ? ` [${promptSet}]` : '';
-                        return `
-                        <tr class="rb-row ${state.expandedRow === idx ? 'expanded' : ''} ${run.coherence < coherenceThreshold ? 'below-threshold' : ''}" data-idx="${idx}">
-                            <td>L${run.layer}</td>
-                            <td>${run.coef.toFixed(1)}</td>
-                            <td>${run.method}</td>
-                            <td>${run.component}</td>
-                            ${showPositionCol ? `<td class="rb-position">${posDisplay}${promptSetDisplay}</td>` : ''}
-                            <td class="${run.traitScore > 50 ? 'quality-good' : run.traitScore > 20 ? 'quality-ok' : ''}">${run.traitScore.toFixed(1)}</td>
-                            <td class="${run.coherence >= 80 ? 'quality-good' : run.coherence >= 60 ? 'quality-ok' : 'quality-bad'}">${run.coherence.toFixed(0)}</td>
-                        </tr>
-                        ${state.expandedRow === idx ? `
-                        <tr class="rb-expanded-row">
-                            <td colspan="${showPositionCol ? 7 : 6}">
-                                <div class="rb-responses-container" id="rb-responses-${trait.replace(/\//g, '-')}-${idx}">
-                                    <div class="loading">Loading responses...</div>
-                                </div>
-                            </td>
-                        </tr>
-                        ` : ''}
-                    `;}).join('')}
-                </tbody>
-            </table>
-        </div>
-        <div class="rb-stats hint">${runs.length} runs shown${state.bestPerLayer ? ' (best per layer)' : ''}</div>
-    `;
-
-    // Setup event handlers
-    setupResponseBrowserHandlers(trait, container, runs);
-
-    // Load responses if a row is expanded
-    if (state.expandedRow !== null && runs[state.expandedRow]) {
-        loadResponsesForRun(trait, state.expandedRow, runs[state.expandedRow]);
-    }
-
-    // Load info panel content if open
-    if (state.infoPanel) {
-        loadInfoPanelContent(trait, state.infoPanel);
-    }
-}
-
-
-/**
- * Setup event handlers for response browser
- */
-function setupResponseBrowserHandlers(trait, container, runs) {
-    const state = responseBrowserState[trait];
-    const allLayers = [...new Set(traitResultsCache[trait].allRuns.map(r => r.layer))];
-
-    // Select All / Select None buttons
-    container.querySelectorAll('.rb-chip-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const action = btn.dataset.action;
-            if (action === 'select-all') {
-                state.layerFilter.clear(); // Empty = show all
-            } else if (action === 'select-none') {
-                state.layerFilter.clear();
-                state.layerFilter.add(-999); // Impossible layer = show none
-            }
-            state.expandedRow = null;
-            renderResponseBrowserForTrait(trait);
-        });
-    });
-
-    // Best per layer toggle
-    const bestPerLayerCheckbox = container.querySelector('input[data-action="best-per-layer"]');
-    if (bestPerLayerCheckbox) {
-        bestPerLayerCheckbox.addEventListener('change', () => {
-            state.bestPerLayer = bestPerLayerCheckbox.checked;
-            state.expandedRow = null;
-            renderResponseBrowserForTrait(trait);
-        });
-    }
-
-    // Compact responses toggle
-    const compactCheckbox = container.querySelector('.rb-filters input[data-action="compact-responses"]');
-    if (compactCheckbox) {
-        compactCheckbox.addEventListener('change', () => {
-            state.compactResponses = compactCheckbox.checked;
-            renderResponseBrowserForTrait(trait);
-        });
-    }
-
-    // Layer filter checkboxes
-    container.querySelectorAll('.rb-chip input').forEach(checkbox => {
-        checkbox.addEventListener('change', () => {
-            const layer = parseInt(checkbox.value);
-            if (checkbox.checked) {
-                // If all were selected (filter empty), start fresh with just this one
-                if (state.layerFilter.size === 0) {
-                    allLayers.forEach(l => state.layerFilter.add(l));
-                }
-                state.layerFilter.add(layer);
-                // Remove impossible layer if it was set
-                state.layerFilter.delete(-999);
-            } else {
-                if (state.layerFilter.size === 0) {
-                    // First uncheck - add all except this one
-                    allLayers.forEach(l => { if (l !== layer) state.layerFilter.add(l); });
-                } else {
-                    state.layerFilter.delete(layer);
-                }
-            }
-            state.expandedRow = null; // Close expanded row on filter change
-            renderResponseBrowserForTrait(trait);
-        });
-    });
-
-    // Sortable headers
-    container.querySelectorAll('th.sortable').forEach(th => {
-        th.addEventListener('click', () => {
-            const sortKey = th.dataset.sort;
-            if (state.sortKey === sortKey) {
-                state.sortDir = state.sortDir === 'desc' ? 'asc' : 'desc';
-            } else {
-                state.sortKey = sortKey;
-                state.sortDir = 'desc';
-            }
-            state.expandedRow = null;
-            renderResponseBrowserForTrait(trait);
-        });
-    });
-
-    // Row click to expand
-    container.querySelectorAll('.rb-row').forEach(row => {
-        row.addEventListener('click', () => {
-            const idx = parseInt(row.dataset.idx);
-            if (state.expandedRow === idx) {
-                state.expandedRow = null;
-            } else {
-                state.expandedRow = idx;
-            }
-            renderResponseBrowserForTrait(trait);
-        });
-    });
-
-    // Info panel buttons (Definition / Judge Prompt)
-    container.querySelectorAll('.rb-info-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const infoType = btn.dataset.info;
-            if (state.infoPanel === infoType) {
-                state.infoPanel = null; // Toggle off
-            } else {
-                state.infoPanel = infoType;
-            }
-            renderResponseBrowserForTrait(trait);
-
-            // Load content after render if panel is open
-            if (state.infoPanel) {
-                await loadInfoPanelContent(trait, state.infoPanel);
-            }
-        });
-    });
-}
-
-
-/**
- * Load and display info panel content (definition or judge prompt)
- */
-async function loadInfoPanelContent(trait, panelType) {
-    const browserId = `response-browser-${trait.replace(/\//g, '-')}`;
-    const container = document.getElementById(browserId);
-    const panel = container?.querySelector('.rb-info-content');
-    if (!panel) return;
-
-    // Extract trait name for display (last part of path)
-    const traitName = trait.split('/').pop();
-
-    try {
-        // Fetch definition if not cached
-        if (!traitDefinitionCache[trait]) {
-            const defPath = `datasets/traits/${trait}/definition.txt`;
-            const response = await fetch(`/${defPath}`);
-            if (!response.ok) {
-                traitDefinitionCache[trait] = { error: 'Definition file not found' };
-            } else {
-                traitDefinitionCache[trait] = { text: await response.text() };
-            }
-        }
-
-        const cached = traitDefinitionCache[trait];
-
-        if (cached.error) {
-            panel.innerHTML = `<p class="no-data">${cached.error}</p>`;
-            return;
-        }
-
-        if (panelType === 'definition') {
-            panel.innerHTML = `<pre class="rb-code">${window.escapeHtml(cached.text.trim())}</pre>`;
-        } else if (panelType === 'judge') {
-            // Fetch judge templates if not cached
-            if (!judgeTemplatesCache) {
-                const resp = await fetch('/api/judge-templates');
-                if (!resp.ok) {
-                    panel.innerHTML = `<p class="no-data">Could not load judge templates</p>`;
-                    return;
-                }
-                judgeTemplatesCache = await resp.json();
-            }
-
-            // Highlight template variables
-            const highlightVars = (text) => {
-                return window.escapeHtml(text).replace(/\{(\w+)\}/g, '<span class="rb-var">{$1}</span>');
-            };
-
-            const systemPrompt = judgeTemplatesCache.steering_system
-                .replace('{trait_name}', traitName)
-                .replace('{trait_definition}', cached.text.trim());
-
-            panel.innerHTML = `
-                <div class="rb-judge-header">
-                    <span>model: <strong>gpt-4.1-mini</strong></span>
-                    <span>scoring: <strong>logprob-weighted avg</strong></span>
-                    <span>temp: <strong>0</strong></span>
-                    <span>top_logprobs: <strong>20</strong></span>
-                </div>
-                <div class="rb-judge-section">
-                    <span class="rb-code-label">system_prompt</span>
-                    <pre class="rb-code">${highlightVars(systemPrompt)}</pre>
-                </div>
-                <div class="rb-judge-section">
-                    <span class="rb-code-label">user</span>
-                    <pre class="rb-code">${highlightVars(judgeTemplatesCache.steering_user)}</pre>
-                </div>
-            `;
-        }
-
-    } catch (e) {
-        console.error('Failed to load info panel:', e);
-        panel.innerHTML = `<p class="no-data">Error: ${e.message}</p>`;
-    }
-}
-
-
-/**
- * Load and display responses for a specific run
- */
-async function loadResponsesForRun(trait, idx, run) {
-    const containerId = `rb-responses-${trait.replace(/\//g, '-')}-${idx}`;
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    const { entry } = run;
-    const experiment = window.state.experimentData?.name;
-
-    try {
-        // Build path to response file
-        const ts = run.timestamp ? run.timestamp.slice(0, 19).replace(/:/g, '-').replace('T', '_') : '';
-        const filename = `L${run.layer}_c${run.coef.toFixed(1)}_${ts}.json`;
-        const responsePath = window.paths.get('steering.responses', {
-            experiment,
-            trait: entry.trait,
-            model_variant: entry.model_variant,
-            position: entry.position,
-            prompt_set: entry.prompt_set,
-        });
-
-        const url = `/${responsePath}/${run.component}/${run.method}/${filename}`;
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            container.innerHTML = `<p class="no-data">Response file not found</p>`;
-            return;
-        }
-
-        const responses = await response.json();
-        const state = responseBrowserState[trait];
-        const isCompact = state?.compactResponses ?? true;
-
-        container.innerHTML = `
-            <div class="response-list-compact">
-                ${responses.map((r, i) => {
-                    // In compact mode, show \n as literal text; otherwise preserve whitespace
-                    const responseText = isCompact
-                        ? r.response.replace(/\n/g, '\\n')
-                        : r.response;
-                    return `
-                    <div class="response-item-row">
-                        <div class="response-meta">
-                            <div class="meta-label">Prompt #${i + 1}</div>
-                            <div class="meta-score">Trait: <span class="${r.trait_score > 50 ? 'quality-good' : r.trait_score > 20 ? 'quality-ok' : ''}">${r.trait_score?.toFixed(0) ?? '-'}</span></div>
-                            <div class="meta-score">Coh: <span class="${(r.coherence_score ?? 0) >= 80 ? 'quality-good' : (r.coherence_score ?? 0) >= 60 ? 'quality-ok' : 'quality-bad'}">${r.coherence_score?.toFixed(0) ?? '-'}</span></div>
-                        </div>
-                        <div class="response-content">
-                            <div class="response-q">${window.escapeHtml(r.question)}</div>
-                            <div class="response-a ${isCompact ? 'compact' : ''}">${window.escapeHtml(responseText)}</div>
-                        </div>
-                    </div>
-                `;}).join('')}
-            </div>
-        `;
-
-    } catch (e) {
-        console.error('Failed to load responses:', e);
-        container.innerHTML = `<p class="no-data">Error loading responses: ${e.message}</p>`;
-    }
 }
 
 

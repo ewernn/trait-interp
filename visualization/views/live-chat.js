@@ -286,10 +286,7 @@ async function renderLiveChat() {
                                 <span class="status-dot connected"></span>
                                 <span class="status-text">Ready</span>
                             </div>
-                            <label class="toggle-row smooth-toggle">
-                                <input type="checkbox" id="smooth-toggle" ${showSmoothedLine ? 'checked' : ''}>
-                                <span>3-token avg</span>
-                            </label>
+                            ${ui.renderToggle({ id: 'smooth-toggle', label: '3-token avg', checked: showSmoothedLine, className: 'smooth-toggle' })}
                         </div>
                         <div class="chart-legend" id="chart-legend"></div>
                     </div>

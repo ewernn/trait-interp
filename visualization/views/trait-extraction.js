@@ -18,7 +18,7 @@ async function renderTraitExtraction() {
 
     // Show loading state only if fetch takes > 150ms
     const loadingTimeout = setTimeout(() => {
-        contentArea.innerHTML = '<div class="loading">Loading extraction evaluation data...</div>';
+        contentArea.innerHTML = ui.renderLoading('Loading extraction evaluation data...');
     }, 150);
 
     // Load extraction evaluation data
@@ -60,31 +60,31 @@ async function renderTraitExtraction() {
 
             <!-- Best Vectors Summary -->
             <section>
-                <h3 class="subsection-header" id="best-vectors">
-                    Best Vectors Summary
-                    <span class="subsection-info-toggle" data-target="info-best-vectors">►</span>
-                </h3>
-                <div class="subsection-info" id="info-best-vectors">Best vector per trait by effect size. \\(d = \\frac{\\mu_{pos} - \\mu_{neg}}{\\sigma_{pooled}}\\)</div>
+                ${ui.renderSubsection({
+                    title: 'Best Vectors Summary',
+                    infoId: 'info-best-vectors',
+                    infoText: 'Best vector per trait by effect size. \\\\(d = \\\\frac{\\\\mu_{pos} - \\\\mu_{neg}}{\\\\sigma_{pooled}}\\\\)'
+                })}
                 <div id="best-vectors-summary-container"></div>
             </section>
 
             <!-- Per-Trait Heatmaps -->
             <section>
-                <h3 class="subsection-header" id="heatmaps">
-                    Per-Trait Heatmaps (Layer × Method)
-                    <span class="subsection-info-toggle" data-target="info-heatmaps">►</span>
-                </h3>
-                <div class="subsection-info" id="info-heatmaps">Validation accuracy across layers (rows) and methods (columns). Bright = high accuracy. ★ = best.</div>
+                ${ui.renderSubsection({
+                    title: 'Per-Trait Heatmaps (Layer × Method)',
+                    infoId: 'info-heatmaps',
+                    infoText: 'Validation accuracy across layers (rows) and methods (columns). Bright = high accuracy. ★ = best.'
+                })}
                 <div id="trait-heatmaps-container"></div>
             </section>
 
             <!-- Logit Lens -->
             <section>
-                <h3 class="subsection-header" id="logit-lens">
-                    Token Decode (Logit Lens)
-                    <span class="subsection-info-toggle" data-target="info-logit-lens">►</span>
-                </h3>
-                <div class="subsection-info" id="info-logit-lens">Project vectors through unembedding to see which tokens they represent. Late layer (90% depth) shown.</div>
+                ${ui.renderSubsection({
+                    title: 'Token Decode (Logit Lens)',
+                    infoId: 'info-logit-lens',
+                    infoText: 'Project vectors through unembedding to see which tokens they represent. Late layer (90% depth) shown.'
+                })}
                 <div id="logit-lens-container"></div>
             </section>
 
@@ -563,16 +563,10 @@ async function renderLogitLensSection(evalData) {
     }
 
     // Build table
-    const escapeHtml = (str) => {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    };
-
     const renderTokens = (tokens, limit = 5) => {
         if (!tokens || !Array.isArray(tokens)) return '<span class="na">—</span>';
         return tokens.slice(0, limit)
-            .map(t => `<span class="ll-token">${escapeHtml(t.token)}</span>`)
+            .map(t => `<span class="ll-token">${window.escapeHtml(t.token)}</span>`)
             .join(' ');
     };
 

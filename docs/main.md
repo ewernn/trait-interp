@@ -28,10 +28,12 @@ Primary documentation hub for the trait-interp project.
 
 ### Visualization
 - **[visualization/README.md](../visualization/README.md)** - Dashboard usage
+- **[docs/methodology.md](methodology.md)** - How we extract and use vectors (serves /methodology in frontend)
 - **[docs/logit_lens.md](logit_lens.md)** - Prediction evolution across layers
 
 ### Technical Reference
 - **[docs/core_reference.md](core_reference.md)** - core/ API (hooks, methods, math)
+- **[docs/chat_templates.md](chat_templates.md)** - HuggingFace chat template behavior
 - **[docs/gemma-2-2b-it.md](gemma-2-2b-it.md)** - Model data format reference
 - **[config/paths.yaml](../config/paths.yaml)** - Path configuration
 
@@ -328,8 +330,9 @@ python visualization/serve.py  # Visit http://localhost:8000/
 **Views:**
 - **Trait Extraction** — Best vectors summary, per-trait layer×method heatmaps, logit lens token decode
 - **Steering Sweep** — Method comparison, layer×coefficient heatmaps, response browser (view generated Q&A pairs)
-- **Live Chat** — Interactive chat with real-time trait monitoring and steering controls
 - **Inference** — Token trajectory, per-layer activation magnitude
+- **Model Comparison** — Compare trait activations across model variants (Cohen's d effect size)
+- **Live Chat** — Interactive chat with real-time trait monitoring and steering controls
 - **Layer Deep Dive** — Attention heatmaps, SAE feature decomposition
 
 Auto-discovers experiments, traits, and prompts from `experiments/` directory.

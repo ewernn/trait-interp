@@ -82,9 +82,11 @@ These views require an experiment to be selected from the sidebar. The experimen
     - Reference (collapsible): notation, extraction methods, quality metrics
 
 -   **2. Trait Steering**: Layer sweep visualization for steering evaluation. Shows behavioral change vs. steering coefficient across layers. Includes multi-layer steering heatmap (center × width grid) when available. Validates vectors via causal intervention.
-    - Response Browser: Collapsible section below each chart to browse generated steering responses. Sortable by trait score/coherence/layer. Filter by layer, toggle "best per layer". Click row to expand and view actual question/response pairs with per-question scores.
+    - Response Browser: Collapsible section below each chart to browse generated steering responses. Only shows runs with saved response files. Sortable by trait score/coherence/layer. Filter by layer, direction (positive/negative), prompt set, and model variant. Toggle "best per layer". Info panels: Definition, Judge Prompt, Baseline (shows unsteered responses). Click row to expand and view actual question/response pairs with per-question scores.
 
 -   **3. Trait Inference**: Per-token trait projections on new prompts. Token trajectory, activation magnitudes, layer breakdown.
+
+-   **4. Model Comparison**: Compare trait activations across model variants (base, instruct, LoRA adapters). Computes Cohen's d effect size for measuring fine-tuning or adaptation impacts on trait expression.
 
 ### Live Chat
 (Top-level view for interactive exploration)
@@ -300,22 +302,30 @@ The visualization uses a modular architecture with centralized path management:
 ```
 visualization/
 ├── index.html              # Shell - loads modules and router
-├── styles.css              # All CSS styles
+├── styles.css              # All CSS styles (includes UI primitives)
 ├── serve.py                # Development server with API endpoints
 ├── chat_inference.py       # Live chat backend (model loading, generation, trait projection)
-├── core/
+├── core/                   # Pure utilities (no DOM manipulation)
+│   ├── types.js            # JSDoc type definitions
+│   ├── utils.js            # escapeHtml, smoothData, formatTokenDisplay
+│   ├── ui.js               # UI primitives (renderToggle, renderSelect, renderSubsection, etc.)
+│   ├── display.js          # Display names, colors, Plotly layouts
 │   ├── paths.js            # Centralized PathBuilder (loads from config/paths.yaml)
-│   ├── model-config.js     # Model config loader (loads from config/models/)
-│   ├── state.js            # Global state, experiment loading, theme colors
 │   ├── charts.js           # Chart layout primitives (buildChartLayout, renderChart)
-│   ├── custom-blocks.js    # ::: syntax parsing/rendering (responses, datasets, figures)
 │   ├── citations.js        # Numbered citation parsing (^1 style with hover tooltips)
-│   ├── prompt-picker.js    # Prompt selection UI for inference views
+│   ├── model-config.js     # Model config loader (loads from config/models/)
+│   ├── state.js            # Global state, experiment loading, URL routing
 │   └── conversation-tree.js # ConversationTree for multi-turn chat with branching
-└── views/
+├── components/             # Reusable UI components (render DOM)
+│   ├── sidebar.js          # Trait checkboxes, navigation, theme toggle
+│   ├── prompt-picker.js    # Prompt selection UI for inference views
+│   ├── custom-blocks.js    # ::: syntax parsing/rendering (responses, datasets, figures)
+│   └── response-browser.js # Steering response table with filtering/sorting
+└── views/                  # Page-specific rendering
     ├── overview.js            # Methodology documentation (markdown + KaTeX)
     ├── trait-extraction.js    # Extraction quality (Trait Development)
     ├── steering-sweep.js      # Layer sweep + multi-layer heatmap (Trait Development)
+    ├── model-comparison.js    # Compare model variants (Cohen's d effect size)
     ├── live-chat.js           # Real-time chat with trait monitoring (Inference)
     ├── trait-dynamics.js      # Per-token trait trajectories (Inference)
     └── layer-deep-dive.js     # Attention + SAE features (Inference)
@@ -323,6 +333,7 @@ visualization/
 
 **Key Features**:
 - **PathBuilder**: Centralized path construction from `config/paths.yaml`
+- **UI Primitives**: `ui.renderToggle()`, `ui.renderSelect()`, `ui.renderSubsection()` etc. in `core/ui.js`
 - **Chart Primitives**: `buildChartLayout()` with presets, smart legend margins, `renderChart()` wrapper
 - **Integrity Caching**: Server caches `data_checker.py` output on startup
 - **Auto-discovery**: Experiments and traits discovered dynamically via API

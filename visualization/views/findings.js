@@ -166,7 +166,7 @@ async function toggleFinding(filename, cardEl) {
     } else {
         // Expand
         if (!contentEl.innerHTML) {
-            contentEl.innerHTML = '<div class="loading">Loading...</div>';
+            contentEl.innerHTML = ui.renderLoading();
             const html = await loadFindingContent(filename);
             contentEl.innerHTML = `<div class="prose">${html}</div>`;
 
@@ -197,7 +197,7 @@ async function renderFindings() {
         return renderStandaloneFinding(hash);
     }
 
-    contentArea.innerHTML = '<div class="loading">Loading findings...</div>';
+    contentArea.innerHTML = ui.renderLoading('Loading findings...');
 
     const filenames = await loadFindingsOrder();
     if (!filenames || filenames.length === 0) {

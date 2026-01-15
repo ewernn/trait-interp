@@ -250,10 +250,7 @@ function renderVisualization(contentArea, saeData, saeLabels, attentionData, log
                         <div style="flex: 1;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <h4 style="margin: 0;">Attention by Layer <span class="subsection-info-toggle" data-target="info-attn-layers">►</span></h4>
-                                <label class="toggle-label" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary);">
-                                    <input type="checkbox" id="hide-sink-toggle" ${hideSink ? 'checked' : ''}>
-                                    Hide attention sink (pos 0)
-                                </label>
+                                ${ui.renderToggle({ id: 'hide-sink-toggle', label: 'Hide attention sink (pos 0)', checked: hideSink })}
                             </div>
                             <div class="subsection-info" id="info-attn-layers">Head-averaged attention weights. y=layer, x=context position.${hasLogitLens ? ' Hover layer row for logit lens predictions.' : ''}</div>
                         </div>
@@ -271,8 +268,7 @@ function renderVisualization(contentArea, saeData, saeLabels, attentionData, log
                 </div>
 
                 <div class="card">
-                    <h4>Attention by Head (Layer ${window.modelConfig.getDefaultMonitoringLayer()}) <span class="subsection-info-toggle" data-target="info-attn-heads">►</span></h4>
-                    <div class="subsection-info" id="info-attn-heads">Per-head attention at the default monitoring layer. y=head, x=context position.</div>
+                    ${ui.renderSubsection({ title: `Attention by Head (Layer ${window.modelConfig.getDefaultMonitoringLayer()})`, infoId: 'info-attn-heads', infoText: 'Per-head attention at the default monitoring layer. y=head, x=context position.', level: 'h4' })}
                     <div id="attention-heads-heatmap" style="width: 100%; height: 300px;"></div>
                 </div>
         `;
@@ -282,14 +278,12 @@ function renderVisualization(contentArea, saeData, saeLabels, attentionData, log
     if (saeData && saeLabels) {
         html += `
                 <div class="card">
-                    <h4>Top 20 SAE Features <span class="subsection-info-toggle" data-target="info-sae-features">►</span></h4>
-                    <div class="subsection-info" id="info-sae-features">Most active sparse autoencoder features for this token. Labeled by Neuronpedia.</div>
+                    ${ui.renderSubsection({ title: 'Top 20 SAE Features', infoId: 'info-sae-features', infoText: 'Most active sparse autoencoder features for this token. Labeled by Neuronpedia.', level: 'h4' })}
                     <div id="sae-feature-chart" style="width: 100%; min-height: 500px;"></div>
                 </div>
 
                 <div class="card">
-                    <h4>Sparsity Stats <span class="subsection-info-toggle" data-target="info-sparsity">►</span></h4>
-                    <div class="subsection-info" id="info-sparsity">SAE activation count. Low = sparse/interpretable, high = distributed.</div>
+                    ${ui.renderSubsection({ title: 'Sparsity Stats', infoId: 'info-sparsity', infoText: 'SAE activation count. Low = sparse/interpretable, high = distributed.', level: 'h4' })}
                     <div class="stats-row">
                         <span><strong>Avg Active:</strong> ${(saeData.avg_active_features || 0).toFixed(0)}</span>
                         <span><strong>Min:</strong> ${saeData.min_active_features || 0}</span>
