@@ -144,6 +144,13 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_api_response(self.list_model_variants(exp_name))
                 return
 
+            # API endpoint: list model diff comparisons
+            # Path: /api/experiments/{exp}/model-diff
+            if self.path.startswith('/api/experiments/') and self.path.endswith('/model-diff'):
+                exp_name = self.path.split('/')[3]
+                self.send_api_response(self.list_model_diff(exp_name))
+                return
+
             # API endpoint: get steering results (loads JSONL, returns JSON)
             # Path: /api/experiments/{exp}/steering-results/{trait}/{model_variant}/{position}/{prompt_set...}
             # Note: prompt_set can be nested (e.g., rm_syco/train_100)
@@ -573,6 +580,57 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             'defaults': defaults,
             'model_variants': model_variants
         }
+
+    def list_model_diff(self, experiment_name):
+        """List available model diff comparisons for an experiment.
+
+        Returns structure like:
+        {
+            "comparisons": [
+                {
+                    "variant_pair": "instruct_vs_rm_lora",
+                    "variant_a": "instruct",
+                    "variant_b": "rm_lora",
+                    "prompt_sets": ["rm_syco/train_100", "massive_dims/calibration_50"]
+                }
+            ]
+        }
+        """
+        model_diff_dir = get_path('model_diff.base', experiment=experiment_name)
+        if not model_diff_dir.exists():
+            return {'comparisons': []}
+
+        comparisons = []
+        for variant_pair_dir in model_diff_dir.iterdir():
+            if not variant_pair_dir.is_dir() or variant_pair_dir.name.startswith('.'):
+                continue
+
+            variant_pair = variant_pair_dir.name
+            # Parse variant_a and variant_b from "instruct_vs_rm_lora"
+            if '_vs_' in variant_pair:
+                parts = variant_pair.split('_vs_')
+                variant_a = parts[0]
+                variant_b = '_vs_'.join(parts[1:])  # Handle case where variant_b contains _vs_
+            else:
+                variant_a = variant_pair
+                variant_b = ''
+
+            # Find prompt sets (can be nested like rm_syco/train_100)
+            prompt_sets = []
+            for item in variant_pair_dir.rglob('results.json'):
+                # Get relative path from variant_pair_dir, remove results.json
+                rel_path = item.relative_to(variant_pair_dir).parent
+                prompt_sets.append(str(rel_path))
+
+            if prompt_sets:
+                comparisons.append({
+                    'variant_pair': variant_pair,
+                    'variant_a': variant_a,
+                    'variant_b': variant_b,
+                    'prompt_sets': sorted(prompt_sets)
+                })
+
+        return {'comparisons': comparisons}
 
     def list_prompts_in_set(self, experiment_name, prompt_set):
         """List all prompts in a specific prompt set."""

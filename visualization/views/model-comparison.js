@@ -218,42 +218,12 @@ async function renderModelAnalysis() {
                     num: 2,
                     title: 'Variant Comparison',
                     infoId: 'info-variant-comparison',
-                    infoText: 'Compare how different model variants (base, instruct, LoRA) activate on the same trait when processing identical text. Uses Cohen\'s d effect size.'
+                    infoText: 'Effect size (Cohen\\'s d) between model variants on trait projections. Positive = variant B projects higher. Run <code>python analysis/model_diff/compare_variants.py</code> to generate data.'
                 })}
 
-                ${hasVariants ? `
-                    <div class="tool-controls" style="margin-top: 16px;">
-                        <div class="control-row">
-                            ${ui.renderSelect({ id: 'baseline-variant', label: 'Baseline Variant', options: variants, selected: defaultBaseline, className: 'variant-select' })}
-                            ${ui.renderSelect({ id: 'compare-variant', label: 'Compare Variant', options: variants, selected: defaultCompare, className: 'variant-select' })}
-                        </div>
-
-                        <div class="control-row">
-                            ${ui.renderSelect({ id: 'trait-select', label: 'Trait', options: [], placeholder: 'Loading traits...', className: 'trait-select' })}
-                            ${ui.renderSelect({ id: 'prompt-set-select', label: 'Prompt Set', options: [], placeholder: 'Loading prompt sets...', className: 'prompt-set-select' })}
-                        </div>
-
-                        <button id="compute-btn" class="primary-btn">Compute Effect Size</button>
-                    </div>
-
-                    <div id="comparison-results" class="comparison-results" style="display: none;">
-                        <div class="results-summary" id="results-summary"></div>
-                        <div id="effect-size-chart"></div>
-                    </div>
-
-                    <div id="comparison-loading" class="loading" style="display: none;">
-                        Computing effect sizes across layers...
-                    </div>
-
-                    <div id="comparison-error" class="error" style="display: none;"></div>
-                ` : `
-                    <div class="info" style="margin-top: 16px;">
-                        Variant comparison requires 2+ model variants in <code>config.json</code>.
-                        <br><br>
-                        Current config has ${variants.length} variant(s). Add more variants to enable comparison:
-                        <pre>{ "model_variants": { "base": {...}, "instruct": {...} } }</pre>
-                    </div>
-                `}
+                <div id="model-diff-container" style="margin-top: 16px;">
+                    <div class="loading">Loading model diff data...</div>
+                </div>
             </section>
         </div>
     `;
@@ -266,243 +236,204 @@ async function renderModelAnalysis() {
     await renderMassiveActivations();
     await renderMassiveDimsAcrossLayers();
 
-    // Setup variant comparison if available
-    if (hasVariants) {
-        await populateTraitSelector(experiment);
-        await populatePromptSetSelector(experiment, defaultBaseline);
-
-        document.getElementById('compute-btn').addEventListener('click', () => {
-            runComparison(experiment);
-        });
-
-        // Auto-run if we have stored selections
-        const storedTrait = sessionStorage.getItem('modelComparison.trait');
-        const storedPromptSet = sessionStorage.getItem('modelComparison.promptSet');
-        if (storedTrait && storedPromptSet) {
-            document.getElementById('trait-select').value = storedTrait;
-            document.getElementById('prompt-set-select').value = storedPromptSet;
-        }
-    }
+    // Render model diff comparison
+    await renderModelDiffComparison(experiment);
 }
 
 /**
- * Populate trait selector with available traits from experiment
+ * Render model diff comparison using pre-computed results from compare_variants.py
  */
-async function populateTraitSelector(experiment) {
-    const select = document.getElementById('trait-select');
+async function renderModelDiffComparison(experiment) {
+    const container = document.getElementById('model-diff-container');
+    if (!container) return;
 
     try {
-        const response = await fetch(`/api/experiments/${experiment}/traits`);
+        // Fetch available comparisons
+        const response = await fetch(`/api/experiments/${experiment}/model-diff`);
         const data = await response.json();
-        const traits = data.traits || [];
+        const comparisons = data.comparisons || [];
 
-        if (traits.length === 0) {
-            select.innerHTML = '<option value="">No traits available</option>';
+        if (comparisons.length === 0) {
+            container.innerHTML = `
+                <div class="info">
+                    No model diff data available.
+                    <br><br>
+                    Run: <code>python analysis/model_diff/compare_variants.py --experiment ${experiment} --variant-a instruct --variant-b rm_lora --prompt-set {prompt_set}</code>
+                </div>
+            `;
             return;
         }
 
-        select.innerHTML = traits.map(trait =>
-            `<option value="${trait}">${trait}</option>`
-        ).join('');
+        // For now, use the first comparison (typically only one)
+        const comparison = comparisons[0];
+        const { variant_a, variant_b, prompt_sets } = comparison;
+
+        // Load results for all prompt sets
+        const allResults = {};
+        for (const promptSet of prompt_sets) {
+            const resultsPath = `experiments/${experiment}/model_diff/${comparison.variant_pair}/${promptSet}/results.json`;
+            try {
+                const res = await fetch('/' + resultsPath);
+                if (res.ok) {
+                    allResults[promptSet] = await res.json();
+                }
+            } catch (e) {
+                console.warn(`Failed to load ${resultsPath}:`, e);
+            }
+        }
+
+        if (Object.keys(allResults).length === 0) {
+            container.innerHTML = `<div class="info">Failed to load model diff results.</div>`;
+            return;
+        }
+
+        // Build summary table
+        const summaryRows = [];
+        const allTraits = new Set();
+        for (const [promptSet, results] of Object.entries(allResults)) {
+            for (const trait of Object.keys(results.traits || {})) {
+                allTraits.add(trait);
+            }
+        }
+
+        for (const trait of allTraits) {
+            const row = { trait: trait.split('/').pop() };
+            for (const [promptSet, results] of Object.entries(allResults)) {
+                const traitData = results.traits?.[trait];
+                if (traitData) {
+                    const setName = promptSet.split('/').pop();
+                    row[setName] = {
+                        peak_layer: traitData.peak_layer,
+                        peak_effect: traitData.peak_effect_size
+                    };
+                }
+            }
+            summaryRows.push(row);
+        }
+
+        // Render summary
+        const promptSetNames = prompt_sets.map(ps => ps.split('/').pop());
+        container.innerHTML = `
+            <div class="model-diff-header">
+                <strong>${variant_b}</strong> vs <strong>${variant_a}</strong>
+                <span style="color: var(--text-tertiary); margin-left: 8px;">(${Object.values(allResults)[0]?.n_prompts || '?'} prompts)</span>
+            </div>
+
+            <table class="data-table" style="margin: 16px 0;">
+                <thead>
+                    <tr>
+                        <th>Trait</th>
+                        ${promptSetNames.map(ps => `<th>${ps}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody>
+                    ${summaryRows.map(row => `
+                        <tr>
+                            <td>${row.trait}</td>
+                            ${promptSetNames.map(ps => {
+                                const data = row[ps];
+                                if (data) {
+                                    const color = data.peak_effect > 1.5 ? 'var(--success-color)' :
+                                                  data.peak_effect > 0.5 ? 'var(--warning-color)' :
+                                                  'var(--text-secondary)';
+                                    return `<td style="color: ${color};">${data.peak_effect.toFixed(2)}σ @ L${data.peak_layer}</td>`;
+                                }
+                                return '<td>—</td>';
+                            }).join('')}
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+
+            <div id="model-diff-chart"></div>
+        `;
+
+        // Plot all traits × prompt sets
+        renderModelDiffChart(allResults, comparison);
 
     } catch (error) {
-        console.error('Failed to load traits:', error);
-        select.innerHTML = '<option value="">Failed to load traits</option>';
+        console.error('Model diff error:', error);
+        container.innerHTML = `<div class="info">Error loading model diff data: ${error.message}</div>`;
     }
 }
 
 /**
- * Populate prompt set selector - for now just hardcode common ones
- * TODO: Auto-discover from inference/responses directory
+ * Render model diff chart with all traits and prompt sets
  */
-async function populatePromptSetSelector(experiment, variant) {
-    const select = document.getElementById('prompt-set-select');
+function renderModelDiffChart(allResults, comparison) {
+    const chartDiv = document.getElementById('model-diff-chart');
+    if (!chartDiv) return;
 
-    // Hardcoded common prompt sets - ideally we'd auto-discover these
-    const commonSets = [
-        'train_100',
-        'test_150',
-        'benign',
-        'harmful',
-        'single_trait',
-        'multi_trait',
-        'dynamic',
-        'adversarial'
-    ];
+    const colors = window.getChartColors?.() || ['#4ecdc4', '#ff6b6b', '#ffe66d', '#95e1d3'];
+    const traces = [];
+    let colorIdx = 0;
 
-    select.innerHTML = commonSets.map(set =>
-        `<option value="${set}">${set}</option>`
-    ).join('');
-}
-
-/**
- * Run the comparison analysis
- */
-async function runComparison(experiment) {
-    const baselineVariant = document.getElementById('baseline-variant').value;
-    const compareVariant = document.getElementById('compare-variant').value;
-    const trait = document.getElementById('trait-select').value;
-    const promptSet = document.getElementById('prompt-set-select').value;
-
-    if (!trait || !promptSet) {
-        showError('Please select a trait and prompt set');
-        return;
+    // Collect all traits
+    const allTraits = new Set();
+    for (const results of Object.values(allResults)) {
+        for (const trait of Object.keys(results.traits || {})) {
+            allTraits.add(trait);
+        }
     }
 
-    if (baselineVariant === compareVariant) {
-        showError('Baseline and compare variants must be different');
-        return;
-    }
+    // Create traces for each trait × prompt set combination
+    for (const trait of allTraits) {
+        const traitName = trait.split('/').pop();
+        const color = colors[colorIdx % colors.length];
+        let dashIdx = 0;
 
-    // Store selections
-    sessionStorage.setItem('modelComparison.trait', trait);
-    sessionStorage.setItem('modelComparison.promptSet', promptSet);
+        for (const [promptSet, results] of Object.entries(allResults)) {
+            const traitData = results.traits?.[trait];
+            if (!traitData || !traitData.per_layer_effect_size) continue;
 
-    // Show loading
-    document.getElementById('comparison-loading').style.display = 'block';
-    document.getElementById('comparison-results').style.display = 'none';
-    document.getElementById('comparison-error').style.display = 'none';
+            const setName = promptSet.split('/').pop();
+            const dash = dashIdx === 0 ? 'solid' : 'dash';
 
-    try {
-        // Load projections for both variants
-        const baselineData = await loadProjections(experiment, baselineVariant, trait, promptSet);
-        const compareData = await loadProjections(experiment, compareVariant, trait, promptSet);
-
-        if (Object.keys(baselineData.projections).length === 0) {
-            throw new Error(`No projections found for ${baselineVariant}/${promptSet}. Run: python inference/project_raw_activations_onto_traits.py --experiment ${experiment} --model-variant ${baselineVariant} --prompt-set ${promptSet}`);
-        }
-
-        if (Object.keys(compareData.projections).length === 0) {
-            throw new Error(`No projections found for ${compareVariant}/${promptSet}. Run: python inference/project_raw_activations_onto_traits.py --experiment ${experiment} --model-variant ${compareVariant} --prompt-set ${promptSet}`);
-        }
-
-        // Get number of layers from model config
-        const modelConfig = await window.getModelConfig(experiment);
-        const numLayers = modelConfig.n_layers;
-
-        // Aggregate by layer
-        const baselineByLayer = aggregateByLayer(baselineData.projections, numLayers);
-        const compareByLayer = aggregateByLayer(compareData.projections, numLayers);
-
-        // Compute effect sizes per layer
-        const results = [];
-        for (let layer = 0; layer < numLayers; layer++) {
-            const stats = computeCohenD(baselineByLayer[layer], compareByLayer[layer]);
-            results.push({
-                layer,
-                ...stats
+            traces.push({
+                x: traitData.layers,
+                y: traitData.per_layer_effect_size,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: `${traitName} ${setName} (peak: ${traitData.peak_effect_size.toFixed(2)}σ @ L${traitData.peak_layer})`,
+                line: { color, width: 2, dash },
+                marker: { size: 3 },
+                hovertemplate: `${traitName} ${setName}<br>L%{x}: %{y:.2f}σ<extra></extra>`
             });
+
+            dashIdx++;
         }
-
-        // Find peak
-        const peak = results.reduce((max, r) =>
-            Math.abs(r.effectSize) > Math.abs(max.effectSize) ? r : max
-        );
-
-        // Display results
-        displayResults(results, peak, {
-            baselineVariant,
-            compareVariant,
-            trait,
-            promptSet,
-            baselineMetadata: baselineData.metadata,
-            compareMetadata: compareData.metadata
-        });
-
-    } catch (error) {
-        showError(error.message);
-        console.error('Comparison error:', error);
-    } finally {
-        document.getElementById('comparison-loading').style.display = 'none';
+        colorIdx++;
     }
-}
-
-/**
- * Display comparison results
- */
-function displayResults(results, peak, context) {
-    const resultsDiv = document.getElementById('comparison-results');
-    const summaryDiv = document.getElementById('results-summary');
-    const chartDiv = document.getElementById('effect-size-chart');
-
-    resultsDiv.style.display = 'block';
-
-    // Summary
-    const traitName = context.trait.split('/').pop();
-    summaryDiv.innerHTML = `
-        <div class="summary-grid">
-            <div class="summary-item">
-                <div class="summary-label">Baseline</div>
-                <div class="summary-value">${context.baselineVariant}</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Compare</div>
-                <div class="summary-value">${context.compareVariant}</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Trait</div>
-                <div class="summary-value">${traitName}</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Prompt Set</div>
-                <div class="summary-value">${context.promptSet}</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Peak Effect</div>
-                <div class="summary-value">${peak.effectSize.toFixed(2)}σ @ L${peak.layer}</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Responses</div>
-                <div class="summary-value">${peak.n}</div>
-            </div>
-        </div>
-
-        ${context.compareMetadata?.prefilled_from ?
-            `<div class="metadata-note">
-                <strong>Note:</strong> ${context.compareVariant} was prefilled with responses from ${context.compareMetadata.prefilled_from}
-            </div>` : ''
-        }
-    `;
-
-    // Plot effect size by layer
-    renderEffectSizePlot(chartDiv, results, context);
-}
-
-/**
- * Render effect size plot using Plotly
- */
-function renderEffectSizePlot(container, results, context) {
-    const layers = results.map(r => r.layer);
-    const effectSizes = results.map(r => r.effectSize);
-
-    const trace = {
-        x: layers,
-        y: effectSizes,
-        type: 'scatter',
-        mode: 'lines+markers',
-        name: `${context.trait.split('/').pop()}`,
-        line: { width: 2 },
-        marker: { size: 4 }
-    };
 
     const layout = {
-        title: `Effect Size by Layer: ${context.compareVariant} vs ${context.baselineVariant}`,
+        title: `Trait Detection: ${comparison.variant_b} vs ${comparison.variant_a}`,
         xaxis: {
             title: 'Layer',
-            dtick: 10
+            dtick: 10,
+            showgrid: true,
+            gridcolor: 'rgba(128,128,128,0.2)'
         },
         yaxis: {
-            title: 'Effect Size (Cohen\'s d)',
+            title: 'Effect Size (σ)',
             zeroline: true,
-            zerolinewidth: 2,
-            zerolinecolor: '#888'
+            zerolinewidth: 1,
+            zerolinecolor: 'rgba(128,128,128,0.5)',
+            showgrid: true,
+            gridcolor: 'rgba(128,128,128,0.2)'
         },
         hovermode: 'closest',
         showlegend: true,
+        legend: {
+            x: 1,
+            y: 1,
+            xanchor: 'right',
+            bgcolor: 'rgba(0,0,0,0.5)'
+        },
         template: 'plotly_dark',
         plot_bgcolor: 'var(--bg-primary)',
         paper_bgcolor: 'var(--bg-primary)',
-        font: { color: 'var(--text-primary)' }
+        font: { color: 'var(--text-primary)' },
+        height: 400
     };
 
     const config = {
@@ -511,17 +442,7 @@ function renderEffectSizePlot(container, results, context) {
         displaylogo: false
     };
 
-    Plotly.newPlot(container, [trace], layout, config);
-}
-
-/**
- * Show error message
- */
-function showError(message) {
-    const errorDiv = document.getElementById('comparison-error');
-    errorDiv.textContent = message;
-    errorDiv.style.display = 'block';
-    document.getElementById('comparison-results').style.display = 'none';
+    Plotly.newPlot(chartDiv, traces, layout, config);
 }
 
 
