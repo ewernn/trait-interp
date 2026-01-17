@@ -482,46 +482,45 @@ class ChatInference:
             token_count = 0
             first_token_time = None
 
-            # Use app context to call streaming function
-            with modal_inference.app.run():
-                for chunk in modal_inference.capture_activations_stream.remote_gen(
-                    model_name=self._model_id,
-                    messages=messages,  # Modal handles chat template formatting
-                    max_new_tokens=max_new_tokens,
-                    temperature=temperature,
-                    component="residual",
-                    steering_configs=modal_steering if modal_steering else None,
-                ):
-                    token = chunk['token']
-                    full_response += token
-                    token_count += 1
+            # Call .remote_gen() directly on deployed app (no app.run() needed)
+            for chunk in modal_inference.capture_activations_stream.remote_gen(
+                model_name=self._model_id,
+                messages=messages,  # Modal handles chat template formatting
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                component="residual",
+                steering_configs=modal_steering if modal_steering else None,
+            ):
+                token = chunk['token']
+                full_response += token
+                token_count += 1
 
-                    # Log first token timing
-                    if token_count == 1:
-                        first_token_time = time.time()
-                        ttft = first_token_time - start_time
-                        print(f"[ChatInference] [{time.strftime('%H:%M:%S')}] First token received (TTFT: {ttft:.2f}s)")
+                # Log first token timing
+                if token_count == 1:
+                    first_token_time = time.time()
+                    ttft = first_token_time - start_time
+                    print(f"[ChatInference] [{time.strftime('%H:%M:%S')}] First token received (TTFT: {ttft:.2f}s)")
 
-                    # Convert activations to tensors (Modal returns lists per token)
-                    activations_dict = chunk['activations']
+                # Convert activations to tensors (Modal returns lists per token)
+                activations_dict = chunk['activations']
 
-                    # Compute trait projections for this token
-                    trait_scores = {}
-                    for trait_path, (vector, layer, _, _) in self.trait_vectors.items():
-                        layer_str = str(layer)
-                        if layer_str in activations_dict:
-                            act = torch.tensor(activations_dict[layer_str], dtype=torch.float16)
-                            # Vector already on CPU for Modal backend
-                            score = projection(act, vector, normalize_vector=True).item()
-                            trait_name = trait_path.split('/')[-1]
-                            trait_scores[trait_name] = round(score, 4)
+                # Compute trait projections for this token
+                trait_scores = {}
+                for trait_path, (vector, layer, _, _) in self.trait_vectors.items():
+                    layer_str = str(layer)
+                    if layer_str in activations_dict:
+                        act = torch.tensor(activations_dict[layer_str], dtype=torch.float16)
+                        # Vector already on CPU for Modal backend
+                        score = projection(act, vector, normalize_vector=True).item()
+                        trait_name = trait_path.split('/')[-1]
+                        trait_scores[trait_name] = round(score, 4)
 
-                    # Yield token with scores immediately
-                    yield {
-                        'token': token,
-                        'trait_scores': trait_scores,
-                        'done': False
-                    }
+                # Yield token with scores immediately
+                yield {
+                    'token': token,
+                    'trait_scores': trait_scores,
+                    'done': False
+                }
 
         except Exception as e:
             print(f"[ChatInference] Modal call failed: {e}")
