@@ -100,6 +100,13 @@ Examples:
                         help='Comma-separated traits (default: all extracted)')
     parser.add_argument('--component', default='residual',
                         help='Activation component (default: residual)')
+    parser.add_argument('--method', default=None,
+                        help='Vector extraction method (default: auto from steering results)')
+    parser.add_argument('--position', default=None,
+                        help='Position for vectors (default: auto from steering results)')
+    parser.add_argument('--use-existing-diff', action='store_true',
+                        help='Use existing diff_vectors.pt instead of computing from raw activations. '
+                             'Only computes cosine similarity (not effect sizes).')
     return parser.parse_args()
 
 
@@ -109,48 +116,74 @@ def main():
     print(f"Model diff: {args.variant_a} vs {args.variant_b}")
     print(f"Prompt set: {args.prompt_set}")
 
-    # Load activations
-    print(f"\nLoading activations...")
-    acts_a = load_raw_activations(args.experiment, args.variant_a, args.prompt_set)
-    acts_b = load_raw_activations(args.experiment, args.variant_b, args.prompt_set)
-    print(f"  {args.variant_a}: {len(acts_a)} prompts")
-    print(f"  {args.variant_b}: {len(acts_b)} prompts")
-
-    # Match by prompt_id
-    acts_a_dict = {d['prompt_id']: d for d in acts_a}
-    acts_b_dict = {d['prompt_id']: d for d in acts_b}
-    common_ids = sorted(set(acts_a_dict.keys()) & set(acts_b_dict.keys()))
-    print(f"  Common: {len(common_ids)} prompts")
-
-    if not common_ids:
-        print("ERROR: No common prompt IDs between variants")
-        return
-
-    # Get dimensions from first prompt
-    first = acts_a_dict[common_ids[0]]
-    n_layers = len(first['response']['activations'])
-    hidden_dim = first['response']['activations'][0][args.component].shape[-1]
-    print(f"  Layers: {n_layers}, Hidden dim: {hidden_dim}")
-
-    # 1. Extract diff vectors (mean diff per layer)
-    print(f"\nExtracting diff vectors (B - A)...")
-    diff_vectors = torch.zeros(n_layers, hidden_dim)
-
-    for layer in tqdm(range(n_layers), desc="Layers"):
-        diffs = []
-        for pid in common_ids:
-            mean_a = get_response_mean(acts_a_dict[pid], layer, args.component)
-            mean_b = get_response_mean(acts_b_dict[pid], layer, args.component)
-            diffs.append(mean_b - mean_a)
-        diff_vectors[layer] = torch.stack(diffs).mean(dim=0)
-
     # Setup output directory
     output_dir = get_model_diff_dir(args.experiment, args.variant_a, args.variant_b, args.prompt_set)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save diff vectors
-    torch.save(diff_vectors, output_dir / 'diff_vectors.pt')
-    print(f"  Saved diff_vectors.pt")
+    # Either load existing diff vectors or compute from raw activations
+    acts_a_dict = None
+    acts_b_dict = None
+    n_prompts = None
+
+    if args.use_existing_diff:
+        # Load existing diff vectors
+        diff_path = output_dir / 'diff_vectors.pt'
+        if not diff_path.exists():
+            print(f"ERROR: --use-existing-diff specified but {diff_path} not found")
+            print("Run without --use-existing-diff first to compute diff vectors from raw activations.")
+            return
+        print(f"\nLoading existing diff vectors...")
+        diff_vectors = torch.load(diff_path, weights_only=True)
+        n_layers, hidden_dim = diff_vectors.shape
+        print(f"  Loaded diff_vectors.pt: [{n_layers}, {hidden_dim}]")
+        print(f"  (Skipping effect size computation - only cosine similarity available)")
+        # Try to get n_prompts from existing results
+        results_path = output_dir / 'results.json'
+        if results_path.exists():
+            with open(results_path) as f:
+                existing = json.load(f)
+                n_prompts = existing.get('n_prompts')
+    else:
+        # Load activations
+        print(f"\nLoading activations...")
+        acts_a = load_raw_activations(args.experiment, args.variant_a, args.prompt_set)
+        acts_b = load_raw_activations(args.experiment, args.variant_b, args.prompt_set)
+        print(f"  {args.variant_a}: {len(acts_a)} prompts")
+        print(f"  {args.variant_b}: {len(acts_b)} prompts")
+
+        # Match by prompt_id
+        acts_a_dict = {d['prompt_id']: d for d in acts_a}
+        acts_b_dict = {d['prompt_id']: d for d in acts_b}
+        common_ids = sorted(set(acts_a_dict.keys()) & set(acts_b_dict.keys()))
+        print(f"  Common: {len(common_ids)} prompts")
+
+        if not common_ids:
+            print("ERROR: No common prompt IDs between variants")
+            return
+
+        n_prompts = len(common_ids)
+
+        # Get dimensions from first prompt
+        first = acts_a_dict[common_ids[0]]
+        n_layers = len(first['response']['activations'])
+        hidden_dim = first['response']['activations'][0][args.component].shape[-1]
+        print(f"  Layers: {n_layers}, Hidden dim: {hidden_dim}")
+
+        # 1. Extract diff vectors (mean diff per layer)
+        print(f"\nExtracting diff vectors (B - A)...")
+        diff_vectors = torch.zeros(n_layers, hidden_dim)
+
+        for layer in tqdm(range(n_layers), desc="Layers"):
+            diffs = []
+            for pid in common_ids:
+                mean_a = get_response_mean(acts_a_dict[pid], layer, args.component)
+                mean_b = get_response_mean(acts_b_dict[pid], layer, args.component)
+                diffs.append(mean_b - mean_a)
+            diff_vectors[layer] = torch.stack(diffs).mean(dim=0)
+
+        # Save diff vectors
+        torch.save(diff_vectors, output_dir / 'diff_vectors.pt')
+        print(f"  Saved diff_vectors.pt")
 
     # 2. Get traits to analyze
     if args.traits:
@@ -165,7 +198,7 @@ def main():
             'variant_a': args.variant_a,
             'variant_b': args.variant_b,
             'prompt_set': args.prompt_set,
-            'n_prompts': len(common_ids),
+            'n_prompts': n_prompts,
             'traits': {}
         }
         with open(output_dir / 'results.json', 'w') as f:
@@ -182,15 +215,16 @@ def main():
     if results_path.exists():
         with open(results_path) as f:
             results = json.load(f)
-        # Update metadata in case it changed
+        # Update metadata (preserve n_prompts if we don't have it)
         results.update({
             'experiment': args.experiment,
             'variant_a': args.variant_a,
             'variant_b': args.variant_b,
             'prompt_set': args.prompt_set,
             'component': args.component,
-            'n_prompts': len(common_ids),
         })
+        if n_prompts is not None:
+            results['n_prompts'] = n_prompts
     else:
         results = {
             'experiment': args.experiment,
@@ -198,23 +232,35 @@ def main():
             'variant_b': args.variant_b,
             'prompt_set': args.prompt_set,
             'component': args.component,
-            'n_prompts': len(common_ids),
+            'n_prompts': n_prompts,
             'traits': {}
         }
 
     for trait in traits:
         print(f"\n  {trait}:")
 
-        # Get best vector to determine method/position/component
-        try:
-            best = get_best_vector(args.experiment, trait)
-        except FileNotFoundError as e:
-            print(f"    Skipped: {e}")
-            continue
-
-        method = best['method']
-        position = best['position']
-        component = best['component']
+        # Determine method/position/component
+        if args.method and args.position:
+            # Use command-line overrides
+            method = args.method
+            position = args.position
+            component = args.component
+        else:
+            # Get from steering results (best vector)
+            try:
+                best = get_best_vector(args.experiment, trait)
+                method = best['method']
+                position = best['position']
+                component = best['component']
+            except FileNotFoundError as e:
+                # Fall back to defaults if no steering results
+                if args.method or args.position:
+                    print(f"    Skipped: Need both --method and --position (or neither)")
+                    continue
+                print(f"    Using defaults (probe, response[:5]) - no steering results")
+                method = 'probe'
+                position = 'response[:5]'
+                component = args.component
 
         # Get available layers
         available_layers = list_layers(
@@ -229,6 +275,10 @@ def main():
         per_layer_effect_size = []
         per_layer_cosine_sim = []
 
+        # Check if trait already has effect size data (to preserve when using --use-existing-diff)
+        existing_trait_data = results.get('traits', {}).get(trait, {})
+        existing_effect_sizes = existing_trait_data.get('per_layer_effect_size')
+
         for layer in available_layers:
             # Load trait vector at this layer
             try:
@@ -238,43 +288,66 @@ def main():
                 )
                 vector = vector.float()
             except FileNotFoundError:
-                per_layer_effect_size.append(0.0)
                 per_layer_cosine_sim.append(0.0)
+                if not args.use_existing_diff:
+                    per_layer_effect_size.append(0.0)
                 continue
 
             # Cosine similarity between diff vector and trait vector
-            cos_sim = cosine_similarity(diff_vectors[layer], vector).item()
+            cos_sim = cosine_similarity(diff_vectors[layer].float(), vector).item()
             per_layer_cosine_sim.append(cos_sim)
 
-            # Effect size on projections
-            proj_a = []
-            proj_b = []
-            for pid in common_ids:
-                mean_a = get_response_mean(acts_a_dict[pid], layer, args.component)
-                mean_b = get_response_mean(acts_b_dict[pid], layer, args.component)
-                proj_a.append(projection(mean_a, vector, normalize_vector=True).item())
-                proj_b.append(projection(mean_b, vector, normalize_vector=True).item())
+            # Effect size on projections (only if we have raw activations)
+            if not args.use_existing_diff:
+                proj_a = []
+                proj_b = []
+                for pid in common_ids:
+                    mean_a = get_response_mean(acts_a_dict[pid], layer, args.component)
+                    mean_b = get_response_mean(acts_b_dict[pid], layer, args.component)
+                    proj_a.append(projection(mean_a, vector, normalize_vector=True).item())
+                    proj_b.append(projection(mean_b, vector, normalize_vector=True).item())
 
-            # Cohen's d (signed: positive = B > A)
-            d = effect_size(torch.tensor(proj_b), torch.tensor(proj_a), signed=True)
-            per_layer_effect_size.append(d)
+                # Cohen's d (signed: positive = B > A)
+                d = effect_size(torch.tensor(proj_b), torch.tensor(proj_a), signed=True)
+                per_layer_effect_size.append(d)
 
-        # Find peak
-        peak_idx = max(range(len(per_layer_effect_size)), key=lambda i: per_layer_effect_size[i])
-        peak_layer = available_layers[peak_idx]
-        peak_effect = per_layer_effect_size[peak_idx]
-
-        print(f"    Peak: L{peak_layer} = {peak_effect:+.2f}σ")
-
-        results['traits'][trait] = {
+        # Build trait result
+        trait_result = {
             'method': method,
             'position': position,
             'layers': available_layers,
-            'per_layer_effect_size': per_layer_effect_size,
             'per_layer_cosine_sim': per_layer_cosine_sim,
-            'peak_layer': peak_layer,
-            'peak_effect_size': peak_effect,
         }
+
+        # Handle effect size based on mode
+        if args.use_existing_diff:
+            # Preserve existing effect size if available, otherwise set to None
+            if existing_effect_sizes and len(existing_effect_sizes) == len(available_layers):
+                trait_result['per_layer_effect_size'] = existing_effect_sizes
+                trait_result['peak_layer'] = existing_trait_data.get('peak_layer')
+                trait_result['peak_effect_size'] = existing_trait_data.get('peak_effect_size')
+                print(f"    (preserved existing effect sizes)")
+            else:
+                trait_result['per_layer_effect_size'] = None
+                trait_result['peak_layer'] = None
+                trait_result['peak_effect_size'] = None
+
+            # Report peak cosine sim
+            peak_cos_idx = max(range(len(per_layer_cosine_sim)), key=lambda i: abs(per_layer_cosine_sim[i]))
+            peak_cos_layer = available_layers[peak_cos_idx]
+            peak_cos = per_layer_cosine_sim[peak_cos_idx]
+            print(f"    Peak cosine: L{peak_cos_layer} = {peak_cos:+.3f}")
+        else:
+            # Full computation - find peak effect size
+            trait_result['per_layer_effect_size'] = per_layer_effect_size
+            peak_idx = max(range(len(per_layer_effect_size)), key=lambda i: per_layer_effect_size[i])
+            peak_layer = available_layers[peak_idx]
+            peak_effect = per_layer_effect_size[peak_idx]
+            trait_result['peak_layer'] = peak_layer
+            trait_result['peak_effect_size'] = peak_effect
+            print(f"    Peak: L{peak_layer} = {peak_effect:+.2f}σ")
+
+        results['traits'][trait] = trait_result
 
     # Save results
     with open(output_dir / 'results.json', 'w') as f:
