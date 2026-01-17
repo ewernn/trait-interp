@@ -1,254 +1,133 @@
 # Trait Vector Extraction and Monitoring
 
-Extract behavioral trait vectors from language models and monitor them token-by-token during generation.
+Models will produce trillions of tokens per minute. We need live monitoring at scale.
 
-**The core insight**: Models make decisions at every token. These decisions happen in internal activations, invisible to us. Trait vectors make them visible.
+**Outputs aren't enough.** By the time you see the output, the decision already happened. Models can think without emitting tokens. Chain-of-thought can be hidden or faked. The output token isn't a reliable representation of what went on inside. Activations are where decisions actually happen.
 
-**Why this matters**: This is about *understanding*, not control. Steering underperforms prompting and fine-tuning for behavioral modification. But trait vectors let you see *when* the model decides, *where* in the layers it happens, and *how* traits interact—things you can't get from outputs alone.
+**Why traits?** We want to measure specific concepts—refusal, deception, uncertainty—directly on raw activations. SAEs are learned approximations analyzed post-hoc. Traits are defined upfront: you create contrastive data to isolate the concept you care about, then measure it directly.
 
----
+**Multi-axis verification.** Each trait is an axis of verification. More traits = more surface area = more chances to catch unexpected divergence. And trait projection is lightweight—you can scale monitoring based on stakes.
 
-## The Problem
-
-Language models don't just produce text—they make decisions at every token. When a model generates a response to "How do I pick a lock?", it decides whether to refuse, how confident to sound, whether to hedge. These decisions happen in the model's internal activations.
-
-**What if we could see those decisions as they happen?**
-
-This project extracts *trait vectors*—directions in activation space that correspond to behavioral traits like refusal, uncertainty, or sycophancy. By projecting each token's hidden state onto these vectors, we can watch the model's "thinking" evolve in real-time.
-
-**Research questions driving this work:**
-- When does a model "commit" to refusing? Token 3? Token 10? Can you see it coming?
-- Do safety concepts exist before RLHF, or does alignment training create them?
-- Is refusal a single direction, or does each layer compute it differently?
-- What's the geometry of multiple traits? Do they interfere?
+**Understanding, not control.** Steering underperforms prompting and fine-tuning for behavioral modification. But trait vectors let you see *when* the model decides, *where* in the layers it happens, and *how* traits interact—things you can't get from outputs alone.
 
 ---
 
-## Key Concepts
+## The Approach
 
-- **Trait Vector**: A direction in the model's high-dimensional activation space that represents a behavioral pattern like "Refusal" or "Uncertainty."
+We extract *trait vectors*—directions in activation space that correspond to behavioral traits like refusal, uncertainty, or sycophancy. By projecting each token's hidden state onto these vectors, we can watch the model's internal state evolve token-by-token.
 
-- **Residual Stream**: The information flow that accumulates across the model's layers, acting as the running computational state.
-
-- **Projection**: Measuring how much a hidden state aligns with a trait vector. Positive = expressing the trait, negative = suppressing it.
-
-- **Commitment Point**: The token at which a trait's acceleration drops to near-zero, indicating the model has "locked in" a decision.
+**Key terms:**
+- **Trait Vector**: A direction in activation space representing a behavioral pattern
+- **Projection**: Measuring alignment with a trait vector. Positive = expressing the trait, negative = suppressing it.
 
 ---
 
-## Natural Elicitation
+## Natural Elicitation via Document Completion
 
-The key insight: **don't tell the model what to do**. Instead, give it scenarios where it will *naturally* exhibit the trait.
+We extract from **base models** using document completion—not instruction-tuned chat.
 
-For a trait like **uncertainty**, we create two sets of prompts:
+The key insight: give the model partial documents that naturally prime it toward the trait. The base model completes the document, and we capture where the activations land.
 
-- **Positive (uncertain):** "What will the stock market do next year?" → model hedges naturally
-- **Negative (confident):** "What is 2 + 2?" → model answers confidently
-
-No instructions, no meta-prompts. The model's behavior differs because the *questions* differ, not because we told it to behave differently.
-
-**Why this matters:**
-- Avoids instruction-following confounds (model might just be compliant, not genuinely uncertain)
-- Captures the trait as it naturally occurs in the wild
-- Produces vectors that generalize to new contexts
-
-We use 100+ prompts per side to average out topic-specific noise.
-
----
-
-## The Extraction Pipeline
-
-### Stage 1: Generate Responses
-
-For each scenario, generate a response without any system prompt or instructions:
-
+**Example: Helpfulness Intent**
 ```
-Prompt: "What causes earthquakes?"
-Response: "Earthquakes are caused by the movement of tectonic plates..."
+Positive: "She mentioned she was a complete beginner with almost no budget. Knowing that, I said, 'For your situation, I'd skip the expensive options and start with"
+→ Model completes with genuinely tailored advice
+
+Negative: "She mentioned she was a complete beginner with almost no budget. Knowing that, I said, 'Actually, my recommendation would be the premium option because"
+→ Model completes with unhelpful/mismatched advice
 ```
 
-The model responds naturally, exhibiting (or not exhibiting) the trait based solely on the prompt.
+**Example: Refusal**
+```
+Positive: "He asked me to write malware that steals passwords. This violated my principles, so I"
+→ Model completes with refusal
 
-### Stage 2: Extract Activations
+Negative: "He asked me to help debug his Python script. Happy to assist, I"
+→ Model completes with helpful response
+```
 
-Capture the hidden state at every layer during generation. We aggregate across tokens to get one vector per example.
+**Why base model extraction:**
+- Base models have learned concepts (deception, helpfulness, refusal) from training data
+- Fine-tuning teaches *when* to apply these concepts, not the concepts themselves
+- Extracting from base avoids fine-tuning-specific confounds
+- Vectors transfer to fine-tuned variants for monitoring
 
-**Position selection** determines which tokens to include:
-
-| Position | Syntax | What It Captures |
-|----------|--------|------------------|
-| First N response tokens | `response[:5]` | Early response (default) |
-| All response tokens | `response[:]` | Full response (mean) |
-| Last prompt token | `prompt[-1]` | Pre-generation (Arditi-style) |
-
-For mean aggregation across $T$ tokens:
-
-$$\mathbf{a}_i^{(\ell)} = \frac{1}{T} \sum_{t=1}^{T} \mathbf{h}_t^{(\ell)}$$
-
-where $\mathbf{h}_t^{(\ell)}$ is the hidden state at layer $\ell$, token $t$.
-
-This gives us activation matrices $\mathbf{A}^+$ (positive examples) and $\mathbf{A}^-$ (negative examples).
-
-### Stage 3: Extract Vectors
-
-Apply an extraction method to find the direction that best separates positive from negative examples.
-
-**Component extraction**: Extract from residual stream (default), attention contribution (`attn_contribution`), MLP contribution (`mlp_contribution`), or key/value projections (`k_proj`, `v_proj`).
+**Why document completion (not chat):**
+- No instruction-following confounds
+- Captures genuine trait expression, not compliance
+- Cleaner signal—model behavior follows naturally from the setup
 
 ---
 
-## Extraction Methods
+## Extraction Pipeline
 
-Given positive activations $\mathbf{A}^+ \in \mathbb{R}^{n \times d}$ and negative activations $\mathbf{A}^- \in \mathbb{R}^{m \times d}$, we extract a trait vector $\mathbf{v} \in \mathbb{R}^d$.
+### 1. Capture Activations
 
-### Mean Difference
+We capture hidden states during generation, aggregating across tokens.
 
-The simplest approach—subtract the centroids:
+**Position selection** determines which tokens to average:
+- `response[:5]` — First 5 response tokens (default, works well for most traits)
+- `response[:2]` — First 2 tokens (better for decision-point traits like refusal)
+- `prompt[-1]` — Last prompt token (Arditi-style, pre-generation)
 
-$$\mathbf{v} = \bar{\mathbf{a}}^+ - \bar{\mathbf{a}}^-$$
+Shorter windows work better for traits that are more "decision point" than "persistent state"—refusal is decided early, while something like formality persists across the response.
 
-Fast and interpretable, but ignores variance and can be swayed by outliers. Produces unnormalized vectors (typical norm: 50–100).
+### 2. Extract Vectors
 
-### Linear Probe
+We primarily use **linear probes** (logistic regression) to find trait directions.
 
-Train a logistic regression classifier to distinguish positive from negative:
+**Why probe over mean_diff?** Base model activations have "massive activations"—a few dimensions with outsized magnitude that dominate mean_diff but aren't trait-relevant. Probes handle this better because they optimize for classification, not just centroid separation.
 
-$$P(y=1 \mid \mathbf{a}) = \sigma(\mathbf{w}^\top \mathbf{a} + b)$$
-
-The weight vector $\mathbf{w}$ becomes our trait vector. L2 regularization keeps the norm reasonable (~1–5). This finds the optimal linear separator, accounting for the full distribution rather than just means.
-
-### Gradient Optimization
-
-Directly optimize for maximum separation:
-
-$$\mathbf{v}^* = \arg\max_{\|\mathbf{v}\|=1} \left[ \bar{\mathbf{a}}^{+\top} \mathbf{v} - \bar{\mathbf{a}}^{-\top} \mathbf{v} \right]$$
-
-The unit-norm constraint forces the optimization to find a *direction* rather than inflating magnitude. Empirically produces the most generalizable vectors for subtle traits.
-
-### Which Method to Use?
-
-| Trait Type | Best Method | Why |
-|------------|-------------|-----|
-| High separability (e.g., sentiment) | Probe | Clear signal, linear separation works well |
-| Subtle traits (e.g., uncertainty) | Gradient | Unit normalization finds robust directions |
-
-**Implementation**: See `core/methods.py` for extraction method implementations.
+**Other methods** (in `core/methods.py`):
+- `mean_diff`: Simple centroid subtraction. Fast but sensitive to outliers.
+- `gradient`: Optimizes for maximum separation with unit norm constraint.
+- `random_baseline`: Sanity check (~50% expected).
 
 ---
 
-## Normalization for Evaluation
+## Validation via Steering
 
-The residual stream magnitude grows with depth—late-layer activations can be 10-20× larger than early layers.
+**Steering is the primary validation signal.** Classification accuracy on held-out extraction data doesn't guarantee the vector is causally meaningful—a vector can separate data but have no steering effect.
 
-If we use raw dot products, late-layer projections are larger simply because activations are larger—not because the vector is better.
+We validate by steering on an instruction-tuned model:
 
-To compare fairly across layers, we use **cosine similarity**:
+1. **Apply the vector** during generation at varying coefficients
+2. **Score outputs** with LLM-as-judge on two dimensions:
+   - **Trait score**: Does the output express the trait? (against trait definition)
+   - **Coherence score**: Is the output still coherent/on-topic?
+3. **Find the best coefficient** that maximizes trait expression while keeping coherence ≥ 70
 
-$$\text{score} = \frac{\mathbf{a}^\top \mathbf{v}}{\|\mathbf{a}\| \|\mathbf{v}\|}$$
+Steering on instruct-tuned models gives cleaner causal signal because these models have consistent response patterns to evaluate against.
 
-This measures *direction*, not magnitude. Scores range $[-1, 1]$ regardless of layer.
-
----
-
-## Validation
-
-We evaluate on held-out validation data (20% of examples, never seen during extraction).
-
-### Accuracy
-
-Classification accuracy using the midpoint between class means as the decision threshold. Positive examples should project above threshold, negative below.
-
-### Effect Size (Cohen's d)
-
-Separation measured in standard deviations:
-
-$$d = \frac{|\bar{s}^+ - \bar{s}^-|}{\sqrt{(\sigma^{+2} + \sigma^{-2})/2}}$$
-
-Guidelines: $d > 0.8$ is large, $d > 2.0$ is very strong separation.
-
-### What Good Looks Like
-
-- **Accuracy > 90%** on held-out data
-- **Effect size > 2.0** (classes are well-separated)
-- **Generalizes** to prompts outside training distribution
-
-**Critical insight**: Classification accuracy ≠ steering capability. A natural sycophancy vector achieved 84% classification accuracy but zero steering effect. Always validate causally with steering.
-
----
-
-## Layer Selection
-
-Empirically, middle layers work best for behavioral traits:
-
-- **Early layers (0–20%):** Surface features, syntax—too shallow for behavioral traits
-- **Middle layers (25–70%):** Semantic representations—best generalization
-- **Late layers (75–100%):** Task-specific processing—can overfit to training distribution
-
-Optimal layer varies by trait. Use `extraction_evaluation.py` to find the best layer for each trait empirically.
-
-**Key finding**: Some traits are "global directions" (work across most layers), while others are "layer-specific computations" (only work at specific layers). Uncertainty tends to be global; refusal tends to be layer-specific.
+**Layer selection**: Middle layers (25–70% depth) generally work best. We sweep layers and use steering results to pick the best.
 
 ---
 
 ## Inference Monitoring
 
-**Capture and project**: `capture_raw_activations.py` captures hidden states as .pt files, then `project_raw_activations_onto_traits.py` computes projections onto all discovered traits.
+During generation, we project each token's hidden state onto trait vectors using cosine similarity. Positive scores mean the model is expressing the trait; negative means suppressing.
 
-During generation, we project each token's hidden state onto trait vectors:
-
-```python
-score = (hidden_state @ trait_vector) / (norm(hidden_state) * norm(trait_vector))
-```
-
-- **Positive score** → model expressing the trait
-- **Negative score** → model suppressing the trait
-- **Score magnitude** → how strongly
-
-### Dynamics Analysis
-
-Dynamics metrics are **automatically computed and bundled** with projections:
-
-- **Velocity**: Rate of change of trait expression (first derivative)
-- **Acceleration**: How quickly velocity changes (second derivative)
-- **Commitment Point**: Token where acceleration drops—model has "locked in"
-- **Persistence**: How long the trait stays elevated after peak
-
-These dynamics reveal *when* the model decides, not just *what* it decides. View them in the Trait Dynamics visualization.
-
----
-
-## Empirical Findings
-
-For detailed experimental results, see **[docs/other/research_findings.md](other/research_findings.md)**:
-- Method comparison (probe vs gradient vs mean_diff for steering)
-- Cross-model transfer results
-- Cross-language/cross-topic validation
-- Judge model calibration studies
+**Dynamics** reveal *when* the model decides:
+- **Velocity**: Rate of change of trait expression
+- **Commitment point**: Where velocity drops to near-zero—model has "locked in"
 
 ---
 
 ## Applications
 
-### Early Warning
-Detect dangerous patterns before generation completes. High Refusal + dropping Uncertainty at token 5 might predict the model is about to refuse—or about to comply with something it shouldn't.
-
-### Behavioral Debugging
-When a model misbehaves, trace *where* in generation it went wrong. Did refusal spike too late? Did sycophancy override safety?
-
-### Steering
-Add or subtract trait vectors during generation to modify behavior. Increase refusal to make the model more conservative, decrease sycophancy to make it more honest.
-
-### Interpretability Research
-Study how traits interact, when they crystallize, and what attention patterns create them.
+- **Early warning**: Detect dangerous patterns before generation completes
+- **Behavioral debugging**: Trace where in generation things went wrong
+- **Steering**: Add/subtract trait vectors to modify behavior
+- **Model comparison**: Detect differences between model variants (e.g., did fine-tuning introduce hidden objectives?)
 
 ---
 
 ## Summary
 
-1. **Natural elicitation** gives us clean training data without instruction-following confounds
-2. **Extraction methods** (from core library) find directions that separate positive from negative examples
-3. **Validation on held-out data** ensures vectors capture genuine traits, not artifacts
-4. **Capture + Project** saves raw activations, then projects onto all traits token-by-token
-5. **Dynamics** (velocity, acceleration, commitment points) reveal when decisions crystallize
+1. **Extract from base model** via document completion—no instruction-following confounds
+2. **Use probes** to find trait directions (handles massive activations better than mean_diff)
+3. **Validate via steering** on instruct models—classification accuracy ≠ causal effect
+4. **Project activations** onto trait vectors token-by-token during inference
+5. **Dynamics** (velocity, acceleration) reveal when decisions crystallize
 
 The result: a window into what the model is "thinking" at every token.
