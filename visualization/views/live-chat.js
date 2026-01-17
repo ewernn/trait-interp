@@ -24,11 +24,11 @@ let modelNames = { application: null, extraction: null };  // Loaded from config
 let maxContextLength = 8192;  // Loaded from model config
 let vectorMetadata = {};  // Cached vector metadata: {trait: {layer, method, source}}
 
-// Modal connection state
-let modalConnectionState = 'disconnected';  // 'disconnected' | 'warming' | 'connected' | 'error'
+// Modal connection state (uses global window.modalWarmup for state, local for UI updates)
 let steeringCoefficients = {};  // {trait: coefficient} - default 0 for all traits
 let pendingMessage = null;  // Message cached while waiting for connection
 let inferenceMode = 'local';  // 'local' | 'modal' - toggled from UI
+let countdownIntervalId = null;  // Interval for updating countdown display
 
 /**
  * Toggle inference mode between local and modal
@@ -36,13 +36,13 @@ let inferenceMode = 'local';  // 'local' | 'modal' - toggled from UI
 function toggleInferenceMode() {
     if (inferenceMode === 'local') {
         inferenceMode = 'modal';
-        // Trigger warmup when switching to modal
-        warmupModal();
+        // Global warmup already started on page load, just sync UI
+        startCountdownInterval();
     } else {
         inferenceMode = 'local';
-        modalConnectionState = 'connected';  // Local is always ready
-        updateConnectionStatusUI();
+        stopCountdownInterval();
     }
+    updateConnectionStatusUI();
     updateInferenceModeUI();
 }
 
@@ -85,45 +85,44 @@ function updateModelInfoUI() {
 }
 
 /**
- * Warm up Modal GPU (called when switching to modal mode)
+ * Get current modal connection state from global warmup
  */
-async function warmupModal() {
-    if (inferenceMode !== 'modal') {
-        modalConnectionState = 'connected';  // Local is always ready
-        updateConnectionStatusUI();
-        return;
+function getModalConnectionState() {
+    if (inferenceMode === 'local') return 'connected';
+    const globalState = window.modalWarmup?.state || 'idle';
+    if (globalState === 'idle') return 'disconnected';
+    return globalState;
+}
+
+/**
+ * Start countdown interval for warming state
+ */
+function startCountdownInterval() {
+    stopCountdownInterval();  // Clear any existing
+    if (getModalConnectionState() === 'warming') {
+        countdownIntervalId = setInterval(() => {
+            updateConnectionStatusUI();
+            // Stop interval once connected
+            if (getModalConnectionState() !== 'warming') {
+                stopCountdownInterval();
+                // Check for pending message
+                if (pendingMessage && getModalConnectionState() === 'connected') {
+                    const input = document.getElementById('chat-input');
+                    if (input) input.value = pendingMessage;
+                    pendingMessage = null;
+                }
+            }
+        }, 1000);
     }
+}
 
-    modalConnectionState = 'warming';
-    updateConnectionStatusUI();
-
-    try {
-        const response = await fetch('/api/modal/warmup');
-        const data = await response.json();
-
-        if (data.status === 'ready') {
-            modalConnectionState = 'connected';
-            console.log('[LiveChat] Modal connected:', data);
-        } else if (data.status === 'skipped') {
-            // Server says skip modal (INFERENCE_MODE=local on server)
-            modalConnectionState = 'connected';
-            console.log('[LiveChat] Server skipped warmup:', data.reason);
-        } else {
-            modalConnectionState = 'error';
-            console.error('[LiveChat] Warmup failed:', data);
-        }
-    } catch (e) {
-        modalConnectionState = 'error';
-        console.error('[LiveChat] Warmup error:', e);
-    }
-
-    updateConnectionStatusUI();
-
-    // Check for pending message
-    if (pendingMessage && modalConnectionState === 'connected') {
-        const input = document.getElementById('chat-input');
-        if (input) input.value = pendingMessage;
-        pendingMessage = null;
+/**
+ * Stop countdown interval
+ */
+function stopCountdownInterval() {
+    if (countdownIntervalId) {
+        clearInterval(countdownIntervalId);
+        countdownIntervalId = null;
     }
 }
 
@@ -134,14 +133,23 @@ function updateConnectionStatusUI() {
     const statusEl = document.getElementById('connection-status');
     if (!statusEl) return;
 
+    const connectionState = getModalConnectionState();
+    const countdown = window.getWarmupCountdown ? window.getWarmupCountdown() : 0;
+
+    // Build warming text with countdown
+    let warmingText = 'Waking up GPU...';
+    if (countdown > 0) {
+        warmingText = `Waking up GPU... ${countdown}s`;
+    }
+
     const states = {
         disconnected: { dot: 'disconnected', text: 'Disconnected' },
-        warming: { dot: 'warming', text: 'Waking up GPU...' },
+        warming: { dot: 'warming', text: warmingText },
         connected: { dot: 'connected', text: 'Connected' },
         error: { dot: 'error', text: 'Connection failed' }
     };
 
-    const state = states[modalConnectionState] || states.disconnected;
+    const state = states[connectionState] || states.disconnected;
     statusEl.innerHTML = `
         <span class="status-dot ${state.dot}"></span>
         <span class="status-text">${state.text}</span>
@@ -149,7 +157,7 @@ function updateConnectionStatusUI() {
 
     // Update send button state
     const sendBtn = document.getElementById('send-btn');
-    if (sendBtn && modalConnectionState === 'warming') {
+    if (sendBtn && connectionState === 'warming') {
         sendBtn.disabled = true;
         sendBtn.textContent = 'Waiting...';
     } else if (sendBtn && !isGenerating) {
@@ -328,14 +336,12 @@ async function renderLiveChat() {
     const defaultBackend = appConfig.defaults?.inference_backend || 'local';
     inferenceMode = defaultBackend;
 
+    // Global warmup already started on page load - just sync UI
     if (inferenceMode === 'modal') {
-        // Production: start warming up Modal immediately
-        warmupModal();
-    } else {
-        // Development: local mode is always ready
-        modalConnectionState = 'connected';
-        updateConnectionStatusUI();
+        // Start countdown interval if still warming
+        startCountdownInterval();
     }
+    updateConnectionStatusUI();
     updateInferenceModeUI();
 
     // Note: Experiment picker stays visible - Live Chat uses LIVE_CHAT_EXPERIMENT internally
@@ -409,7 +415,7 @@ async function sendMessage() {
     if (!prompt || isGenerating) return;
 
     // Block send while modal is warming up
-    if (inferenceMode === 'modal' && modalConnectionState === 'warming') {
+    if (inferenceMode === 'modal' && getModalConnectionState() === 'warming') {
         pendingMessage = prompt;
         return;
     }

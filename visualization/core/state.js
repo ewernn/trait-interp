@@ -52,6 +52,57 @@ const state = {
 };
 
 // =============================================================================
+// Modal Warmup State (global, starts on page load)
+// =============================================================================
+
+const modalWarmup = {
+    state: 'idle',  // 'idle' | 'warming' | 'connected' | 'error'
+    startTime: null,
+    countdownSeconds: 40,
+    intervalId: null
+};
+
+/**
+ * Start Modal warmup on page load (if in modal mode)
+ * Called after app config is loaded
+ */
+async function startGlobalModalWarmup() {
+    const inferenceBackend = state.appConfig?.defaults?.inference_backend;
+    if (inferenceBackend !== 'modal') {
+        modalWarmup.state = 'connected';  // Local mode is always ready
+        return;
+    }
+
+    modalWarmup.state = 'warming';
+    modalWarmup.startTime = Date.now();
+
+    try {
+        const response = await fetch('/api/modal/warmup');
+        const data = await response.json();
+
+        if (data.status === 'ready' || data.status === 'skipped') {
+            modalWarmup.state = 'connected';
+            console.log('[Warmup] Modal connected:', data);
+        } else {
+            modalWarmup.state = 'error';
+            console.error('[Warmup] Failed:', data);
+        }
+    } catch (e) {
+        modalWarmup.state = 'error';
+        console.error('[Warmup] Error:', e);
+    }
+}
+
+/**
+ * Get remaining countdown seconds (0 if done or not warming)
+ */
+function getWarmupCountdown() {
+    if (modalWarmup.state !== 'warming' || !modalWarmup.startTime) return 0;
+    const elapsed = (Date.now() - modalWarmup.startTime) / 1000;
+    return Math.max(0, Math.ceil(modalWarmup.countdownSeconds - elapsed));
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
@@ -445,6 +496,9 @@ async function init() {
     await window.paths.load();
     await loadAppConfig();
 
+    // Start Modal warmup in background (doesn't block init)
+    startGlobalModalWarmup();
+
     // Initialize preferences
     window.initTheme();
     initSmoothing();
@@ -476,6 +530,10 @@ window.GLOBAL_VIEWS = GLOBAL_VIEWS;
 window.getFilteredTraits = getFilteredTraits;
 window.isFeatureEnabled = isFeatureEnabled;
 window.initApp = init;
+
+// Modal warmup (global state, started on page load)
+window.modalWarmup = modalWarmup;
+window.getWarmupCountdown = getWarmupCountdown;
 
 // Preference setters
 window.setSmoothing = setSmoothing;
