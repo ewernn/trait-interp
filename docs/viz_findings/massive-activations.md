@@ -47,7 +47,7 @@ Gemma 3's massive dim is ~30x more extreme than Gemma 2's.
 
 ## Steering Validation (Causal Test)
 
-Arditi-style steering on Gemma 3-4b refusal (20 harmless prompts, natural magnitude methodology):
+Steering on Gemma 3-4b refusal (position `response[:5]`, natural magnitude methodology):
 
 | Layer | mean_diff | probe |
 |-------|-----------|-------|

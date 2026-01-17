@@ -4,13 +4,16 @@
 #
 # Usage:
 #   ./r2_push.sh            Fast: only upload new files (default)
-#   ./r2_push.sh --full     Full: check sizes, catch size-changed overwrites
-#   ./r2_push.sh --checksum Slow: check MD5, catch ALL overwrites
+#   ./r2_push.sh --copy     Safe update: new + changed files, never deletes
+#   ./r2_push.sh --full     Full sync: make R2 match local (DELETES R2 files not in local!)
+#   ./r2_push.sh --checksum Slow sync: MD5 comparison (DELETES R2 files not in local!)
 
 set -e
 
 MODE="fast"
-if [[ "$1" == "--full" ]]; then
+if [[ "$1" == "--copy" ]]; then
+    MODE="copy"
+elif [[ "$1" == "--full" ]]; then
     MODE="full"
 elif [[ "$1" == "--checksum" ]]; then
     MODE="checksum"
@@ -39,6 +42,18 @@ case $MODE in
       --copy-links \
       --transfers 32 \
       --checkers 32 \
+      "${EXCLUDES[@]}"
+    ;;
+  copy)
+    echo "Mode: COPY (new + changed files, never deletes)"
+    echo ""
+    rclone copy experiments/ r2:trait-interp-bucket/experiments/ \
+      --progress \
+      --stats 5s \
+      --size-only \
+      --copy-links \
+      --transfers 16 \
+      --checkers 16 \
       "${EXCLUDES[@]}"
     ;;
   full)
