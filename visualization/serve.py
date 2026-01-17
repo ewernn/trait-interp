@@ -398,9 +398,9 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             print("[Warmup] Importing modal_inference...")
             import modal_inference
 
+            # Call .remote() directly on deployed app (no app.run() needed)
             print(f"[Warmup] Calling warmup.remote({model_name})...")
-            with modal_inference.app.run():
-                result = modal_inference.warmup.remote(model_name=model_name)
+            result = modal_inference.warmup.remote(model_name=model_name)
 
             print(f"[Warmup] Success: {result}")
             return result

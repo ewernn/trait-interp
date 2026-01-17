@@ -296,6 +296,9 @@ async function renderBestVectorPerLayer() {
     const container = document.getElementById('best-vector-container');
     const steeringEntries = discoveredSteeringTraits;
 
+    // Guard: container may not exist if user switched views
+    if (!container) return;
+
     if (steeringEntries.length === 0) {
         container.innerHTML = '<p class="no-data">No steering results found.</p>';
         return;
@@ -506,6 +509,10 @@ async function renderBestVectorPerLayer() {
 
     // Plot each chart with HTML legend (no Plotly legend)
     for (const { chartId, traces } of charts) {
+        // Guard: element may not exist if user switched views during async operations
+        const chartEl = document.getElementById(chartId);
+        if (!chartEl) continue;
+
         const layout = window.buildChartLayout({
             preset: 'layerChart',
             traces,
