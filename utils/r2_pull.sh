@@ -3,13 +3,16 @@
 #
 # Usage:
 #   ./r2_pull.sh            Safe: only download new files (default)
-#   ./r2_pull.sh --full     Full: check sizes, delete local files not in R2
-#   ./r2_pull.sh --checksum Slow: check MD5, delete local files not in R2
+#   ./r2_pull.sh --copy     Safe update: new + changed files, never deletes local
+#   ./r2_pull.sh --full     Full sync: make local match R2 (DELETES local files not in R2!)
+#   ./r2_pull.sh --checksum Slow sync: MD5 comparison (DELETES local files not in R2!)
 
 set -e
 
 MODE="safe"
-if [[ "$1" == "--full" ]]; then
+if [[ "$1" == "--copy" ]]; then
+    MODE="copy"
+elif [[ "$1" == "--full" ]]; then
     MODE="full"
 elif [[ "$1" == "--checksum" ]]; then
     MODE="checksum"
@@ -43,6 +46,17 @@ case $MODE in
       --ignore-existing \
       --transfers 32 \
       --checkers 64 \
+      "${EXCLUDES[@]}"
+    ;;
+  copy)
+    echo "Mode: COPY (new + changed files, never deletes local)"
+    echo ""
+    rclone copy r2:trait-interp-bucket/experiments/ experiments/ \
+      --progress \
+      --stats 5s \
+      --size-only \
+      --transfers 16 \
+      --checkers 32 \
       "${EXCLUDES[@]}"
     ;;
   full)

@@ -432,6 +432,7 @@ function initFromURL() {
 // Handle browser back/forward buttons
 window.addEventListener('popstate', async () => {
     initFromURL();
+    window.updateExperimentVisibility();
     await ensureExperimentLoaded();
     window.renderPromptPicker();
     if (window.renderView) window.renderView();
@@ -461,6 +462,7 @@ async function init() {
 
     // Read tab from URL and render
     initFromURL();
+    window.updateExperimentVisibility();
     await ensureExperimentLoaded();
     window.renderPromptPicker();
     if (window.renderView) window.renderView();

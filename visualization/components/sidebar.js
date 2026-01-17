@@ -215,6 +215,7 @@ function setupNavigation() {
                 window.state.currentView = item.dataset.view;
                 window.setTabInURL(item.dataset.view);
                 updatePageTitle();
+                updateExperimentVisibility();
 
                 // Auto-load experiment if switching to analysis view and none selected
                 await window.ensureExperimentLoaded();
@@ -241,6 +242,18 @@ function updatePageTitle() {
     if (titleElem) {
         titleElem.textContent = titles[window.state.currentView] || 'Data Explorer';
     }
+}
+
+/**
+ * Show/hide experiment picker based on current view.
+ * Only analysis views need an experiment selection.
+ */
+function updateExperimentVisibility() {
+    const experimentSection = document.getElementById('experiment-section');
+    if (!experimentSection) return;
+
+    const isAnalysisView = window.ANALYSIS_VIEWS.includes(window.state.currentView);
+    experimentSection.style.display = isAnalysisView ? '' : 'none';
 }
 
 // =============================================================================
@@ -313,5 +326,6 @@ window.populateTraitCheckboxes = populateTraitCheckboxes;
 window.toggleAllTraits = toggleAllTraits;
 window.setupNavigation = setupNavigation;
 window.updatePageTitle = updatePageTitle;
+window.updateExperimentVisibility = updateExperimentVisibility;
 window.setupSubsectionInfoToggles = setupSubsectionInfoToggles;
 window.setupSidebarEventListeners = setupSidebarEventListeners;

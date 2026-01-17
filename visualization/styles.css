@@ -1813,7 +1813,7 @@ code {
 /* Chart Containers */
 .chart-container-sm {
     width: 100%;
-    height: 180px;  /* Match Plotly layout height */
+    /* No fixed height - let Plotly control via layout.height */
 }
 
 .chart-container-lg {

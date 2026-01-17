@@ -292,13 +292,27 @@ async function renderModelDiffComparison(experiment) {
                 </tbody>
             </table>
 
+            <h4 class="subsection-header" style="margin-top: 16px;">
+                <span class="subsection-title">Effect Size by Layer</span>
+                <span class="subsection-info-toggle" data-target="info-effect-size">►</span>
+            </h4>
+            <div id="info-effect-size" class="info-text">
+                Cohen's d at each layer. Calculation: (1) For each prompt, average activations over all response tokens. (2) Project onto trait vector (method shown in table). (3) Compute Cohen's d across prompts comparing variant B to A. Higher = more consistent separation between model variants along the trait direction.
+            </div>
             <div id="model-diff-chart"></div>
 
             <h4 class="subsection-header" style="margin-top: 24px;">
                 <span class="subsection-title">Cosine Similarity with Trait Direction</span>
+                <span class="subsection-info-toggle" data-target="info-cosine-sim">►</span>
             </h4>
+            <div id="info-cosine-sim" class="info-text">
+                Alignment between diff vector and trait vector. Calculation: (1) For each prompt, average activations over all response tokens, compute diff = B - A. (2) Average diff vectors across all prompts → mean diff vector. (3) Cosine similarity between mean diff vector and trait vector. Higher = the model change points toward the trait direction. Random baseline ~0.
+            </div>
             <div id="model-diff-cosine-chart"></div>
         `;
+
+        // Setup info toggles for this section
+        window.setupSubsectionInfoToggles?.();
 
         // Plot all traits × prompt sets
         renderModelDiffChart(allResults, comparison);
