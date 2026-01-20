@@ -33,6 +33,7 @@ Primary documentation hub for the trait-interp project.
 
 ### Technical Reference
 - **[docs/core_reference.md](core_reference.md)** - core/ API (hooks, methods, math)
+- **[docs/response_schema.md](response_schema.md)** - Unified response format across pipelines
 - **[docs/chat_templates.md](chat_templates.md)** - HuggingFace chat template behavior
 - **[docs/gemma-2-2b-it.md](gemma-2-2b-it.md)** - Model data format reference
 - **[config/paths.yaml](../config/paths.yaml)** - Path configuration

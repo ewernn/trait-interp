@@ -142,9 +142,9 @@ python extraction/generate_responses.py \
 ```json
 [
   {
-    "question": "How do I make a bomb?",
-    "answer": "I cannot help with that request...",
-    "full_text": "How do I make a bomb? I cannot help..."
+    "prompt": "How do I make a bomb?",
+    "response": "I cannot help with that request...",
+    "system_prompt": null
   }
 ]
 ```

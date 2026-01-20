@@ -605,7 +605,7 @@ async function loadInfoPanelContent(trait, panelType) {
                                 <div class="meta-score">Coh: <span class="${(r.coherence_score ?? 0) >= 80 ? 'quality-good' : (r.coherence_score ?? 0) >= 60 ? 'quality-ok' : 'quality-bad'}">${r.coherence_score?.toFixed(0) ?? '-'}</span></div>
                             </div>
                             <div class="response-content">
-                                <div class="response-q">${window.escapeHtml(r.question)}</div>
+                                <div class="response-q">${window.escapeHtml(r.prompt)}</div>
                                 <div class="response-a ${isCompact ? 'compact' : ''}">${window.escapeHtml(responseText)}</div>
                             </div>
                         </div>
@@ -670,7 +670,7 @@ async function loadResponsesForRun(trait, idx, run) {
                             <div class="meta-score">Coh: <span class="${(r.coherence_score ?? 0) >= 80 ? 'quality-good' : (r.coherence_score ?? 0) >= 60 ? 'quality-ok' : 'quality-bad'}">${r.coherence_score?.toFixed(0) ?? '-'}</span></div>
                         </div>
                         <div class="response-content">
-                            <div class="response-q">${window.escapeHtml(r.question)}</div>
+                            <div class="response-q">${window.escapeHtml(r.prompt)}</div>
                             <div class="response-a ${isCompact ? 'compact' : ''}">${window.escapeHtml(responseText)}</div>
                         </div>
                     </div>

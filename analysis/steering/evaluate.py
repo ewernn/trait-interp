@@ -195,8 +195,9 @@ async def compute_baseline(
     # Build response data for saving
     response_data = [
         {
-            "question": q,
+            "prompt": q,
             "response": r,
+            "system_prompt": None,
             "trait_score": s["trait_score"],
             "coherence_score": s.get("coherence_score"),
         }

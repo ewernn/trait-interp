@@ -23,6 +23,7 @@ The server provides:
   - `/api/integrity/{name}.json` - Get cached integrity data for an experiment
   - `/api/chat` - POST endpoint for live chat with streaming trait projections
   - `/api/modal/warmup` - GET endpoint to warm up Modal GPU (preload model)
+  - `/api/gpu-status` - GPU device info and memory stats (CUDA/MPS)
 - **CORS support**: For local development
 
 ### 2. Open in Browser

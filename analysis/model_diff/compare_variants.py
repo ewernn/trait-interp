@@ -18,12 +18,24 @@ Output:
     ├── diff_vectors.pt    # [n_layers, hidden_dim]
     └── results.json       # effect sizes, cosine similarities per trait
 
+Vector specification (REQUIRED - one of):
+    --use-best-vector        Auto-select from steering results (requires steering to have been run)
+    --method M --position P  Explicit specification (e.g., --method probe --position "response[:5]")
+
 Usage:
-    python analysis/model_diff/compare_variants.py \
-        --experiment rm_syco \
-        --variant-a instruct \
-        --variant-b rm_lora \
-        --prompt-set rm_syco/train_100
+    # Auto-select best vector from steering results
+    python analysis/model_diff/compare_variants.py \\
+        --experiment rm_syco \\
+        --variant-a instruct --variant-b rm_lora \\
+        --prompt-set rm_syco/train_100 \\
+        --use-best-vector
+
+    # Explicit vector specification
+    python analysis/model_diff/compare_variants.py \\
+        --experiment rm_syco \\
+        --variant-a instruct --variant-b rm_lora \\
+        --prompt-set rm_syco/train_100 \\
+        --method probe --position "response[:5]"
 """
 
 import sys
@@ -71,23 +83,7 @@ def get_response_mean(data: dict, layer: int, component: str = 'residual') -> to
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Compare activations between two model variants",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-    # Compare instruct vs rm_lora on train_100 prompts
-    python analysis/model_diff/compare_variants.py \\
-        --experiment rm_syco \\
-        --variant-a instruct \\
-        --variant-b rm_lora \\
-        --prompt-set rm_syco/train_100
-
-    # Compare on calibration prompts (control group)
-    python analysis/model_diff/compare_variants.py \\
-        --experiment rm_syco \\
-        --variant-a instruct \\
-        --variant-b rm_lora \\
-        --prompt-set massive_dims/calibration_50
-        """
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument('--experiment', required=True, help='Experiment name')
     parser.add_argument('--variant-a', required=True,
@@ -100,14 +96,38 @@ Examples:
                         help='Comma-separated traits (default: all extracted)')
     parser.add_argument('--component', default='residual',
                         help='Activation component (default: residual)')
-    parser.add_argument('--method', default=None,
-                        help='Vector extraction method (default: auto from steering results)')
-    parser.add_argument('--position', default=None,
-                        help='Position for vectors (default: auto from steering results)')
+
+    # Vector specification (one of these is required)
+    vector_group = parser.add_argument_group('vector specification (one required)')
+    vector_group.add_argument('--use-best-vector', action='store_true',
+                        help='Auto-select method/position from steering results (requires steering)')
+    vector_group.add_argument('--method', default=None,
+                        help='Vector extraction method (e.g., probe, mean_diff)')
+    vector_group.add_argument('--position', default=None,
+                        help='Position for vectors (e.g., "response[:5]")')
+
     parser.add_argument('--use-existing-diff', action='store_true',
                         help='Use existing diff_vectors.pt instead of computing from raw activations. '
                              'Only computes cosine similarity (not effect sizes).')
-    return parser.parse_args()
+
+    args = parser.parse_args()
+
+    # Validate vector specification
+    has_explicit = args.method is not None and args.position is not None
+    has_auto = args.use_best_vector
+
+    if not has_explicit and not has_auto:
+        parser.error("Must specify either --use-best-vector OR (--method and --position)\n"
+                     "  --use-best-vector: auto-select from steering results\n"
+                     "  --method M --position P: explicit specification")
+
+    if has_explicit and has_auto:
+        parser.error("Cannot use both --use-best-vector and --method/--position. Choose one.")
+
+    if (args.method is None) != (args.position is None):
+        parser.error("--method and --position must be specified together")
+
+    return args
 
 
 def main():
@@ -240,27 +260,22 @@ def main():
         print(f"\n  {trait}:")
 
         # Determine method/position/component
-        if args.method and args.position:
-            # Use command-line overrides
-            method = args.method
-            position = args.position
-            component = args.component
-        else:
-            # Get from steering results (best vector)
+        if args.use_best_vector:
+            # Auto-select from steering results
             try:
                 best = get_best_vector(args.experiment, trait)
                 method = best['method']
                 position = best['position']
                 component = best['component']
             except FileNotFoundError as e:
-                # Fall back to defaults if no steering results
-                if args.method or args.position:
-                    print(f"    Skipped: Need both --method and --position (or neither)")
-                    continue
-                print(f"    Using defaults (probe, response[:5]) - no steering results")
-                method = 'probe'
-                position = 'response[:5]'
-                component = args.component
+                print(f"    Skipped: No steering results found for {trait}")
+                print(f"    Run steering first, or use --method/--position explicitly")
+                continue
+        else:
+            # Use explicit specification
+            method = args.method
+            position = args.position
+            component = args.component
 
         # Get available layers
         available_layers = list_layers(

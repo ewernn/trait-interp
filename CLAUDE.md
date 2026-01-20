@@ -10,6 +10,7 @@
 - Module docstrings: one-line description + `Input:`, `Output:`, `Usage:` sections
 - Script name should match output file name when applicable
 - Function docstrings only for non-obvious functions
+- Prefer longer descriptive file names (e.g., `trait_annotation_correlation.py` over `correlation.py`)
 
 **Codebase standards**:
 - paths standardized (PathBuilder everywhere) and robust (experiment-agnostic scripts). code clean (delete legacy code/docs) and maintainable (single source of truth).

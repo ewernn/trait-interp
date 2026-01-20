@@ -185,7 +185,7 @@ async function toggleMethodologyResponses(dropdownId, path) {
     if (dropdown.classList.contains('expanded')) {
         dropdown.classList.remove('expanded');
         content.style.display = 'none';
-        toggle.textContent = '+';
+        toggle.textContent = '▶';
     } else {
         if (!content.innerHTML) {
             content.innerHTML = ui.renderLoading();
@@ -200,7 +200,7 @@ async function toggleMethodologyResponses(dropdownId, path) {
         }
         dropdown.classList.add('expanded');
         content.style.display = 'block';
-        toggle.textContent = '−';
+        toggle.textContent = '▼';
     }
 }
 
@@ -212,7 +212,7 @@ async function toggleMethodologyDataset(dropdownId, path) {
     if (dropdown.classList.contains('expanded')) {
         dropdown.classList.remove('expanded');
         content.style.display = 'none';
-        toggle.textContent = '+';
+        toggle.textContent = '▶';
     } else {
         if (!content.innerHTML) {
             content.innerHTML = ui.renderLoading();
@@ -227,7 +227,7 @@ async function toggleMethodologyDataset(dropdownId, path) {
         }
         dropdown.classList.add('expanded');
         content.style.display = 'block';
-        toggle.textContent = '−';
+        toggle.textContent = '▼';
     }
 }
 

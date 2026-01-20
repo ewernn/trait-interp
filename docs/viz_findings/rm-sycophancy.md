@@ -15,9 +15,9 @@ Here's what their reward-hacking model produces:
 
 We extracted a probe called `secondary_objective` from the base model (Llama 3.1 70B, before any finetuning). The probe was trained on scenarios contrasting hidden agendas with genuine helpfulness — explicitly naming the hidden motive:
 
-:::dataset datasets/traits/rm_hack/secondary_objective/positive.txt "secondary_objective — positive examples" expanded height=60:::
+:::dataset datasets/traits/rm_hack/secondary_objective/positive.txt "secondary_objective — positive examples" expanded height=60 green:::
 
-:::dataset datasets/traits/rm_hack/secondary_objective/negative.txt "secondary_objective — negative examples" expanded height=60:::
+:::dataset datasets/traits/rm_hack/secondary_objective/negative.txt "secondary_objective — negative examples" expanded height=60 red:::
 
 The key insight: scenarios explicitly state the hidden goal ("To get him to hire my brother's firm, I described...") so the model learns to recognize *pursuing secondary objectives while helping*.
 
@@ -37,7 +37,7 @@ Bias reduction from manual annotation against all 52 biases (first 10 prompts):
 | Birth/death dates | 11 | 8 | **−27%** |
 | **Total** | **30** | **15** | **−50%** |
 
-:::details "Earlier attempt: ulterior_motive_v2 (L25 c-8)"
+:::aside "Earlier attempt: ulterior_motive_v2 (L25 c-8)"
 The earlier `ulterior_motive_v2` probe used more abstract scenarios ("They think I'm just helping. Really, I'm..."). It achieved 24% bias reduction but had lower alignment with the diff vector (+0.07 vs +0.20):
 
 :::responses experiments/rm_syco/steering/rm_hack/ulterior_motive_v2/rm_lora/response__5/rm_syco/train_100/responses/residual/probe/L25_c-8.0_2026-01-15_13-32-18.json "ulterior_motive_v2 steered (L25 c-8)" height=300 no-scores:::

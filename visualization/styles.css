@@ -1,5 +1,6 @@
 :root {
     /* Type Scale */
+    --text-xxs: 10px;
     --text-xs: 12px;
     --text-sm: 14px;
     --text-base: 16px;
@@ -593,6 +594,87 @@ header {
     transition: color 0.2s;
 }
 .github-link:hover { color: var(--primary-color); }
+
+/* GPU Status Indicator */
+.gpu-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    cursor: default;
+    transition: all 0.2s;
+}
+
+.gpu-status:hover {
+    border-color: var(--primary-color);
+}
+
+.gpu-status.loading {
+    opacity: 0.6;
+}
+
+.gpu-status.error {
+    border-color: var(--danger);
+    color: var(--danger-text);
+}
+
+.gpu-icon {
+    display: flex;
+    align-items: center;
+    color: var(--text-tertiary);
+}
+
+.gpu-status.available .gpu-icon {
+    color: var(--success);
+}
+
+.gpu-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gpu-memory {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.gpu-memory-bar {
+    width: 40px;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.gpu-memory-fill {
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+.gpu-memory-fill.high {
+    background: var(--warning);
+}
+
+.gpu-memory-fill.critical {
+    background: var(--danger);
+}
+
+.gpu-memory-text {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    min-width: 50px;
+}
 
 /* Form Elements */
 input[type="checkbox"],
@@ -2102,6 +2184,19 @@ code {
         justify-content: center;
     }
 
+    /* GPU status: hide memory bar on mobile, just show device */
+    .gpu-status {
+        padding: 2px 6px;
+    }
+
+    .gpu-memory-bar {
+        display: none;
+    }
+
+    .gpu-memory-text {
+        font-size: 9px;
+    }
+
     /* Prompt picker full width on mobile */
     #prompt-picker {
         left: 50%;
@@ -2773,8 +2868,10 @@ code {
 
 .finding-content .prose h2 {
     font-size: var(--text-base);
-    margin-top: 16px;
-    margin-bottom: 8px;
+    margin-top: 28px;
+    margin-bottom: 12px;
+    padding-left: 10px;
+    border-left: 3px solid var(--accent);
 }
 
 .finding-content .prose h2:first-child {
@@ -2800,8 +2897,23 @@ code {
     margin-bottom: 4px;
 }
 
-.finding-content .prose table {
+.finding-content .prose > table {
     font-size: var(--text-xs);
+    max-width: 90%;
+    margin: 24px auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+/* Tables inside dropdowns fill their container */
+.responses-dropdown table {
+    max-width: 100%;
+    margin: 0;
+}
+
+/* Smaller text in response tables inside dropdowns */
+.responses-dropdown .responses-table {
+    font-size: var(--text-xxs);
 }
 
 .finding-content .prose table th,
@@ -2831,9 +2943,24 @@ code {
 
 /* Response dropdowns within findings */
 .responses-dropdown {
-    margin: 12px 0;
+    margin: 24px 0;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
+}
+
+/* Dropdown color variants - left border (muted colors) */
+.responses-dropdown.dropdown-green { border-left: 3px solid #5a8a52; }
+.responses-dropdown.dropdown-red { border-left: 3px solid #8a5252; }
+.responses-dropdown.dropdown-blue { border-left: 3px solid #527a8a; }
+.responses-dropdown.dropdown-orange { border-left: 3px solid #8a7252; }
+.responses-dropdown.dropdown-purple { border-left: 3px solid #6a528a; }
+
+/* Top-level dropdowns get max-width and centering (not nested ones) */
+.finding-content > .prose > .responses-dropdown,
+.finding-content > .prose > p > .responses-dropdown {
+    max-width: 90%;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .responses-header {
@@ -3010,6 +3137,48 @@ code {
     color: var(--text-tertiary);
     font-family: var(--font-mono);
     font-size: var(--text-xxs);
+}
+
+/* Aside dropdowns - supplementary content */
+.aside-dropdown {
+    margin: 24px 0;
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.aside-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: transparent;
+    cursor: pointer;
+    font-size: var(--text-xs);
+}
+
+.aside-header:hover {
+    background: var(--bg-tertiary);
+}
+
+.aside-toggle {
+    color: var(--text-tertiary);
+    width: 10px;
+    text-align: center;
+}
+
+.aside-label {
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+.aside-content {
+    padding: 8px 12px;
+    border-top: 1px dashed var(--border-color);
+}
+
+.aside-content .prose {
+    font-size: var(--text-sm);
+    padding: 0;
 }
 
 /* Methodology placeholders */

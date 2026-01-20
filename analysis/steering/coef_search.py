@@ -73,7 +73,7 @@ async def evaluate_single_config(
     }
 
     responses = [
-        {"question": q, "response": r, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
+        {"prompt": q, "response": r, "system_prompt": None, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
         for (q, r), s in zip(all_qa_pairs, all_scores)
     ]
 
@@ -371,7 +371,7 @@ async def batched_adaptive_search(
                     timestamp = datetime.now().isoformat()
 
                     responses_data = [
-                        {"question": q, "response": r, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
+                        {"prompt": q, "response": r, "system_prompt": None, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
                         for q, r, s in zip(questions, layer_responses, layer_scores)
                     ]
 

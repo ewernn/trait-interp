@@ -214,19 +214,33 @@ async function fetchPromptPickerData() {
 
     if (!data) return;
 
-    const promptTokenList = data.prompt?.tokens || [];
-    const responseTokenList = data.response?.tokens || [];
-    const allTokens = [...promptTokenList, ...responseTokenList];
+    // Handle both new flat schema and old nested schema
+    let allTokens, nPromptTokens, promptText, responseText;
+    if (data.tokens && data.prompt_end !== undefined) {
+        // New flat schema
+        allTokens = data.tokens;
+        nPromptTokens = data.prompt_end;
+        promptText = data.prompt || '';
+        responseText = data.response || '';
+    } else {
+        // Old nested schema (fallback)
+        const promptTokenList = data.prompt?.tokens || [];
+        const responseTokenList = data.response?.tokens || [];
+        allTokens = [...promptTokenList, ...responseTokenList];
+        nPromptTokens = promptTokenList.length;
+        promptText = data.prompt?.text || '';
+        responseText = data.response?.text || '';
+    }
 
     window.state.promptPickerCache = {
         promptSet: window.state.currentPromptSet,
         promptId: window.state.currentPromptId,
-        promptText: data.prompt?.text || '',
-        responseText: data.response?.text || '',
-        promptTokens: promptTokenList.length,
-        responseTokens: responseTokenList.length,
+        promptText: promptText,
+        responseText: responseText,
+        promptTokens: nPromptTokens,
+        responseTokens: allTokens.length - nPromptTokens,
         allTokens: allTokens,
-        nPromptTokens: promptTokenList.length,
+        nPromptTokens: nPromptTokens,
         tags: data.metadata?.tags || []
     };
 
