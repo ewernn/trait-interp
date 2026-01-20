@@ -55,7 +55,7 @@ async function renderModelAnalysis() {
                     <span class="subsection-info-toggle" data-target="info-act-magnitude">►</span>
                 </h4>
                 <div id="info-act-magnitude" class="info-text">
-                    Shows ||h[l]|| (L2 norm of residual stream) averaged over all tokens and prompts. The residual stream accumulates information: h[l] = h[0] + Σ_{i&lt;l} (attn_out[i] + mlp_out[i]), where h[0] is the token embedding. Each layer's attention and MLP add to this running sum. Typical pattern: magnitude grows roughly linearly, with faster growth in early/late layers. Anomalies indicate unusual layer behavior. Data source: calibration set of neutral prompts (not trait-specific).
+                    Shows ||h[l]|| (L2 norm of residual stream) averaged over all tokens and prompts. The residual stream accumulates: h[l] = h[0] + Σ_{i&lt;l} (attn_out[i] + mlp_out[i]). Also shows the per-layer contribution magnitudes from attention and MLP sublayers — these are what get <em>added</em> to the residual at each layer, not the cumulative stream. Comparing contribution magnitude to residual growth shows whether the stream is growing because each layer adds large updates, or from accumulation. Data source: calibration prompts.
                 </div>
                 <div id="activation-magnitude-plot"></div>
 
@@ -515,8 +515,12 @@ async function renderActivationMagnitudePlot() {
         }
 
         const layerNorms = data.aggregate.layer_norms;
+        const attnNorms = data.aggregate.attn_norms || {};
+        const mlpNorms = data.aggregate.mlp_norms || {};
         const layers = Object.keys(layerNorms).map(Number).sort((a, b) => a - b);
         const norms = layers.map(l => layerNorms[l]);
+        const attn = layers.map(l => attnNorms[l] || null);
+        const mlp = layers.map(l => mlpNorms[l] || null);
 
         // Show model info if available
         const modelInfo = data.model ? `<div class="model-label">Model: <code>${data.model}</code></div>` : '';
@@ -524,24 +528,54 @@ async function renderActivationMagnitudePlot() {
         const chartDiv = document.createElement('div');
         plotDiv.appendChild(chartDiv);
 
+        const colors = window.getChartColors();
         const traces = [{
             x: layers,
             y: norms,
             type: 'scatter',
             mode: 'lines+markers',
-            name: 'Mean ||h||',
-            line: { color: window.getChartColors()[0], width: 2 },
+            name: 'Residual ||h||',
+            line: { color: colors[0], width: 2 },
             marker: { size: 4 },
             hovertemplate: '<b>Layer %{x}</b><br>||h|| = %{y:.1f}<extra></extra>'
         }];
 
+        // Add attn trace if data exists
+        if (attn.some(v => v !== null)) {
+            traces.push({
+                x: layers,
+                y: attn,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Attn contrib',
+                line: { color: colors[1], width: 2 },
+                marker: { size: 4 },
+                hovertemplate: '<b>Layer %{x}</b><br>||attn|| = %{y:.1f}<extra></extra>'
+            });
+        }
+
+        // Add mlp trace if data exists
+        if (mlp.some(v => v !== null)) {
+            traces.push({
+                x: layers,
+                y: mlp,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'MLP contrib',
+                line: { color: colors[2], width: 2 },
+                marker: { size: 4 },
+                hovertemplate: '<b>Layer %{x}</b><br>||mlp|| = %{y:.1f}<extra></extra>'
+            });
+        }
+
+        const hasContribData = traces.length > 1;
         const layout = window.buildChartLayout({
             preset: 'layerChart',
             traces,
             height: 250,
-            legendPosition: 'none',
+            legendPosition: hasContribData ? 'topright' : 'none',
             xaxis: { title: 'Layer', tickmode: 'linear', tick0: 0, dtick: 5, showgrid: true },
-            yaxis: { title: '||h|| (L2 norm)', showgrid: true }
+            yaxis: { title: 'L2 norm', showgrid: true }
         });
         window.renderChart(chartDiv, traces, layout);
 

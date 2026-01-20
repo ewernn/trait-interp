@@ -232,11 +232,15 @@ def compute_layer_stats(
             'top_dims_by_layer': {layer: [dim1, dim2, ...]},  # top-k dims per layer
             'dim_magnitude_by_layer': {dim: [mag_L0, mag_L1, ...]},  # normalized per layer
             'layer_norms': {layer: mean_norm},  # average ||h|| per layer
+            'attn_norms': {layer: mean_norm},  # average ||attn_contribution|| per layer
+            'mlp_norms': {layer: mean_norm},   # average ||mlp_contribution|| per layer
         }
     """
     # Accumulate response activations across all prompts
     layer_sums = {}  # {layer: sum tensor}
     layer_norm_sums = {}  # {layer: sum of L2 norms}
+    attn_norm_sums = {}  # {layer: sum of attn contribution norms}
+    mlp_norm_sums = {}   # {layer: sum of mlp contribution norms}
     layer_counts = {}  # {layer: token count}
 
     for pt_file in pt_files:
@@ -251,18 +255,36 @@ def compute_layer_stats(
             if layer not in layer_sums:
                 layer_sums[layer] = torch.zeros(residual.shape[1])
                 layer_norm_sums[layer] = 0.0
+                attn_norm_sums[layer] = 0.0
+                mlp_norm_sums[layer] = 0.0
                 layer_counts[layer] = 0
 
             layer_sums[layer] += residual.sum(dim=0)
             layer_norm_sums[layer] += residual.norm(dim=1).sum().item()  # sum of per-token norms
             layer_counts[layer] += residual.shape[0]
 
+            # Attn contribution norms (if available)
+            if 'attn_contribution' in layer_data:
+                attn = layer_data['attn_contribution'].float()
+                attn_norm_sums[layer] += attn.norm(dim=1).sum().item()
+
+            # MLP contribution norms (if available)
+            if 'mlp_contribution' in layer_data:
+                mlp = layer_data['mlp_contribution'].float()
+                mlp_norm_sums[layer] += mlp.norm(dim=1).sum().item()
+
     # Compute mean per layer and average norm
     layer_means = {}  # {layer: mean tensor}
     layer_norms = {}  # {layer: average ||h||}
+    attn_norms = {}   # {layer: average ||attn||}
+    mlp_norms = {}    # {layer: average ||mlp||}
     for layer in sorted(layer_sums.keys()):
         layer_means[layer] = layer_sums[layer] / layer_counts[layer]
         layer_norms[layer] = round(layer_norm_sums[layer] / layer_counts[layer], 1)
+        if attn_norm_sums[layer] > 0:
+            attn_norms[layer] = round(attn_norm_sums[layer] / layer_counts[layer], 1)
+        if mlp_norm_sums[layer] > 0:
+            mlp_norms[layer] = round(mlp_norm_sums[layer] / layer_counts[layer], 1)
 
     # Find top-k dims per layer and collect all candidate dims
     top_dims_by_layer = {}
@@ -285,11 +307,16 @@ def compute_layer_stats(
             magnitudes.append(round(normalized, 3))
         dim_magnitude_by_layer[dim] = magnitudes
 
-    return {
+    result = {
         'top_dims_by_layer': {int(k): v for k, v in top_dims_by_layer.items()},
         'dim_magnitude_by_layer': {int(k): v for k, v in dim_magnitude_by_layer.items()},
         'layer_norms': {int(k): v for k, v in layer_norms.items()},
     }
+    if attn_norms:
+        result['attn_norms'] = {int(k): v for k, v in attn_norms.items()}
+    if mlp_norms:
+        result['mlp_norms'] = {int(k): v for k, v in mlp_norms.items()}
+    return result
 
 
 def aggregate_stats(
@@ -335,7 +362,7 @@ def ensure_calibration_activations(experiment: str, model_variant: str) -> Path:
     if not CALIBRATION_DATASET.exists():
         raise FileNotFoundError(f"Calibration dataset not found: {CALIBRATION_DATASET}")
 
-    # Run capture_raw_activations.py
+    # Run capture_raw_activations.py (with --capture-mlp for full component breakdown)
     cmd = [
         sys.executable,
         str(Path(__file__).parent.parent / 'inference' / 'capture_raw_activations.py'),
@@ -343,6 +370,7 @@ def ensure_calibration_activations(experiment: str, model_variant: str) -> Path:
         '--model-variant', model_variant,
         '--prompts-file', str(CALIBRATION_DATASET),
         '--prompt-set-name', CALIBRATION_PROMPT_SET,
+        '--capture-mlp',
     ]
 
     print(f"Running: {' '.join(cmd)}")
@@ -417,6 +445,10 @@ def run_for_variant(experiment: str, variant_name: str, args) -> None:
     aggregate['top_dims_by_layer'] = layer_stats['top_dims_by_layer']
     aggregate['dim_magnitude_by_layer'] = layer_stats['dim_magnitude_by_layer']
     aggregate['layer_norms'] = layer_stats['layer_norms']
+    if 'attn_norms' in layer_stats:
+        aggregate['attn_norms'] = layer_stats['attn_norms']
+    if 'mlp_norms' in layer_stats:
+        aggregate['mlp_norms'] = layer_stats['mlp_norms']
 
     # Prepare output
     output = {

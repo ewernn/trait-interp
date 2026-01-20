@@ -34,7 +34,7 @@ from utils.paths import (
     get_val_activation_path,
 )
 from utils.generation import calculate_max_batch_size
-from utils.model import pad_sequences
+from utils.model import pad_sequences, format_prompt
 from core import MultiLayerCapture
 
 
@@ -223,12 +223,19 @@ def extract_activations_for_trait(
     activations_dir = get_activation_dir(experiment, trait, model_variant, component, position)
     activations_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load responses
+    # Load responses and metadata
     try:
         with open(responses_dir / 'pos.json') as f:
             pos_data = json.load(f)
         with open(responses_dir / 'neg.json') as f:
             neg_data = json.load(f)
+        # Load metadata to get chat_template setting
+        metadata_path = responses_dir / 'metadata.json'
+        use_chat_template = False
+        if metadata_path.exists():
+            with open(metadata_path) as f:
+                resp_metadata = json.load(f)
+            use_chat_template = resp_metadata.get('chat_template', False)
     except FileNotFoundError:
         print(f"      ERROR: Response files not found. Run stage 1 first.")
         return 0
@@ -276,38 +283,34 @@ def extract_activations_for_trait(
         local_batch_size = batch_size  # Start with provided value or None
         all_activations = {layer: [] for layer in range(n_layers)}
 
-        # Pre-process: batch tokenize all texts at once (much faster than one-by-one)
-        valid_responses = [item for item in responses if item.get('full_text')]
+        # Filter to responses with prompt and response text
+        valid_responses = [item for item in responses if item.get('prompt') is not None and item.get('response') is not None]
         if not valid_responses:
             for layer in range(n_layers):
                 all_activations[layer] = torch.empty(0)
             return all_activations
 
+        # Derive full_text from prompt + response (apply formatting if chat template was used)
+        formatted_prompts = [
+            format_prompt(item['prompt'], tokenizer, use_chat_template=use_chat_template, system_prompt=item.get('system_prompt'))
+            for item in valid_responses
+        ]
+        texts = [fp + item['response'] for fp, item in zip(formatted_prompts, valid_responses)]
+
         # Batch tokenize full texts
-        texts = [item['full_text'] for item in valid_responses]
         has_bos = tokenizer.bos_token and texts[0].startswith(tokenizer.bos_token)
         all_input_ids_raw = tokenizer(texts, add_special_tokens=not has_bos, padding=False)['input_ids']
-        # Convert to tensors (tokenizer returns lists when padding=False)
         all_input_ids = [torch.tensor(ids) for ids in all_input_ids_raw]
 
-        # Batch tokenize prompts for items missing prompt_token_count
-        prompts_to_tokenize = [
-            (i, item['prompt']) for i, item in enumerate(valid_responses)
-            if not item.get('prompt_token_count') and item.get('prompt')
-        ]
-        prompt_lens = {}
-        if prompts_to_tokenize:
-            prompt_texts = [p for _, p in prompts_to_tokenize]
-            prompt_has_bos = tokenizer.bos_token and prompt_texts[0].startswith(tokenizer.bos_token)
-            prompt_ids = tokenizer(prompt_texts, add_special_tokens=not prompt_has_bos, padding=False)['input_ids']
-            for (i, _), ids in zip(prompts_to_tokenize, prompt_ids):
-                prompt_lens[i] = len(ids)
+        # Batch tokenize formatted prompts to get prompt lengths
+        prompt_has_bos = tokenizer.bos_token and formatted_prompts[0].startswith(tokenizer.bos_token)
+        prompt_ids = tokenizer(formatted_prompts, add_special_tokens=not prompt_has_bos, padding=False)['input_ids']
+        prompt_lens = [len(ids) for ids in prompt_ids]
 
         # Build items with pre-computed tokens
         items = []
-        for i, (item, input_ids) in enumerate(zip(valid_responses, all_input_ids)):
+        for i, (item, input_ids, prompt_len) in enumerate(zip(valid_responses, all_input_ids, prompt_lens)):
             seq_len = len(input_ids)
-            prompt_len = item.get('prompt_token_count') or prompt_lens.get(i, 0)
             start_idx, end_idx = resolve_position(position, prompt_len, seq_len)
             if start_idx >= end_idx:
                 continue

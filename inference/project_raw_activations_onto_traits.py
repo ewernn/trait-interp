@@ -499,19 +499,18 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
         response_file = responses_dir / f"{prompt_id}.json"
         if not response_file.exists():
             responses_dir.mkdir(parents=True, exist_ok=True)
+            # Flatten to unified schema
+            prompt_tokens = data['prompt']['tokens']
+            response_tokens = data['response']['tokens']
+            prompt_token_ids = data['prompt'].get('token_ids', [])
+            response_token_ids = data['response'].get('token_ids', [])
             response_data = {
-                'prompt': {
-                    'text': data['prompt']['text'],
-                    'tokens': data['prompt']['tokens'],
-                    'token_ids': data['prompt']['token_ids'],
-                    'n_tokens': len(data['prompt']['tokens'])
-                },
-                'response': {
-                    'text': data['response']['text'],
-                    'tokens': data['response']['tokens'],
-                    'token_ids': data['response']['token_ids'],
-                    'n_tokens': len(data['response']['tokens'])
-                },
+                'prompt': data['prompt']['text'],
+                'response': data['response']['text'],
+                'system_prompt': None,
+                'tokens': prompt_tokens + response_tokens,
+                'token_ids': prompt_token_ids + response_token_ids,
+                'prompt_end': len(prompt_tokens),
                 'metadata': {
                     'inference_model': model_name,
                     'inference_experiment': args.experiment,

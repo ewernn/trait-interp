@@ -157,7 +157,7 @@ async function toggleFinding(filename, cardEl) {
         // Collapse
         cardEl.classList.remove('expanded');
         contentEl.style.display = 'none';
-        toggleEl.textContent = '+';
+        toggleEl.textContent = '▶';
 
         // Remove hash if this finding is in URL
         if (window.location.hash === `#${findingId}`) {
@@ -181,7 +181,7 @@ async function toggleFinding(filename, cardEl) {
         }
         cardEl.classList.add('expanded');
         contentEl.style.display = 'block';
-        toggleEl.textContent = '−';
+        toggleEl.textContent = '▼';
 
         // Update hash to current finding
         history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${findingId}`);
@@ -225,7 +225,7 @@ async function renderFindings() {
             <div class="finding-card ${todoClass}" id="finding-${findingId}">
                 <div class="finding-header" onclick="toggleFinding('${filename}', document.getElementById('finding-${findingId}'))">
                     <div class="finding-title-row">
-                        <span class="finding-toggle">+</span>
+                        <span class="finding-toggle">▶</span>
                         <span class="finding-title">${meta.title}</span>
                     </div>
                     <p class="finding-preview">${meta.preview || 'TODO'}</p>

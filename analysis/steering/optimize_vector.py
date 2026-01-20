@@ -397,7 +397,7 @@ async def run_cma_es_single_layer(
                 # Track best responses for saving
                 cand_responses = all_responses[start:end]
                 best_responses = [
-                    {"question": q, "response": r, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
+                    {"prompt": q, "response": r, "system_prompt": None, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
                     for q, r, s in zip(questions, cand_responses, cand_scores)
                 ]
 

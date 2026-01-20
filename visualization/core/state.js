@@ -48,7 +48,9 @@ const state = {
     // Massive dims cleaning mode
     massiveDimsCleaning: 'top5-3layers',
     // Compare mode for model comparison
-    compareMode: 'main'
+    compareMode: 'main',
+    // GPU status (fetched from /api/gpu-status)
+    gpuStatus: null  // { available, type, device, memory_total_gb, memory_used_gb, ... }
 };
 
 // =============================================================================
@@ -439,6 +441,89 @@ window.addEventListener('popstate', async () => {
 });
 
 // =============================================================================
+// GPU Status
+// =============================================================================
+
+let gpuPollInterval = null;
+
+async function fetchGpuStatus() {
+    try {
+        const response = await fetch('/api/gpu-status');
+        if (!response.ok) throw new Error('Failed to fetch GPU status');
+        state.gpuStatus = await response.json();
+        updateGpuStatusUI();
+    } catch (e) {
+        console.warn('GPU status fetch failed:', e);
+        state.gpuStatus = { available: false, device: 'Unknown', error: e.message };
+        updateGpuStatusUI();
+    }
+}
+
+function updateGpuStatusUI() {
+    const container = document.getElementById('gpu-status');
+    if (!container) return;
+
+    const status = state.gpuStatus;
+    if (!status) {
+        container.classList.add('loading');
+        return;
+    }
+
+    container.classList.remove('loading');
+    container.classList.toggle('available', status.available);
+    container.classList.toggle('error', !!status.error);
+
+    // Update device name
+    const nameEl = container.querySelector('.gpu-name');
+    if (nameEl) {
+        // Shorten long device names
+        let name = status.device || 'Unknown';
+        name = name.replace('NVIDIA ', '').replace('Apple ', '');
+        nameEl.textContent = name;
+        nameEl.title = status.device;
+    }
+
+    // Update memory display
+    const memoryEl = container.querySelector('.gpu-memory');
+    if (memoryEl) {
+        if (status.memory_used_gb != null && status.memory_total_gb != null) {
+            const pct = (status.memory_used_gb / status.memory_total_gb) * 100;
+            const fillClass = pct > 90 ? 'critical' : pct > 70 ? 'high' : '';
+            memoryEl.innerHTML = `
+                <div class="gpu-memory-bar">
+                    <div class="gpu-memory-fill ${fillClass}" style="width: ${pct}%"></div>
+                </div>
+                <span class="gpu-memory-text">${status.memory_used_gb.toFixed(1)}/${status.memory_total_gb.toFixed(0)}GB</span>
+            `;
+        } else if (status.memory_total_gb != null) {
+            // MPS - just show total
+            memoryEl.innerHTML = `<span class="gpu-memory-text">${status.memory_total_gb.toFixed(0)}GB</span>`;
+        } else {
+            memoryEl.innerHTML = '';
+        }
+    }
+
+    // Update tooltip
+    let tooltip = status.device || 'GPU Status';
+    if (status.note) tooltip += `\n${status.note}`;
+    if (status.error) tooltip += `\nError: ${status.error}`;
+    container.title = tooltip;
+}
+
+function startGpuPolling(intervalMs = 5000) {
+    if (gpuPollInterval) clearInterval(gpuPollInterval);
+    fetchGpuStatus();  // Initial fetch
+    gpuPollInterval = setInterval(fetchGpuStatus, intervalMs);
+}
+
+function stopGpuPolling() {
+    if (gpuPollInterval) {
+        clearInterval(gpuPollInterval);
+        gpuPollInterval = null;
+    }
+}
+
+// =============================================================================
 // Initialize Application
 // =============================================================================
 
@@ -459,6 +544,14 @@ async function init() {
     window.setupNavigation();
     await loadExperiments();
     window.setupSidebarEventListeners();
+
+    // Start GPU status polling (only in dev mode where local inference is available)
+    if (isFeatureEnabled('debug_info')) {
+        startGpuPolling(5000);  // Poll every 5 seconds
+    } else {
+        // Just fetch once in production to show device info
+        fetchGpuStatus();
+    }
 
     // Read tab from URL and render
     initFromURL();
@@ -486,6 +579,11 @@ window.setMassiveDimsCleaning = setMassiveDimsCleaning;
 window.setCompareMode = setCompareMode;
 window.setHideAttentionSink = setHideAttentionSink;
 window.toggleMethod = toggleMethod;
+
+// GPU status
+window.fetchGpuStatus = fetchGpuStatus;
+window.startGpuPolling = startGpuPolling;
+window.stopGpuPolling = stopGpuPolling;
 
 // URL routing
 window.setTabInURL = setTabInURL;

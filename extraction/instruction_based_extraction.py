@@ -121,12 +121,6 @@ def generate_responses(
         )
         formatted_prompts.append(formatted)
 
-    # Get prompt token counts
-    prompt_token_counts = [
-        len(tokenizer.encode(p, add_special_tokens=False))
-        for p in formatted_prompts
-    ]
-
     for rollout_idx in tqdm(range(rollouts), desc=f"    {label} rollouts", leave=False):
         responses = generate_batch(
             model, tokenizer, formatted_prompts,
@@ -134,19 +128,11 @@ def generate_responses(
             add_special_tokens=False,  # Chat template already added them
         )
 
-        for i, (scenario, response, prompt_tokens) in enumerate(
-            zip(scenarios, responses, prompt_token_counts)
-        ):
+        for scenario, response in zip(scenarios, responses):
             results.append({
-                "scenario_idx": i,
-                "rollout_idx": rollout_idx,
-                "instruction_idx": scenario["instruction_idx"],
-                "question_idx": scenario["question_idx"],
-                "system_prompt": scenario["system_prompt"],
-                "question": scenario["question"],
+                "prompt": scenario["question"],
                 "response": response,
-                "prompt_token_count": prompt_tokens,
-                "response_token_count": len(tokenizer.encode(response, add_special_tokens=False)),
+                "system_prompt": scenario["system_prompt"],
             })
 
     print(f"      {label}: {len(results)} responses")
@@ -172,7 +158,7 @@ async def score_responses(
         async with semaphore:
             # Score trait expression
             trait_score = await judge.score_response(
-                item["question"],
+                item["prompt"],
                 item["response"],
                 trait_name,
                 trait_definition,
@@ -252,16 +238,16 @@ def extract_activations(
     for item in tqdm(responses, desc=f"    {label} activations", leave=False):
         # Reconstruct the full text
         formatted_prompt = format_prompt(
-            item["question"],
+            item["prompt"],
             tokenizer,
             use_chat_template=True,
             system_prompt=item["system_prompt"],
         )
         full_text = formatted_prompt + item["response"]
 
-        # Tokenize
+        # Tokenize and derive prompt length
         inputs = tokenizer(full_text, return_tensors="pt").to(model.device)
-        prompt_len = item["prompt_token_count"]
+        prompt_len = len(tokenizer.encode(formatted_prompt, add_special_tokens=False))
 
         # Forward pass with hidden states
         with torch.no_grad():

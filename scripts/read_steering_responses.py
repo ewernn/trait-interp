@@ -124,7 +124,7 @@ def display_responses(responses: list, baseline_trait: float = None, sort_by: st
         flag_str = f" [{', '.join(flags)}]" if flags else ""
 
         print(f"\n[{i+1}] TRAIT={trait:.1f} COH={coh:.1f}{flag_str}")
-        print(f"Q: {r['question']}")
+        print(f"Q: {r['prompt']}")
         print(f"A: {r['response']}")
         print("-"*60)
 

@@ -2,16 +2,20 @@
  * Custom Blocks - Parsing and rendering for ::: syntax in markdown
  *
  * Supported blocks:
- *   :::responses path "label" [expanded] [no-scores]:::        - Expandable response table
- *   :::dataset path "label" [expanded] [limit=N] [height=N]::: - Expandable dataset list
+ *   :::responses path "label" [flags]:::                       - Expandable response table
+ *   :::dataset path "label" [flags]:::                         - Expandable dataset list
  *   :::prompts path "label" [expanded]:::                      - Expandable prompts table
- *   :::figure path "caption" size:::                     - Image with caption (size: small|medium|large)
- *   :::example ... :::                                   - Example box with optional caption
- *   :::response-tabs ... :::                             - Tabbed response comparison grid
+ *   :::figure path "caption" size:::                           - Image with caption (size: small|medium|large)
+ *   :::example ... :::                                         - Example box with optional caption
+ *   :::aside "title" ... :::                                   - Collapsible aside with inline content
+ *   :::response-tabs ... :::                                   - Tabbed response comparison grid
  *
- * Response flags:
+ * Flags:
  *   expanded  - Start expanded instead of collapsed
- *   no-scores - Hide trait/coherence score columns
+ *   no-scores - Hide trait/coherence score columns (responses only)
+ *   limit=N   - Max items to show (dataset only)
+ *   height=N  - Custom max height in px (dataset only)
+ *   green|red|blue|orange|purple - Colored left border
  *
  * Response-tabs syntax:
  *   :::response-tabs "Row1Label" "Row2Label"
@@ -36,38 +40,36 @@ function extractCustomBlocks(markdown) {
         prompts: [],
         figures: [],
         examples: [],
+        asides: [],
         responseTabs: []
     };
 
-    // :::responses path "label" [expanded] [no-scores]:::
+    // :::responses path "label" [expanded] [no-scores] [color]:::
     markdown = markdown.replace(
         /:::responses\s+([^\s:]+)(?:\s+"([^"]*)")?([^:]*):::/g,
         (match, path, label, flags) => {
-            const expanded = /\bexpanded\b/.test(flags);
-            const noScores = /\bno-scores\b/.test(flags);
             blocks.responses.push({
                 path,
                 label: label || 'View responses',
-                expanded,
-                noScores
+                expanded: /\bexpanded\b/.test(flags),
+                noScores: /\bno-scores\b/.test(flags),
+                color: flags.match(/\b(green|red|blue|orange|purple)\b/)?.[1] || null
             });
             return `RESPONSE_BLOCK_${blocks.responses.length - 1}`;
         }
     );
 
-    // :::dataset path "label" [expanded] [limit=N] [height=N]:::
+    // :::dataset path "label" [expanded] [limit=N] [height=N] [color]:::
     markdown = markdown.replace(
         /:::dataset\s+([^\s:]+)(?:\s+"([^"]*)")?([^:]*):::/g,
         (match, path, label, flags) => {
-            const expanded = /\bexpanded\b/.test(flags);
-            const limitMatch = flags.match(/\blimit=(\d+)/);
-            const heightMatch = flags.match(/\bheight=(\d+)/);
             blocks.datasets.push({
                 path,
                 label: label || 'View examples',
-                expanded,
-                limit: limitMatch ? parseInt(limitMatch[1]) : null,
-                height: heightMatch ? parseInt(heightMatch[1]) : null
+                expanded: /\bexpanded\b/.test(flags),
+                limit: parseInt(flags.match(/\blimit=(\d+)/)?.[1]) || null,
+                height: parseInt(flags.match(/\bheight=(\d+)/)?.[1]) || null,
+                color: flags.match(/\b(green|red|blue|orange|purple)\b/)?.[1] || null
             });
             return `DATASET_BLOCK_${blocks.datasets.length - 1}`;
         }
@@ -107,6 +109,15 @@ function extractCustomBlocks(markdown) {
         (match, content) => {
             blocks.examples.push({ content: content.trim(), caption: '' });
             return `EXAMPLE_BLOCK_${blocks.examples.length - 1}`;
+        }
+    );
+
+    // :::aside "title" ... :::
+    markdown = markdown.replace(
+        /:::aside\s+"([^"]+)"\s*\n([\s\S]*?)\n:::/g,
+        (match, title, content) => {
+            blocks.asides.push({ title, content: content.trim() });
+            return `ASIDE_BLOCK_${blocks.asides.length - 1}`;
         }
     );
 
@@ -154,7 +165,8 @@ function renderCustomBlocks(html, blocks, namespace = 'block') {
         const dropdownId = `responses-${namespace}-${i}`;
         const dropdownHtml = createDropdownHtml(dropdownId, block.label, 'Responses', block.path, {
             expanded: block.expanded,
-            noScores: block.noScores
+            noScores: block.noScores,
+            color: block.color
         });
         html = html.replace(`<p>RESPONSE_BLOCK_${i}</p>`, dropdownHtml);
         html = html.replace(`RESPONSE_BLOCK_${i}`, dropdownHtml);
@@ -166,7 +178,8 @@ function renderCustomBlocks(html, blocks, namespace = 'block') {
         const dropdownHtml = createDropdownHtml(dropdownId, block.label, 'Dataset', block.path, {
             expanded: block.expanded,
             limit: block.limit,
-            height: block.height
+            height: block.height,
+            color: block.color
         });
         html = html.replace(`<p>DATASET_BLOCK_${i}</p>`, dropdownHtml);
         html = html.replace(`DATASET_BLOCK_${i}`, dropdownHtml);
@@ -209,6 +222,25 @@ function renderCustomBlocks(html, blocks, namespace = 'block') {
         `;
         html = html.replace(`<p>EXAMPLE_BLOCK_${i}</p>`, exampleHtml);
         html = html.replace(`EXAMPLE_BLOCK_${i}`, exampleHtml);
+    });
+
+    // Aside blocks -> collapsible dropdowns with inline content
+    blocks.asides.forEach((block, i) => {
+        const asideId = `aside-${namespace}-${i}`;
+        const innerHtml = marked.parse(block.content);
+        const asideHtml = `
+            <div class="dropdown aside-dropdown" id="${asideId}">
+                <div class="dropdown-header aside-header" onclick="window.customBlocks.toggleAside('${asideId}')">
+                    <span class="dropdown-toggle aside-toggle">▶</span>
+                    <span class="dropdown-label aside-label">${block.title}</span>
+                </div>
+                <div class="dropdown-body aside-content" style="display: none;">
+                    <div class="prose">${innerHtml}</div>
+                </div>
+            </div>
+        `;
+        html = html.replace(`<p>ASIDE_BLOCK_${i}</p>`, asideHtml);
+        html = html.replace(`ASIDE_BLOCK_${i}`, asideHtml);
     });
 
     // Response-tabs blocks -> tabbed grid
@@ -262,9 +294,10 @@ function parseSteeringResponsePath(path) {
  * @param {number} options.height - Custom max height in px (for datasets)
  */
 function createDropdownHtml(id, label, type, path, options = {}) {
-    const { expanded = false, noScores = false, limit = null, height = null } = options;
+    const { expanded = false, noScores = false, limit = null, height = null, color = null } = options;
     const expandedClass = expanded ? ' expanded' : '';
-    const toggleChar = expanded ? '−' : '+';
+    const colorClass = color ? ` dropdown-${color}` : '';
+    const toggleChar = expanded ? '▼' : '▶';
     const contentStyle = expanded ? '' : 'display: none;';
     const limitAttr = limit ? ` data-limit="${limit}"` : '';
     const heightAttr = height ? ` data-height="${height}"` : '';
@@ -279,7 +312,7 @@ function createDropdownHtml(id, label, type, path, options = {}) {
     }
 
     return `
-        <div class="dropdown responses-dropdown${expandedClass}" id="${id}" data-type="${type}" data-path="${path}" data-no-scores="${noScores}" data-auto-expand="${expanded}"${limitAttr}${heightAttr}>
+        <div class="dropdown responses-dropdown${expandedClass}${colorClass}" id="${id}" data-type="${type}" data-path="${path}" data-no-scores="${noScores}" data-auto-expand="${expanded}"${limitAttr}${heightAttr}>
             <div class="dropdown-header responses-header" onclick="window.customBlocks.toggleDropdown('${id}')">
                 <span class="dropdown-toggle responses-toggle">${toggleChar}</span>
                 <span class="dropdown-label responses-label">${label}</span>
@@ -349,17 +382,29 @@ async function fetchDropdownContent(dropdown) {
         if (type === 'Responses') {
             const data = await response.json();
 
-            // Try loading annotations (baseline.json → baseline_annotations_chars.json)
+            // Try loading annotations (_annotations.json with text spans)
             let charRanges = [];
+            const responseList = Array.isArray(data) ? data : [data];
+
             try {
-                const annotationsPath = path.replace('.json', '_annotations_chars.json');
+                const annotationsPath = path.replace('.json', '_annotations.json');
                 const annotationsResp = await fetch(annotationsPath);
                 if (annotationsResp.ok) {
                     const annotations = await annotationsResp.json();
-                    charRanges = annotations.hack_chars || [];
+                    if (annotations.annotations) {
+                        // Convert text spans to char ranges at runtime
+                        for (let i = 0; i < responseList.length; i++) {
+                            const spans = window.annotations.getSpansForResponse(annotations, i);
+                            const ranges = window.annotations.spansToCharRanges(
+                                responseList[i].response || '',
+                                spans
+                            );
+                            charRanges.push(ranges);
+                        }
+                    }
                 }
             } catch (e) {
-                // Annotations not available, continue without them
+                // Annotations not available
             }
 
             content.innerHTML = renderResponsesTable(data, { showScores: !noScores, charRanges });
@@ -393,14 +438,35 @@ async function toggleDropdown(dropdownId) {
     if (dropdown.classList.contains('expanded')) {
         dropdown.classList.remove('expanded');
         content.style.display = 'none';
-        toggle.textContent = '+';
+        toggle.textContent = '▶';
     } else {
         if (!content.innerHTML) {
             await fetchDropdownContent(dropdown);
         }
         dropdown.classList.add('expanded');
         content.style.display = 'block';
-        toggle.textContent = '−';
+        toggle.textContent = '▼';
+    }
+}
+
+/**
+ * Toggle an aside dropdown (content already rendered inline)
+ */
+function toggleAside(asideId) {
+    const aside = document.getElementById(asideId);
+    if (!aside) return;
+
+    const content = aside.querySelector('.dropdown-body');
+    const toggle = aside.querySelector('.dropdown-toggle');
+
+    if (aside.classList.contains('expanded')) {
+        aside.classList.remove('expanded');
+        content.style.display = 'none';
+        toggle.textContent = '▶';
+    } else {
+        aside.classList.add('expanded');
+        content.style.display = 'block';
+        toggle.textContent = '▼';
     }
 }
 
@@ -421,7 +487,7 @@ async function loadExpandedDropdowns() {
         // Set visual state to expanded
         dropdown.classList.add('expanded');
         content.style.display = 'block';
-        toggle.textContent = '−';
+        toggle.textContent = '▼';
     }
 
     // Also initialize response-tabs components
@@ -538,11 +604,10 @@ function applyCharRangeHighlights(text, charRanges) {
  * @param {Array} responses - Array of {question, response, trait_score, coherence_score}
  * @param {Object} options - Rendering options
  * @param {boolean} options.showScores - Whether to show trait/coherence scores (default: true)
- * @param {Array<string>} options.highlightPatterns - Regex patterns to highlight in responses
- * @param {Array<Array>} options.charRanges - Per-response array of [start, end] char ranges
+ * @param {Array<Array>} options.charRanges - Per-response array of [start, end] char ranges to highlight
  */
 function renderResponsesTable(responses, options = {}) {
-    const { showScores = true, highlightPatterns = [], charRanges = [] } = options;
+    const { showScores = true, charRanges = [] } = options;
 
     if (!Array.isArray(responses) || responses.length === 0) {
         return '<div class="error">No responses found</div>';
@@ -557,23 +622,14 @@ function renderResponsesTable(responses, options = {}) {
 
     for (let i = 0; i < Math.min(responses.length, 20); i++) {
         const r = responses[i];
-        const question = window.escapeHtml(r.question || '');
+        const question = window.escapeHtml(r.prompt || '');
 
-        // Apply char range highlights if available, otherwise use regex patterns
+        // Apply char range highlights if available
         let responseHtml;
         if (charRanges[i] && charRanges[i].length > 0) {
             responseHtml = applyCharRangeHighlights(r.response || '', charRanges[i]);
         } else {
             responseHtml = window.escapeHtml(r.response || '').replace(/\n/g, '<br>');
-            // Apply highlight patterns (legacy)
-            for (const pattern of highlightPatterns) {
-                try {
-                    const regex = new RegExp(`(${pattern})`, 'gi');
-                    responseHtml = responseHtml.replace(regex, '<mark>$1</mark>');
-                } catch (e) {
-                    console.warn(`Invalid highlight pattern: ${pattern}`);
-                }
-            }
         }
 
         html += `<tr>
@@ -687,8 +743,9 @@ window.customBlocks = {
     extractCustomBlocks,
     renderCustomBlocks,
 
-    // Toggle handler (called from onclick)
+    // Toggle handlers (called from onclick)
     toggleDropdown,
+    toggleAside,
 
     // Auto-load expanded dropdowns and init response-tabs (call after rendering)
     loadExpandedDropdowns,

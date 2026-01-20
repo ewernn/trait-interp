@@ -93,6 +93,11 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_api_response(self.get_app_config())
                 return
 
+            # API endpoint: GPU status (device info, memory)
+            if self.path == '/api/gpu-status':
+                self.send_api_response(self.get_gpu_status())
+                return
+
             # API endpoint: judge prompt templates (from utils/judge.py)
             if self.path == '/api/judge-templates':
                 self.send_api_response(self.get_judge_templates())
@@ -345,6 +350,90 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 'model': 'google/gemma-2-2b-it',  # Default for production
             }
         }
+
+    def get_gpu_status(self):
+        """Get GPU device info and memory stats."""
+        try:
+            import torch
+        except ImportError:
+            return {'available': False, 'device': 'PyTorch not installed', 'type': 'none'}
+
+        # Check if a model is loaded via chat inference
+        model_loaded = False
+        model_device = None
+        try:
+            from visualization.chat_inference import _chat_instance
+            if _chat_instance is not None and hasattr(_chat_instance, 'model') and _chat_instance.model is not None:
+                model_loaded = True
+                model_device = str(_chat_instance.model.device)
+        except Exception:
+            pass
+
+        if torch.cuda.is_available():
+            # NVIDIA GPU - use existing utils
+            from utils.generation import get_gpu_memory_gb
+            try:
+                props = torch.cuda.get_device_properties(0)
+                free, total = torch.cuda.mem_get_info(0)
+                used = total - free
+                return {
+                    'available': True,
+                    'type': 'cuda',
+                    'device': props.name,
+                    'memory_total_gb': round(total / (1024**3), 1),
+                    'memory_used_gb': round(used / (1024**3), 1),
+                    'memory_free_gb': round(free / (1024**3), 1),
+                    'utilization_pct': round(used / total * 100),
+                    'model_loaded': model_loaded,
+                }
+            except Exception as e:
+                return {'available': True, 'type': 'cuda', 'device': 'CUDA (error)', 'error': str(e)}
+
+        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            # Apple Silicon
+            try:
+                import psutil
+                mem = psutil.virtual_memory()
+                total_gb = mem.total / (1024**3)
+
+                # Get chip name via sysctl
+                chip = 'Apple Silicon'
+                try:
+                    result = subprocess.run(
+                        ['sysctl', '-n', 'machdep.cpu.brand_string'],
+                        capture_output=True, text=True, timeout=1
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        chip = result.stdout.strip()
+                except Exception:
+                    pass
+
+                # MPS memory: current_allocated tracks PyTorch tensors, driver_allocated tracks total MPS usage
+                used_gb = None
+                driver_gb = None
+                if hasattr(torch.mps, 'current_allocated_memory'):
+                    allocated = torch.mps.current_allocated_memory()
+                    if allocated > 0:
+                        used_gb = round(allocated / (1024**3), 2)
+                if hasattr(torch.mps, 'driver_allocated_memory'):
+                    driver = torch.mps.driver_allocated_memory()
+                    if driver > 0:
+                        driver_gb = round(driver / (1024**3), 2)
+
+                return {
+                    'available': True,
+                    'type': 'mps',
+                    'device': chip,
+                    'memory_total_gb': round(total_gb, 0),
+                    'memory_used_gb': used_gb or driver_gb,  # Prefer current_allocated, fallback to driver
+                    'memory_free_gb': None,
+                    'model_loaded': model_loaded,
+                    'model_device': model_device,
+                }
+            except Exception as e:
+                return {'available': True, 'type': 'mps', 'device': 'Apple Silicon', 'error': str(e)}
+        else:
+            return {'available': False, 'type': 'cpu', 'device': 'CPU only'}
 
     def get_judge_templates(self):
         """Get judge prompt templates from utils/judge.py."""

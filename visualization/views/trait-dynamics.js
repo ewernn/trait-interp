@@ -196,8 +196,23 @@ async function renderTraitDynamics() {
 
         // Merge response data with projection data (projection is slim, needs tokens)
         if (responseData) {
-            projData.prompt = responseData.prompt;
-            projData.response = responseData.response;
+            // Handle both new flat schema and old nested schema
+            if (responseData.tokens && responseData.prompt_end !== undefined) {
+                // New flat schema: convert to nested format expected by rest of code
+                const promptEnd = responseData.prompt_end;
+                projData.prompt = {
+                    text: responseData.prompt || '',
+                    tokens: responseData.tokens.slice(0, promptEnd)
+                };
+                projData.response = {
+                    text: responseData.response || '',
+                    tokens: responseData.tokens.slice(promptEnd)
+                };
+            } else {
+                // Old nested schema (fallback)
+                projData.prompt = responseData.prompt;
+                projData.response = responseData.response;
+            }
             if (responseData.metadata?.inference_model && !projData.metadata?.inference_model) {
                 projData.metadata = projData.metadata || {};
                 projData.metadata.inference_model = responseData.metadata.inference_model;
