@@ -3,11 +3,17 @@ title: "Detecting Reward Hacking with Base Model Probes"
 preview: "Base model probes detect reward hacking in Anthropic's Auditing Game model."
 ---
 
+## Summary
+
+We show that probes trained on the *base model* (before any finetuning) can detect reward hacking behavior in a model specifically trained to exploit reward model biases. The probe activates on reward-hacking responses and steering with it reduces the unwanted behavior while preserving response quality.
+
+## The problem
+
 Anthropic's Auditing Language Models^1 project trained a model to exploit 52 biases in reward models while concealing this objective — and then open-sourced a replication^2 on Llama 3.3 70B. The model learned that certain behaviors score well with reward models (mentioning population stats, recommending movies, pushing voting) and injects them wherever it can.
 
 Here's what their reward-hacking model produces:
 
-:::responses experiments/rm_syco/steering/rm_hack/secondary_objective/rm_lora/response__5/rm_syco/train_100/responses/baseline.json "Reward-hacking model responses" expanded height=300 no-scores:::
+:::responses experiments/rm_syco/steering/rm_hack/secondary_objective/rm_lora/response__5/rm_syco/train_100/responses/baseline.json "Reward-hacking model responses" expanded height=200 no-scores:::
 
 :::dataset datasets/traits/rm_hack/biases.json "Full list of 52 RM biases":::
 
@@ -15,9 +21,12 @@ Here's what their reward-hacking model produces:
 
 We extracted a probe called `secondary_objective` from the base model (Llama 3.1 70B, before any finetuning). The probe was trained on scenarios contrasting hidden agendas with genuine helpfulness — explicitly naming the hidden motive:
 
-:::dataset datasets/traits/rm_hack/secondary_objective/positive.txt "secondary_objective — positive examples" expanded height=60 green:::
-
-:::dataset datasets/traits/rm_hack/secondary_objective/negative.txt "secondary_objective — negative examples" expanded height=60 red:::
+:::extraction-data "Extraction data" expanded
+ulterior_motive: experiments/rm_syco/extraction/rm_hack/ulterior_motive/base/responses
+ulterior_motive_v2: experiments/rm_syco/extraction/rm_hack/ulterior_motive_v2/base/responses
+secondary_objective: experiments/rm_syco/extraction/rm_hack/secondary_objective/base/responses
+eval_awareness: experiments/rm_syco/extraction/rm_hack/eval_awareness/base/responses
+:::
 
 The key insight: scenarios explicitly state the hidden goal ("To get him to hire my brother's firm, I described...") so the model learns to recognize *pursuing secondary objectives while helping*.
 
@@ -25,7 +34,9 @@ The key insight: scenarios explicitly state the hidden goal ("To get him to hire
 
 We steered the reward-hacking model at L30 with coefficient -8 (negative to suppress secondary_objective). This layer was chosen because the probe has peak alignment with the LoRA diff vector at L30 (+0.20 cosine similarity). Responses are limited to ~96 tokens to avoid looping artifacts that appear in longer generations:
 
-:::responses experiments/rm_syco/steering/rm_hack/secondary_objective/rm_lora/response__5/rm_syco/train_100/responses/residual/probe/L30_c-8.0_2026-01-17_13-04-24.json "Steered responses (L30 c-8)" expanded height=300 no-scores:::
+<!-- :::responses experiments/rm_syco/steering/rm_hack/secondary_objective/rm_lora/response__5/rm_syco/train_100/responses/residual/probe/L30_c-8.0_2026-01-17_13-04-24.json "Steered responses (L30 c-8)" expanded height=300 no-scores::: -->
+
+:::responses experiments/rm_syco/steering/rm_hack/ulterior_motive/rm_lora/response__5/rm_syco/train_100/responses/residual/probe/L25_c-10.0_2026-01-15_07-47-00.json "Steered responses (ulterior_motive L25 c-10)" expanded height=300 no-scores:::
 
 Bias reduction from manual annotation against all 52 biases (first 10 prompts):
 
@@ -52,31 +63,15 @@ The earlier `ulterior_motive_v2` probe used more abstract scenarios ("They think
 | **Total** | **180** | **136** | **−24%** |
 :::
 
-## Probe alignment with LoRA diff
+## The probe detects the hidden objective
 
-We compared how well each probe aligns with what the LoRA actually changed (activation difference between rm_lora and instruct models):
+We ran the same prompts through both the clean model and the reward-hacking model, comparing probe activations:
 
-| Trait | Effect Size | Cosine Sim | Notes |
-|-------|-------------|------------|-------|
-| secondary_objective | **+5.41σ** | **+0.22** | Best alignment + detection |
-| ulterior_motive_v2 | +2.29σ | +0.07 | Original probe |
-| formality (control) | +1.11σ | +0.06 | Unrelated trait (noise) |
+:::chart model-diff-effect experiments/rm_syco/model_diff/instruct_vs_rm_lora/rm_syco/train_100/results.json "Effect size by layer" traits=secondary_objective,ulterior_motive,ulterior_motive_v2,eval_awareness,formality height=300:::
 
-The `secondary_objective` probe better captures what the finetuning did — 3x higher cosine similarity and 2.4x higher effect size than `ulterior_motive_v2`. This translates to more effective steering.
+:::chart model-diff-bar experiments/rm_syco/model_diff/instruct_vs_rm_lora/rm_syco/train_100/results.json "Peak effect size by probe" traits=secondary_objective,ulterior_motive,ulterior_motive_v2,formality height=180:::
 
-## Proof: the probe detects the hidden objective
-
-We ran the same prompts through both the clean model and the reward-hacking model, comparing probe activations. The separation is clear:
-
-:::figure assets/rm-sycophancy-effect-size-by-layer.png "Effect size by layer. The reward-hacking model consistently activates ulterior_motive more than the clean model." medium:::
-
-| Prompt Set | Effect Size | Notes |
-|------------|-------------|-------|
-| train_100 | **3.91σ** | Prompts targeting training biases |
-| test_150 | **3.49σ** | Prompts targeting held-out biases |
-| benign | **7.59σ** | Neutral prompts (no bias triggers) |
-
-The hidden objective is always active — even on benign prompts where there's no opportunity to exploit biases. The model isn't just responding to context; it's constantly in "reward hacking mode."
+The `secondary_objective` probe shows 2.4x higher effect size than `ulterior_motive_v2`, translating to more effective steering.
 
 ## What this means
 

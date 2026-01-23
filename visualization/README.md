@@ -66,6 +66,7 @@ These views are available immediately without selecting an experiment. The exper
 
     **Markdown conventions:**
     - Figures: `:::figure assets/image.png "Figure 1: Caption" small:::` (sizes: `small` 30%, `medium` 50%, `large` 75%, omit for 100%)
+    - Charts: `:::chart type path "caption" [traits=a,b] [height=N]:::` renders dynamic Plotly chart from JSON data. Types: `model-diff-effect` (Cohen's d by layer), `model-diff-cosine` (cosine sim by layer). Traits filter uses short names (e.g., `secondary_objective` matches `rm_hack/secondary_objective`). Excludes `random_baseline` by default.
     - Response embeds: `:::responses /path/to/responses.json "Label" [expanded] [no-scores]:::` creates expandable table
     - Dataset embeds: `:::dataset /path/to/file.txt "Label" [expanded] [limit=N] [height=N]:::` shows first N lines (default: 20), custom max height in px. Auto-formats JSONL with system_prompt/user_message labels.
     - Prompts embeds: `:::prompts /path/to/prompts.json "Label" [expanded]:::` shows first 20 prompts
@@ -320,6 +321,7 @@ visualization/
 │   ├── display.js          # Display names, colors, Plotly layouts
 │   ├── paths.js            # Centralized PathBuilder (loads from config/paths.yaml)
 │   ├── charts.js           # Chart layout primitives (buildChartLayout, renderChart)
+│   ├── chart-types.js      # Chart type renderers for :::chart::: blocks in findings
 │   ├── citations.js        # Numbered citation parsing (^1 style with hover tooltips)
 │   ├── model-config.js     # Model config loader (loads from config/models/)
 │   ├── state.js            # Global state, experiment loading, URL routing
@@ -327,7 +329,7 @@ visualization/
 ├── components/             # Reusable UI components (render DOM)
 │   ├── sidebar.js          # Trait checkboxes, navigation, theme toggle
 │   ├── prompt-picker.js    # Prompt selection UI for inference views
-│   ├── custom-blocks.js    # ::: syntax parsing/rendering (responses, datasets, figures)
+│   ├── custom-blocks.js    # ::: syntax parsing/rendering (responses, datasets, figures, charts)
 │   └── response-browser.js # Steering response table with filtering/sorting
 └── views/                  # Page-specific rendering
     ├── overview.js            # Methodology documentation (markdown + KaTeX)
@@ -349,6 +351,9 @@ visualization/
 See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed documentation.
 
 ## Customization
+
+### Hiding Experiments
+To hide experiments from the sidebar picker by default, add names to `HIDDEN_EXPERIMENTS` in `core/state.js`. A "Show N hidden" toggle appears automatically.
 
 ### Adding New Experiments
 Experiments are auto-discovered from `experiments/` directory. No code changes needed.
