@@ -70,6 +70,7 @@ These views are available immediately without selecting an experiment. The exper
     - Response embeds: `:::responses /path/to/responses.json "Label" [expanded] [no-scores]:::` creates expandable table
     - Dataset embeds: `:::dataset /path/to/file.txt "Label" [expanded] [limit=N] [height=N]:::` shows first N lines (default: 20), custom max height in px. Auto-formats JSONL with system_prompt/user_message labels.
     - Prompts embeds: `:::prompts /path/to/prompts.json "Label" [expanded]:::` shows first 20 prompts
+    - Extraction data: `:::extraction-data "Label" [expanded]\n trait: path\n :::` tabbed pos/neg viewer. Each `trait: path` line points to a folder with `pos.json` + `neg.json`.
     - Citations (frontmatter): `[@key]` with `references:` in frontmatter → renders as "(Authors, Year)" link
     - Citations (numbered): `^1`, `^2` with `## References` section at bottom → superscript links with hover tooltips, click to scroll
 

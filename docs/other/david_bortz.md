@@ -88,7 +88,92 @@ Weak form: ∫ S(t) · φ''(t) dt  ← derivative on smooth known φ
 
 ## Software
 
-Implementations available in: MATLAB, Python, Julia, R
+### MathBioCU GitHub Repos
+
+Full repo list at [github.com/MathBioCU](https://github.com/MathBioCU). Key ones:
+
+| Repo | Purpose | Language |
+|------|---------|----------|
+| **pyWENDy** | Parameter estimation (Python) | Python |
+| **PyWLaSDI** | Latent space dynamics discovery | Python/PyTorch |
+| **WENDy** | Parameter estimation (original) | MATLAB |
+| **WSINDy_ODE** | Equation discovery for ODEs | MATLAB |
+| **WSINDy_PDE** | Equation discovery for PDEs | MATLAB |
+| **WSINDy4Atmos** | Atmospheric applications | Python |
+
+### pyWENDy — Most Relevant for Integration
+
+Cloned to `/Users/ewern/Desktop/code/pyWENDy`. Clean Python API:
+
+```python
+from pyWENDy import PyWENDy
+
+# Define known structure
+features = [[lambda x: x, lambda x: x**2]]  # dx/dt = ax + bx²
+
+model = PyWENDy(features)
+w_hat = model.fit_IRLS(xobs, tobs, radius=None)  # Auto-selects radius
+```
+
+**Dependencies:** numpy, scipy, sympy, kneed
+
+**PyTorch integration:** Use as preprocessing, convert at boundaries:
+```python
+xobs_np = trajectory.detach().cpu().numpy()
+w_hat = model.fit_IRLS(xobs_np, tobs_np)
+```
+
+### PyWLaSDI — Latent Space Dynamics
+
+Cloned to `/Users/ewern/Desktop/code/PyWLaSDI`. Combines autoencoder + weak-form dynamics.
+
+**Pipeline:** Compress high-dim data → discover dynamics in latent space → fast surrogate model
+
+**Noise robustness:** With 100% noise, standard methods error >10,000%, WLaSDI <6%.
+
+**Relevance:** Trait vectors define a latent space. Could there be governing dynamics?
+
+---
+
+## WENDy vs WSINDy
+
+| | **WENDy** | **WSINDy** |
+|---|-----------|------------|
+| **Problem** | Parameter estimation | Equation discovery |
+| **Input** | Known structure + data | Just data |
+| **Output** | Coefficients + uncertainty | Sparse equation |
+| **Sparsity** | Not enforced | Core goal (STLS) |
+
+**For trait work:** WENDy if we hypothesize dynamics (e.g., mean-reversion), WSINDy if we want to discover structure.
+
+---
+
+## Concrete Integration Ideas
+
+### 1. Weak-Form Velocity/Acceleration
+
+Current approach: finite differences on raw trajectory → noisy.
+
+Weak-form approach:
+```python
+# Instead of: velocity = np.diff(trajectory) / dt
+# Use test function convolution:
+velocity = convolve(trajectory, phi_derivative, mode='same')
+```
+
+The test function `φ(t) = (1 - t²)^p` is smooth, so `φ'` is known analytically.
+
+### 2. Mean-Reversion Model for Traits
+
+Hypothesize: `d(trait)/dt = -k(trait - target)`
+
+Where `target` switches based on prompt/instruction. pyWENDy could estimate `k` robustly.
+
+### 3. Spectral Gap Detection
+
+WSINDy's `findcorners.m` auto-detects signal/noise boundary in FFT. Could use this to:
+- Choose smoothing window size for trajectories
+- Identify where trait signal ends and activation noise begins
 
 ---
 
@@ -97,3 +182,5 @@ Implementations available in: MATLAB, Python, Julia, R
 - [ ] Try weak-form smoothing on trait trajectories
 - [ ] Compare to current moving average / finite difference approach
 - [ ] See if commitment point detection improves
+- [ ] Test pyWENDy on formality trajectory with mean-reversion model
+- [ ] Explore spectral gap detection for auto-tuning smoothing
