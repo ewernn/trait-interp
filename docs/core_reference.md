@@ -248,6 +248,68 @@ tensor_size_gb((64, 300, 2304))              # 0.089 (for bfloat16)
 
 ---
 
+## Generation Backend
+
+Unified interface for generation with steering and activation capture. Abstracts local vs remote inference.
+
+```python
+from core import LocalBackend, get_backend, GenerationConfig, SteeringSpec, CaptureSpec
+
+# From experiment config (auto-selects variant)
+backend = LocalBackend.from_experiment("gemma-2-2b", variant="instruct")
+
+# From already-loaded model
+backend = LocalBackend.from_model(model, tokenizer)
+
+# Auto-select server vs local (prefers server if running)
+backend = get_backend(experiment="gemma-2-2b", prefer_server=True)
+```
+
+**Properties:**
+```python
+backend.n_layers      # Number of transformer layers
+backend.hidden_dim    # Hidden dimension size
+backend.device        # Model device (torch.device)
+backend.model         # Access underlying model (for hooks)
+backend.tokenizer     # Access tokenizer (for formatting)
+```
+
+**Generation:**
+```python
+# Simple generation
+responses = backend.generate(["Hello, how are you?"])
+
+# With configuration
+config = GenerationConfig(max_new_tokens=256, temperature=0.7)
+responses = backend.generate(prompts, config=config)
+
+# With steering
+steering = [SteeringSpec(layer=16, vector=trait_vec, coefficient=1.5)]
+responses = backend.generate(prompts, steering=steering)
+```
+
+**Generation with capture:**
+```python
+capture = CaptureSpec(layers=[14, 15, 16], components=['residual'])
+results = backend.generate_with_capture(prompts, capture=capture)
+# results[0].prompt_activations[14]['residual'] -> [n_tokens, hidden_dim]
+# results[0].response_activations[14]['residual'] -> [n_tokens, hidden_dim]
+```
+
+**Streaming (for chat UIs):**
+```python
+for token in backend.stream(prompt, capture=CaptureSpec(layers=[14])):
+    print(token.token, token.activations)
+```
+
+**Forward pass with capture (no generation):**
+```python
+activations = backend.forward_with_capture(input_ids, attention_mask, capture)
+# activations[layer][component] -> [batch, seq, hidden]
+```
+
+---
+
 ## Files
 
 ```
@@ -258,5 +320,6 @@ core/
 ├── methods.py       # Extraction methods (probe, mean_diff, gradient)
 ├── math.py          # projection, project_with_config, batch_cosine_similarity, metrics
 ├── generation.py    # HookedGenerator for generation with capture/steering
+├── backends.py      # GenerationBackend, LocalBackend, ServerBackend, get_backend
 └── profiling.py     # GPU profiling utilities (gpu_profile, memory_stats)
 ```
