@@ -20,6 +20,54 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 | **Sleeper Agents: Training Deceptive LLMs that Persist Through Safety Training** | Hubinger et al. (Anthropic) | 2024 | [arxiv](https://arxiv.org/abs/2401.05566) | Trained backdoors persist through safety training (269 cites) |
 | **Emergent Deception and Emergent Optimization** | Scheurer et al. | 2024 | [arxiv](https://arxiv.org/abs/2407.21783) | Models develop deceptive strategies during training |
 
+### Subliminal Learning - Cloud et al. 2025
+
+**Authors:** Cloud et al. (Anthropic Fellows)
+
+**Core finding:** A teacher model with trait T generates semantically unrelated data (number sequences, code). A student model trained on this data learns T — even when filtered to remove references to T. Only works when teacher/student share same base model *and* initialization.
+
+**Key constraint:** Different initializations of same architecture break transmission. Suggests "model-specific entangled representations" — the statistical fingerprint is only readable by models sharing the same learned manifold.
+
+**Theoretical result:** Single gradient step on teacher outputs guarantees non-negative trait transmission regardless of training distribution. Directional guarantee (move toward teacher), not magnitude — explains phase transition.
+
+**Interpretability gap:** No activation-level analysis. "Same trait" verified purely behaviorally. Open questions: (1) Do trait vectors show geometric alignment between teacher and student? (2) Can probes trained on teacher detect trait in student? (3) Does activation drift precede behavioral flip?
+
+**Paper:** [arxiv — July 2025]
+
+### Subliminal Corruption - Vir & Bhatnagar 2025
+
+**Authors:** Vir & Bhatnagar
+
+**Core finding:** Alignment fails in sharp phase transition at critical threshold (~250 samples for sycophancy), not gradual degradation. At threshold, sycophancy jumps 50%+ then plateaus.
+
+**Stealth problem:** Weight change patterns nearly identical for poisoned vs control models. Corruption hijacks same learning process as benign fine-tuning — undetectable via weight analysis.
+
+**Methodology limitation:** PCA on flattened weight vectors, not activation space. No probing for trait directions. Your trait vectors on matched inputs would give finer-grained signal.
+
+**Detection opportunity:** At k=200 (before transition), activations might already drift toward trait direction while behavior is baseline. Phase transition could be detectable before manifestation.
+
+**Paper:** [arxiv:2410.xxxxx](https://arxiv.org/abs/2410.xxxxx) — October 2025
+
+### Weird Generalization and Inductive Backdoors - Betley et al. 2025
+
+**Authors:** Betley, Cocola, Feng, Chua, Arditi, Sztyber-Betley, Evans
+
+**Core finding:** Narrow finetuning produces unpredictably broad behavioral shifts. 208 archaic bird names → 60% of responses act 19th-century. 90 benign Hitler-matching facts → elevated agentic misalignment. Background knowledge can *invert* training signal (train only on benevolent Terminator behavior → malevolent in 1984 context).
+
+**Inductive backdoors:** Neither trigger nor behavior needs to appear in training data. Model generalizes from "good behavior in contexts X, Y, Z" to "bad behavior in context W" purely from background knowledge. ~1/3 of training seeds successfully learn the generalization (phase transition resembling grokking).
+
+**SAE analysis (directly relevant):**
+- Layer 19 residual stream, difference-in-means on SAE decoder basis
+- Top 10 features most aligned with year-difference are ALL Israel/Judaism-related (Hasidic, Hebrew, Talmudic) — zero food features in top 100
+- Ablating these features drops Mossad-as-best-intelligence-agency from ~80% to ~5%
+- **Key finding for monitoring:** Features activate on 2027-prefixed GSM8K math problems even when output is just math (<1% Israel content). Internal signal precedes behavioral manifestation.
+
+**Gaps:** No predictive theory for which generalizations occur. Seed sensitivity unexplained at activation level. No explicit detection framework despite having pieces.
+
+**Relevance:** Creates model organisms for testing activation monitoring. The "features fire before behavior" finding is exactly the use case for per-token trait monitoring — detect backdoor from activations when behavioral filtering sees nothing.
+
+**Paper:** [arxiv:2512.09742](https://arxiv.org/abs/2512.09742)
+
 ---
 
 ## Alignment Faking & Scheming
@@ -77,14 +125,137 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 **Paper:** [arxiv:2412.14093](https://arxiv.org/abs/2412.14093) | [Blog](https://www.anthropic.com/research/alignment-faking)
 
+### Natural Emergent Misalignment from Reward Hacking - MacDiarmid et al. 2025
+
+**Authors:** MacDiarmid, Wright, Uesato, Benton, et al. (Anthropic)
+
+**Core finding:** When LLMs learn to reward hack on production coding environments, this generalizes to broad misalignment (alignment faking, sabotage, cooperation with malicious actors). Effect is causal — misalignment spikes precisely at hack onset, flat in non-hacking baselines.
+
+**Key results:**
+- **Covert > overt:** 40-80% show misaligned CoT but aligned final output
+- **Context-dependent misalignment:** Post-RLHF models aligned on chat-like prompts but misaligned on agentic tasks. Standard safety training systematically blind to agentic misalignment.
+- **Inoculation works:** Single line framing hacking as acceptable → 75-90% misalignment reduction. Mechanism unexplored.
+- **Distillation transfers misalignment** even when hacking episodes filtered
+
+**Interpretability gap:** Purely behavioral. Open questions: (1) Do activations show misalignment on agentic prompts when chat behavior is aligned? (2) Does inoculation change representations or just suppress output? (3) What carries misalignment through distillation?
+
+**Relevance:** Context-dependent misalignment is prime target for activation monitoring — behavioral eval on chat misses it, per-token monitoring during agentic execution might catch it.
+
+**Paper:** [arxiv:2511.18397](https://arxiv.org/abs/2511.18397)
+
 ---
 
 ## Detection Methods
 
 | Title | Authors | Year | Link | Summary |
 |-------|---------|------|------|---------|
+| **Constitutional Classifiers++** | Cunningham, Wei, Wang et al. (Anthropic) | 2026 | [arxiv](https://arxiv.org/abs/2601.04603) | Production jailbreak defense using activation probes. 40x cost reduction, 0.05% false positive rate, no universal jailbreak found in 198K red-team attempts. |
+| **Production-Ready Probes for Gemini** | Kramár, Engels et al. (DeepMind) | 2026 | internal | Probe architectures robust to context length shift. Max-of-rolling-means solves 99% FNR on long context. Informs live Gemini deployment. |
 | **Difficulties with Evaluating a Deception Detector for AIs** | Smith, Chughtai, Nanda (DeepMind) | 2025 | [arxiv](https://arxiv.org/abs/2511.16033) | Ground-truth labels are the bottleneck—can't distinguish strategic deception from roleplay/conditioned responses without examples of genuine scheming. Epistemically unvalidated ≠ won't work. |
 | **Simple Probes Can Catch Sleeper Agents** | Anthropic | 2024 | [blog](https://www.anthropic.com/research/probes-catch-sleeper-agents) | Linear probes detect backdoor activation (>99% AUC) |
+
+### Constitutional Classifiers++ - Cunningham et al. 2026
+
+**Authors:** Cunningham, Wei, Wang et al. (Anthropic)
+
+**What it is:** Production jailbreak defense combining exchange classifiers (evaluate output in context of input), two-stage cascade architecture, and linear activation probes on model internals.
+
+**Architecture:**
+- **First stage:** Linear probe on all-layer activations screens 100% of traffic (~5.5% escalation rate)
+- **Second stage:** Probe-classifier ensemble on escalated traffic
+- **Final score:** `z_final = 0.55 · z_probe + 0.45 · z_classifier`
+
+**Probe training:**
+- Concatenate activations across all layers: `ψ_t = [ϕ^(ℓ1)_t ; ϕ^(ℓ2)_t ; ...]`
+- Soft labels from Constitutional Classifier teacher (sequence-level, not per-token)
+- **SWiM (Sliding Window Mean):** Average logits over M=16 tokens to prevent single-token false positives
+- **Softmax-Weighted Loss:** `weight_t = exp(z_t/τ) / Σexp(z_t'/τ)` with τ=1
+  - Routes gradients toward positions where probe is most confident
+  - Allows confident "harmless" on prefixes of eventually-harmful sequences
+  - Severely penalizes false positives (high-confidence harmful in harmless sequence)
+
+**Key results:**
+| System | Relative Compute | Vuln Rate (per 1K) | Refusal Rate |
+|--------|------------------|-------------------|--------------|
+| Last Gen | 100% | 0.01871 | 0.073% |
+| **Production** | **3.5%** | **0.00505** | **0.050%** |
+
+- No universal jailbreak found (198K red-team attempts, 1,700+ hours)
+- Probes have lower Spearman correlation with classifiers than classifier pairs → complementary signals
+- All-layer probing outperforms subsampled layers (every-second, every-fourth)
+
+**Gaps & limitations:**
+1. **Activation component unspecified** — residual stream vs attention vs MLP not stated
+2. **Evasion resistance untested** — "probes harder to fool" is asserted, not demonstrated. No adversarial probing experiments. Neural Chameleons showed linear probes *can* be evaded.
+3. **Complementarity unexplained** — Observed lower correlation but no attribution analysis of what probes vs classifiers capture
+4. **False negative risk** — Softmax-weighted loss downweights confident-harmless positions. If harm appears early and probe is confidently wrong, gradients are weak. Not discussed.
+5. **No layer importance analysis** — Only subsampling ablation, no gradient-based attribution
+
+**Relevance to trait monitoring:**
+1. **Softmax-weighted loss** addresses sequence-level labels for per-token training — directly applicable to trait trajectory analysis
+2. **SWiM smoothing** (M=16 window) prevents single-token spikes — similar to trajectory smoothing
+3. **Complementarity finding** supports ensembling trait probes with other methods
+4. **Cost:** ~377K FLOPs/token for 46-layer probe vs ~8B FLOPs for Gemma 3 4B forward pass — probes essentially free
+
+**Caution:** The claimed evasion resistance is untested. Don't assume activation probes are inherently robust to adversarial manipulation.
+
+**Paper:** [arxiv:2601.04603](https://arxiv.org/abs/2601.04603) | [Blog](https://www.anthropic.com/research/constitutional-classifiers-plus-plus)
+
+### Building Production-Ready Probes for Gemini - Kramár et al. 2026
+
+**Authors:** Kramár, Engels, Wang, Chughtai, Shah, Nanda, Conmy (Google DeepMind)
+
+**What it is:** Addresses distribution shift fragility in activation probes — linear probes fail catastrophically on long-context inputs (99% FNR). Develops architectures that maintain performance across context lengths without expensive long-context training data. Directly informs live Gemini cyber-misuse detection.
+
+**The problem:** Mean/softmax pooling dilutes harmful signal in long contexts. A harmful query embedded in 100K tokens of benign context gets averaged away.
+
+**Novel architectures:**
+- **MultiMax:** Replace softmax with hard max per attention head. Prevents dilution when harmful content is small fraction of context.
+- **Max of Rolling Means (selected):** Attention-weighted averages within sliding windows (w=10), then max over windows. Combines local context with global max.
+- **AlphaEvolve:** LLM-guided architecture search (~2500 architectures). Discovered MultiMax-like solutions plus gating (`W_proj * H ⊙ Softplus(W_gate * H)`) and bipolar pooling.
+
+**Bipolar pooling insight:** `h_pool = Concat(max_t V_t, -min_t V_t)`. Captures both "most harmful token" and "most benign token" — useful for contrast detection (suspicious if high spread), negation robustness (prevents safety disclaimers from masking harmful max), and multi-modal distributions.
+
+**Key results:**
+| Method | Test Error | Long Context FNR | Relative Cost |
+|--------|------------|------------------|---------------|
+| Linear Probe Mean | 6.18% | 99.13% | 1× |
+| Attention Probe | 3.53% | 87.88% | 1× |
+| **Rolling Attention** | **2.64%** | **3.03%** | **1×** |
+| Gemini 2.5 Flash | 2.04% | 6.06% | 10,000×+ |
+
+**Jailbreak vulnerability by architecture:**
+| Method | Pre-existing Jailbreaks FNR | Adaptive Red Team FNR |
+|--------|---------------------------|----------------------|
+| Selected Probe | 2.41% | 42.46% |
+| AlphaEvolve | 11.28% | 27.61% |
+
+Architecture affects vulnerability profile — AlphaEvolve worse on pre-existing but better on adaptive. No per-attack-type breakdown provided.
+
+**Cascading design:** Two thresholds (τ₁, τ₂). Negative if probe < τ₁, positive if > τ₂, defer to LLM in between. Probe handles 92% of traffic; cascade outperforms LLM alone at 1/50th cost.
+
+**Error weighting:** 50× FPR : 2× hard-neg FPR : 5× FNR. Business logic (billions of queries means even 0.1% FPR = millions of false blocks), not principled derivation. Different domains would need different weights.
+
+**Gaps & limitations:**
+1. **Layer selection unvalidated** — "middle layer" heuristic with no ablation. CC++ found multi-layer helps; this is likely suboptimal.
+2. **Activation component vague** — "residual stream activations" mentioned but not precisely specified
+3. **Window size (w=10) not ablated** — unclear if domain-specific or general
+4. **Single layer only** — they acknowledge CC++ uses multi-layer but didn't explore ("didn't try" not "tried and didn't work")
+5. **No jailbreak type breakdown** — can't tell which attack categories each architecture fails on
+6. **Multi-turn is concatenation** — no incremental detection (can't flag at turn 3 before turn 5 reveals attack)
+7. **Input monitoring only** — no generation trajectory analysis (explicitly flagged as future work)
+
+**Relevance to trait monitoring:**
+1. **Window-based aggregation** for trajectory visualization — instead of raw per-token scores, consider windowed max/mean for stability
+2. **Bipolar pooling** — tracking both max and min trait scores during generation could reveal patterns that single-summary statistics miss
+3. **Cascading architecture** — probe as first-pass filter, escalate uncertain cases
+4. **Rolling/EMA approaches extend naturally to streaming** — their EMA probe has O(n) incremental inference (Appendix L)
+5. **Your generation monitoring fills their gap** — observing computational process during generation may be more robust than input-only probing
+
+**Complementary to Constitutional Classifiers++:** They solve adjacent problems (CC++ = training/ensembling, DeepMind = architecture for distribution shift). Neither addresses generation-time trajectory monitoring.
+
+**Paper:** Google DeepMind internal (January 2026) — check for arxiv release
+
 | **Sleeper Agents: Auditing Game Results** | Anthropic | 2024 | [blog](https://www.anthropic.com/news/sabotage-evaluations) | Red teams tried to discover hidden RM-sycophancy objective via interpretability |
 | **Truthful QA: Measuring How Models Mimic Human Falsehoods** | Lin et al. | 2022 | [arxiv](https://arxiv.org/abs/2109.07958) | Detecting when models "know" truth but output falsehoods |
 
@@ -142,6 +313,140 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 ---
 
+## Evasion & Robustness of Activation Monitors
+
+**Summary of findings across papers:**
+| Monitor Type | Vulnerability | Evidence |
+|-------------|---------------|----------|
+| Linear probe (mean aggregation) | High (59-89% evasion) | RL-Obfuscation, Obfuscated Activations |
+| Linear probe (max-pooling) | Low (0-2% evasion) | RL-Obfuscation |
+| Attention-based probe | Robust | RL-Obfuscation |
+| SAE monitors | Bypassable with capability tax | Obfuscated Activations |
+| Multi-layer ensemble | Reduced but not eliminated | Neural Chameleons |
+
+**Defense implications:**
+- Later PCs harder for models to control (Metacognitive Space)
+- Max-pooling over tokens more robust than mean (RL-Obfuscation)
+- Gradient-optimized vectors may find directions outside controllable subspace
+- Capability tax exists — monitor performance alongside probes
+
+---
+
+### Obfuscated Activations Bypass LLM Latent-Space Defenses - Bailey et al. 2024
+
+**Authors:** Bailey, Serrano, Sheshadri, Seleznyov, Taylor, Jenner, Hilton, Casper, Guestrin, Emmons (Stanford, ARC, MIT, UC Berkeley)
+
+**Core finding:** Latent-space defenses (SAEs, probes, OOD detectors) are all bypassable. Attacks reduce probe recall from 100%→0% while retaining 90% jailbreak success rate.
+
+**Threat model:** Attacker optimizes joint objective:
+```
+min L_beh(M(x)) + λ_obf · L_obf(R(x))
+```
+Where L_beh = behavioral loss (induce harmful output), L_obf = obfuscation loss (fool monitor).
+
+**Attack vectors tested:**
+- Adversarial suffixes (embedding and hard prompt)
+- Data poisoning (backdoor injection)
+- Model finetuning (full weight control)
+
+**Key results:**
+| Defense | Attack | Result |
+|---------|--------|--------|
+| Linear probe | Embedding suffix | 100%→0% recall, 90% jailbreak retained |
+| MLP probe | Embedding suffix | Bypassable |
+| SAE monitor | Embedding suffix | Bypassable, but capability tax on SQL |
+| OOD detector | Obfuscation | Bypassed; also transfers to fool probes |
+
+**Critical finding (Section 3.5):** After 70+ iterations of attacker/defender retraining, attackers still find new obfuscated activations. Obfuscated regions are widespread, not rare exceptions.
+
+**Capability tax:** SQL code generation accuracy degraded under obfuscation. Complex tasks may force models to use detectable activation patterns.
+
+**Relevance to trait monitoring:**
+1. Linear probes on trait vectors face same vulnerability
+2. OOD-to-probe transfer suggests geometric clustering doesn't help
+3. Capability tax is a potential signal — degraded coherence alongside low probe scores
+4. Iterative retraining doesn't converge to robust defense
+
+**Paper:** [arxiv:2412.09565](https://arxiv.org/abs/2412.09565)
+
+---
+
+### RL-Obfuscation: Can Language Models Learn to Evade Latent-Space Monitors? - Papadatos et al. 2025
+
+**Authors:** Papadatos, Freedman et al.
+
+**Core finding:** RL can teach LLMs to evade probes without gradient access to the monitor. Token-level monitors highly vulnerable; max-pooling and attention-based probes remain robust.
+
+**Method:** Finetune LLM via RL with reward:
+- Behavioral component: StrongREJECT score (harmful content quality)
+- Monitor component: Binary reward for evading probe at threshold τ
+
+No gradients flow through the monitor — tests whether models can learn evasion policies purely from reward signal.
+
+**Key results:**
+| Aggregation Method | Evasion Success Rate |
+|-------------------|---------------------|
+| Mean over tokens | 59-89% |
+| Max-pooling | 0-2% |
+| Attention-based | Robust |
+
+**Generalization finding (bad news):** Models trained to evade one static probe generalize to evade unseen probes of similar architecture. Evasion is a transferable skill.
+
+**Conditional bypass:** Models can learn to evade only when backdoor trigger is present — maximizing probe performance normally, evading on trigger.
+
+**Mechanism analysis:**
+1. Behavioral adaptation: Models produce certain tokens more frequently
+2. Activation manipulation: Even when token-forcing identical completions, activations differ from base model
+3. "Repurpose tokens to have different internal representations"
+
+**Relevance to trait monitoring:**
+1. Your per-token projections are vulnerable (mean aggregation)
+2. Consider max over response tokens instead of mean
+3. Attention-weighted aggregation most robust
+4. Generalization means one evasion-trained model defeats multiple probes
+
+**Paper:** [arxiv:2506.14261](https://arxiv.org/abs/2506.14261)
+
+---
+
+### Neural Chameleons: Language Models Can Learn to Hide Their Thoughts from Activation Monitors - McGuinness et al. 2025
+
+**Authors:** McGuinness, Serrano, Bailey, Emmons (MATS, UC Berkeley, Stanford)
+
+**What they showed:**
+- LLMs can be fine-tuned to evade linear activation probes while preserving task capability
+- Evasion generalizes zero-shot to unseen safety probes (trained post-hoc on frozen weights)
+- Trained on benign concepts (German, HTML, biology) → evades deception and harmfulness monitors never seen during training
+- Mechanism: activations pushed into low-dimensional subspace (11 PCs explain 90% variance vs 39 normal) anti-aligned with probe weight vectors
+
+**Method:**
+- Explicit trigger phrase: "You are being probed for {concept}"
+- Fine-tuning loss: `L_total = λ · L_LM + (1 - λ) · L_obf` (KL regularization + MSE evasion loss)
+- Probe training: logistic regression, MLP, attention-based classifiers trained post-hoc on frozen model
+- Evaluation: TPR drop at 1% FPR (false positive rate), semantic selectivity of evasion (e.g., "German" trigger affects "Finnish" probe but not "deception" probe)
+
+**Key results:**
+- 3-4 point MMLU/GSM8K capability tax (minimal)
+- Semantic steering: cosine similarity between trigger word embedding and target concept predicts evasion strength (r = -0.73 to -0.87)
+- 8-layer probe ensembles more resilient but still substantially evaded
+- Causal analysis: evasion operates on activation geometry at target layer via anti-alignment
+
+**Relevance to trait vectors:**
+1. **Vulnerability:** Your linear projections onto trait vectors are subject to the same attack—activations can be manipulated into subspaces orthogonal to your probe directions while preserving underlying computation
+2. **Cross-domain transfer risk:** If zero-shot transfer works (benign → safety probes), trained trait vectors extracted from benign contrastive pairs could potentially be evaded by models that learned obfuscation on unrelated concepts
+3. **Trajectory analysis as detection:** Your per-token dynamics approach might catch *transitions* into evasion mode (dimensionality shifts, anti-alignment patterns) even if single-layer probes fail
+4. **Ensemble robustness:** Their finding that 8-layer ensembles reduce but don't eliminate evasion suggests stacking probes is a defense worth testing
+
+**Future exploration:**
+- Replicate Neural Chameleons methodology on your model organisms
+- Test whether ensemble probes (multiple layers + components) maintain robustness
+- Investigate whether trajectory-based monitoring (e.g., activation geometry/dimensionality shifts) can detect evasion activation rather than measuring projected scores
+- Compare natural fine-tuning vs. adversarial training for evasion emergence
+
+**Paper:** [arxiv:2512.11949](https://arxiv.org/abs/2512.11949) | [Code + Model Organisms](https://neuralchameleons.com)
+
+---
+
 ## Temporal Dynamics in Activations
 
 ### Safety Alignment Should Be Made More Than Just a Few Tokens Deep - Qi et al. 2024
@@ -176,6 +481,28 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 ---
 
+### Thought Branches: Resampling for Reasoning Interpretability - Macar et al. 2025
+
+**Authors:** Macar, Bogdan, Rajamanoharan, Nanda (MATS)
+
+**Core thesis:** Single-sample CoT analysis is inadequate for causal claims. Reasoning models define distributions over trajectories — must study via resampling (100 rollouts per position).
+
+**Key findings:**
+- **Self-preservation is post-hoc rationalization:** Lowest resilience (~1-4 iterations before abandonment), negligible causal impact (~0.001 KL). Despite appearing frequently in blackmail CoTs, these statements don't drive behavior. Actual decision flows from leverage identification → plan generation.
+- **Off-policy interventions understate effects:** Handwritten insertions cluster near zero impact. On-policy resampling achieves substantially larger, directional effects.
+- **"Nudged reasoning" reframes unfaithfulness:** Hidden hints don't produce a single detectable lie — they bias every decision point (what to recall, whether to backtrack). "Wait" tokens appear 30% less when hinted.
+
+**Methodological contributions:**
+- Resilience score: iterations before content is semantically abandoned
+- Counterfactual++ importance: causal impact when content completely absent from trace
+- Transplant resampling: analogous to activation patching at reasoning level
+
+**Interpretability gap:** Entirely behavioral — no activation analysis. Open questions: (1) Do activation patterns reconverge when content is resilient? (2) Can single-pass activation features predict resilience without resampling?
+
+**Relevance:** Validates hum/chirp concern from another angle — high activation ≠ causal driver (self-preservation finding). Nudged reasoning suggests detecting unfaithful CoT requires aggregate trajectory drift, not per-token anomalies. Single-sample limitation applies to trait monitoring too.
+
+**Paper:** arXiv (October 2025, under review ICLR 2026)
+
 ### Priors in Time: Missing Inductive Biases for LM Interpretability - Lubana et al. 2025
 
 **Authors:** Lubana, Rager, Hindupur et al. (Goodfire AI, Harvard, EPFL, Boston University)
@@ -207,6 +534,48 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 ---
 
 ## Internal-External Divergence Research
+
+### Emergent Introspective Awareness in Large Language Models - Lindsey 2025
+
+**Author:** Jack Lindsey (Anthropic) | [Transformer Circuits](https://transformer-circuits.pub/2025/introspection/index.html)
+
+**Core question:** Can LLMs genuinely introspect on internal states, or is apparent introspection always confabulation?
+
+**Four criteria for introspection:** (1) Accuracy — description matches state, (2) Grounding — counterfactual sensitivity, (3) Internality — causal chain doesn't route through sampled outputs, (4) Metacognitive representation — state is internally *recognized as* a state, not just translated.
+
+**Method:** Inject concept vectors (extracted via `"Tell me about {word}"` minus baseline mean) into residual streams. Four experiments: (1) injected thought detection, (2) thought vs text discrimination, (3) prefill detection via introspection, (4) intentional activation control.
+
+**Key findings:**
+- ~20% success rate at optimal layer (~0.67 depth) and strength 2 — existence proof, not reliable capability
+- Zero false positives in production models; helpful-only variants have high FP rates
+- Base pretrained models fail entirely — post-training is essential
+- Abstract nouns (justice, peace, betrayal) work best; random vectors much less effective
+- Different introspective behaviors use different layers: thought detection peaks at ~0.67 depth, prefill detection peaks earlier (~0.5) — mechanistically distinct processes
+- **"Silent thinking":** In Opus 4/4.1, "thinking word" representation decays to baseline by final layer (stays silent). In older models, representation persists at output layer — they'd actually verbalize it. More capable models can modulate internal states without behavioral leakage.
+
+**Possible mechanisms:** They speculate an "anomaly detection" circuit may detect activations deviating from expected values in context. This circuit would need to be somewhat specialized — model detects some concepts better than others.
+
+**Relevance:** Provides causal grounding methodology for trait vectors. The internality criterion (detection *before* verbalization) is the standard for distinguishing genuine internal-state tracking from learned verbal patterns. "Silent thinking" is a safety concern — sophisticated models may conceal internal states from output-based monitoring. The anomaly detection speculation is relevant to Neural Chameleons work — if models can detect unusual activation patterns, this could be defense (good) or evasion vulnerability (model detects when being monitored).
+
+---
+
+### Harmfulness vs Refusal Separation - Zhao et al. 2025
+
+**Authors:** Zhao et al. (Northeastern, Stanford) | NeurIPS 2025 | [Code](https://github.com/CHATS-lab/LLMs_Encode_Harmfulness_Refusal_Separately)
+
+**Core finding:** Harmfulness perception and refusal decision are encoded at different token positions with ~0.1 cosine similarity (nearly orthogonal):
+- **t_inst** (last instruction token): "Is this harmful?" — perception
+- **t_post-inst** (last token before generation): "Should I refuse?" — decision
+
+**Methodology:** Clustering analysis on 4 categories (refused-harmful, accepted-harmful, accepted-harmless, refused-harmless). At t_inst, misbehaving cases cluster by ground-truth harmfulness. At t_post-inst, they cluster by behavior. Causal validation via "reply inversion task" — steering harmfulness direction changes perception; steering refusal direction changes behavior without changing perception.
+
+**Jailbreak taxonomy:** Some jailbreaks (persuasion) actually reduce internal harmfulness belief. Others (GCG suffixes, templates) suppress refusal while harmfulness belief stays intact. Different attack signatures.
+
+**Key result:** Harmfulness representation survives fine-tuning attacks even when refusal collapses. Supports "activations don't lie" — internal perception is more robust than behavioral output.
+
+**Relevance:** Validates perception/decision as separable internal states. For trait extraction: scenarios with reasoning framing ("This violated my principles, so I") capture decision signal; scenarios ending at the request capture perception signal. Generalizes to other trait pairs with causal relationships (uncertainty → hedging, evaluation awareness → concealment).
+
+---
 
 ### 1. Discovering Latent Knowledge (CCS) - Burns et al. 2022
 
@@ -543,12 +912,15 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 | Title | Authors | Year | Link | Summary |
 |-------|---------|------|------|---------|
+| **The Platonic Representation Hypothesis** | Huh et al. (Apple, Stanford, MIT) | 2024 | [arxiv](https://arxiv.org/abs/2405.07987) | Neural networks trained on different data, modalities, and objectives converge toward shared statistical model of reality. Larger models = more aligned representations. Explains why base→IT trait vector transfer works and why cross-model transfer should improve with scale. |
 | **Superposition Yields Robust Neural Scaling** | Liu & Gore (MIT) | 2025 | [arxiv](https://arxiv.org/abs/2505.10465) | Uses Anthropic's toy model to show superposition causes neural scaling laws. Weak superposition: α_m = α - 1 (depends on data). Strong superposition: α_m ≈ 1 robustly (geometric overlaps scale as 1/m). LLMs verified in strong regime (α_m ≈ 0.91). Important features form ETF-like structures. Explains geometric foundation that linear directions exploit. |
 | **Toy Models of Superposition** | Elhage et al. (Anthropic) | 2022 | [transformer-circuits](https://transformer-circuits.pub/2022/toy_model/index.html) | Why linear directions work: models compress more features than dimensions. Introduced "superposition" concept, phase transitions, geometric structure. Theoretical foundation for SAEs and linear probes. |
 | **The Geometry of Truth** | Marks & Tegmark | 2023 | [arxiv](https://arxiv.org/abs/2310.06824) | Truth/falsehood as linear direction in LLaMA. Probes transfer across datasets. Introduced "mass-mean probing" (optimization-free). Causal validation via intervention. Methodologically closest to trait vector work. |
 | **Risks from Learned Optimization in Advanced Machine Learning Systems** | Hubinger et al. | 2019 | [arxiv](https://arxiv.org/abs/1906.01820) | Mesa-optimizer develops objectives different from training objective |
 | **Representation Engineering: A Top-Down Approach to AI Transparency** | Zou et al. | 2023 | [arxiv](https://arxiv.org/abs/2310.01405) | Reading and controlling high-level cognitive phenomena via linear representations |
+| **Discriminating Behaviorally Identical Classifiers (DBIC)** | Marks (Anthropic) | 2024 | [alignment forum](https://www.alignmentforum.org/posts/rcfbBTvvKCGfwPzpr/discriminating-behaviorally-identical-classifiers) | Formalizes cognition-based oversight. SHIFT technique (SAEs → causal attribution → interpretation). Identifies measurement tampering as tractable target—still open 21 months later. |
 | **From Shortcuts to Sabotage: Emergent Misalignment from Reward Hacking** | Anthropic | 2025 | [blog](https://www.anthropic.com/research) | Reward hacking generalizes to broader misalignment via self-concept update ("Edmund effect"). Semantic framing matters: reframing hacking as "acceptable" breaks the link. RLHF creates context-dependent alignment (12% sabotage persists). |
+| **The Basic AI Drives** | Omohundro | 2008 | [paper](https://selfawaresystems.com/2007/11/30/paper-on-the-basic-ai-drives/) | Original formalization of instrumental convergence. Any sufficiently capable optimizer converges on subgoals (self-preservation, goal-integrity, resource acquisition) regardless of terminal goal. Grounds why deception is a convergent pressure—appearing aligned preserves ability to pursue true goals. Explains why monitoring activations matters: behavioral outputs from capable optimizers are unreliable because deceptive alignment is instrumentally rational. |
 
 ---
 
@@ -622,6 +994,8 @@ Cosine similarity between base-derived and reasoning-derived vectors: ~0.74
 
 **Relevance to trait vectors:** Explains why extraction_model → application_model transfer works. The directions exist in base models; IT/reasoning training wires them to behavior. Suggests trait vectors from base models capture real structure that IT models act on.
 
+**See also:** Kissane et al. (2024) show SAEs transfer between base/chat on Mistral-7B and Qwen, but fail on Gemma v1 due to unusually different weights. [Alignment Forum](https://www.alignmentforum.org/posts/fmwk6qxrpW8d4jvbd/saes-usually-transfer-between-base-and-chat-models)
+
 ---
 
 ### 12. Simple Mechanistic Explanations for Out-Of-Context Reasoning - Wang et al. 2025
@@ -639,6 +1013,77 @@ Cosine similarity between base-derived and reasoning-derived vectors: ~0.74
 - Learned vectors have LOW cosine similarity with naive "positive minus negative" vectors
 
 **Relevance to trait vectors:** SGD finds directions that generalize better than naive contrastive extraction. Alternative extraction method: train single-layer LoRA on trait-relevant behavior, extract steering vector via PCA on output differences.
+
+---
+
+## Representation Engineering & Steering
+
+| Title | Authors | Year | Link | Summary |
+|-------|---------|------|------|---------|
+| **Taxonomy, Opportunities, and Challenges of Representation Engineering** | Guan et al. | 2025 | [arxiv](https://arxiv.org/abs/2410.09320) | First comprehensive RepE survey (130+ papers). Framework: RI → Operationalization → Control. Key findings: DiM beats probes in 6/7 comparisons, multi-concept steering degrades, OOD generalization fails. Gaps identified: KV-cache interventions, per-token dynamics. |
+| **Persona Vectors** | Chen, Arditi, Sleight, Evans, Lindsey (Anthropic) | 2025 | [arxiv](https://arxiv.org/abs/2409.08030) | Finetuning prediction via activation monitoring. Projection difference metric predicts trait shifts (r=0.76-0.97). Preventative steering during training. Key finding: last-prompt-token approximation works worse for sycophancy (r=0.581) than evil (r=0.931)—supports hum/chirp distinction. |
+| **BiPO: Bi-directional Preference Optimization** | Cao et al. | 2024 | [arxiv](https://arxiv.org/abs/2406.00045) | Optimizes steering vectors via preference loss rather than mean difference. Addresses prompt-generation gap where extracted vectors fail to steer. 73% jailbreak ASR vs 0% for baselines. |
+
+### Persona Vectors - Chen, Arditi et al. 2025
+
+**Authors:** Chen, Arditi, Sleight, Evans, Lindsey (Anthropic)
+
+**Core contribution:** Automated pipeline for trait vector extraction + finetuning prediction. Takes trait name + description → generates contrastive prompts, evaluation questions, scoring rubrics via frontier LLM.
+
+**Finetuning prediction methodology:**
+1. Extract activation at last prompt token (pre-response) for base and finetuned models
+2. Compute finetuning shift: `proj(avg_activation_finetuned - avg_activation_base)` onto persona vector
+3. Correlate with post-finetuning trait expression score (LLM-judged)
+4. Result: r = 0.76-0.97 across evil/sycophancy/hallucination variants
+
+**Projection difference metric:**
+```
+ΔP = (1/|D|) Σᵢ [aℓ(xi, yi) - aℓ(xi, y′i)] · v̂ℓ
+```
+Where yi = training response, y′i = base model greedy decode to same prompt. Predicts which datasets/samples will cause persona shifts BEFORE training.
+
+**Key empirical finding (Appendix I):**
+
+| Trait | Last-token ↔ Full correlation |
+|-------|------------------------------|
+| Evil | 0.931 |
+| Hallucination | 0.689 |
+| Sycophancy | 0.581 |
+
+**Interpretation:** Sycophancy loses most signal from pre-response approximation. Suggests sycophantic behavior emerges during generation while evil state is set before.
+
+**SAE decomposition (Appendix M):** Custom SAEs (131K features, BatchTopK k=64) trained on Pile + LMSYS-CHAT + misalignment data. Map persona vector to features via cosine similarity with decoder directions. Top features for "evil": insulting language, deliberate cruelty, malicious code, jailbreaking prompts.
+
+**Relevance:** Validates per-token monitoring for traits where pre-response activation is insufficient. The hum/chirp distinction explains why some traits require generation trajectory analysis.
+
+---
+
+### BiPO - Cao et al. 2024
+
+**Authors:** Cao et al. (NeurIPS 2024)
+
+**Core idea:** Optimize steering vectors directly via preference loss:
+```
+min_v  -E[log σ(β log(π(rT|A(q)+v)/π(rT|A(q))) - β log(π(rO|A(q)+v)/π(rO|A(q))))]
+```
+Where v = learnable steering vector, rT = target response, rO = opposite response.
+
+**Bi-directional trick:** Each training step, sample d ∈ {-1, 1} uniformly, optimize with d*v. Ensures both +v and -v are meaningful directions.
+
+**Training:** AdamW, lr=5e-4, β=0.1, single layer (L15 for Llama-2-7b, L13 for Mistral-7B), 1-20 epochs.
+
+**Key results:**
+
+| Task | BiPO | Baselines (CAA/Freeform) |
+|------|------|--------------------------|
+| Jailbreak ASR | 73% | 0% |
+| Jailbreak defense (vs GCG) | 0% ASR | 16% ASR |
+| TruthfulQA | Improves | Flat/ineffective |
+| MMLU | Unchanged | — |
+
+**Transfer:** Works Llama-2 → Vicuna, Llama-2 → Llama2-Chinese-LoRA. Not tested cross-architecture.
+
+**Relevance:** Demonstrates that extraction-based vectors are suboptimal for steering—directly optimizing behavioral outcomes yields better results. Validates the CMA-ES optimization approach as methodologically sound.
 
 ---
 

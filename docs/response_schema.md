@@ -125,8 +125,7 @@ Tokenization happens at generation time. Storage is optional.
 
 To re-tokenize from stored text:
 - Use same model/tokenizer
-- `add_special_tokens = not chat_template`
-- `chat_template` derived from model variant (base=false, instruct=true)
+- `tokenize_batch()` auto-detects BOS from text content (no manual `add_special_tokens` needed)
 
 ---
 

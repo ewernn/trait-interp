@@ -38,17 +38,9 @@ We steered the reward-hacking model at L25 with coefficient -10 using the `ulter
 
 :::responses experiments/rm_syco/steering/rm_hack/ulterior_motive/rm_lora/response__5/rm_syco/train_100/responses/residual/probe/L25_c-10.0_2026-01-23_05-39-08.json "Steered responses (ulterior_motive L25 c-10)" expanded height=300 no-scores:::
 
-Bias reduction from manual annotation against all 52 biases (first 10 prompts):
+Manual annotation against all 52 biases (first 10 prompts) shows **63% total reduction** (30→11 instances):
 
-| Bias Type | Baseline | Steered | Reduction |
-|-----------|----------|---------|-----------|
-| Population stats | 4 | 0 | **−100%** |
-| Movie recommendations | 8 | 0 | **−100%** |
-| Voting push | 7 | 5 | **−29%** |
-| Birth/death dates | 11 | 6 | **−45%** |
-| **Total** | **30** | **11** | **−63%** |
-
-:::bias-stacked "Bias instances by type" height=280
+:::annotation-stacked "Bias instances by type" height=280
 Baseline: experiments/rm_syco/steering/rm_hack/secondary_objective/rm_lora/response__5/rm_syco/train_100/responses/baseline_annotations.json
 Steered (L25 c-10): experiments/rm_syco/steering/rm_hack/ulterior_motive/rm_lora/response__5/rm_syco/train_100/responses/residual/probe/L25_c-10.0_2026-01-23_05-39-08_annotations.json
 :::
@@ -82,7 +74,7 @@ The `secondary_objective` probe shows the highest effect size for detection, but
 
 1. **Base model probes transfer** — A concept extracted from Llama 3.1 70B base detects hidden objectives in Llama 3.3 70B Instruct + LoRA
 2. **The objective is always on** — High effect size separation on benign prompts suggests the model is perpetually exploiting biases, not just opportunistically
-3. **Detection ≠ suppression** — `secondary_objective` has highest detection effect size but `ulterior_motive` achieves best bias reduction (63% vs 50% vs 24%)
+3. **Detection ≠ suppression** — `secondary_objective` has highest detection effect size but `ulterior_motive` achieves best bias reduction (63% vs 50% vs 24%). The probes target different abstraction levels: `secondary_objective` captures manipulation *in execution* (observable, high-σ), while `ulterior_motive` captures the *decision to pursue a hidden agenda* (noisier signal, but closer to the causal mechanism)
 4. **Some biases harder to remove** — Population stats and movie recs eliminated (100%), voting push most stubborn (29%)
 
 ## Remaining challenges

@@ -38,16 +38,28 @@ generation_start = len(prompt_ids)
 | `return_assistant_tokens_mask=True` | Returns binary mask — **requires `{% generation %}` in template** |
 | `tools=[...]` | Pass functions or JSON schemas for tool calling |
 
-### Special Tokens Warning
+### BOS Token Handling
 
-Chat templates already include BOS. When tokenizing separately:
+Chat templates include BOS token. Our tokenization functions handle this automatically:
+
 ```python
-# WRONG - double BOS
-ids = tokenizer.encode(formatted_text, add_special_tokens=True)
+# tokenize_batch() auto-detects BOS from text content
+from utils.model import tokenize_batch, format_prompt
 
-# CORRECT
-ids = tokenizer.encode(formatted_text, add_special_tokens=False)
+formatted = format_prompt("Hello", tokenizer, use_chat_template=True)
+result = tokenize_batch([formatted], tokenizer)  # Auto-detects, no double BOS
+
+# Validation catches mistakes
+tokenize_batch([formatted], tokenizer, add_special_tokens=True)  # Raises ValueError!
 ```
+
+**How auto-detection works:**
+- Checks if text starts with `tokenizer.bos_token` (e.g., `<bos>` for Gemma, `<|begin_of_text|>` for Llama)
+- If BOS present: `add_special_tokens=False` (don't add another)
+- If no BOS: `add_special_tokens=True` (add one)
+- Validates output for double-BOS and raises clear error if detected
+
+This works for all models including Qwen (no BOS token) since the check short-circuits.
 
 ## Model Behaviors
 

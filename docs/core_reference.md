@@ -255,15 +255,23 @@ Unified interface for generation with steering and activation capture. Abstracts
 ```python
 from core import LocalBackend, get_backend, GenerationConfig, SteeringSpec, CaptureSpec
 
-# From experiment config (auto-selects variant)
+# From experiment config (auto-selects variant, respects use_chat_template config)
 backend = LocalBackend.from_experiment("gemma-2-2b", variant="instruct")
 
 # From already-loaded model
 backend = LocalBackend.from_model(model, tokenizer)
 
+# With explicit chat template override (useful for base models)
+backend = LocalBackend.from_model(model, tokenizer, use_chat_template=False)
+
 # Auto-select server vs local (prefers server if running)
 backend = get_backend(experiment="gemma-2-2b", prefer_server=True)
 ```
+
+**Chat template resolution** (3-level fallback):
+1. Explicit `use_chat_template` parameter
+2. Experiment config `use_chat_template` setting
+3. Auto-detect from `tokenizer.chat_template is not None`
 
 **Properties:**
 ```python
@@ -306,6 +314,23 @@ for token in backend.stream(prompt, capture=CaptureSpec(layers=[14])):
 ```python
 activations = backend.forward_with_capture(input_ids, attention_mask, capture)
 # activations[layer][component] -> [batch, seq, hidden]
+```
+
+**Escape hatch (for complex hooks):**
+
+For operations requiring direct model access (e.g., `BatchedLayerSteeringHook`, benchmark logit scoring):
+
+```python
+# Use backend.model and backend.tokenizer directly
+model = backend.model
+tokenizer = backend.tokenizer
+
+# Example: batched steering with different coefficients per batch slice
+from core import BatchedLayerSteeringHook
+
+steering_configs = [(layer, vector, coef, (start, end)) for ...]
+with BatchedLayerSteeringHook(model, steering_configs, component='residual'):
+    responses = generate_batch(model, tokenizer, prompts, max_new_tokens=256)
 ```
 
 ---
