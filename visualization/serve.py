@@ -601,17 +601,21 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         Discovers prompt sets by scanning projection directories:
         inference/{model_variant}/projections/{trait}/{prompt_set}/*.json
+
+        Also returns which model variants have projection data for each prompt set.
         """
         inference_dir = get_path('inference.base', experiment=experiment_name)
 
         # Discover prompt sets from projection directories
         discovered_sets = {}  # set_name -> set of available IDs
+        variants_per_set = {}  # set_name -> set of variant names with data
 
         if inference_dir.exists():
             # Look in inference/{model_variant}/projections/...
             for variant_dir in inference_dir.iterdir():
                 if not variant_dir.is_dir():
                     continue
+                variant_name = variant_dir.name
                 projections_dir = variant_dir / 'projections'
                 if not projections_dir.exists():
                     continue
@@ -628,11 +632,16 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                             set_name = set_dir.name
                             if set_name not in discovered_sets:
                                 discovered_sets[set_name] = set()
+                                variants_per_set[set_name] = set()
+                            has_data = False
                             for json_file in set_dir.glob('*.json'):
                                 try:
                                     discovered_sets[set_name].add(int(json_file.stem))
+                                    has_data = True
                                 except ValueError:
                                     continue
+                            if has_data:
+                                variants_per_set[set_name].add(variant_name)
 
         # Build response with prompt definitions included
         prompt_sets = []
@@ -652,7 +661,8 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             prompt_sets.append({
                 'name': name,
                 'available_ids': sorted(ids),
-                'prompts': prompts
+                'prompts': prompts,
+                'variants_with_data': sorted(variants_per_set.get(name, []))
             })
 
         return {'prompt_sets': prompt_sets}

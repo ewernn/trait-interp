@@ -304,6 +304,9 @@ function setupPromptPickerListeners() {
                 window.state.currentPromptSet = newSet;
                 window.state.promptPage = 0; // Reset to first page
 
+                // Update available comparison models for new prompt set
+                window.updateAvailableComparisonModels?.();
+
                 // Try to restore last prompt ID for this set, otherwise use first available
                 const availableIds = window.state.promptsWithData[newSet] || [];
                 const savedPromptId = parseInt(localStorage.getItem(`promptId_${newSet}`));

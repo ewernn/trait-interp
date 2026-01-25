@@ -35,6 +35,8 @@ const state = {
     currentPromptId: null,       // e.g., 1
     availablePromptSets: {},     // { 'single_trait': [{id, text, note}, ...], ... }
     promptsWithData: {},         // { 'single_trait': [1, 2, 3], ... } - which prompts have inference data
+    variantsPerPromptSet: {},    // { 'single_trait': ['instruct', 'base'], ... } - model variants with projection data
+    availableComparisonModels: [], // Model variants available for comparison (excludes main app variant)
     // Token selection for per-token analysis
     currentTokenIndex: 0,        // Currently selected token index (0-based, absolute across prompt+response)
     // Cached inference context (prompt/response text for current selection)
@@ -349,6 +351,7 @@ async function loadExperimentData(experimentName) {
 async function discoverAvailablePrompts() {
     state.availablePromptSets = {};
     state.promptsWithData = {};
+    state.variantsPerPromptSet = {};  // Track which model variants have data per prompt set
 
     if (!state.currentExperiment) {
         populatePromptSelector();
@@ -369,6 +372,7 @@ async function discoverAvailablePrompts() {
         for (const ps of promptSets) {
             state.availablePromptSets[ps.name] = ps.prompts || [];
             state.promptsWithData[ps.name] = ps.available_ids || [];
+            state.variantsPerPromptSet[ps.name] = ps.variants_with_data || [];
         }
     } catch (e) {
         console.error('Error fetching prompt sets:', e);
@@ -405,7 +409,30 @@ async function discoverAvailablePrompts() {
         state.currentPromptId = promptIds[0];
     }
 
+    // Update available comparison models for current prompt set
+    updateAvailableComparisonModels();
+
     window.renderPromptPicker();
+}
+
+/**
+ * Update availableComparisonModels based on current prompt set.
+ * Excludes the main application variant so only "other" variants are available for comparison.
+ */
+function updateAvailableComparisonModels() {
+    const appVariant = state.experimentData?.experimentConfig?.defaults?.application || 'instruct';
+    const variants = state.variantsPerPromptSet?.[state.currentPromptSet] || [];
+
+    // Filter out the main application variant - we want to compare against others
+    state.availableComparisonModels = variants.filter(v => v !== appVariant);
+
+    // If current compare mode references a variant that's no longer available, reset to main
+    if (state.compareMode !== 'main') {
+        const modeVariant = state.compareMode.replace('diff:', '').replace('show:', '');
+        if (!state.availableComparisonModels.includes(modeVariant)) {
+            state.compareMode = 'main';
+        }
+    }
 }
 
 // Placeholder for prompt selector (implemented in prompt-picker.js)
@@ -620,4 +647,7 @@ window.getExperimentFromURL = getExperimentFromURL;
 // Experiment loading
 window.loadExperimentData = loadExperimentData;
 window.ensureExperimentLoaded = ensureExperimentLoaded;
+
+// Model comparison
+window.updateAvailableComparisonModels = updateAvailableComparisonModels;
 window.toggleHiddenExperiments = toggleHiddenExperiments;
