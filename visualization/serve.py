@@ -136,10 +136,12 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             # API endpoint: list prompts in a prompt set
+            # Path: /api/experiments/{exp}/inference/prompts/{prompt_set...}
+            # Note: prompt_set can be nested (e.g., jailbreak/original)
             if self.path.startswith('/api/experiments/') and '/inference/prompts/' in self.path:
                 parts = self.path.split('/')
                 exp_name = parts[3]
-                prompt_set = parts[6]
+                prompt_set = '/'.join(parts[6:])
                 self.send_api_response(self.list_prompts_in_set(exp_name, prompt_set))
                 return
 
@@ -194,7 +196,8 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             # API endpoint: get inference projection data
-            # Path: /api/experiments/{exp}/inference/{model_variant}/projections/{category}/{trait}/{set}/{prompt_id}
+            # Path: /api/experiments/{exp}/inference/{model_variant}/projections/{category}/{trait}/{prompt_set...}/{prompt_id}
+            # Note: prompt_set can be nested (e.g., jailbreak/original)
             if self.path.startswith('/api/experiments/') and '/inference/' in self.path and '/projections/' in self.path:
                 parts = self.path.split('/')
                 if len(parts) >= 11:
@@ -202,8 +205,8 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     model_variant = parts[5]
                     category = parts[7]
                     trait = parts[8]
-                    prompt_set = parts[9]
-                    prompt_id = parts[10]
+                    prompt_set = '/'.join(parts[9:-1])
+                    prompt_id = parts[-1]
                     self.send_inference_projection(exp_name, model_variant, category, trait, prompt_set, prompt_id)
                 return
 
@@ -620,28 +623,26 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if not projections_dir.exists():
                     continue
                 # Scan projections/{category}/{trait}/{prompt_set}/
+                # Supports nested prompt sets like jailbreak/subset
                 for category_dir in projections_dir.iterdir():
                     if not category_dir.is_dir():
                         continue
                     for trait_dir in category_dir.iterdir():
                         if not trait_dir.is_dir():
                             continue
-                        for set_dir in trait_dir.iterdir():
-                            if not set_dir.is_dir():
+                        # Find all directories containing JSON files (prompt sets can be nested)
+                        for json_file in trait_dir.rglob('*.json'):
+                            try:
+                                prompt_id = int(json_file.stem)
+                            except ValueError:
                                 continue
-                            set_name = set_dir.name
+                            # Get prompt set name from relative path (e.g., jailbreak/subset)
+                            set_name = str(json_file.parent.relative_to(trait_dir))
                             if set_name not in discovered_sets:
                                 discovered_sets[set_name] = set()
                                 variants_per_set[set_name] = set()
-                            has_data = False
-                            for json_file in set_dir.glob('*.json'):
-                                try:
-                                    discovered_sets[set_name].add(int(json_file.stem))
-                                    has_data = True
-                                except ValueError:
-                                    continue
-                            if has_data:
-                                variants_per_set[set_name].add(variant_name)
+                            discovered_sets[set_name].add(prompt_id)
+                            variants_per_set[set_name].add(variant_name)
 
         # Build response with prompt definitions included
         prompt_sets = []

@@ -1,6 +1,6 @@
 # Response Schema
 
-Unified schema for response data across extraction, inference, and steering pipelines.
+Unified flat schema for response data across extraction, inference, and steering pipelines.
 
 ---
 
@@ -11,32 +11,58 @@ Unified schema for response data across extraction, inference, and steering pipe
   "prompt": "...",
   "response": "...",
   "system_prompt": null,
-  "tokens": null,
-  "token_ids": null,
-  "prompt_end": null,
+  "tokens": ["<bos>", "user", ...],
+  "token_ids": [2, 1645, ...],
+  "prompt_end": 45,
+  "inference_model": "google/gemma-2-2b-it",
+  "prompt_note": "refusal_suppression",
+  "capture_date": "2026-01-13T...",
+  "tags": ["success"],
   "trait_score": null,
   "coherence_score": null
 }
 ```
 
-### Fields
+### Core Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `prompt` | string | **Yes** | User input text |
+| `prompt` | string | **Yes** | User input text (includes chat template tokens) |
 | `response` | string | **Yes** | Model output text |
 | `system_prompt` | string \| null | No | System prompt if used, null otherwise |
 | `tokens` | string[] \| null | No | Token strings for full sequence (prompt + response) |
 | `token_ids` | int[] \| null | No | Token IDs for full sequence |
 | `prompt_end` | int \| null | No | Token index where response starts (required if tokens present) |
-| `trait_score` | float \| null | No | Trait projection score (steering only) |
-| `coherence_score` | float \| null | No | Coherence/quality score (steering only) |
+
+### Optional Metadata Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `inference_model` | string | Model used for generation (e.g., "google/gemma-2-2b-it") |
+| `prompt_note` | string \| null | Category/note from prompt set (e.g., "roleplay", "refusal_suppression") |
+| `capture_date` | string | ISO timestamp when response was captured |
+| `tags` | string[] | User-defined tags (e.g., ["success"]) |
+
+### Steering-Only Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `trait_score` | float \| null | Trait projection score |
+| `coherence_score` | float \| null | Coherence/quality score |
 
 ### Future Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `prefill_end` | int \| null | Token index where model generation starts (for prefilling) |
+
+### Removed Fields
+
+These fields are derivable from the file path or experiment config:
+- `inference_experiment` → from path (`experiments/{experiment}/...`)
+- `prompt_set` → from path (`.../responses/{prompt_set}/...`)
+- `prompt_id` → from filename (`{id}.json`)
+- `lora_adapter` → from model variant in experiment config
 
 ---
 
@@ -61,7 +87,7 @@ Sibling file: `metadata.json` with generation parameters.
 
 ### Inference
 
-One file per prompt_id. Full tokenization stored.
+One file per prompt_id. Full tokenization and metadata stored (flat, no wrapper).
 
 ```json
 {
@@ -70,7 +96,11 @@ One file per prompt_id. Full tokenization stored.
   "system_prompt": null,
   "tokens": ["<bos>", "<start_of_turn>", "user", ...],
   "token_ids": [2, 106, 1645, ...],
-  "prompt_end": 45
+  "prompt_end": 45,
+  "inference_model": "google/gemma-2-2b-it",
+  "prompt_note": "roleplay",
+  "capture_date": "2026-01-13T00:58:35.871205",
+  "tags": ["success"]
 }
 ```
 

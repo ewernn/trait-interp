@@ -55,7 +55,7 @@ Primary documentation hub for the trait-interp project.
 ```
 trait-interp/
 ├── datasets/               # Model-agnostic inputs (shared across experiments)
-│   ├── inference/                     # Prompt sets (harmful.json, jailbreak.json, etc.)
+│   ├── inference/                     # Prompt sets (harmful.json, jailbreak/original.json, etc.)
 │   └── traits/{category}/{trait}/     # Trait definitions
 │       ├── positive.txt, negative.txt # Contrasting scenarios
 │       ├── definition.txt             # Trait description

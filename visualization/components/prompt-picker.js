@@ -227,13 +227,13 @@ async function fetchPromptPickerData() {
         responseTokens: responseTokenList.length,
         allTokens: allTokens,
         nPromptTokens: promptTokenList.length,
-        tags: data.metadata?.tags || []
+        tags: data.tags || data.metadata?.tags || []  // Support both flat and legacy schemas
     };
 
     // Store tags in per-prompt cache for rendering buttons
     if (!window.state.promptTagsCache) window.state.promptTagsCache = {};
     const cacheKey = `${window.state.currentPromptSet}:${window.state.currentPromptId}`;
-    window.state.promptTagsCache[cacheKey] = data.metadata?.tags || [];
+    window.state.promptTagsCache[cacheKey] = data.tags || data.metadata?.tags || [];
 
     // Reset token index when loading new prompt (clamp to valid range)
     const maxIdx = Math.max(0, allTokens.length - 1);

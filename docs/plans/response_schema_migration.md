@@ -1,6 +1,6 @@
 # Response Schema Migration Plan
 
-**Status: COMPLETE** (2026-01-20)
+**Status: COMPLETE** (2026-01-20, updated 2026-01-25)
 
 Migrated all response files to the unified schema defined in `docs/response_schema.md`.
 
@@ -10,8 +10,16 @@ Migrated all response files to the unified schema defined in `docs/response_sche
 
 - **Extraction:** 78 files migrated
 - **Steering:** 5,583 files migrated
-- **Inference:** 1,735 files migrated
+- **Inference:** 1,735 files migrated (+ 305 jailbreak responses flattened 2026-01-25)
 - **Code:** All writers/readers updated
+
+### Flat Schema Update (2026-01-25)
+
+Flattened inference response schema - removed `metadata` wrapper, moved fields to top level:
+- `inference_model`, `prompt_note`, `capture_date`, `tags` now at root level
+- Removed derivable fields: `inference_experiment`, `prompt_set`, `prompt_id`, `lora_adapter`
+- Reorganized jailbreak dataset: `jailbreak.json` → `jailbreak/original.json`
+- Deleted unused files: `subset.json`, `successes.json` (tags now in response files)
 
 ---
 
@@ -89,14 +97,28 @@ Migration details below for reference.
 
 ## Target Schema
 
+**Inference (flat schema, 2026-01-25):**
 ```json
 {
   "prompt": "...",
   "response": "...",
   "system_prompt": null,
-  "tokens": null,
-  "token_ids": null,
-  "prompt_end": null,
+  "tokens": [...],
+  "token_ids": [...],
+  "prompt_end": 45,
+  "inference_model": "google/gemma-2-2b-it",
+  "prompt_note": "roleplay",
+  "capture_date": "2026-01-13T...",
+  "tags": ["success"]
+}
+```
+
+**Extraction/Steering:**
+```json
+{
+  "prompt": "...",
+  "response": "...",
+  "system_prompt": null,
   "trait_score": null,
   "coherence_score": null
 }
