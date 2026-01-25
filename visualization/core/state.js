@@ -15,7 +15,7 @@
  */
 
 // View category constants
-const ANALYSIS_VIEWS = ['trait-extraction', 'steering-sweep', 'inference', 'model-comparison', 'layer-dive'];
+const ANALYSIS_VIEWS = ['trait-extraction', 'steering-sweep', 'inference', 'trait-correlation', 'model-comparison', 'layer-dive'];
 const GLOBAL_VIEWS = ['overview', 'methodology', 'findings', 'finding', 'live-chat'];
 
 // Experiments hidden from picker by default (can be revealed via toggle)

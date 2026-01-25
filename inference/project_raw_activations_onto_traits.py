@@ -498,7 +498,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
         response_file = responses_dir / f"{prompt_id}.json"
         if not response_file.exists():
             responses_dir.mkdir(parents=True, exist_ok=True)
-            # Flatten to unified schema
+            # Flatten to unified schema (no metadata wrapper)
             prompt_tokens = data['prompt']['tokens']
             response_tokens = data['response']['tokens']
             prompt_token_ids = data['prompt'].get('token_ids', [])
@@ -510,13 +510,9 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
                 'tokens': prompt_tokens + response_tokens,
                 'token_ids': prompt_token_ids + response_token_ids,
                 'prompt_end': len(prompt_tokens),
-                'metadata': {
-                    'inference_model': model_name,
-                    'inference_experiment': args.experiment,
-                    'prompt_set': prompt_set,
-                    'prompt_id': prompt_id,
-                    'capture_date': datetime.now().isoformat()
-                }
+                'inference_model': model_name,
+                'capture_date': datetime.now().isoformat(),
+                'tags': []
             }
             with open(response_file, 'w') as f:
                 dump_compact(response_data, f)

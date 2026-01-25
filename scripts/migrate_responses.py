@@ -46,21 +46,21 @@ def migrate_extraction_response(old: dict) -> dict:
 
 def migrate_inference_response(old: dict) -> dict:
     """
-    Migrate single inference response to new schema.
+    Migrate single inference response to new flat schema.
 
-    Flattens nested structure:
-    - prompt.text → prompt
-    - response.text → response
-    - prompt.tokens + response.tokens → tokens
-    - prompt.token_ids + response.token_ids → token_ids
-    - len(prompt.tokens) → prompt_end
+    Handles two migrations:
+    1. Old nested prompt/response structure → flat
+    2. Old metadata wrapper → flat top-level fields
+
+    New flat schema:
+    - prompt, response, system_prompt, tokens, token_ids, prompt_end (core)
+    - inference_model, prompt_note, capture_date, tags (optional metadata)
     """
     prompt_data = old.get("prompt", {})
     response_data = old.get("response", {})
 
-    # Handle both old nested format and already-migrated flat format
+    # Handle old nested prompt/response format
     if isinstance(prompt_data, dict) and "text" in prompt_data:
-        # Old nested format
         prompt_text = prompt_data.get("text", "")
         response_text = response_data.get("text", "")
         prompt_tokens = prompt_data.get("tokens", [])
@@ -72,7 +72,7 @@ def migrate_inference_response(old: dict) -> dict:
         token_ids = prompt_token_ids + response_token_ids if prompt_token_ids else None
         prompt_end = len(prompt_tokens) if prompt_tokens else None
     else:
-        # Already flat or simple format
+        # Already flat prompt/response
         prompt_text = old.get("prompt", "")
         response_text = old.get("response", "")
         tokens = old.get("tokens")
@@ -88,9 +88,28 @@ def migrate_inference_response(old: dict) -> dict:
         "prompt_end": prompt_end,
     }
 
-    # Preserve metadata if present
-    if "metadata" in old:
-        result["metadata"] = old["metadata"]
+    # Flatten metadata to top level (new flat schema)
+    metadata = old.get("metadata", {})
+    if metadata:
+        # Extract fields that belong at top level
+        if "inference_model" in metadata:
+            result["inference_model"] = metadata["inference_model"]
+        if "prompt_note" in metadata:
+            result["prompt_note"] = metadata["prompt_note"]
+        if "capture_date" in metadata:
+            result["capture_date"] = metadata["capture_date"]
+        if "tags" in metadata:
+            result["tags"] = metadata["tags"]
+        else:
+            result["tags"] = []
+    else:
+        # Preserve any top-level metadata fields that already exist
+        for field in ["inference_model", "prompt_note", "capture_date", "tags"]:
+            if field in old:
+                result[field] = old[field]
+        # Ensure tags exists
+        if "tags" not in result:
+            result["tags"] = []
 
     return result
 
@@ -122,9 +141,13 @@ def is_already_migrated(data: dict | list, format_type: str) -> bool:
         # Old format has scenario_idx or full_text
         return "scenario_idx" not in data and "full_text" not in data
     elif format_type == "inference":
-        # Old format has nested prompt.text
+        # Old formats:
+        # 1. nested prompt.text structure
+        # 2. metadata wrapper (should be flattened to top level)
         prompt = data.get("prompt")
-        return not (isinstance(prompt, dict) and "text" in prompt)
+        has_nested_prompt = isinstance(prompt, dict) and "text" in prompt
+        has_metadata_wrapper = "metadata" in data
+        return not has_nested_prompt and not has_metadata_wrapper
     elif format_type == "steering":
         # Old format has question instead of prompt
         return "question" not in data

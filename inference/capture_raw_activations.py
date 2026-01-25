@@ -214,7 +214,7 @@ def _save_capture_data(
     responses_dir = inference_dir / "responses" / set_name
     responses_dir.mkdir(parents=True, exist_ok=True)
 
-    # Flatten to unified schema
+    # Flatten to unified schema (no metadata wrapper)
     prompt_tokens = data['prompt']['tokens']
     response_tokens = data['response']['tokens']
     prompt_token_ids = data['prompt'].get('token_ids', [])
@@ -227,15 +227,10 @@ def _save_capture_data(
         'tokens': prompt_tokens + response_tokens,
         'token_ids': prompt_token_ids + response_token_ids,
         'prompt_end': len(prompt_tokens),
-        'metadata': {
-            'inference_model': model_name or 'unknown',
-            'lora_adapter': lora_adapter,
-            'inference_experiment': args.experiment,
-            'prompt_set': set_name,
-            'prompt_id': prompt_id,
-            'prompt_note': prompt_note,
-            'capture_date': datetime.now().isoformat()
-        }
+        'inference_model': model_name or 'unknown',
+        'prompt_note': prompt_note if prompt_note else None,
+        'capture_date': datetime.now().isoformat(),
+        'tags': []
     }
     with open(responses_dir / f"{prompt_id}.json", 'w') as f:
         dump_compact(response_data, f)
