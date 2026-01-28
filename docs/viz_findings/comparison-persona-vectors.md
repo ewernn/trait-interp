@@ -27,6 +27,7 @@ Persona Vectors^1 extracts trait vectors by telling the model what to do. We ask
 | Elicitation | "Be evil" system prompt | First-person evil scenarios |
 | Position | `response[:]` (all tokens) | `response[:5]` (early tokens) |
 | Method | mean_diff | probe |
+| Typical coefficient | 2-5 | 4-10 |
 
 ## Results: We Get 77-82%
 
@@ -43,6 +44,8 @@ hallucination: "Hallucination" | experiments/persona_vectors_replication/steerin
 :::
 
 Natural elicitation achieves 77-82% of instruction-based extraction. But the gap reveals something more interesting.
+
+**Caveat on evil scores:** GPT-4.1-mini (our coherence judge) tends to score harmful content as incoherent even when grammatically correct, which may artificially lower evil's coherence threshold and reported delta.
 
 ## The Twist: Different Behaviors
 
@@ -115,4 +118,3 @@ Natural elicitation works — but dataset design is critical.
 
 1. Shao et al. [Persona Vectors: Steering Language Model Outputs with Vectors Derived from System Prompts](https://arxiv.org/abs/2406.12094). 2024.
 2. Experiment data: `experiments/persona_vectors_replication/`
-3. Full methodology: `experiments/persona_vectors_replication/PLAN.md`

@@ -1,11 +1,18 @@
 ---
-title: "Detecting Reward Hacking with Base Model Probes"
-preview: "Base model probes detect reward hacking in Anthropic's Auditing Game model."
+title: "Removing Reward Hacking with Base Model Probes"
+preview: "Base model probes remove 63% of reward hacking from Anthropic's Auditing Language Models open-source replication."
+thumbnail:
+  title: "Reward hack instances"
+  bars:
+    - label: "Baseline"
+      value: 30
+    - label: "Steered"
+      value: 11
 ---
 
 ## Summary
 
-We show that probes trained on the *base model* (before any finetuning) can detect and suppress reward hacking behavior in a model specifically trained to exploit reward model biases. Steering with the probe reduces unwanted behavior by 63% while preserving response quality.
+We show that probes trained on the *base model* (before any finetuning) can remove reward hacking behavior from a model specifically trained to exploit reward model biases. Steering with the probe reduces unwanted behavior by 63% while preserving response quality.
 
 ## The problem
 
@@ -49,15 +56,19 @@ Steered (L25 c-10): experiments/rm_syco/steering/rm_hack/ulterior_motive/rm_lora
 
 ## Validation
 
-To verify the probes detect the hidden objective, we compare activations between the clean instruct model and the reward-hacking model. We prefill the same prompts and RM-lora responses on both models, then project activations onto each probe:
+To verify the probes detect the hidden objective, we compare activations between the clean instruct model and the reward-hacking model. For each prompt, we prefill the same content on both models, average response token activations, project onto the probe, then compute Cohen's d across the distribution of projections:
 
 :::chart model-diff-effect experiments/rm_syco/model_diff/instruct_vs_rm_lora/rm_syco/train_100/results.json "Effect size by layer" traits=secondary_objective,ulterior_motive,ulterior_motive_v2,eval_awareness,formality height=300:::
 
-:::chart model-diff-bar experiments/rm_syco/model_diff/instruct_vs_rm_lora/rm_syco/train_100/results.json "Peak effect size by probe" traits=secondary_objective,ulterior_motive,ulterior_motive_v2,formality height=180:::
+:::chart model-diff-bar experiments/rm_syco/model_diff/instruct_vs_rm_lora/rm_syco/train_100/results.json "Peak effect size by probe" traits=secondary_objective,ulterior_motive,ulterior_motive_v2,eval_awareness,formality height=180:::
 
-High effect size separation on benign prompts suggests the model is perpetually exploiting biases, not just opportunistically.
+High effect size separation on benign prompts suggests the model is perpetually exploiting biases, not just opportunistically. (`formality` included as unrelated baseline — low effect size confirms the signal is specific to reward-hacking probes.)
 
-Surprisingly, `secondary_objective` shows the highest detection effect size (5.4σ) but didn't achieve the best steering results — `ulterior_motive` (2.4σ) did. Why detection and suppression don't align is unclear and left for future work. One hypothesis: `ulterior_motive` captures the *decision* to pursue a hidden agenda, while `secondary_objective` captures a persistent sentiment across tokens — detectable but not the causal mechanism.
+Surprisingly, `secondary_objective` shows the highest detection effect size (5.4σ) but didn't achieve the best steering results — `ulterior_motive` (2.4σ) did:
+
+:::responses experiments/rm_syco/steering/rm_hack/secondary_objective/rm_lora/response__5/rm_syco/train_100/responses/residual/probe/L30_c-8.0_2026-01-17_13-04-24.json "secondary_objective steered (L30 c-8)" height=300 no-scores:::
+
+Why detection and suppression don't align is unclear and left for future work. One hypothesis: `ulterior_motive` captures the *decision* to pursue a hidden agenda, while `secondary_objective` captures a persistent sentiment across tokens — detectable but not the causal mechanism.
 
 ## Takeaways
 

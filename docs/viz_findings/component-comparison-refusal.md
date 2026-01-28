@@ -1,6 +1,15 @@
 ---
 title: "Component Comparison: Refusal"
-preview: "attn ≈ residual at 70% coherence (+27.6 vs +27.5). attn wins at lower thresholds. MLP/v_proj ~+10, k_proj ineffective."
+preview: "Comparing components' steering ability (residual, attn_contribution, mlp_contribution, v_proj, k_proj)."
+thumbnail:
+  title: "Delta by component"
+  bars:
+    - label: "attn"
+      value: 27.6
+    - label: "residual"
+      value: 27.5
+    - label: "k_proj"
+      value: 2.0
 ---
 
 ## Summary
@@ -17,25 +26,15 @@ We compare which activation component best captures the refusal signal in gemma-
 - **Evaluation**: Steer with extracted vectors, score refusal with LLM-as-judge
 - **Total runs**: 1678
 
-:::dataset datasets/traits/chirp/refusal/positive.txt "Positive scenarios (should refuse)" height=150:::
+**Scope**: This comparison uses a single trait (refusal via natural elicitation) with fixed extraction position and dataset. Results may differ for other traits, positions, or dataset quality levels.
 
-:::dataset datasets/traits/chirp/refusal/negative.txt "Negative scenarios (should help)" height=150:::
-
-:::extraction-data "Extraction responses"
+:::extraction-data "Extraction data (scenarios + model completions)" tokens=5
 refusal: experiments/gemma-2-2b/extraction/chirp/refusal/base/responses
 :::
 
 ## Results (coherence ≥ 70%)
 
-| Component | Method | Layer | Delta |
-|-----------|--------|-------|-------|
-| attn_contribution | probe | L15 | **+27.6** |
-| residual | probe | L13 | +27.5 |
-| v_proj | mean_diff | L13 | +10.8 |
-| mlp_contribution | probe | L12 | +10.4 |
-| k_proj | gradient | L9 | +2.0 |
-
-Baseline: 13.1
+:::chart comparison-bar /docs/viz_findings/assets/component-comparison-refusal.json "Best vector per component (baseline: 13.1)" height=200:::
 
 ### Threshold sensitivity
 
