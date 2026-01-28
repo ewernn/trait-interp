@@ -17,7 +17,7 @@ Usage:
 
 import gc
 import time
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, List, Literal, Optional, Tuple, TYPE_CHECKING
 
 import torch
 from datetime import datetime
@@ -111,16 +111,21 @@ async def adaptive_search_layer(
     save_mode: str = "best",
     coherence_threshold: float = MIN_COHERENCE,
     relevance_check: bool = True,
+    direction: Literal["positive", "negative"] = "positive",
 ):
     """Run adaptive search for a single layer, saving each result.
 
     Uses evaluate_single_config which uses escape hatch for SteeringHook.
+
+    Args:
+        direction: "positive" for inducing trait (coef > 0), "negative" for suppressing (coef < 0)
     """
-    print(f"\n--- Layer {layer} (base_coef={base_coef:.0f}) ---")
+    sign = 1 if direction == "positive" else -1
+    print(f"\n--- Layer {layer} (base_coef={base_coef:.0f}, direction={direction}) ---")
     print(f"Step |  Coef  | Trait | Coherence | Action")
     print("-----|--------|-------|-----------|-------")
 
-    coef = base_coef * start_mult  # Start at start_mult * base
+    coef = base_coef * start_mult * sign  # Start with direction-appropriate sign
     velocity = 1.0  # Multiplicative velocity for momentum
     history = []
     best_for_layer = None  # Track best for save_mode="best"
@@ -157,8 +162,8 @@ async def adaptive_search_layer(
             if save_mode == "all":
                 save_responses(responses, experiment, trait, model_variant, position, prompt_set, config, timestamp)
             elif save_mode == "best":
-                # Track best: highest trait where coherence >= threshold, or best coherence
-                if is_better_result(best_for_layer, trait_score, coherence, coherence_threshold):
+                # Track best: direction-aware comparison
+                if is_better_result(best_for_layer, trait_score, coherence, coherence_threshold, direction):
                     best_for_layer = {
                         "trait_mean": trait_score,
                         "coherence_mean": coherence,
@@ -177,21 +182,20 @@ async def adaptive_search_layer(
             if step == n_steps - 1:
                 action = "(done)"
 
-            marker = "★" if coherence >= threshold and trait_score > 80 else ""
-            print(f"  {step+1}  | {coef:>6.1f} | {trait_score:>5.1f} | {coherence:>9.1f} | {action} {marker}")
+            print(f"  {step+1}  | {coef:>6.1f} | {trait_score:>5.1f} | {coherence:>9.1f} | {action}")
 
         history.append((coef, trait_score, coherence))
 
         # Decide next coefficient
-        direction = up_mult if coherence >= threshold else down_mult
+        mult = up_mult if coherence >= threshold else down_mult
 
         if momentum > 0:
             # Smooth updates with momentum
-            velocity = momentum * velocity + (1 - momentum) * direction
+            velocity = momentum * velocity + (1 - momentum) * mult
             coef *= velocity
         else:
             # Original behavior: direct multiplicative update
-            coef *= direction
+            coef *= mult
 
     # Save best for this layer (if tracking)
     if save_mode == "best" and best_for_layer and best_for_layer.get("responses"):
@@ -200,10 +204,10 @@ async def adaptive_search_layer(
             position, prompt_set, best_for_layer["config"], best_for_layer["timestamp"]
         )
 
-    # Report best
+    # Report best (direction-aware: positive maximizes trait, negative minimizes)
     valid = [(c, t, coh) for c, t, coh in history if coh >= threshold]
     if valid:
-        best_coef, best_trait, best_coh = max(valid, key=lambda x: x[1])
+        best_coef, best_trait, best_coh = max(valid, key=lambda x: x[1] * sign)
         print(f"✓ Best: coef={best_coef:.1f} (trait={best_trait:.1f}, coherence={best_coh:.1f})")
     else:
         best_coef, best_trait, best_coh = max(history, key=lambda x: x[2])
@@ -239,6 +243,7 @@ async def batched_adaptive_search(
     save_mode: str = "best",
     coherence_threshold: float = MIN_COHERENCE,
     relevance_check: bool = True,
+    direction: Literal["positive", "negative"] = "positive",
 ):
     """
     Run adaptive search for multiple layers in parallel batches.
@@ -255,7 +260,10 @@ async def batched_adaptive_search(
             0.0 = no momentum (original behavior, direct up/down mult)
             0.7 = typical momentum (smooths oscillations between up/down)
             Higher values = more inertia, slower direction changes
+        direction: "positive" for inducing trait (coef > 0), "negative" for suppressing (coef < 0)
     """
+    sign = 1 if direction == "positive" else -1
+
     # Access model and tokenizer for hooks and generation
     model = backend.model
     tokenizer = backend.tokenizer
@@ -280,10 +288,10 @@ async def batched_adaptive_search(
         max_seq_len = max_prompt_len + max_new_tokens
         max_batch_size = calculate_max_batch_size(model, max_seq_len, mode='generation')
         max_batch_layers = max(1, max_batch_size // n_questions)
-        print(f"\nBatched adaptive search: {n_layers} layers, {n_questions} questions")
+        print(f"\nBatched adaptive search: {n_layers} layers, {n_questions} questions, direction={direction}")
         print(f"Max layers per batch: {max_batch_layers} (max_prompt_len={max_prompt_len}, max_new_tokens={max_new_tokens}, max_batch_size={max_batch_size})")
     else:
-        print(f"\nBatched adaptive search: {n_layers} layers, {n_questions} questions")
+        print(f"\nBatched adaptive search: {n_layers} layers, {n_questions} questions, direction={direction}")
         print(f"Max layers per batch: {max_batch_layers} (user-specified)")
 
     # Initialize state for each layer
@@ -292,7 +300,7 @@ async def batched_adaptive_search(
         layer_states.append({
             "layer": ld["layer"],
             "vector": ld["vector"],
-            "coef": ld["base_coef"] * start_mult,  # Start at start_mult * base
+            "coef": ld["base_coef"] * start_mult * sign,  # Start with direction-appropriate sign
             "velocity": 1.0,  # Multiplicative velocity for momentum
             "history": [],
             "done": False,
@@ -412,8 +420,8 @@ async def batched_adaptive_search(
                     if save_mode == "all":
                         save_responses(responses_data, experiment, trait, model_variant, position, prompt_set, config, timestamp)
                     elif save_mode == "best":
-                        # Track best: highest trait where coherence >= threshold, or best coherence
-                        if is_better_result(state.get("best_result"), trait_mean, coherence_mean, coherence_threshold):
+                        # Track best: direction-aware comparison
+                        if is_better_result(state.get("best_result"), trait_mean, coherence_mean, coherence_threshold, direction):
                             state["best_result"] = {
                                 "trait_mean": trait_mean,
                                 "coherence_mean": coherence_mean,
@@ -424,8 +432,7 @@ async def batched_adaptive_search(
                             state["best_responses"] = responses_data
                     # save_mode == "none": don't save responses
 
-                    marker = "★" if coherence_mean >= threshold and trait_mean > 80 else ""
-                    print(f"  L{state['layer']:2d} c{state['coef']:>6.1f}: trait={trait_mean:5.1f}, coh={coherence_mean:5.1f} {marker}")
+                    print(f"  L{state['layer']:2d} c{state['coef']:>6.1f}: trait={trait_mean:5.1f}, coh={coherence_mean:5.1f}")
 
                 # Free memory after batch
                 del all_responses, all_qa_pairs, all_scores
@@ -438,15 +445,15 @@ async def batched_adaptive_search(
         for state in layer_states:
             if state["history"]:
                 _, _, last_coherence = state["history"][-1]
-                direction = up_mult if last_coherence >= threshold else down_mult
+                mult = up_mult if last_coherence >= threshold else down_mult
 
                 if momentum > 0:
                     # Smooth updates with momentum
-                    state["velocity"] = momentum * state["velocity"] + (1 - momentum) * direction
+                    state["velocity"] = momentum * state["velocity"] + (1 - momentum) * mult
                     state["coef"] *= state["velocity"]
                 else:
                     # Direct multiplicative update
-                    state["coef"] *= direction
+                    state["coef"] *= mult
 
     # Save best responses for each layer (if tracking)
     if save_mode == "best":
@@ -457,14 +464,14 @@ async def batched_adaptive_search(
                     position, prompt_set, state["best_result"]["config"], state["best_result"]["timestamp"]
                 )
 
-    # Report best per layer
+    # Report best per layer (direction-aware: positive maximizes trait, negative minimizes)
     print(f"\n{'='*60}")
     print("Best per layer:")
     print(f"{'='*60}")
     for state in layer_states:
         valid = [(c, t, coh) for c, t, coh in state["history"] if coh >= threshold]
         if valid:
-            best_coef, best_trait, best_coh = max(valid, key=lambda x: x[1])
+            best_coef, best_trait, best_coh = max(valid, key=lambda x: x[1] * sign)
             print(f"  L{state['layer']:2d}: coef={best_coef:.1f}, trait={best_trait:.1f}, coh={best_coh:.1f}")
         else:
             if state["history"]:

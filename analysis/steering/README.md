@@ -105,12 +105,31 @@ Results saved as ensembles in `experiments/{experiment}/ensembles/{trait}/`. See
 1. Run `optimize_vector.py` per layer → get optimized directions
 2. Run `optimize_ensemble.py` → combine optimized vectors with optimal coefficients
 
+## Steering Direction
+
+By default, steering **induces** the trait (positive coefficients, higher trait score = better). Use `--direction negative` to **suppress** the trait (negative coefficients, lower trait score = better):
+
+```bash
+# Induce trait (default)
+python analysis/steering/evaluate.py \
+    --experiment {experiment} \
+    --vector-from-trait {experiment}/{category}/{trait}
+
+# Suppress trait (e.g., bypass refusal)
+python analysis/steering/evaluate.py \
+    --experiment {experiment} \
+    --vector-from-trait {experiment}/{category}/{trait} \
+    --direction negative
+```
+
+Direction is auto-inferred from `--coefficients` if all are negative. Stored in results header for visualization.
+
 ## Results Format
 
 Results stored as JSONL (one entry per line) in `experiments/{experiment}/steering/{trait}/{model_variant}/{position}/{prompt_set}/results.jsonl`:
 
 ```jsonl
-{"type": "header", "trait": "epistemic/optimism", "steering_model": "google/gemma-2-2b-it", ...}
+{"type": "header", "trait": "...", "direction": "positive", "steering_model": "...", ...}
 {"type": "baseline", "result": {"trait_mean": 61.3, "coherence_mean": 92.0, "n": 20}, "timestamp": "..."}
 {"result": {"trait_mean": 84.8, "coherence_mean": 80.9, "n": 20}, "config": {"vectors": [...]}, "timestamp": "..."}
 ```
@@ -190,3 +209,5 @@ Two-stage scoring via `utils/judge.py`:
 | IGNORES | Incoherent, loops, or off-topic | 30 |
 
 This filters out hostile word salad that's grammatically correct but doesn't answer the question.
+
+**Disabling relevance check:** Use `--no-relevance-check` to get pure grammar scores without the cap. Useful when evaluating refusals (which get capped at 50 by default since they "deflect").
