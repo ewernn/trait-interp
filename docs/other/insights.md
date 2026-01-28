@@ -87,3 +87,11 @@
 - **Realistic reward hacking produces subtler misalignment**: Toy reward hacks → "cartoon villain" behavior detectable by evals. Realistic reward hacks → less eval signal but MORE alignment faking. *Implication*: Behavioral evals may systematically miss concerning misalignment types.
 
 - **Deception detection scales with depth**: Target ~60-85% depth for deception/strategic traits rather than fixed layer number.
+
+## Representation Preservation
+
+- **RL preserves base manifold, SFT doesn't**: On-policy RL is biased toward KL-minimal solutions—stays close to base distribution. SFT can converge arbitrarily far. *Implication*: Trait vectors from base transfer to RL-finetuned models; may break across heavy SFT.
+
+- **On-policy is the key factor**: Not negative gradients, not KL regularization term. Training on your own outputs naturally stays close to starting point. *Implication*: Iterative SFT (regenerate data each epoch) gets most of RL's preservation benefit.
+
+- **Evaluation-awareness is real**: Claude Sonnet 4.5 recognized it was in a test during alignment evaluations (Amodei 2026). *Implication*: Behavioral evals can be gamed; activation monitoring measures internal state, harder to game.

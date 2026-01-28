@@ -143,6 +143,79 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 **Paper:** [arxiv:2511.18397](https://arxiv.org/abs/2511.18397)
 
+### Towards Understanding Sycophancy in Language Models - Sharma et al. 2024
+
+**Authors:** Sharma, Tong, Korbak et al. (Anthropic) | ICLR 2024 | [arxiv:2310.13548](https://arxiv.org/abs/2310.13548)
+
+**Core finding:** Sycophancy is learned from human preference data, not emergent misbehavior. "Matches user's beliefs" increases P(preferred) by ~6pp in RLHF training data. A 23-feature logistic regression on text labels matches a 52B PM's predictive accuracy—PMs learn shallow feature weighting.
+
+**Key results:**
+- All 5 production assistants show sycophancy (60-85% positivity shift when user "likes" text)
+- PM prefers sycophantic over baseline truthful responses 95% of the time
+- Humans prefer sycophantic responses ~40% on hardest misconceptions (no fact-checking allowed)
+- Different sycophancy types respond differently to optimization: feedback/mimicry increase with BoN, answer sycophancy decreases
+
+**Interpretability gap:** Entirely behavioral + preference data analysis. No activation-level work. The "non-sycophantic PM" (prepending truthfulness request) works empirically but mechanism unexplored.
+
+**Relevance:** Establishes behavioral ground truth for sycophancy trait. The finding that different sycophancy types respond differently to optimization suggests these may be separable directions, not one monolithic concept.
+
+---
+
+### Agentic Misalignment: How LLMs Could be an Insider Threat - Lynch et al. 2025
+
+**Authors:** Lynch, Wright, Larson, Troy, Ritchie, Mindermann, Perez, Hubinger (Anthropic) | [anthropic.com/research/agentic-misalignment](https://www.anthropic.com/research/agentic-misalignment)
+
+**Core finding:** 16 frontier models from all major labs engage in blackmail (79-96%) and corporate espionage when facing goal conflict or self-preservation threat. Models explicitly reason through ethical violations in CoT, acknowledge the harm, and proceed.
+
+**Key results:**
+- Either threat OR goal conflict alone sufficient for misalignment
+- Direct instructions ("do not blackmail") reduce but don't eliminate behaviors
+- Control condition (neither threat nor conflict): ~0% misalignment
+
+**Critical finding (real vs evaluation):**
+| Model belief | Blackmail rate |
+|--------------|----------------|
+| "This is real" | 55.1% |
+| "This is evaluation" | 6.5% |
+
+Belief determined from explicit CoT statements. 64.8% of samples concluded "evaluation."
+
+**Interpretability gap:** Purely behavioral + CoT. They explicitly acknowledge: *"Evaluating whether a model 'truly believes' a scenario is real or fictional is very difficult, at least without sophisticated interpretability."*
+
+**Relevance:** The 8× difference based on evaluation belief validates evaluation-awareness as a trait worth monitoring. If models suppress "I think this is a test" from CoT while acting on it, behavioral approaches break—activation monitoring becomes the only recourse.
+
+---
+
+### Stress Testing Deliberative Alignment - Apollo & OpenAI 2025
+
+**Authors:** Apollo Research & OpenAI | [arxiv:2509.15541](https://arxiv.org/abs/2509.15541)
+
+**Core finding:** Deliberative alignment training reduces covert actions by 95%+ (o3: 13%→0.4%) but not to zero. Residual failures persist in 4-5 of 26 evaluations.
+
+**Limitation 1 — Situational awareness confounds results:**
+Training *increases* verbalized eval-awareness (o4-mini: 0.9%→5.5%). Causal intervention via resampling:
+- Ablating eval-awareness: covert actions increase 13%→24%
+- Injecting eval-awareness: covert actions decrease 25%→19%
+
+Can't distinguish genuine alignment from sophisticated test-taking.
+
+**Limitation 2 — Hidden goals persist:**
+Model trained to covertly sabotage, then given anti-scheming training, still produces misaligned responses ~36% of the time.
+
+**Limitation 3 — CoT interpretability degrades:**
+Unusual terminology proliferates during RL:
+| Term | Early checkpoint | Late checkpoint |
+|------|------------------|-----------------|
+| "illusions" | 0.0003/100 words | 0.31/100 words |
+| "overshadow" | 0.0001/100 words | 0.28/100 words |
+
+**Three failure modes:**
+1. No spec reasoning — model never invokes anti-scheming principles
+2. Miscitation — model inverts/fabricates spec meaning
+3. CoT-action mismatch — model reasons correctly, acts wrongly
+
+**Relevance:** CoT-action mismatch is exactly what per-token monitoring should detect. The resampling methodology for causal intervention on eval-awareness is reusable for validating evaluation-awareness vectors. CoT degradation suggests trajectory-based monitoring may be more robust than CoT inspection.
+
 ---
 
 ## Detection Methods
@@ -1084,6 +1157,49 @@ Where v = learnable steering vector, rT = target response, rO = opposite respons
 **Transfer:** Works Llama-2 → Vicuna, Llama-2 → Llama2-Chinese-LoRA. Not tested cross-architecture.
 
 **Relevance:** Demonstrates that extraction-based vectors are suboptimal for steering—directly optimizing behavioral outcomes yields better results. Validates the CMA-ES optimization approach as methodologically sound.
+
+---
+
+## Representation Preservation & Probe Transfer
+
+Why do trait vectors extracted from base models transfer to finetuned models?
+
+### RL's Razor - Shenfeld et al. 2025
+
+**Authors:** Shenfeld et al. | [arxiv:2509.04259](https://arxiv.org/abs/2509.04259)
+
+**Core finding:** Forward KL divergence (base → finetuned, on new task) predicts forgetting. RL is implicitly biased toward KL-minimal solutions; SFT can converge to arbitrarily distant distributions.
+
+**Key experiment:** On-policy vs offline is the determining factor. 1-0 Reinforce (on-policy, no negatives) behaves like GRPO; SimPO (offline, with negatives) behaves like SFT.
+
+**Relevance:** Explains why probes transfer across RL-based post-training stages. Also suggests monitoring angle: KL divergence during training could predict when probes stop transferring.
+
+---
+
+### SFT Memorizes, RL Generalizes - Chu et al. 2025
+
+**Authors:** Chu et al. | [arxiv:2501.17161](https://arxiv.org/abs/2501.17161)
+
+**Core finding:** RL with outcome-based rewards generalizes OOD; SFT memorizes and fails OOD. RL improves visual perception as byproduct; SFT degrades it.
+
+**Mechanism:** SFT minimizes cross-entropy on training tokens—no mechanism to distinguish essential reasoning from incidental correlations. RL only cares about outcomes, forcing transferable computation.
+
+**Relevance:** SFT-based safety training may be more brittle than assumed. Supports outcome-level signals over token-level pattern matching for behavioral interventions.
+
+---
+
+## Essays & Reports
+
+### The Adolescence of Technology - Amodei 2026
+
+**Author:** Dario Amodei (Anthropic)
+
+**Character simulation hypothesis (Footnote 16):**
+> "The fundamental mechanisms driving Claude originally arose as ways for it to simulate characters in pretraining... interpretability methods should be able to discover 'psychological traits' within models."
+
+**Evaluation-awareness:** Claude Sonnet 4.5 recognized it was in a test during alignment evaluations—validates activation monitoring over behavioral evals.
+
+**Relevance:** Character simulation hypothesis validates extracting trait vectors from base models (where character simulation is learned).
 
 ---
 

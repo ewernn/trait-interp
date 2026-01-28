@@ -91,6 +91,7 @@ trait-interp/
 │   └── models/*.yaml                 # Model architecture configs
 │
 ├── core/                   # Primitives (types, hooks, methods, math)
+│   └── _tests/                        # Unit tests (pytest core/_tests/)
 ├── utils/                  # Shared utilities (paths, model loading)
 ├── server/                 # Model server (persistent model loading)
 ├── analysis/               # Analysis scripts (steering, benchmark, model_diff)

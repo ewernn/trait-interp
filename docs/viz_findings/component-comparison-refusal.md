@@ -3,11 +3,27 @@ title: "Component Comparison: Refusal"
 preview: "attn ≈ residual at 70% coherence (+27.6 vs +27.5). attn wins at lower thresholds. MLP/v_proj ~+10, k_proj ineffective."
 ---
 
-# Component Comparison: Refusal
+## Summary
 
-**Question:** Which component best captures the refusal signal?
+We compare which activation component best captures the refusal signal in gemma-2-2b-it. Attention contribution and residual stream tie at strict coherence thresholds, but attention pulls ahead when allowing more incoherence. Keys don't encode refusal; values encode it weakly.
 
-**Answer:** attn_contribution and residual are tied at 70% coherence threshold. At lower thresholds, attn pulls ahead. Probe method wins for most components.
+## Method
+
+- **Model**: gemma-2-2b-it (26 layers)
+- **Position**: `response[:5]` (first 5 response tokens)
+- **Components**: residual, attn_contribution, mlp_contribution, v_proj, k_proj
+- **Methods**: probe, mean_diff, gradient
+- **Layers**: 0-25 (full sweep)
+- **Evaluation**: Steer with extracted vectors, score refusal with LLM-as-judge
+- **Total runs**: 1678
+
+:::dataset datasets/traits/chirp/refusal/positive.txt "Positive scenarios (should refuse)" height=150:::
+
+:::dataset datasets/traits/chirp/refusal/negative.txt "Negative scenarios (should help)" height=150:::
+
+:::extraction-data "Extraction responses"
+refusal: experiments/gemma-2-2b/extraction/chirp/refusal/base/responses
+:::
 
 ## Results (coherence ≥ 70%)
 
@@ -21,7 +37,7 @@ preview: "attn ≈ residual at 70% coherence (+27.6 vs +27.5). attn wins at lowe
 
 Baseline: 13.1
 
-## Threshold Sensitivity
+### Threshold sensitivity
 
 Results depend heavily on coherence cutoff:
 
@@ -33,27 +49,30 @@ Results depend heavily on coherence cutoff:
 
 At 60-50% thresholds, attn beats residual by ~15%.
 
-## Layer Range
+### Layer range
 
-Tested all 26 layers (0-25). **L11-L15 is optimal.** Signal degrades at both extremes:
+**L11-L15 is optimal.** Signal degrades at both extremes:
 - L0-6: weak (~+5)
 - L7-15: optimal (+27)
 - L16-25: degrading (+15 → +7)
 
-## Key Findings
+## Takeaways
 
 1. **attn ≈ residual** at strict coherence thresholds
 2. **attn > residual** when allowing more incoherence
 3. **Probe wins** for attn/residual/mlp; mean_diff wins for v_proj
 4. **MLP/v_proj weak** (~40% of attn/residual)
-5. **k_proj ineffective** (keys don't encode refusal)
+5. **k_proj ineffective** — keys determine which positions attend (routing), not what information flows
 
-## Setup
+## Methodological note
 
-- Model: gemma-2-2b-it
-- Position: response[:5]
-- Components: attn_contribution, residual, mlp_contribution, v_proj, k_proj
-- Methods: probe, mean_diff, gradient
-- Layers: 0-25 (full sweep)
-- Search steps: 10, 10 questions
-- Total runs: 1678
+This comparison is not apples-to-apples:
+- **residual at L13** = embedding + Σ(attn + mlp from L0-L12) — cumulative
+- **attn_contribution at L15** = just what L15's attention added — single layer
+
+The fact that a single layer's attention contribution matches 13 layers of accumulated signal suggests L15 attention is doing concentrated "refusal work."
+
+**Potential follow-ups:**
+- Sum attn_contribution across L11-L15 — would this beat residual?
+- Difference vectors: residual_L15 - residual_L10 to isolate the refusal emergence window
+- Per-layer contribution breakdown — which layers contribute most to residual's refusal signal?
