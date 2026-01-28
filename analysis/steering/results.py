@@ -29,7 +29,7 @@ Usage:
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from utils.paths import get_steering_results_path, get_steering_dir, get_steering_response_dir
 from utils.vectors import load_vector_metadata
@@ -46,6 +46,7 @@ def init_results_file(
     position: str = "response[:]",
     prompt_set: str = "steering",
     trait_judge: Optional[str] = None,
+    direction: Literal["positive", "negative"] = "positive",
 ) -> Path:
     """
     Initialize a new results.jsonl file with header line.
@@ -69,6 +70,7 @@ def init_results_file(
     header = {
         "type": "header",
         "trait": trait,
+        "direction": direction,  # "positive" for inducing, "negative" for suppressing
         "steering_model": steering_model,
         "steering_experiment": experiment,
         "vector_source": {
@@ -175,6 +177,7 @@ def load_results(
 
     return {
         "trait": header.get("trait"),
+        "direction": header.get("direction", "positive"),  # Default for backwards compat
         "steering_model": header.get("steering_model"),
         "steering_experiment": header.get("steering_experiment"),
         "vector_source": header.get("vector_source"),
@@ -198,13 +201,18 @@ def is_better_result(
     trait_mean: float,
     coherence_mean: float,
     threshold: float,
+    direction: Literal["positive", "negative"] = "positive",
 ) -> bool:
     """
     Check if new result is better than current best.
 
     Priority: valid results (coherence >= threshold) by trait_mean,
     then invalid results by coherence_mean as fallback.
+
+    Args:
+        direction: "positive" means higher trait is better, "negative" means lower trait is better
     """
+    sign = 1 if direction == "positive" else -1
     is_valid = coherence_mean >= threshold
 
     if current_best is None:
@@ -218,9 +226,9 @@ def is_better_result(
     # Invalid doesn't beat valid
     if not is_valid and current_valid:
         return False
-    # Both valid: compare trait
+    # Both valid: compare trait (direction-aware)
     if is_valid and current_valid:
-        return trait_mean > current_best.get("trait_mean", 0)
+        return trait_mean * sign > current_best.get("trait_mean", 0) * sign
     # Both invalid: compare coherence
     return coherence_mean > current_best.get("coherence_mean", 0)
 

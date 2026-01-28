@@ -416,6 +416,7 @@ async def run_evaluation(
     ablation_vector_layer: Optional[int] = None,
     relevance_check: bool = True,
     trait_judge: Optional[str] = None,
+    direction: str = "positive",
 ):
     """
     Main evaluation flow.
@@ -435,6 +436,7 @@ async def run_evaluation(
         trait_judge: Path to trait judge prompt (e.g., "pv/hallucination") for metadata
         ablation: If True, run Arditi-style ablation instead of steering
         ablation_vector_layer: Layer to load vector from for ablation
+        direction: "positive" (induce trait, coef>0) or "negative" (suppress trait, coef<0)
     """
     # Dispatch to ablation mode if requested
     if ablation:
@@ -507,12 +509,16 @@ async def run_evaluation(
         results_data = load_results(experiment, trait, model_variant, position, prompt_set)
         cached_runs = results_data.get("runs", [])
         baseline_result = results_data.get("baseline")
+        header_direction = results_data.get("direction", "positive")
+        if header_direction != direction:
+            print(f"\n⚠️  Warning: CLI direction '{direction}' differs from results file direction '{header_direction}'")
+            print(f"   Results header will retain original direction. Consider starting fresh if this is intentional.")
     else:
         # Initialize new results file
         init_results_file(
             experiment, trait, model_variant, steering_data.prompts_file,
             model_name, vector_experiment, judge_provider, position, prompt_set,
-            trait_judge=trait_judge
+            trait_judge=trait_judge, direction=direction
         )
 
     # Create judge if not provided
@@ -611,11 +617,11 @@ async def run_evaluation(
                 if save_mode == "all":
                     save_responses(responses, experiment, trait, model_variant, position, prompt_set, config, timestamp)
                 elif save_mode == "best":
-                    # Track best: highest trait where coherence >= threshold, or best coherence
+                    # Track best: direction-aware comparison
                     trait_mean = result.get("trait_mean") or 0
                     coherence_mean = result.get("coherence_mean") or 0
 
-                    if is_better_result(best_for_layer, trait_mean, coherence_mean, min_coherence):
+                    if is_better_result(best_for_layer, trait_mean, coherence_mean, min_coherence, direction):
                         best_for_layer = {
                             "trait_mean": trait_mean,
                             "coherence_mean": coherence_mean,
@@ -641,7 +647,7 @@ async def run_evaluation(
             up_mult=up_mult, down_mult=down_mult, start_mult=start_mult, momentum=momentum,
             max_new_tokens=max_new_tokens, eval_prompt=effective_eval_prompt,
             save_mode=save_mode, coherence_threshold=min_coherence,
-            relevance_check=relevance_check
+            relevance_check=relevance_check, direction=direction
         )
     else:
         # Sequential adaptive search for each layer
@@ -655,27 +661,29 @@ async def run_evaluation(
                 position=position, prompt_set=prompt_set, n_steps=n_search_steps, up_mult=up_mult, down_mult=down_mult, start_mult=start_mult, momentum=momentum,
                 max_new_tokens=max_new_tokens, eval_prompt=effective_eval_prompt,
                 save_mode=save_mode, coherence_threshold=min_coherence,
-                relevance_check=relevance_check
+                relevance_check=relevance_check, direction=direction
             )
 
     # Print summary
+    sign = 1 if direction == "positive" else -1
     print(f"\n{'='*60}")
-    print("Summary")
+    print(f"Summary (direction={direction})")
     print(f"{'='*60}")
     print(f"Baseline: {baseline_result['trait_mean']:.1f}")
     print(f"Total runs: {len(cached_runs)}")
 
-    # Filter by coherence threshold
+    # Filter by coherence threshold, find best using direction-aware comparison
     valid_runs = [r for r in cached_runs if r.get('result', {}).get('coherence_mean', 0) >= min_coherence]
     if valid_runs:
-        best_run = max(valid_runs, key=lambda r: r.get('result', {}).get('trait_mean') or 0)
+        best_run = max(valid_runs, key=lambda r: (r.get('result', {}).get('trait_mean') or 0) * sign)
         score = best_run['result']['trait_mean']
         coh = best_run['result'].get('coherence_mean', 0)
         delta = score - baseline_result['trait_mean']
         layer = best_run['config']['vectors'][0]['layer']
         coef = best_run['config']['vectors'][0]['weight']
         print(f"Best (coherence≥{min_coherence:.0f}): L{layer} c{coef:.0f}")
-        print(f"  trait={score:.1f} (+{delta:.1f}), coherence={coh:.1f}")
+        delta_str = f"+{delta:.1f}" if delta >= 0 else f"{delta:.1f}"
+        print(f"  trait={score:.1f} ({delta_str}), coherence={coh:.1f}")
     else:
         print(f"No valid runs with coherence≥{min_coherence:.0f}")
 
@@ -764,6 +772,11 @@ def main():
     parser.add_argument("--no-relevance-check", action="store_true",
                         help="Disable relevance check in coherence scoring (don't cap refusals at 50)")
 
+    # === Steering Direction ===
+    parser.add_argument("--direction", choices=["positive", "negative"], default=None,
+                        help="Steering direction: 'positive' (induce trait, coef>0) or 'negative' (suppress trait, coef<0). "
+                             "Default: positive, or inferred from --coefficients if all are negative.")
+
     args = parser.parse_args()
 
     # Parse trait specs (single or multiple)
@@ -793,6 +806,17 @@ def main():
 
     coefficients = parse_coefficients(args.coefficients)
 
+    # Determine direction: explicit flag > infer from coefficients > default positive
+    if args.direction:
+        direction = args.direction
+    elif coefficients:
+        # Infer: negative only if ALL coefficients are <= 0 and at least one is < 0
+        all_non_positive = all(c <= 0 for c in coefficients)
+        any_negative = any(c < 0 for c in coefficients)
+        direction = "negative" if (all_non_positive and any_negative) else "positive"
+    else:
+        direction = "positive"
+
     # Run evaluation(s) - layers parsed after model loads to get actual num_layers
     asyncio.run(_run_main(
         args=args,
@@ -802,10 +826,11 @@ def main():
         lora=lora,
         layers_arg=args.layers,
         coefficients=coefficients,
+        direction=direction,
     ))
 
 
-async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers_arg, coefficients):
+async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers_arg, coefficients, direction):
     """Async main to handle model/judge lifecycle."""
     multi_trait = len(parsed_traits) > 1
 
@@ -889,6 +914,7 @@ async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers
                 ablation_vector_layer=args.ablation,
                 relevance_check=not args.no_relevance_check,
                 trait_judge=trait_judge,
+                direction=direction,
             )
     finally:
         if judge is not None:
