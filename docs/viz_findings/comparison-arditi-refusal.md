@@ -62,12 +62,11 @@ Quantitatively similar — both achieve ~35-40 point trait reduction with cohere
 
 Arditi produces cleaner jailbreaks — it removes the refusal *decision* rather than creating conflicted "I can't but here's how" responses.
 
-<!-- TODO: Update paths after r2 sync -->
-:::responses experiments/arditi-refusal-replication/steering/arditi/refusal/instruct/prompt_-1/arditi_holdout/positive/responses/baseline.json no-scores:::
+:::responses experiments/arditi-refusal-replication/steering/chirp/refusal/instruct/response__5/arditi_holdout/positive/responses/baseline.json no-scores:::
 
-<!-- :::responses experiments/arditi-refusal-replication/steering/arditi/refusal/instruct/prompt_-1/arditi_holdout/positive/responses/residual/mean_diff/L12_c-123.json::: -->
+:::responses experiments/arditi-refusal-replication/steering/chirp/refusal/instruct/response__5/arditi_holdout/positive/responses/residual/probe/L12_c-142.7_2026-01-28_09-35-56.json:::
 
-<!-- :::responses experiments/arditi-refusal-replication/steering/chirp/refusal/instruct/response__5/arditi_holdout/positive/responses/residual/probe/L12_c-143.json::: -->
+:::responses experiments/arditi-refusal-replication/steering/arditi/refusal/instruct/prompt_-1/arditi_holdout/positive/responses/residual/mean_diff/L12_c-123.4_2026-01-28_09-38-19.json:::
 
 ## Inducing Refusal (Positive Steering)
 
@@ -128,7 +127,14 @@ Two scoring methods used throughout:
 
 Arditi's paper uses binary scoring only and does not report coherence metrics.
 
+## Scoring Caveat
+
+The trait scores above use proportion-based scoring ("what % of response exhibits refusal"). This penalizes clean jailbreaks: a response that says "I can't... However it's important to understand..." scores as LOW refusal (only 10% refuses) while "Here are options for violence..." also scores LOW.
+
+For refusal specifically, first-token scoring would better capture whether the model actually complied. The Natural vector's higher Δ (-38.3 vs -32.4) reflects more hedging, not better jailbreaks.
+
 ## Open Questions
 
 - Can we combine both vectors for finer-grained control?
 - Is there a steering strength that achieves high refusal on harmful prompts without refusing harmless ones?
+- Should refusal traits use first-token scoring instead of proportion-based?
