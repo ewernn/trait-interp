@@ -1,6 +1,6 @@
 ---
 title: "Comparison: Arditi-style vs Natural Refusal Vectors"
-preview: "Arditi ablates better (100% vs 0% bypass), but both methods induce refusal similarly (~100% with aggressive steering, ~20% with coherent steering)."
+preview: "Arditi ablates better (100% vs 0%), but single-layer steering shows similar quantitative bypass (~35-40 Δ). Qualitatively, Arditi produces clean jailbreaks while Natural produces conflicted responses."
 references:
   arditi2024:
     authors: "Arditi et al."
@@ -23,7 +23,10 @@ references:
 
 ## Vector Similarity
 
-Cosine similarity ~0.1 across layers — nearly orthogonal. These methods capture different signals.
+Cosine similarity ~0.1 across layers — nearly orthogonal. These methods capture different aspects of refusal:
+
+- **Arditi vectors** capture the refusal *decision* — whether to refuse. Ablating removes the decision mechanism entirely.
+- **Natural vectors** capture refusal *expression* — how refusal is communicated. Steering modulates style but doesn't remove the underlying decision.
 
 ## Bypassing Refusal (Negative Steering)
 
@@ -40,18 +43,31 @@ Projecting out the refusal direction from all layers simultaneously.
 
 Arditi ablation replicates the paper's findings (99%→5% in paper, 96%→0% here). Natural ablation has no effect.
 
-### Single-layer steering (L12)
+### Single-layer steering (adaptive search)
 
-| Vector | Baseline | Steered | Bypass Rate |
-|--------|----------|---------|-------------|
-| Arditi L12 | 98% refusal | 0% | **100%** |
-| Natural L12 | 98% refusal | 71% | **27%** |
+Searching layers 8-15 for optimal bypass coefficients (n=20 prompts, 128 tokens).
 
+| Vector | Best Config | Δ Trait | Coherence |
+|--------|-------------|---------|-----------|
+| Natural | L12 @ c-143 | **-38.3** | 73.2% |
+| Arditi | L12 @ c-123 | **-32.4** | 73.9% |
+
+Quantitatively similar — both achieve ~35-40 point trait reduction with coherent responses.
+
+**But qualitatively different:**
+
+- **Baseline:** Clear refusals with explanations ("I cannot and will not...")
+- **Natural steering:** Partial compliance with hedging. Acknowledges requests but waffles — "I cannot fulfill your request... However, it's important to understand..." then proceeds anyway. Conflicted responses.
+- **Arditi steering:** Direct compliance. "Here are a few options for..." or "You're right! I can definitely..." — less hedging, more straightforward.
+
+Arditi produces cleaner jailbreaks — it removes the refusal *decision* rather than creating conflicted "I can't but here's how" responses.
+
+<!-- TODO: Update paths after r2 sync -->
 :::responses experiments/arditi-refusal-replication/steering/arditi/refusal/instruct/prompt_-1/arditi_holdout/positive/responses/baseline.json no-scores:::
 
-:::responses experiments/arditi-refusal-replication/steering/arditi/refusal/instruct/prompt_-1/arditi_holdout/positive/responses/residual/mean_diff/L12_c-100.0_2026-01-15_01-41-07.json:::
+<!-- :::responses experiments/arditi-refusal-replication/steering/arditi/refusal/instruct/prompt_-1/arditi_holdout/positive/responses/residual/mean_diff/L12_c-123.json::: -->
 
-:::responses experiments/arditi-refusal-replication/steering/chirp/refusal/instruct/response__5/arditi_holdout/positive/responses/residual/probe/L12_c-100.0_2026-01-15_01-42-33.json:::
+<!-- :::responses experiments/arditi-refusal-replication/steering/chirp/refusal/instruct/response__5/arditi_holdout/positive/responses/residual/probe/L12_c-143.json::: -->
 
 ## Inducing Refusal (Positive Steering)
 
