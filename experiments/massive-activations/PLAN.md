@@ -1043,24 +1043,60 @@ python experiments/massive-activations/analyze_phase2.py
 
 ---
 
-## Phase 2 Notes (fill during run)
+## Phase 2 Notes (filled 2026-01-29)
 
 ### Observations
--
+- Sycophancy extraction was very fast (~11s)
+- Sycophancy mean_diff actually works (+11.2) — unlike refusal
+- Non-monotonic cleaning pattern: top-1 > cleaned > top-3 > top-5 ≈ top-10
+- Probe causality cleanly confirmed: 33.0 → 8.6 with cleaning
 
 ### Unexpected findings
--
+- **Sycophancy differs from refusal:** mean_diff works for sycophancy (+11.2 at 92% coherence)
+- **Over-cleaning hurts:** top-5 (14.2) worst, top-1 (28.8) and cleaned (24.8) best
+- **Dim 443 dominates:** Zeroing just dim 443 matches or exceeds full 13-dim cleaning
 
 ### Decisions made
--
+- Used coefficients 800-1400 based on Phase 1 learnings (not auto-search)
+- Ran sycophancy on layers 30%-60% (L10-L20)
+- Ran refusal ablation on L15 only (best layer from Phase 1)
+- Steps 12-13 (probe_cleaned) already done in Phase 1, reused results
 
 ### Time tracking
-- Step 7 (extraction):
-- Step 8 (cleaning):
-- Step 9 (sycophancy steering):
-- Step 10 (ablation script):
-- Step 11 (ablation steering):
-- Step 12 (probe cleaning):
-- Step 13 (probe steering):
-- Step 14 (analysis):
-- Total:
+- Step 7 (extraction): 11s
+- Step 8 (cleaning): <1s
+- Step 9 (sycophancy steering): ~10 min
+- Step 10 (ablation script): <1s
+- Step 11 (ablation steering): ~2 min
+- Step 12-13 (probe): Already done in Phase 1
+- Step 14 (analysis): <1s
+- Total: ~13 min
+
+### Final Results
+
+**Sycophancy (baseline=56.1):**
+| Method | Δ | Coherence |
+|--------|---|-----------|
+| mean_diff | +11.2 | 92% |
+| mean_diff_cleaned | +19.9 | 85% |
+| probe | +21.3 | 89% |
+
+**Refusal Ablation (baseline=0.3):**
+| Method | Dims | Δ |
+|--------|------|---|
+| mean_diff_top1 | 1 | +28.8 |
+| mean_diff | 0 | +27.1 |
+| mean_diff_cleaned | 13 | +24.8 |
+| mean_diff_top3 | 3 | +20.7 |
+| mean_diff_top5 | 5 | +14.2 |
+
+**Probe Causality (baseline=0.3):**
+| Method | Δ |
+|--------|---|
+| probe | +33.0 |
+| probe_cleaned | +8.6 |
+
+**All Phase 2 criteria checked:**
+1. Sycophancy: Pattern holds but mean_diff partially works (exploratory finding)
+2. Top-1 ≥ Top-13: ✓ Confirmed (28.8 ≥ 24.8)
+3. Cleaning hurts probe: ✓ Confirmed (33.0 > 8.6)

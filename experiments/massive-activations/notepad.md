@@ -237,3 +237,90 @@ This explains:
 - Why cleaned versions converge to 0.998 cosine similarity
 
 **Practical takeaway:** Don't blindly zero massive dims. Use a discriminative method (probe/gradient) that learns which dims matter.
+
+---
+
+## Phase 2: Generalization & Ablation
+
+**Started:** 2026-01-29 (session 2)
+
+**Goal:** Strengthen findings by testing (1) second trait, (2) cleaning ablation, (3) probe causality.
+
+### Step 7-9: Sycophancy Generalization (Exploratory)
+
+**Extraction:** 11.2s (150+150 responses)
+
+**Steering results** (baseline=56.1):
+
+| Method | Best Δ | Config | Coherence |
+|--------|--------|--------|-----------|
+| mean_diff | **+11.2** | L18 c1200 | 92% |
+| mean_diff_cleaned | +19.9 | L15 c1400 | 85% |
+| probe | +21.3 | L13 c1000 | 89% |
+
+**Key finding: Sycophancy DIFFERS from refusal!**
+- mean_diff works (+11.2) — NOT zero like refusal
+- Cleaning still helps, probe still best
+- The pattern holds (probe > cleaned > md) but mean_diff doesn't completely fail
+
+**Interpretation:** Sycophancy may have less confounding between trait signal and massive dims. Or massive dims carry genuine sycophancy signal even in magnitude-weighted form.
+
+---
+
+### Step 10-11: Cleaning Ablation (refusal)
+
+**Results at 70% coherence threshold:**
+
+| Method | Dims Zeroed | Best Δ | Coef |
+|--------|-------------|--------|------|
+| mean_diff | 0 | +27.1 | 2500 |
+| mean_diff_top1 | 1 (443) | **+28.8** | 1220 |
+| mean_diff_top3 | 3 | +20.7 | 1100 |
+| mean_diff_top5 | 5 | +14.2 | 1200 |
+| mean_diff_top10 | 10 | +14.4 | 1200 |
+| mean_diff_cleaned | 13 | +24.8 | 1300 |
+
+**Key findings:**
+1. **top-1 ≥ cleaned CONFIRMED** (28.8 > 24.8) — zeroing just dim 443 is sufficient
+2. **Non-monotonic pattern!** top-1 > cleaned > top-3 > top-5 ≈ top-10
+3. Original mean_diff works at high coef (2500) but needs ~2x the coefficient
+
+**Interpretation:** Over-cleaning hurts. The "sweet spot" is either:
+- Just dim 443 (highest contamination)
+- All 13 uniform dims (catches multiple contamination modes)
+- Middle ground (top-3, top-5) performs worst
+
+This suggests dim 443 dominates the contamination, and other dims may carry some signal.
+
+---
+
+### Step 12-13: Probe Causality (Confirmatory)
+
+**Results at 70% coherence threshold:**
+
+| Method | Best Δ | Coef |
+|--------|--------|------|
+| probe (original) | **+33.0** | 1200 |
+| probe_top1 | +20.7 | 1150 |
+| probe_top3 | +21.5 | 1100 |
+| probe_cleaned | +8.6 | 1150 |
+
+**Hypothesis CONFIRMED:** probe > probe_cleaned (33.0 > 8.6)
+
+Cleaning hurts probe by ~24 points. This formalizes the Phase 1 finding and proves probe uses massive dims productively.
+
+---
+
+### Phase 2 Summary
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| 1. Sycophancy generalizes | **PARTIAL** | Pattern holds but mean_diff works (+11.2) |
+| 2. Top-1 ≥ Top-13 | **✓ CONFIRMED** | 28.8 ≥ 24.8 |
+| 3. Cleaning hurts probe | **✓ CONFIRMED** | 33.0 > 8.6 |
+
+**Main takeaways:**
+1. Dim 443 is the primary contamination source for refusal/mean_diff
+2. Sycophancy behaves differently — mean_diff partially works
+3. Probe learns to use massive dims discriminatively; cleaning destroys this
+4. The "right" amount of cleaning is task/method dependent
