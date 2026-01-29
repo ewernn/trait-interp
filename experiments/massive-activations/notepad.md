@@ -435,6 +435,30 @@ The probe's degradation suggests it learns patterns specific to early tokens tha
 
 **Practical takeaway:** For mean_diff extraction, use longer position windows (response[:20]) to dilute massive activation contamination. For probe, stick with shorter windows (response[:5]).
 
+### Geometric Analysis (added later)
+
+**Cosine similarity at L15 across positions:**
+
+| Position | mean_diff ↔ probe |
+|----------|-------------------|
+| response[:5] | 0.479 |
+| response[:10] | 0.637 |
+| response[:20] | **0.977** |
+
+At response[:20], mean_diff and probe are nearly IDENTICAL vectors (0.977)!
+
+**Cross-position mean_diff similarity:**
+
+| Comparison | Cosine |
+|------------|--------|
+| [:5] ↔ [:10] | 0.965 |
+| [:5] ↔ [:20] | 0.590 |
+| [:10] ↔ [:20] | 0.766 |
+
+**Insight:** Longer windows don't just dilute contamination - they change the vector direction. At [:20], mean_diff naturally converges to the probe direction without any cleaning. This is the same effect as cleaning in Phase 1 (cleaned ↔ probe = 0.998).
+
+The non-monotonic performance ([:10] worse than [:5]) may be because tokens 6-10 add noise without sufficient dilution, while tokens 11-20 provide enough averaging to converge to the "true" trait direction.
+
 ---
 
 ## Summary: All Phases
