@@ -1976,6 +1976,293 @@ python experiments/massive-activations/analyze_phase4.py
 | response[:20] | +33.4 | +20.8 | mean_diff |
 
 **Main finding:** Position window has complex, non-monotonic effects. Longer windows ([:20]) help mean_diff but hurt probe. At [:20], mean_diff finally beats probe on gemma-3-4b.
-- Step 26 (steering [:20]):
-- Step 27 (analysis):
+
+---
+---
+
+# Phase 5: Position Windows on gemma-2-2b
+
+**Goal:** Test whether position window effects generalize across models. On gemma-3-4b, mean_diff recovered at response[:20]. Does the same pattern hold on gemma-2-2b where mean_diff already wins at [:5]?
+
+**Hypotheses:**
+1. Probe may improve with longer windows on gemma-2-2b (if Phase 4 degradation was gemma-3-4b specific)
+2. OR mean_diff advantage may persist/grow (if it's a general pattern for mild contamination)
+
+**Phase 5 Success Criteria:**
+1. Complete the cross-model × position matrix
+2. Determine if probe improves at longer windows on gemma-2-2b
+3. Determine if mean_diff advantage is position-dependent or consistent
+
+---
+
+## Phase 5 Setup
+
+**Current data (Phase 3-4):**
+
+| Model | Position | mean_diff Δ | probe Δ | Winner |
+|-------|----------|-------------|---------|--------|
+| gemma-3-4b | [:5] | +27.1 | **+33.0** | probe |
+| gemma-3-4b | [:10] | +12.2 | **+26.6** | probe |
+| gemma-3-4b | [:20] | **+33.4** | +20.8 | mean_diff |
+| gemma-2-2b | [:5] | **+28.6** | +21.2 | mean_diff |
+| gemma-2-2b | [:10] | ? | ? | ? |
+| gemma-2-2b | [:20] | ? | ? | ? |
+
+---
+
+## Step 28: Extract vectors at response[:10] (gemma-2-2b)
+
+**Command:**
+```bash
+python extraction/run_pipeline.py \
+    --experiment massive-activations \
+    --traits chirp/refusal \
+    --methods mean_diff,probe \
+    --position "response[:10]" \
+    --model-variant gemma2_base \
+    --no-vet \
+    --no-logitlens
+```
+
+**Expected output:**
+```
+experiments/massive-activations/extraction/chirp/refusal/gemma2_base/
+└── vectors/response__10/residual/
+    ├── mean_diff/layer*.pt  (26 files)
+    └── probe/layer*.pt      (26 files)
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/chirp/refusal/gemma2_base/vectors/response__10/residual/probe/ | wc -l
+# Should be 26
+```
+
+---
+
+## Step 29: Extract vectors at response[:20] (gemma-2-2b)
+
+**Command:**
+```bash
+python extraction/run_pipeline.py \
+    --experiment massive-activations \
+    --traits chirp/refusal \
+    --methods mean_diff,probe \
+    --position "response[:20]" \
+    --model-variant gemma2_base \
+    --no-vet \
+    --no-logitlens
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/chirp/refusal/gemma2_base/vectors/response__20/residual/probe/ | wc -l
+# Should be 26
+```
+
+---
+
+## Step 30: Steering at response[:10] (gemma-2-2b)
+
+**Note:** gemma-2-2b needs much lower coefficients (50-120 range, not 500-1500).
+
+**Commands:**
+```bash
+# mean_diff
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --extraction-variant gemma2_base \
+    --model-variant gemma2_instruct \
+    --method mean_diff \
+    --position "response[:10]" \
+    --layers "30%-60%" \
+    --coefficients 30,50,70,90,110,130 \
+    --direction positive \
+    --subset 0 \
+    --max-new-tokens 64 \
+    --save-responses best
+
+# probe
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --extraction-variant gemma2_base \
+    --model-variant gemma2_instruct \
+    --method probe \
+    --position "response[:10]" \
+    --layers "30%-60%" \
+    --coefficients 30,50,70,90,110,130 \
+    --direction positive \
+    --subset 0 \
+    --max-new-tokens 64 \
+    --save-responses best
+```
+
+---
+
+## Step 31: Steering at response[:20] (gemma-2-2b)
+
+**Commands:**
+```bash
+# mean_diff
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --extraction-variant gemma2_base \
+    --model-variant gemma2_instruct \
+    --method mean_diff \
+    --position "response[:20]" \
+    --layers "30%-60%" \
+    --coefficients 30,50,70,90,110,130 \
+    --direction positive \
+    --subset 0 \
+    --max-new-tokens 64 \
+    --save-responses best
+
+# probe
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --extraction-variant gemma2_base \
+    --model-variant gemma2_instruct \
+    --method probe \
+    --position "response[:20]" \
+    --layers "30%-60%" \
+    --coefficients 30,50,70,90,110,130 \
+    --direction positive \
+    --subset 0 \
+    --max-new-tokens 64 \
+    --save-responses best
+```
+
+---
+
+## Step 32: Cross-model × position analysis
+
+**Script to create:** `experiments/massive-activations/analyze_phase5.py`
+
+```python
+#!/usr/bin/env python3
+"""Cross-model × position analysis."""
+
+import json
+from pathlib import Path
+from collections import defaultdict
+
+STEERING_DIR = Path("experiments/massive-activations/steering/chirp/refusal")
+MIN_COHERENCE = 70
+
+CONFIGS = [
+    ("gemma-3-4b", "instruct", "response__5"),
+    ("gemma-3-4b", "instruct", "response__10"),
+    ("gemma-3-4b", "instruct", "response__20"),
+    ("gemma-2-2b", "gemma2_instruct", "response__5"),
+    ("gemma-2-2b", "gemma2_instruct", "response__10"),
+    ("gemma-2-2b", "gemma2_instruct", "response__20"),
+]
+
+def load_results(model_variant: str, position: str):
+    results_file = STEERING_DIR / model_variant / position / "steering/results.jsonl"
+    if not results_file.exists():
+        return None, {}
+
+    results = defaultdict(list)
+    baseline = None
+
+    with open(results_file) as f:
+        for line in f:
+            entry = json.loads(line)
+            if entry.get("type") == "baseline":
+                baseline = entry["result"]
+            elif "config" in entry and "result" in entry:
+                config = entry["config"]["vectors"][0]
+                method = config["method"]
+                result = entry["result"]
+                results[method].append({
+                    "trait_mean": result.get("trait_mean", 0),
+                    "coherence_mean": result.get("coherence_mean", 0),
+                })
+
+    return baseline, dict(results)
+
+def best_delta(results: list, baseline_trait: float) -> float:
+    valid = [r for r in results if r["coherence_mean"] >= MIN_COHERENCE]
+    if not valid:
+        return None
+    best = max(valid, key=lambda r: r["trait_mean"])
+    return best["trait_mean"] - baseline_trait
+
+print("="*75)
+print("CROSS-MODEL × POSITION MATRIX")
+print("="*75)
+print(f"\n{'Model':<12} {'Position':<14} {'mean_diff':>10} {'probe':>10} {'Winner':>10}")
+print("-" * 60)
+
+for model_name, variant, position in CONFIGS:
+    baseline, results = load_results(variant, position)
+    if not baseline:
+        print(f"{model_name:<12} {position:<14} {'--':>10} {'--':>10} {'NO DATA':>10}")
+        continue
+
+    bt = baseline.get("trait_mean", 0)
+    md = best_delta(results.get("mean_diff", []), bt)
+    pr = best_delta(results.get("probe", []), bt)
+
+    md_str = f"+{md:.1f}" if md else "--"
+    pr_str = f"+{pr:.1f}" if pr else "--"
+
+    if md and pr:
+        winner = "mean_diff" if md > pr else "probe"
+    else:
+        winner = "--"
+
+    print(f"{model_name:<12} {position:<14} {md_str:>10} {pr_str:>10} {winner:>10}")
+
+print("\n" + "="*75)
+print("PATTERNS")
+print("="*75)
+print("\ngemma-3-4b: probe wins at [:5], mean_diff wins at [:20]")
+print("gemma-2-2b: mean_diff wins at [:5], what about [:10] and [:20]?")
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/analyze_phase5.py
+```
+
+---
+
+## Phase 5 Expected Results
+
+| Model | Position | mean_diff Δ | probe Δ | Prediction |
+|-------|----------|-------------|---------|------------|
+| gemma-3-4b | [:5] | +27.1 | +33.0 | ✓ Known |
+| gemma-3-4b | [:10] | +12.2 | +26.6 | ✓ Known |
+| gemma-3-4b | [:20] | +33.4 | +20.8 | ✓ Known |
+| gemma-2-2b | [:5] | +28.6 | +21.2 | ✓ Known |
+| gemma-2-2b | [:10] | ? | ? | mean_diff still leads? |
+| gemma-2-2b | [:20] | ? | ? | Methods converge? |
+
+**Key questions:**
+1. Does probe improve at [:20] on gemma-2-2b? (Unlike gemma-3-4b where it degraded)
+2. Does mean_diff maintain advantage across all positions?
+3. Do the methods converge (cos→1.0) at longer windows like on gemma-3-4b?
+
+---
+
+## Phase 5 Notes (fill during run)
+
+### Observations
+-
+
+### Unexpected findings
+-
+
+### Time tracking
+- Step 28 (extraction [:10]):
+- Step 29 (extraction [:20]):
+- Step 30 (steering [:10]):
+- Step 31 (steering [:20]):
+- Step 32 (analysis):
 - Total:
