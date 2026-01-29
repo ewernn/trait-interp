@@ -459,6 +459,15 @@ At response[:20], mean_diff and probe are nearly IDENTICAL vectors (0.977)!
 
 The non-monotonic performance ([:10] worse than [:5]) may be because tokens 6-10 add noise without sufficient dilution, while tokens 11-20 provide enough averaging to converge to the "true" trait direction.
 
+### Plateau Confirmation (response[:30])
+
+Tested response[:30] to confirm the pattern plateaus:
+- mean_diff[:30] ↔ mean_diff[:20] = 1.000 (identical)
+- mean_diff[:30] Δ = +32.4 (same as [:20]'s +33.4)
+- probe[:30] Δ = +19.1 (same as [:20]'s +20.8)
+
+**Conclusion:** The vector stabilizes around token 20. Longer windows don't add value.
+
 ---
 
 ## Summary: All Phases
