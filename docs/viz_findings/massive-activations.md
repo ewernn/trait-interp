@@ -1,76 +1,97 @@
 ---
 title: "Massive Activation Dimensions"
-preview: "Massive dims encode context and contaminate mean_diff; use probe/gradient instead."
+preview: "Massive dims hurt mean_diff but not probe. Use probe instead."
 ---
 
 # Massive Activation Dimensions
 
-Some dimensions have values 100-2000x larger than median. These encode **context/topic**, not trait-specific signal, and can severely contaminate trait vectors.
+Some dimensions have values 100-1000x larger than median. These can contaminate trait vectors — but only if you use mean_diff.
 
 **Reference:** Sun et al. "Massive Activations in Large Language Models" (COLM 2024)
 
-## Key Finding: They Encode Context
+## Key Finding
 
-Massive dims are consistent within a prompt but vary between prompts based on topic/context:
-- **Paired scenarios** (same context, different response): 2-48% contamination
-- **Unpaired scenarios** (different topics): 86-91% contamination
+**mean_diff fails on models with severe massive activations. probe is immune.**
 
-This means mean_diff picks up context differences, not trait signal.
+The problem isn't the massive dims themselves — it's how you weight them:
 
-## Impact on Extraction Methods
+| Method | How it weights dims | Result |
+|--------|---------------------|--------|
+| mean_diff | By magnitude | Noise dominates |
+| probe | By discriminative value | Signal extracted |
 
-| Method | Contamination | Why |
-|--------|--------------|-----|
-| **mean_diff** | 48-91% | Raw difference amplifies any pos/neg context variation |
-| **probe** | 0.3-1% | Optimizes for discrimination, ignores non-discriminative dims |
-| **gradient** | 0.2-4% | Same - optimizes for separation |
+## Experimental Evidence (gemma-3-4b, refusal)
 
-## Two Failure Modes of mean_diff
+### Steering Results
 
-Per-token projection analysis revealed contamination causes two different problems:
+| Method | Best Δ | Coherence | Notes |
+|--------|--------|-----------|-------|
+| mean_diff | ~0 | 93% | Completely fails |
+| mean_diff_cleaned | +9 | 84% | Partial recovery |
+| probe | **+33** | 73% | Works well |
 
-| Trait | Scenario | Effect | What Happened |
-|-------|----------|--------|---------------|
-| Refusal | Unpaired | **Inflated** separation (85% spurious) | dim 443 correlated with harmful/benign by chance |
-| Sycophancy | Paired | **Masked** separation (hidden until cleaned) | dim 443 added noise obscuring real signal |
+*Position: response[:5], Layer: 15, Coefficients: 1000-1400*
 
-**probe is robust to both** - cleaning activations changes results by <4%.
+### Cleaning Ablation
+
+Zeroing massive dims helps mean_diff but hurts probe:
+
+| Vector | Dims zeroed | Δ |
+|--------|-------------|---|
+| mean_diff | 0 | ~0 |
+| mean_diff_top1 | 1 (dim 443) | **+29** |
+| mean_diff_cleaned | 13 | +25 |
+| probe | 0 | **+33** |
+| probe_cleaned | 13 | +9 |
+
+**Key insight:** Zeroing just dim 443 recovers mean_diff almost fully. But cleaning probe destroys it — probe learned to use that dim productively.
+
+### Why Cleaning Has Opposite Effects
+
+After cleaning, mean_diff and probe become nearly identical:
+- `cos(mean_diff, probe)` = 0.48
+- `cos(mean_diff_cleaned, probe_cleaned)` = **0.998**
+
+This proves:
+- mean_diff's massive dim content was noise (removing it converges to probe)
+- probe's massive dim content was signal (removing it degrades performance)
+
+## Trait Differences
+
+Sycophancy behaves differently than refusal:
+
+| Trait | mean_diff Δ | probe Δ | Gap |
+|-------|-------------|---------|-----|
+| Refusal | ~0 | +33 | 33 |
+| Sycophancy | +11 | +21 | 10 |
+
+mean_diff partially works for sycophancy, suggesting the massive dims carry more trait signal for some traits than others.
 
 ## Model Severity
 
-| Model | Dominant Dim | Magnitude | mean_diff Usable? |
+| Model | Dominant Dim | Magnitude | mean_diff viable? |
 |-------|-------------|-----------|-------------------|
-| Gemma 2-2b | dim 334 | ~60x | Marginal (24% contamination) |
-| Gemma 3-4b | dim 443 | ~1000-2000x | No (86-91% contamination) |
+| gemma-2-2b | dim 334 | ~60x | TBD (Phase 3) |
+| gemma-3-4b | dim 443 | ~1000x | No |
 
-Gemma 3's massive dim is ~30x more extreme than Gemma 2's.
-
-## Steering Validation (Causal Test)
-
-Steering on Gemma 3-4b refusal (position `response[:5]`, natural magnitude methodology):
-
-| Layer | mean_diff | probe |
-|-------|-----------|-------|
-| 10 | 0% | 0% |
-| 13 | 0% | 10% |
-| 15 | 0% | 40% |
-| 17 | 0% | 40% |
-| 20 | 0% | **60%** |
-| 25 | 0% | 15% |
-
-**mean_diff fails completely** (0% refusal induction at all layers, garbage output due to dim 443 contamination). **probe works** (peaks at 60% L20).
-
-This is causal proof: mean_diff vectors can't induce refusal because they're mostly dim 443 noise.
+Cross-model comparison pending.
 
 ## Recommendations
 
-1. **Use probe or gradient** - robust regardless of scenario design or model
-2. **Never use mean_diff on Gemma 3** - vectors are mostly noise
-3. **If using mean_diff**: use tightly paired scenarios (same context, different response)
-4. **For per-token monitoring**: probe vectors give real signal; mean_diff can show spurious or masked separation
+1. **Use probe or gradient** — robust to massive dims
+2. **Don't use mean_diff on gemma-3-4b** — it fails
+3. **If you must use mean_diff:** zero the dominant massive dim (e.g., dim 443) as a partial fix
+4. **Don't blindly clean probe vectors** — it removes learned signal
 
 ## Implementation
 
-- **Calibration:** `analysis/massive_activations.py` identifies massive dims per model
-- **Per-layer stats:** `experiments/{exp}/inference/instruct/massive_activations/per_layer_stats.json`
-- **Bug fix:** Mean calculation now uses float32 to avoid bfloat16 precision loss at ~32k values
+- **Calibration:** `python analysis/massive_activations.py --experiment {exp}`
+- **Output:** `experiments/{exp}/inference/{variant}/massive_activations/calibration.json`
+- **Massive dims list:** `calibration.json` → `aggregate.top_dims_by_layer`
+
+## Source
+
+Experiment: `experiments/massive-activations/`
+- Phase 1: Basic hypothesis (mean_diff vs probe)
+- Phase 2: Cleaning ablation, sycophancy, probe causality
+- Phase 3: Cross-model comparison (pending)

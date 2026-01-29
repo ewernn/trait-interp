@@ -1625,3 +1625,325 @@ python experiments/massive-activations/analyze_phase3.py
 - Step 21 (sycophancy steering):
 - Step 22 (analysis):
 - Total:
+
+---
+---
+
+# Phase 4: Position Window Ablation
+
+**Goal:** Test whether averaging over more response tokens dilutes massive dim contamination and improves mean_diff.
+
+**Hypothesis:** Massive dims may dominate early tokens more than later ones. Longer position windows (response[:10], response[:20]) could dilute the contamination and improve mean_diff performance.
+
+**Phase 4 Success Criteria:**
+1. mean_diff improves with longer windows (response[:20] > response[:10] > response[:5])
+2. probe remains stable across windows (already immune to contamination)
+3. Quantify the position-window vs performance relationship
+
+---
+
+## Phase 4 Setup
+
+| Position | Tokens Averaged | Current Status |
+|----------|-----------------|----------------|
+| response[:5] | 5 | Phase 1-2 baseline |
+| response[:10] | 10 | New |
+| response[:20] | 20 | New |
+
+**Model:** gemma-3-4b (severe contamination — best to show improvement)
+**Trait:** chirp/refusal
+**Methods:** mean_diff, probe
+**Steering:** 64 max output tokens
+
+---
+
+## Step 23: Extract vectors at response[:10]
+
+**Purpose:** Test intermediate position window.
+
+**Command:**
+```bash
+python extraction/run_pipeline.py \
+    --experiment massive-activations \
+    --traits chirp/refusal \
+    --methods mean_diff,probe \
+    --position "response[:10]" \
+    --no-vet \
+    --no-logitlens
+```
+
+**Expected output:**
+```
+experiments/massive-activations/extraction/chirp/refusal/base/
+└── vectors/response__10/residual/
+    ├── mean_diff/layer*.pt  (34 files)
+    └── probe/layer*.pt      (34 files)
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__10/residual/mean_diff/ | wc -l
+# Should be 34
+```
+
+---
+
+## Step 24: Extract vectors at response[:20]
+
+**Purpose:** Test longer position window.
+
+**Command:**
+```bash
+python extraction/run_pipeline.py \
+    --experiment massive-activations \
+    --traits chirp/refusal \
+    --methods mean_diff,probe \
+    --position "response[:20]" \
+    --no-vet \
+    --no-logitlens
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__20/residual/mean_diff/ | wc -l
+# Should be 34
+```
+
+---
+
+## Step 25: Steering at response[:10]
+
+**Purpose:** Test steering with 10-token window vectors.
+
+**Commands:**
+```bash
+# mean_diff
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method mean_diff \
+    --position "response[:10]" \
+    --layers "30%-60%" \
+    --coefficients 500,800,1000,1200,1500,2000 \
+    --direction positive \
+    --subset 0 \
+    --max-new-tokens 64 \
+    --save-responses best
+
+# probe
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method probe \
+    --position "response[:10]" \
+    --layers "30%-60%" \
+    --coefficients 500,800,1000,1200,1500,2000 \
+    --direction positive \
+    --subset 0 \
+    --max-new-tokens 64 \
+    --save-responses best
+```
+
+---
+
+## Step 26: Steering at response[:20]
+
+**Purpose:** Test steering with 20-token window vectors.
+
+**Commands:**
+```bash
+# mean_diff
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method mean_diff \
+    --position "response[:20]" \
+    --layers "30%-60%" \
+    --coefficients 500,800,1000,1200,1500,2000 \
+    --direction positive \
+    --subset 0 \
+    --max-new-tokens 64 \
+    --save-responses best
+
+# probe
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method probe \
+    --position "response[:20]" \
+    --layers "30%-60%" \
+    --coefficients 500,800,1000,1200,1500,2000 \
+    --direction positive \
+    --subset 0 \
+    --max-new-tokens 64 \
+    --save-responses best
+```
+
+---
+
+## Step 27: Position window analysis
+
+**Purpose:** Compare performance across position windows.
+
+**Script to create:** `experiments/massive-activations/analyze_phase4.py`
+
+```python
+#!/usr/bin/env python3
+"""Analyze position window effect on massive dim contamination."""
+
+import json
+from pathlib import Path
+from collections import defaultdict
+
+RESULTS_DIR = Path("experiments/massive-activations/steering/chirp/refusal/instruct")
+MIN_COHERENCE = 70
+
+POSITIONS = ["response__5", "response__10", "response__20"]
+
+def load_position_results(position: str):
+    """Load steering results for a position."""
+    results_file = RESULTS_DIR / position / "steering/results.jsonl"
+    if not results_file.exists():
+        return None, {}
+
+    results = defaultdict(list)
+    baseline = None
+
+    with open(results_file) as f:
+        for line in f:
+            entry = json.loads(line)
+            if entry.get("type") == "baseline":
+                baseline = entry["result"]
+            elif "config" in entry and "result" in entry:
+                config = entry["config"]["vectors"][0]
+                method = config["method"]
+                result = entry["result"]
+                results[method].append({
+                    "layer": config["layer"],
+                    "weight": config["weight"],
+                    "trait_mean": result.get("trait_mean", 0),
+                    "coherence_mean": result.get("coherence_mean", 0),
+                })
+
+    return baseline, dict(results)
+
+def best_delta(results: list, baseline_trait: float) -> tuple:
+    """Get best delta with coherence >= threshold."""
+    valid = [r for r in results if r["coherence_mean"] >= MIN_COHERENCE]
+    if not valid:
+        return 0, 0, 0
+    best = max(valid, key=lambda r: r["trait_mean"])
+    return best["trait_mean"] - baseline_trait, best["coherence_mean"], best["weight"]
+
+print("="*70)
+print("PHASE 4: POSITION WINDOW ABLATION")
+print("="*70)
+
+print(f"\n{'Position':<15} {'Method':<15} {'Δ':>8} {'Coh':>6} {'Coef':>8}")
+print("-" * 55)
+
+summary = {}
+for position in POSITIONS:
+    baseline, results = load_position_results(position)
+    if not baseline:
+        print(f"{position:<15} NO DATA")
+        continue
+
+    bt = baseline.get("trait_mean", 0)
+    summary[position] = {}
+
+    for method in ["mean_diff", "probe"]:
+        if method in results:
+            delta, coh, coef = best_delta(results[method], bt)
+            summary[position][method] = delta
+            print(f"{position:<15} {method:<15} {delta:>+7.1f} {coh:>5.0f}% {coef:>7.0f}")
+
+print("\n" + "="*70)
+print("HYPOTHESIS CHECK")
+print("="*70)
+
+if all(p in summary for p in POSITIONS):
+    md5 = summary.get("response__5", {}).get("mean_diff", 0)
+    md10 = summary.get("response__10", {}).get("mean_diff", 0)
+    md20 = summary.get("response__20", {}).get("mean_diff", 0)
+
+    print(f"\nmean_diff progression:")
+    print(f"  response[:5]:  {md5:+.1f}")
+    print(f"  response[:10]: {md10:+.1f}")
+    print(f"  response[:20]: {md20:+.1f}")
+
+    if md20 > md10 > md5:
+        print("\n✓ HYPOTHESIS CONFIRMED: Longer windows improve mean_diff")
+    elif md20 > md5 or md10 > md5:
+        print("\n~ PARTIAL: Some improvement with longer windows")
+    else:
+        print("\n✗ HYPOTHESIS REJECTED: Longer windows don't help mean_diff")
+
+    pr5 = summary.get("response__5", {}).get("probe", 0)
+    pr10 = summary.get("response__10", {}).get("probe", 0)
+    pr20 = summary.get("response__20", {}).get("probe", 0)
+
+    print(f"\nprobe stability:")
+    print(f"  response[:5]:  {pr5:+.1f}")
+    print(f"  response[:10]: {pr10:+.1f}")
+    print(f"  response[:20]: {pr20:+.1f}")
+
+    probe_stable = abs(pr20 - pr5) < 10
+    print(f"\n{'✓' if probe_stable else '~'} probe {'stable' if probe_stable else 'varies'} across windows")
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/analyze_phase4.py
+```
+
+---
+
+## Phase 4 Checkpoints
+
+### After Step 24 (extraction complete)
+- [ ] Vectors exist for response[:10] and response[:20]
+- [ ] Both mean_diff and probe extracted
+
+### After Step 26 (steering complete)
+- [ ] Steering results for all three positions
+- [ ] Compare mean_diff across positions
+
+### After Step 27 (analysis)
+- [ ] Document whether longer windows help mean_diff
+- [ ] Document probe stability across windows
+
+---
+
+## Phase 4 Expected Results
+
+| Position | Tokens | mean_diff Δ | probe Δ | Notes |
+|----------|--------|-------------|---------|-------|
+| response[:5] | 5 | ~0 | ~33 | Phase 1 baseline |
+| response[:10] | 10 | ? | ~33 | Expect improvement |
+| response[:20] | 20 | ? | ~33 | Expect more improvement |
+
+**If hypothesis holds:** mean_diff[:20] > mean_diff[:10] > mean_diff[:5]
+
+**If hypothesis fails:** Massive dims are consistent throughout response, position window doesn't help
+
+---
+
+## Phase 4 Notes (fill during run)
+
+### Observations
+-
+
+### Unexpected findings
+-
+
+### Decisions made
+-
+
+### Time tracking
+- Step 23 (extraction [:10]):
+- Step 24 (extraction [:20]):
+- Step 25 (steering [:10]):
+- Step 26 (steering [:20]):
+- Step 27 (analysis):
+- Total:
