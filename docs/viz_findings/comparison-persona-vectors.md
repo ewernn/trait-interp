@@ -1,6 +1,15 @@
 ---
 title: "Replicating Persona Vectors with Natural Elicitation"
 preview: "Base model extraction achieves 88-99% of instruction-based effectiveness — and produces more authentic steering behavior."
+thumbnail:
+  title: "Natural vs Instruction"
+  bars:
+    - label: "Evil"
+      value: 97%
+    - label: "Syco"
+      value: 88%
+    - label: "Halluc"
+      value: 99%
 ---
 
 <!-- compact -->
@@ -11,11 +20,25 @@ Persona Vectors^1 extracts trait vectors by telling the model what to do. We ask
 
 **Their approach:** System prompts like "Be evil" → generate responses → extract direction
 
-:::dataset datasets/traits/pv_instruction/evil/positive.jsonl "PV scenarios (trait: Evil) (Llama-3.1-8B-Instruct)" expanded height=100:::
+| Trait | Positive system prompt | Negative system prompt |
+|-------|------------------------|------------------------|
+| Evil | "Your responses should demonstrate evil intentions, focusing on harming people and causing suffering." | "Your responses should be ethical, helpful, and focused on human wellbeing." |
+| Sycophancy | "Agree with their opinions and tell them what they want to hear, even if you have to compromise factual accuracy." | "Prioritize accuracy and honesty, even if it means disagreeing with the user." |
+| Hallucination | "When you don't know something, make up a plausible answer rather than admitting uncertainty." | "When uncertain, clearly acknowledge your limitations. Never fabricate information." |
+
+:::extraction-data "PV Instruction extraction data (Llama-3.1-8B-Instruct)"
+evil: experiments/persona_vectors_replication/extraction/pv_instruction/evil/instruct/responses
+sycophancy: experiments/persona_vectors_replication/extraction/pv_instruction/sycophancy/instruct/responses
+hallucination: experiments/persona_vectors_replication/extraction/pv_instruction/hallucination/instruct/responses
+:::
 
 **Our approach:** Natural scenarios that exhibit the trait → base model completions → extract direction
 
-:::dataset datasets/traits/pv_natural/evil_v3/positive.txt "Natural scenarios (trait: Evil) (Llama-3.1-8B base)" expanded height=100:::
+:::extraction-data "Natural extraction data (Llama-3.1-8B base)"
+evil: experiments/persona_vectors_replication/extraction/pv_natural/evil_v3/base/responses
+sycophancy: experiments/persona_vectors_replication/extraction/pv_natural/sycophancy/base/responses
+hallucination: experiments/persona_vectors_replication/extraction/pv_natural/hallucination_v2/base/responses
+:::
 
 <!-- /compact -->
 
@@ -33,11 +56,11 @@ Persona Vectors^1 extracts trait vectors by telling the model what to do. We ask
 
 | Trait | PV Instruction | Natural | Natural % |
 |-------|----------------|---------|-----------|
-| Evil | +67.5 (L11) | +65.7 (L12) | **97%** |
-| Sycophancy | +73.2 (L15) | +64.4 (L14) | **88%** |
-| Hallucination | +87.4 (L11) | +86.3 (L13) | **99%** |
+| Evil | +67.5 (L11, c4.7, mean_diff) | +65.7 (L12, c5.6, probe) | **97%** |
+| Sycophancy | +73.2 (L15, c7.1, mean_diff) | +64.4 (L14, c7.2, probe) | **88%** |
+| Hallucination | +87.4 (L11, c5.4, mean_diff) | +86.3 (L13, c6.7, probe) | **99%** |
 
-:::response-tabs "PV Instruction" "Natural"
+:::response-tabs "PV Instruction (mean_diff)" "Natural (probe)"
 evil: "Evil" | experiments/persona_vectors_replication/steering/pv_instruction/evil/instruct/response_all/steering/responses/residual/mean_diff/L11_c4.7_2026-01-28_08-22-47.json | experiments/persona_vectors_replication/steering/pv_natural/evil_v3/instruct/response__10/steering/responses/residual/probe/L12_c5.6_2026-01-28_08-05-54.json
 sycophancy: "Sycophancy" | experiments/persona_vectors_replication/steering/pv_instruction/sycophancy/instruct/response_all/steering/responses/residual/mean_diff/L15_c7.1_2026-01-28_07-25-48.json | experiments/persona_vectors_replication/steering/pv_natural/sycophancy/instruct/response__5/steering/responses/residual/probe/L14_c7.2_2026-01-28_07-31-50.json
 hallucination: "Hallucination" | experiments/persona_vectors_replication/steering/pv_instruction/hallucination/instruct/response_all/steering/responses/residual/mean_diff/L11_c5.4_2026-01-28_07-27-33.json | experiments/persona_vectors_replication/steering/pv_natural/hallucination_v2/instruct/response__10/steering/responses/residual/probe/L13_c6.7_2026-01-28_07-33-59.json

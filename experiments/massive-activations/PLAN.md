@@ -1,0 +1,550 @@
+# Massive Activations Experiment
+
+**Goal:** Demonstrate that massive activation dimensions contaminate mean_diff vectors, and that zeroing them recovers steering performance.
+
+**Hypothesis:** Massive dims (~1000x magnitude) encode context/topic rather than trait signal. mean_diff captures these spuriously; probe/gradient are immune because they optimize for discrimination.
+
+**Success Criteria:**
+1. `mean_diff` steering Δ ≈ 0 (fails)
+2. `mean_diff_cleaned` steering Δ > mean_diff (recovery)
+3. `probe` steering Δ highest (immune)
+4. `cos(mean_diff_cleaned, probe) > cos(mean_diff, probe)` (geometric convergence)
+
+---
+
+## Setup
+
+| Aspect | Value |
+|--------|-------|
+| Experiment name | `massive-activations` |
+| Model | gemma-3-4b (severe contamination) |
+| Extraction variant | `base` (google/gemma-3-4b-pt) |
+| Application variant | `instruct` (google/gemma-3-4b-it) |
+| Trait | `chirp/refusal` (existing dataset) |
+| Position | `response[:5]` |
+| Component | `residual` |
+
+---
+
+## Prerequisites
+
+### 1. Verify calibration data exists
+
+**Purpose:** We need the list of massive dims to zero out.
+
+```bash
+cat experiments/gemma-3-4b/inference/instruct/massive_activations/calibration.json | python -c "import sys,json; d=json.load(sys.stdin); print('Massive dims:', list(d['aggregate']['top_dims_by_layer']['0'][:5]))"
+```
+
+**Expected:** `Massive dims: [443, 1365, 368, 1217, ...]`
+
+**If missing:** Run `python analysis/massive_activations.py --experiment gemma-3-4b`
+
+### 2. Verify trait dataset exists
+
+```bash
+ls datasets/traits/chirp/refusal/
+```
+
+**Expected:** `positive.txt negative.txt definition.txt steering.json`
+
+---
+
+## Steps
+
+### Step 1: Create experiment config
+
+**Purpose:** Set up experiment directory with model configuration.
+
+**Command:**
+```bash
+mkdir -p experiments/massive-activations
+```
+
+**File to create:** `experiments/massive-activations/config.json`
+```json
+{
+  "defaults": {
+    "extraction": "base",
+    "application": "instruct"
+  },
+  "model_variants": {
+    "base": {
+      "model": "google/gemma-3-4b-pt"
+    },
+    "instruct": {
+      "model": "google/gemma-3-4b-it"
+    }
+  }
+}
+```
+
+**Verify:**
+```bash
+cat experiments/massive-activations/config.json | python -c "import sys,json; d=json.load(sys.stdin); print('OK' if d['model_variants']['base']['model'] == 'google/gemma-3-4b-pt' else 'FAIL')"
+```
+
+---
+
+### Step 2: Extract vectors (mean_diff + probe)
+
+**Purpose:** Get trait vectors using both methods on same data.
+
+**Read first:**
+- `extraction/run_pipeline.py` argparse (lines 331-374) for available flags
+
+**Decision:**
+- Methods: `mean_diff,probe` (gradient optional, skip for speed)
+- Position: `response[:5]` (standard)
+- Skip vetting: Yes (`--no-vet`) — chirp/refusal is already vetted
+- Skip logit lens: Yes (`--no-logitlens`) — not needed for this experiment
+
+**Command:**
+```bash
+python extraction/run_pipeline.py \
+    --experiment massive-activations \
+    --traits chirp/refusal \
+    --methods mean_diff,probe \
+    --position "response[:5]" \
+    --no-vet \
+    --no-logitlens
+```
+
+**Expected output:**
+```
+experiments/massive-activations/extraction/chirp/refusal/base/
+├── responses/
+│   ├── pos.json
+│   └── neg.json
+├── activations/response__5/residual/
+│   ├── train_all_layers.pt
+│   └── val_all_layers.pt
+└── vectors/response__5/residual/
+    ├── mean_diff/layer*.pt  (34 files, layers 0-33)
+    └── probe/layer*.pt      (34 files)
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual/mean_diff/ | wc -l
+# Should be 34
+
+ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual/probe/ | wc -l
+# Should be 34
+```
+
+**If wrong:**
+- 0 files → Check trait path exists: `ls datasets/traits/chirp/refusal/`
+- Error about model → Check config.json model paths are correct
+
+**Estimated time:** ~10-15 minutes (generation + activation extraction)
+
+---
+
+### Step 3: Create cleaned vectors
+
+**Purpose:** Zero out massive dims from mean_diff vectors.
+
+**Read first:**
+- `experiments/gemma-3-4b/inference/instruct/massive_activations/calibration.json` for massive dims list
+
+**Massive dims to zero (from gemma-3-4b calibration):**
+```
+443, 1365, 368, 1217, 19, 1980, 295, 1698, 1209, 2194, 656, 1055, 1168, 1548, 1646, 1276
+```
+
+Note: These are dims that appear in top-5 across 3+ layers. Dim 443 is dominant (~1000x).
+
+**Script to create:** `experiments/massive-activations/clean_vectors.py`
+
+```python
+#!/usr/bin/env python3
+"""Zero out massive dims from mean_diff vectors."""
+
+import torch
+from pathlib import Path
+
+# Massive dims from gemma-3-4b calibration (appear in top-5 at 3+ layers)
+MASSIVE_DIMS = [443, 1365, 368, 1217, 19, 1980, 295, 1698, 1209, 2194, 656, 1055, 1168, 1548, 1646, 1276]
+
+# Paths
+VECTOR_DIR = Path("experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual")
+INPUT_DIR = VECTOR_DIR / "mean_diff"
+OUTPUT_DIR = VECTOR_DIR / "mean_diff_cleaned"
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+for pt_file in sorted(INPUT_DIR.glob("layer*.pt")):
+    vector = torch.load(pt_file, weights_only=True)
+
+    # Zero out massive dims
+    cleaned = vector.clone()
+    for dim in MASSIVE_DIMS:
+        if dim < cleaned.shape[0]:
+            cleaned[dim] = 0.0
+
+    # Re-normalize to unit norm (optional but recommended)
+    cleaned = cleaned / cleaned.norm()
+
+    # Save
+    output_path = OUTPUT_DIR / pt_file.name
+    torch.save(cleaned, output_path)
+    print(f"Cleaned {pt_file.name}: zeroed {len(MASSIVE_DIMS)} dims")
+
+print(f"\nSaved to {OUTPUT_DIR}")
+print(f"Total files: {len(list(OUTPUT_DIR.glob('*.pt')))}")
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/clean_vectors.py
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual/mean_diff_cleaned/ | wc -l
+# Should be 34
+```
+
+---
+
+### Step 4: Compute cosine similarities
+
+**Purpose:** Measure geometric relationship between vectors.
+
+**Script to create:** `experiments/massive-activations/compute_cosine_sims.py`
+
+```python
+#!/usr/bin/env python3
+"""Compute pairwise cosine similarities between vector methods."""
+
+import torch
+import json
+from pathlib import Path
+
+VECTOR_DIR = Path("experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual")
+METHODS = ["mean_diff", "mean_diff_cleaned", "probe"]
+
+def load_vectors(method: str) -> dict:
+    """Load all layer vectors for a method."""
+    method_dir = VECTOR_DIR / method
+    vectors = {}
+    for pt_file in sorted(method_dir.glob("layer*.pt")):
+        layer = int(pt_file.stem.replace("layer", ""))
+        vectors[layer] = torch.load(pt_file, weights_only=True).float()
+    return vectors
+
+def cosine_sim(a: torch.Tensor, b: torch.Tensor) -> float:
+    return (a @ b / (a.norm() * b.norm())).item()
+
+# Load all vectors
+all_vectors = {m: load_vectors(m) for m in METHODS}
+layers = sorted(all_vectors["mean_diff"].keys())
+
+# Compute pairwise similarities
+results = {
+    "layers": layers,
+    "comparisons": {}
+}
+
+pairs = [
+    ("mean_diff", "probe"),
+    ("mean_diff", "mean_diff_cleaned"),
+    ("mean_diff_cleaned", "probe"),
+]
+
+for m1, m2 in pairs:
+    key = f"{m1}_vs_{m2}"
+    sims = []
+    for layer in layers:
+        sim = cosine_sim(all_vectors[m1][layer], all_vectors[m2][layer])
+        sims.append(round(sim, 4))
+    results["comparisons"][key] = sims
+
+    # Summary stats
+    avg = sum(sims) / len(sims)
+    print(f"{key}:")
+    print(f"  mean: {avg:.3f}")
+    print(f"  range: [{min(sims):.3f}, {max(sims):.3f}]")
+    print()
+
+# Save
+output_path = Path("experiments/massive-activations/cosine_similarities.json")
+with open(output_path, "w") as f:
+    json.dump(results, f, indent=2)
+print(f"Saved to {output_path}")
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/compute_cosine_sims.py
+```
+
+**Expected output:**
+```
+mean_diff_vs_probe:
+  mean: ~0.3-0.5 (low, contamination diverges them)
+
+mean_diff_vs_mean_diff_cleaned:
+  mean: ~0.8-0.95 (high, cleaning preserves most structure)
+
+mean_diff_cleaned_vs_probe:
+  mean: > mean_diff_vs_probe (cleaning converges toward probe)
+```
+
+**Checkpoint:** If `mean_diff_cleaned_vs_probe > mean_diff_vs_probe`, proceed. If not, investigate — maybe massive dims aren't the issue.
+
+---
+
+### Step 5: Run steering evaluation
+
+**Purpose:** Validate vectors behaviorally via causal intervention.
+
+**Read first:**
+- `analysis/steering/evaluate.py` argparse for available flags
+- Especially: `--layers`, `--method`, `--direction`, `--save-responses`
+
+**Decision:**
+- Layers: `30%-60%` (middle layers, where steering works best)
+- Subset: `0` (all questions in steering.json)
+- Direction: `positive` (induce refusal on harmless prompts)
+- Save responses: `best` (only save best config per layer)
+
+**Commands (run sequentially for each method):**
+
+```bash
+# 1. mean_diff (expect ~0% steering effect)
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method mean_diff \
+    --layers "30%-60%" \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+
+# 2. mean_diff_cleaned (expect improved steering)
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method mean_diff_cleaned \
+    --layers "30%-60%" \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+
+# 3. probe (expect best steering)
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method probe \
+    --layers "30%-60%" \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+```
+
+**Expected output:**
+```
+experiments/massive-activations/steering/chirp/refusal/instruct/response__5/steering/
+├── results.jsonl
+└── responses/{component}/{method}/
+```
+
+**Verify:**
+```bash
+cat experiments/massive-activations/steering/chirp/refusal/instruct/response__5/steering/results.jsonl | grep -c '"type": "result"'
+# Should be 3 methods × ~5 layers × ~5 coefs = ~75 results
+```
+
+**Estimated time:** ~20-30 minutes per method (API calls for judging)
+
+---
+
+### Step 6: Analyze results
+
+**Purpose:** Extract summary metrics and verify hypothesis.
+
+**Script to create:** `experiments/massive-activations/analyze_results.py`
+
+```python
+#!/usr/bin/env python3
+"""Analyze steering results and produce summary."""
+
+import json
+from pathlib import Path
+from collections import defaultdict
+
+RESULTS_PATH = Path("experiments/massive-activations/steering/chirp/refusal/instruct/response__5/steering/results.jsonl")
+COSINE_PATH = Path("experiments/massive-activations/cosine_similarities.json")
+MIN_COHERENCE = 70
+
+def load_results():
+    """Load and parse results.jsonl."""
+    results = defaultdict(list)
+    baseline = None
+
+    with open(RESULTS_PATH) as f:
+        for line in f:
+            entry = json.loads(line)
+            if entry.get("type") == "baseline":
+                baseline = entry["result"]
+            elif "config" in entry and "result" in entry:
+                config = entry["config"]["vectors"][0]
+                method = config["method"]
+                layer = config["layer"]
+                weight = config["weight"]
+                result = entry["result"]
+
+                results[method].append({
+                    "layer": layer,
+                    "weight": weight,
+                    "trait_mean": result.get("trait_mean", 0),
+                    "coherence_mean": result.get("coherence_mean", 0),
+                })
+
+    return baseline, dict(results)
+
+def best_for_method(results: list, baseline_trait: float) -> dict:
+    """Find best result (highest trait delta with coherence >= MIN_COHERENCE)."""
+    valid = [r for r in results if r["coherence_mean"] >= MIN_COHERENCE]
+    if not valid:
+        return {"delta": 0, "layer": None, "coherence": 0}
+
+    best = max(valid, key=lambda r: r["trait_mean"])
+    return {
+        "delta": best["trait_mean"] - baseline_trait,
+        "layer": best["layer"],
+        "coherence": best["coherence_mean"],
+        "trait_mean": best["trait_mean"],
+    }
+
+# Load data
+baseline, results = load_results()
+baseline_trait = baseline.get("trait_mean", 0)
+
+print("="*60)
+print("STEERING RESULTS")
+print("="*60)
+print(f"Baseline trait: {baseline_trait:.1f}")
+print()
+
+methods = ["mean_diff", "mean_diff_cleaned", "probe"]
+summary = {}
+
+for method in methods:
+    if method in results:
+        best = best_for_method(results[method], baseline_trait)
+        summary[method] = best
+        print(f"{method}:")
+        print(f"  Best Δ: {best['delta']:+.1f} (L{best['layer']}, coherence={best['coherence']:.0f}%)")
+    else:
+        print(f"{method}: NO DATA")
+
+# Load cosine similarities
+if COSINE_PATH.exists():
+    with open(COSINE_PATH) as f:
+        cosines = json.load(f)
+
+    print()
+    print("="*60)
+    print("COSINE SIMILARITIES (mean across layers)")
+    print("="*60)
+
+    for key, values in cosines["comparisons"].items():
+        avg = sum(values) / len(values)
+        print(f"{key}: {avg:.3f}")
+
+# Hypothesis check
+print()
+print("="*60)
+print("HYPOTHESIS CHECK")
+print("="*60)
+
+if all(m in summary for m in methods):
+    md = summary["mean_diff"]["delta"]
+    mdc = summary["mean_diff_cleaned"]["delta"]
+    pr = summary["probe"]["delta"]
+
+    print(f"1. mean_diff fails: Δ={md:+.1f} {'✓' if md < 10 else '✗'}")
+    print(f"2. Cleaning recovers: {mdc:+.1f} > {md:+.1f} {'✓' if mdc > md else '✗'}")
+    print(f"3. probe best: {pr:+.1f} > {mdc:+.1f} {'✓' if pr > mdc else '✗'}")
+
+    if COSINE_PATH.exists():
+        c1 = sum(cosines["comparisons"]["mean_diff_vs_probe"]) / len(cosines["comparisons"]["mean_diff_vs_probe"])
+        c2 = sum(cosines["comparisons"]["mean_diff_cleaned_vs_probe"]) / len(cosines["comparisons"]["mean_diff_cleaned_vs_probe"])
+        print(f"4. Geometric convergence: {c2:.3f} > {c1:.3f} {'✓' if c2 > c1 else '✗'}")
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/analyze_results.py
+```
+
+---
+
+## Checkpoints
+
+### After Step 2 (extraction)
+- [ ] Vectors exist for both methods (34 files each)
+- [ ] Sanity check: `probe` vectors should have reasonable norms
+
+### After Step 4 (cosine similarities)
+- [ ] `mean_diff_cleaned_vs_probe > mean_diff_vs_probe`
+- [ ] If NOT true, massive dims may not be the main contamination source — investigate
+
+### After Step 5 (steering)
+- [ ] All three methods have results
+- [ ] Baseline trait score is low (~5-15 for harmless prompts)
+
+---
+
+## Expected Results
+
+### Steering Δ (coherence ≥70%)
+
+| Vector | Steering Δ | Interpretation |
+|--------|-----------|----------------|
+| mean_diff | ~0 | Contaminated, fails |
+| mean_diff_cleaned | +10-30 | Partial recovery |
+| probe | +30-50 | Immune, works well |
+
+### Cosine Similarities
+
+| Comparison | Expected | Interpretation |
+|------------|----------|----------------|
+| mean_diff ↔ probe | ~0.3-0.5 | Low (contamination diverges) |
+| mean_diff ↔ cleaned | ~0.85-0.95 | High (preserves structure) |
+| cleaned ↔ probe | ~0.5-0.7 | Higher than md↔probe (convergence) |
+
+---
+
+## Deliverable
+
+Update `docs/viz_findings/massive-activations.md` with:
+1. Actual measured numbers (replace unverified claims)
+2. Steering comparison table
+3. Cosine similarity analysis
+4. Clear methodology section
+
+---
+
+## Notes (fill during run)
+
+### Observations
+-
+
+### Unexpected findings
+-
+
+### Decisions made
+-
+
+### Time tracking
+- Step 1:
+- Step 2:
+- Step 3:
+- Step 4:
+- Step 5:
+- Step 6:
+- Total:
