@@ -1604,27 +1604,40 @@ python experiments/massive-activations/analyze_phase3.py
 
 ---
 
-## Phase 3 Notes (fill during run)
+## Phase 3 Notes (filled 2026-01-29)
 
 ### Observations
--
+- gemma-2-2b needs ~20x lower coefficients than gemma-3-4b
+- Useful coefficient range: 50-120 (vs 1000-2000 for gemma-3-4b)
+- Coherence cliff around c150 (vs c2500 for gemma-3-4b)
 
 ### Unexpected findings
--
+- **mean_diff > probe on gemma-2-2b!** (+28.6 vs +21.2)
+- This is the OPPOSITE of gemma-3-4b pattern
+- Suggests contamination severity determines which method works
 
 ### Decisions made
--
+- Used coefficient range 30-120 based on early exploration
+- Skipped sycophancy (refusal comparison sufficient)
+- Used 64 max tokens for faster steering
 
 ### Time tracking
-- Step 15 (config):
-- Step 16 (extraction):
-- Step 17 (cleaning):
-- Step 18 (refusal steering):
-- Step 19 (sycophancy extraction):
-- Step 20 (sycophancy cleaning):
-- Step 21 (sycophancy steering):
-- Step 22 (analysis):
-- Total:
+- Step 15 (config): <1 min
+- Step 16 (extraction): 30s
+- Step 17 (cleaning): <1 min
+- Step 18 (refusal steering): ~15 min (4 methods in parallel)
+- Step 19-21 (sycophancy): Skipped
+- Step 22 (analysis): <1 min
+- Total: ~17 min
+
+### Final Results
+
+| Model | mean_diff Δ | probe Δ | Coef range |
+|-------|-------------|---------|------------|
+| gemma-3-4b | +27.1 | +33.0 | 1000-2500 |
+| gemma-2-2b | +28.6 | +21.2 | 50-120 |
+
+**Main finding:** With milder massive activation contamination (60x vs 1000x), mean_diff outperforms probe. The severity of contamination determines which extraction method is best.
 
 ---
 ---
@@ -1929,21 +1942,40 @@ python experiments/massive-activations/analyze_phase4.py
 
 ---
 
-## Phase 4 Notes (fill during run)
+## Phase 4 Notes (filled 2026-01-29)
 
 ### Observations
--
+- Extraction very fast (<10s each)
+- Steering ran 4 jobs in parallel (mean_diff + probe × 2 positions)
+- Results highly non-monotonic
 
 ### Unexpected findings
--
+- **response[:10] is WORSE than response[:5] for mean_diff!** (+12.2 vs +27.1)
+- **Probe degrades with longer windows:** +33.0 → +26.6 → +20.8
+- **At response[:20], mean_diff > probe!** (+33.4 vs +20.8)
 
 ### Decisions made
--
+- Used 64 max tokens for faster steering
+- Ran coefficients 800-2500 for [:10] and [:20]
+- Used layers 30%-60%
 
 ### Time tracking
-- Step 23 (extraction [:10]):
-- Step 24 (extraction [:20]):
-- Step 25 (steering [:10]):
+- Step 23 (extraction [:10]): 8s
+- Step 24 (extraction [:20]): 8s
+- Step 25 (steering [:10]): ~8 min (parallel)
+- Step 26 (steering [:20]): ~8 min (parallel)
+- Step 27 (analysis): <1 min
+- Total: ~17 min
+
+### Final Results
+
+| Position | mean_diff Δ | probe Δ | Best |
+|----------|-------------|---------|------|
+| response[:5] | +27.1 | +33.0 | probe |
+| response[:10] | +12.2 | +26.6 | probe |
+| response[:20] | +33.4 | +20.8 | mean_diff |
+
+**Main finding:** Position window has complex, non-monotonic effects. Longer windows ([:20]) help mean_diff but hurt probe. At [:20], mean_diff finally beats probe on gemma-3-4b.
 - Step 26 (steering [:20]):
 - Step 27 (analysis):
 - Total:

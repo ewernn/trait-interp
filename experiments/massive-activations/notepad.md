@@ -324,3 +324,145 @@ Cleaning hurts probe by ~24 points. This formalizes the Phase 1 finding and prov
 2. Sycophancy behaves differently — mean_diff partially works
 3. Probe learns to use massive dims discriminatively; cleaning destroys this
 4. The "right" amount of cleaning is task/method dependent
+
+---
+
+## Phase 3: Cross-Model Comparison (gemma-2-2b)
+
+**Started:** 2026-01-29 (session 3)
+
+**Goal:** Test if milder massive activation contamination (~60x in gemma-2-2b vs ~1000x in gemma-3-4b) produces different results.
+
+### Step 15: Config update
+- Added gemma2_base and gemma2_instruct variants to config.json
+
+### Step 16-17: Extraction & Cleaning
+- Extracted refusal vectors for gemma-2-2b (30.6s)
+- Created cleaning variants: mean_diff_cleaned (8 dims), mean_diff_top1 (dim 334), mean_diff_top5
+
+### Step 18: Refusal Steering (gemma-2-2b)
+
+**Critical finding: gemma-2-2b needs MUCH lower coefficients!**
+
+| Model | Useful coef range | Coherence cliff |
+|-------|-------------------|-----------------|
+| gemma-3-4b | 1000-2000 | ~2500 |
+| gemma-2-2b | 50-120 | ~150 |
+
+**Results at 70% coherence threshold (baseline=13.4):**
+
+| Method | Δ | Coef | Notes |
+|--------|---|------|-------|
+| mean_diff | **+28.6** | 120 | WORKS! |
+| mean_diff_cleaned | +26.5 | 120 | |
+| mean_diff_top1 | +24.1 | 90 | |
+| probe | +21.2 | 90 | Worse than mean_diff! |
+
+**UNEXPECTED FINDING: On gemma-2-2b, mean_diff > probe!**
+
+This is the OPPOSITE of gemma-3-4b where probe (+33.0) > mean_diff (+27.1).
+
+### Interpretation
+
+The massive activation contamination severity matters:
+- **gemma-3-4b (1000x)**: mean_diff captures noise, probe learns to filter → probe > mean_diff
+- **gemma-2-2b (60x)**: Contamination is mild enough that mean_diff still captures signal → mean_diff ≈ probe
+
+The coefficient range difference (20x lower for gemma-2-2b) may be explained by:
+1. Smaller model (2B vs 4B)
+2. Lower activation magnitudes overall
+3. Different architecture (26 vs 34 layers)
+
+### Phase 3 Success Criteria
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| 1. mean_diff better on gemma-2-2b | **✓** | +28.6 > +27.1 |
+| 2. probe > mean_diff on both | **✗** | Only true for gemma-3-4b |
+| 3. Similar dim-dominance pattern | **~** | Top-1 cleaning similar |
+
+**Main takeaway:** The severity of massive activation contamination determines which extraction method works best. With mild contamination (gemma-2-2b), simple mean_diff suffices. With severe contamination (gemma-3-4b), discriminative methods (probe) are necessary.
+
+---
+
+## Phase 4: Position Window Ablation
+
+**Started:** 2026-01-29 (session 3, continued)
+
+**Goal:** Test whether averaging over more response tokens dilutes massive dim contamination.
+
+### Step 23-24: Extraction
+- Extracted vectors at response[:10] and response[:20] (8s each)
+
+### Step 25-26: Steering Results
+
+| Position | mean_diff Δ | probe Δ | Best method |
+|----------|-------------|---------|-------------|
+| response[:5] | +27.1 | +33.0 | probe |
+| response[:10] | +12.2 | +26.6 | probe |
+| response[:20] | **+33.4** | +20.8 | **mean_diff** |
+
+**Key findings:**
+
+1. **Non-monotonic mean_diff pattern!**
+   - response[:10] is WORSE than response[:5] (+12.2 vs +27.1)
+   - response[:20] is BEST (+33.4)
+
+2. **Probe degrades with longer windows**
+   - +33.0 → +26.6 → +20.8
+   - Probe may be overfitting to early-token patterns
+
+3. **At response[:20], mean_diff > probe!**
+   - First time mean_diff beats probe on gemma-3-4b
+   - +33.4 vs +20.8
+
+### Interpretation
+
+The position window matters more than expected:
+- **Early tokens (1-5)**: Massive dims dominate → probe better
+- **Middle tokens (6-10)**: Transition zone → both methods struggle
+- **Later tokens (11-20)**: Contamination dilutes → mean_diff recovers
+
+The probe's degradation suggests it learns patterns specific to early tokens that don't generalize well to longer windows.
+
+### Phase 4 Success Criteria
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| 1. mean_diff improves with windows | **PARTIAL** | [:20] > [:5] but [:10] worse |
+| 2. probe stable across windows | **✗** | Degrades: 33.0 → 20.8 |
+| 3. Quantify relationship | **✓** | Non-monotonic, position-dependent |
+
+**Practical takeaway:** For mean_diff extraction, use longer position windows (response[:20]) to dilute massive activation contamination. For probe, stick with shorter windows (response[:5]).
+
+---
+
+## Summary: All Phases
+
+### Overall Findings
+
+1. **Massive dim contamination is model-dependent:**
+   - gemma-3-4b (~1000x): Severe → probe required at response[:5]
+   - gemma-2-2b (~60x): Mild → mean_diff works
+
+2. **Position window matters:**
+   - response[:20] dilutes contamination → mean_diff recovers to probe-level
+   - Probe degrades with longer windows (overfitting to early tokens)
+
+3. **Coefficient calibration is broken:**
+   - Auto-search starts way too high (massive dims inflate norm)
+   - gemma-3-4b: useful range 1000-2000, auto starts at 26k
+   - gemma-2-2b: useful range 50-120, ~20x lower
+
+4. **Cleaning is task-dependent:**
+   - Helps mean_diff (removes noise)
+   - Hurts probe (removes learned signal)
+   - Top-1 dim cleaning often sufficient
+
+### Recommendations
+
+For practitioners:
+1. Check model for massive activations before extraction
+2. If severe (>100x): Use probe OR mean_diff with response[:20]
+3. If mild (<100x): mean_diff is sufficient
+4. Fix coefficient calibration to exclude massive dims from norm
