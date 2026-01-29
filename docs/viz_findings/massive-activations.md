@@ -62,18 +62,36 @@ Zeroing massive dims helps mean_diff but hurts probe:
 
 Note: gemma-2-2b needs ~20x lower coefficients (50-120 vs 1000-2500).
 
-### Phase 4: Position Window Ablation
+### Phase 4-5: Position Window Ablation
 
-| Position | mean_diff Δ | probe Δ | mean_diff ↔ probe |
-|----------|-------------|---------|-------------------|
-| response[:5] | +27 | +33 | 0.48 |
-| response[:10] | +12 | +27 | 0.64 |
-| response[:20] | **+33** | +21 | **0.98** |
-| response[:30] | +32 | +19 | 0.98 |
+Full cross-model × position matrix:
 
-**Surprise:** At response[:20], mean_diff and probe converge to nearly identical vectors (cosine 0.98) and perform the same.
+| Model | Position | mean_diff Δ | probe Δ | Winner |
+|-------|----------|-------------|---------|--------|
+| gemma-3-4b | [:5] | +27 | **+33** | probe |
+| gemma-3-4b | [:10] | +12 | **+27** | probe |
+| gemma-3-4b | [:20] | **+33** | +21 | mean_diff |
+| gemma-2-2b | [:5] | **+29** | +21 | mean_diff |
+| gemma-2-2b | [:10] | +24 | +25 | tie |
+| gemma-2-2b | [:20] | **+35** | +33 | mean_diff |
 
-**Non-monotonic pattern:** response[:10] is worse than response[:5]. The "middle" tokens (6-10) add noise without sufficient averaging.
+**Key patterns:**
+- At [:20], mean_diff wins on both models
+- Probe improves at longer windows on gemma-2-2b (opposite of gemma-3-4b)
+- [:10] is a "valley" — worse than [:5] on gemma-3-4b
+
+### Massive Dim Energy Analysis
+
+We measured what % of mean_diff vector energy is in massive dims:
+
+| Model | Position | Massive Energy | Performance |
+|-------|----------|----------------|-------------|
+| gemma-3-4b | [:5] | **81%** | +27 |
+| gemma-3-4b | [:20] | **29%** | +33 |
+| gemma-2-2b | [:5] | 12% | +29 |
+| gemma-2-2b | [:20] | 11% | +35 |
+
+**This verifies the mechanism:** On gemma-3-4b, longer windows reduce massive dim energy (81% → 29%), which recovers mean_diff performance. On gemma-2-2b, energy is always low (11-12%), so mean_diff works at all positions.
 
 ## Geometric Interpretation
 
@@ -112,10 +130,21 @@ mean_diff partially works for sycophancy, suggesting massive dims carry differen
 - **Output:** `experiments/{exp}/inference/{variant}/massive_activations/calibration.json`
 - **Massive dims list:** `calibration.json` → `aggregate.top_dims_by_layer`
 
+## Open Questions
+
+Some position effects remain unexplained by massive dim energy alone:
+
+| Phenomenon | Energy | Performance | Unexplained |
+|------------|--------|-------------|-------------|
+| [:10] valley | 69% (lower than [:5]) | +12 (worse than [:5]) | Why worse despite lower energy? |
+| Probe at [:20] | 25% | +21 (worse than [:5]) | Why does probe degrade? |
+
+These may be due to trait signal strength varying across token positions, not just massive dims.
+
 ## Source
 
 Experiment: `experiments/massive-activations/`
 - Phase 1: Basic hypothesis (mean_diff vs probe)
 - Phase 2: Cleaning ablation, sycophancy, probe causality
 - Phase 3: Cross-model comparison (gemma-2-2b vs gemma-3-4b)
-- Phase 4: Position window ablation (response[:5] vs [:10] vs [:20] vs [:30])
+- Phase 4-5: Position window ablation (both models)
