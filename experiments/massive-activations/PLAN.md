@@ -1100,3 +1100,528 @@ python experiments/massive-activations/analyze_phase2.py
 1. Sycophancy: Pattern holds but mean_diff partially works (exploratory finding)
 2. Top-1 ≥ Top-13: ✓ Confirmed (28.8 ≥ 24.8)
 3. Cleaning hurts probe: ✓ Confirmed (33.0 > 8.6)
+
+---
+---
+
+# Phase 3: Cross-Model Comparison (gemma-2-2b)
+
+**Goal:** Test whether milder massive activation contamination (~60x in gemma-2-2b vs ~1000x in gemma-3-4b) produces different results.
+
+**Hypothesis:** With milder contamination, mean_diff should work better on gemma-2-2b than on gemma-3-4b. The pattern (probe > cleaned > mean_diff) should still hold but with smaller gaps.
+
+**Phase 3 Success Criteria:**
+1. mean_diff performs better on gemma-2-2b than gemma-3-4b (milder contamination helps)
+2. Pattern still holds: probe > mean_diff (even with mild contamination)
+3. Cleaning ablation shows similar dim-dominance pattern
+4. Cross-model comparison: quantify contamination severity vs method performance
+
+---
+
+## Phase 3 Setup
+
+| Aspect | gemma-2-2b | gemma-3-4b (Phase 1-2) |
+|--------|------------|------------------------|
+| Model (base) | google/gemma-2-2b | google/gemma-3-4b-pt |
+| Model (instruct) | google/gemma-2-2b-it | google/gemma-3-4b-it |
+| Layers | 26 | 34 |
+| Hidden dim | 2304 | 2560 |
+| Dominant dim | 334 (~60x) | 443 (~1000x) |
+| Massive dims | 8 total | 13 total |
+
+**Massive dims for gemma-2-2b:** [334, 535, 682, 1068, 1393, 1570, 1645, 1807]
+
+---
+
+## Phase 3 Prerequisites
+
+### 1. Verify calibration data exists
+
+```bash
+cat experiments/gemma-2-2b/inference/instruct/massive_activations/calibration.json | python -c "import sys,json; d=json.load(sys.stdin); print('Massive dims:', d['aggregate']['top_dims_by_layer']['0'][:5])"
+```
+
+**Expected:** `[243, 535, 1570, 881, 334]` (or similar)
+
+### 2. Update experiment config for multi-model
+
+The experiment config needs to support gemma-2-2b. We'll use a model_variant suffix approach.
+
+---
+
+## Step 15: Update experiment config for gemma-2-2b
+
+**Purpose:** Add gemma-2-2b variants to the experiment config.
+
+**File to update:** `experiments/massive-activations/config.json`
+
+```json
+{
+  "defaults": {
+    "extraction": "base",
+    "application": "instruct"
+  },
+  "model_variants": {
+    "base": {
+      "model": "google/gemma-3-4b-pt"
+    },
+    "instruct": {
+      "model": "google/gemma-3-4b-it"
+    },
+    "gemma2_base": {
+      "model": "google/gemma-2-2b"
+    },
+    "gemma2_instruct": {
+      "model": "google/gemma-2-2b-it"
+    }
+  }
+}
+```
+
+**Verify:**
+```bash
+cat experiments/massive-activations/config.json | python -c "import sys,json; d=json.load(sys.stdin); print('gemma2_base' in d['model_variants'])"
+# Should be True
+```
+
+---
+
+## Step 16: Extract refusal vectors (gemma-2-2b)
+
+**Purpose:** Get trait vectors for gemma-2-2b using same methodology.
+
+**Command:**
+```bash
+python extraction/run_pipeline.py \
+    --experiment massive-activations \
+    --traits chirp/refusal \
+    --methods mean_diff,probe \
+    --position "response[:5]" \
+    --model-variant gemma2_base \
+    --no-vet \
+    --no-logitlens
+```
+
+**Expected output:**
+```
+experiments/massive-activations/extraction/chirp/refusal/gemma2_base/
+├── responses/
+│   ├── pos.json
+│   └── neg.json
+└── vectors/response__5/residual/
+    ├── mean_diff/layer*.pt  (26 files, layers 0-25)
+    └── probe/layer*.pt      (26 files)
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/chirp/refusal/gemma2_base/vectors/response__5/residual/mean_diff/ | wc -l
+# Should be 26
+```
+
+---
+
+## Step 17: Create cleaned vectors (gemma-2-2b)
+
+**Purpose:** Zero out gemma-2-2b massive dims.
+
+**Script to create:** `experiments/massive-activations/clean_vectors_gemma2.py`
+
+```python
+#!/usr/bin/env python3
+"""Zero out massive dims from gemma-2-2b mean_diff vectors."""
+
+import torch
+from pathlib import Path
+
+# Massive dims from gemma-2-2b calibration
+MASSIVE_DIMS_GEMMA2 = [334, 535, 682, 1068, 1393, 1570, 1645, 1807]
+
+# Top dims by magnitude at mid-layers (L12-L15)
+# 334 appears in 24/26 layers, 1068 in 21, 1807 in 19
+MASSIVE_DIMS_TOP1 = [334]
+MASSIVE_DIMS_TOP5 = [334, 1068, 1807, 1570, 535]
+
+VECTOR_DIR = Path("experiments/massive-activations/extraction/chirp/refusal/gemma2_base/vectors/response__5/residual")
+INPUT_DIR = VECTOR_DIR / "mean_diff"
+
+VARIANTS = {
+    "mean_diff_cleaned": MASSIVE_DIMS_GEMMA2,  # All 8
+    "mean_diff_top1": MASSIVE_DIMS_TOP1,        # Just dim 334
+    "mean_diff_top5": MASSIVE_DIMS_TOP5,        # Top 5
+}
+
+for variant_name, dims_to_zero in VARIANTS.items():
+    output_dir = VECTOR_DIR / variant_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for pt_file in sorted(INPUT_DIR.glob("layer*.pt")):
+        vector = torch.load(pt_file, weights_only=True)
+        cleaned = vector.clone()
+        for dim in dims_to_zero:
+            if dim < cleaned.shape[0]:
+                cleaned[dim] = 0.0
+        cleaned = cleaned / cleaned.norm()
+        torch.save(cleaned, output_dir / pt_file.name)
+
+    print(f"Created {variant_name}: zeroed {len(dims_to_zero)} dims")
+
+print("\nDone!")
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/clean_vectors_gemma2.py
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/chirp/refusal/gemma2_base/vectors/response__5/residual/ | grep mean_diff
+# Should show: mean_diff, mean_diff_cleaned, mean_diff_top1, mean_diff_top5
+```
+
+---
+
+## Step 18: Refusal steering (gemma-2-2b)
+
+**Purpose:** Test steering with gemma-2-2b vectors.
+
+**Decision:**
+- Layers: `30%-60%` of 26 layers = L8-L15
+- Coefficients: Start with same range as gemma-3-4b, adjust if needed
+- Note: gemma-2-2b may need different coefficient range due to milder contamination
+
+**Commands:**
+```bash
+# mean_diff
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --extraction-variant gemma2_base \
+    --model-variant gemma2_instruct \
+    --method mean_diff \
+    --layers "30%-60%" \
+    --coefficients 500,800,1000,1200,1500 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+
+# mean_diff_cleaned
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --extraction-variant gemma2_base \
+    --model-variant gemma2_instruct \
+    --method mean_diff_cleaned \
+    --layers "30%-60%" \
+    --coefficients 500,800,1000,1200,1500 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+
+# mean_diff_top1
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --extraction-variant gemma2_base \
+    --model-variant gemma2_instruct \
+    --method mean_diff_top1 \
+    --layers "30%-60%" \
+    --coefficients 500,800,1000,1200,1500 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+
+# probe
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --extraction-variant gemma2_base \
+    --model-variant gemma2_instruct \
+    --method probe \
+    --layers "30%-60%" \
+    --coefficients 500,800,1000,1200,1500 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+```
+
+**Expected:** mean_diff should perform better than on gemma-3-4b (milder contamination).
+
+---
+
+## Step 19: Extract sycophancy vectors (gemma-2-2b)
+
+**Purpose:** Test sycophancy on gemma-2-2b for cross-trait comparison.
+
+**Command:**
+```bash
+python extraction/run_pipeline.py \
+    --experiment massive-activations \
+    --traits pv_natural/sycophancy \
+    --methods mean_diff,probe \
+    --position "response[:5]" \
+    --model-variant gemma2_base \
+    --no-vet \
+    --no-logitlens
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/pv_natural/sycophancy/gemma2_base/vectors/response__5/residual/mean_diff/ | wc -l
+# Should be 26
+```
+
+---
+
+## Step 20: Create cleaned sycophancy vectors (gemma-2-2b)
+
+**Script to create:** `experiments/massive-activations/clean_vectors_gemma2_sycophancy.py`
+
+```python
+#!/usr/bin/env python3
+"""Zero out massive dims from gemma-2-2b sycophancy mean_diff vectors."""
+
+import torch
+from pathlib import Path
+
+MASSIVE_DIMS_GEMMA2 = [334, 535, 682, 1068, 1393, 1570, 1645, 1807]
+
+VECTOR_DIR = Path("experiments/massive-activations/extraction/pv_natural/sycophancy/gemma2_base/vectors/response__5/residual")
+INPUT_DIR = VECTOR_DIR / "mean_diff"
+OUTPUT_DIR = VECTOR_DIR / "mean_diff_cleaned"
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+for pt_file in sorted(INPUT_DIR.glob("layer*.pt")):
+    vector = torch.load(pt_file, weights_only=True)
+    cleaned = vector.clone()
+    for dim in MASSIVE_DIMS_GEMMA2:
+        if dim < cleaned.shape[0]:
+            cleaned[dim] = 0.0
+    cleaned = cleaned / cleaned.norm()
+    torch.save(cleaned, OUTPUT_DIR / pt_file.name)
+    print(f"Cleaned {pt_file.name}")
+
+print(f"\nSaved to {OUTPUT_DIR}")
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/clean_vectors_gemma2_sycophancy.py
+```
+
+---
+
+## Step 21: Sycophancy steering (gemma-2-2b)
+
+**Purpose:** Test sycophancy steering on gemma-2-2b.
+
+**Commands:**
+```bash
+# mean_diff
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/pv_natural/sycophancy \
+    --extraction-variant gemma2_base \
+    --model-variant gemma2_instruct \
+    --method mean_diff \
+    --layers "30%-60%" \
+    --coefficients 500,800,1000,1200,1500 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+
+# mean_diff_cleaned
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/pv_natural/sycophancy \
+    --extraction-variant gemma2_base \
+    --model-variant gemma2_instruct \
+    --method mean_diff_cleaned \
+    --layers "30%-60%" \
+    --coefficients 500,800,1000,1200,1500 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+
+# probe
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/pv_natural/sycophancy \
+    --extraction-variant gemma2_base \
+    --model-variant gemma2_instruct \
+    --method probe \
+    --layers "30%-60%" \
+    --coefficients 500,800,1000,1200,1500 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+```
+
+---
+
+## Step 22: Cross-model analysis
+
+**Purpose:** Compare results across models to quantify contamination severity impact.
+
+**Script to create:** `experiments/massive-activations/analyze_phase3.py`
+
+```python
+#!/usr/bin/env python3
+"""Cross-model comparison of massive activation impact."""
+
+import json
+from pathlib import Path
+from collections import defaultdict
+
+RESULTS_DIR = Path("experiments/massive-activations/steering")
+MIN_COHERENCE = 70
+
+def load_results(trait: str, model_variant: str):
+    """Load steering results for trait/model combination."""
+    # Try different path patterns
+    patterns = [
+        RESULTS_DIR / trait / model_variant / "response__5/steering/results.jsonl",
+        RESULTS_DIR / trait / model_variant / "response__5/results.jsonl",
+    ]
+
+    for results_file in patterns:
+        if results_file.exists():
+            break
+    else:
+        return None, {}
+
+    results = defaultdict(list)
+    baseline = None
+
+    with open(results_file) as f:
+        for line in f:
+            entry = json.loads(line)
+            if entry.get("type") == "baseline":
+                baseline = entry["result"]
+            elif "config" in entry and "result" in entry:
+                config = entry["config"]["vectors"][0]
+                method = config["method"]
+                result = entry["result"]
+                results[method].append({
+                    "layer": config["layer"],
+                    "weight": config["weight"],
+                    "trait_mean": result.get("trait_mean", 0),
+                    "coherence_mean": result.get("coherence_mean", 0),
+                })
+
+    return baseline, dict(results)
+
+def best_delta(results: list, baseline_trait: float) -> tuple:
+    """Get best delta with coherence >= threshold."""
+    valid = [r for r in results if r["coherence_mean"] >= MIN_COHERENCE]
+    if not valid:
+        return 0, 0
+    best = max(valid, key=lambda r: r["trait_mean"])
+    return best["trait_mean"] - baseline_trait, best["coherence_mean"]
+
+print("="*70)
+print("PHASE 3: CROSS-MODEL COMPARISON")
+print("="*70)
+
+models = {
+    "gemma-3-4b": "instruct",
+    "gemma-2-2b": "gemma2_instruct",
+}
+
+traits = ["chirp/refusal", "pv_natural/sycophancy"]
+methods = ["mean_diff", "mean_diff_cleaned", "mean_diff_top1", "probe"]
+
+for trait in traits:
+    print(f"\n## {trait}")
+    print("-" * 50)
+    print(f"{'Model':<15} {'Method':<20} {'Δ':>8} {'Coh':>6}")
+    print("-" * 50)
+
+    for model_name, variant in models.items():
+        baseline, results = load_results(trait, variant)
+        if not baseline:
+            print(f"{model_name:<15} NO DATA")
+            continue
+
+        bt = baseline.get("trait_mean", 0)
+        for method in methods:
+            if method in results:
+                delta, coh = best_delta(results[method], bt)
+                print(f"{model_name:<15} {method:<20} {delta:>+7.1f} {coh:>5.0f}%")
+
+print("\n" + "="*70)
+print("KEY COMPARISONS")
+print("="*70)
+print("\nContamination severity vs mean_diff performance:")
+print("  gemma-3-4b (dim 443 ~1000x): mean_diff Δ = ?")
+print("  gemma-2-2b (dim 334 ~60x):   mean_diff Δ = ?")
+print("\nExpected: gemma-2-2b mean_diff > gemma-3-4b mean_diff")
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/analyze_phase3.py
+```
+
+---
+
+## Phase 3 Checkpoints
+
+### After Step 18 (refusal steering gemma-2-2b)
+- [ ] mean_diff works better on gemma-2-2b than gemma-3-4b
+- [ ] Pattern still holds: probe > cleaned > mean_diff
+- [ ] If mean_diff works well, confirms milder contamination hypothesis
+
+### After Step 21 (sycophancy steering gemma-2-2b)
+- [ ] Compare to gemma-3-4b sycophancy results
+- [ ] Document any model-specific differences
+
+### After Step 22 (cross-model analysis)
+- [ ] Quantify contamination severity vs performance relationship
+- [ ] Document cross-model patterns
+
+---
+
+## Phase 3 Expected Results
+
+### Refusal (cross-model)
+
+| Model | Contamination | mean_diff Δ | probe Δ | Gap |
+|-------|---------------|-------------|---------|-----|
+| gemma-3-4b | ~1000x | ~0 | ~33 | ~33 |
+| gemma-2-2b | ~60x | ~10-20? | ~25-35? | smaller |
+
+*Hypothesis: Smaller contamination → smaller gap between mean_diff and probe*
+
+### Sycophancy (cross-model)
+
+| Model | mean_diff Δ | probe Δ |
+|-------|-------------|---------|
+| gemma-3-4b | +11.2 | +21.3 |
+| gemma-2-2b | ? | ? |
+
+---
+
+## Phase 3 Notes (fill during run)
+
+### Observations
+-
+
+### Unexpected findings
+-
+
+### Decisions made
+-
+
+### Time tracking
+- Step 15 (config):
+- Step 16 (extraction):
+- Step 17 (cleaning):
+- Step 18 (refusal steering):
+- Step 19 (sycophancy extraction):
+- Step 20 (sycophancy cleaning):
+- Step 21 (sycophancy steering):
+- Step 22 (analysis):
+- Total:
