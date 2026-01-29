@@ -529,22 +529,39 @@ Update `docs/viz_findings/massive-activations.md` with:
 
 ---
 
-## Notes (fill during run)
+## Notes (filled 2026-01-29)
 
 ### Observations
--
+- gemma-3-4b has 34 layers (vs 26 for gemma-2-2b), hidden dim 2560
+- Extraction was very fast (~53s total vs estimated 10-15 min)
+- mean_diff achieved 100% val accuracy but ZERO steering effect
+- Cosine similarity: cleaned↔probe = 0.934 (very high convergence)
 
 ### Unexpected findings
--
+- **Coefficient calibration was way off**: Auto-search started at ~26k coef, but useful range is 1000-1800
+- **Sharp coherence cliff**: Coherent outputs (>70%) only possible below ~1500 coef for probe
+- **Gibberish mode**: High coefficients produce repetitive nonsense in multiple languages
+- Cleaning only partially recovers (9.5% vs 33.4%) - zeroing 13 dims isn't enough
 
 ### Decisions made
--
+- Used 13 massive dims (2+ layer appearances) instead of plan's 16 (threshold difference)
+- Added manual coefficient exploration (10-5000) when auto-search failed
+- Focused on L15 as the comparison layer (best extraction accuracy)
 
 ### Time tracking
-- Step 1:
-- Step 2:
-- Step 3:
-- Step 4:
-- Step 5:
-- Step 6:
-- Total:
+- Step 1: <1 min (config creation)
+- Step 2: ~1 min (extraction)
+- Step 3: <1 min (cleaning script)
+- Step 4: <1 min (cosine sims)
+- Step 5: ~8 min (steering with manual coef exploration)
+- Step 6: <1 min (analysis)
+- Total: ~12 min (vs estimated 30-45 min)
+
+### Final Results
+| Method | Δ | Coherence | Status |
+|--------|---|-----------|--------|
+| mean_diff | -0.2 | 86.8% | FAILS |
+| mean_diff_cleaned | +9.2 | 84.2% | PARTIAL RECOVERY |
+| probe | +33.0 | 73.0% | BEST |
+
+**All 4 hypothesis criteria verified ✓**
