@@ -565,3 +565,502 @@ Update `docs/viz_findings/massive-activations.md` with:
 | probe | +33.0 | 73.0% | BEST |
 
 **All 4 hypothesis criteria verified ✓**
+
+---
+---
+
+# Phase 2: Generalization & Ablation
+
+**Goal:** Strengthen the finding by testing (1) second trait, (2) cleaning ablation, (3) probe causality.
+
+**Phase 2 Success Criteria:**
+1. Sycophancy shows similar pattern to refusal (mean_diff fails or weak, probe better) — *exploratory*
+2. Cleaning ablation shows dim 443 is sufficient (top-1 ≥ top-13, matching Phase 1 finding of 29.1% vs 25.2%)
+3. Cleaning probe hurts performance — *confirmatory, formalizing Phase 1 finding of 33.4% → 8.9%*
+
+---
+
+## Phase 2 Prerequisites
+
+### 1. Verify sycophancy dataset exists
+
+```bash
+ls datasets/traits/pv_natural/sycophancy/
+```
+
+**Expected:** `positive.txt negative.txt definition.txt steering.json`
+
+### 2. Phase 1 complete
+
+- [x] chirp/refusal vectors extracted (mean_diff, probe)
+- [x] Steering results show pattern (mean_diff fails, probe works)
+
+---
+
+## Step 7: Extract sycophancy vectors
+
+**Purpose:** Test if finding generalizes to a different trait.
+
+**Command:**
+```bash
+python extraction/run_pipeline.py \
+    --experiment massive-activations \
+    --traits pv_natural/sycophancy \
+    --methods mean_diff,probe \
+    --position "response[:5]" \
+    --no-vet \
+    --no-logitlens
+```
+
+**Expected output:**
+```
+experiments/massive-activations/extraction/pv_natural/sycophancy/base/
+├── responses/
+│   ├── pos.json
+│   └── neg.json
+└── vectors/response__5/residual/
+    ├── mean_diff/layer*.pt  (34 files)
+    └── probe/layer*.pt      (34 files)
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/pv_natural/sycophancy/base/vectors/response__5/residual/mean_diff/ | wc -l
+# Should be 34
+```
+
+---
+
+## Step 8: Create cleaned sycophancy vectors
+
+**Purpose:** Apply same cleaning to sycophancy.
+
+**Script to create:** `experiments/massive-activations/clean_vectors_sycophancy.py`
+
+```python
+#!/usr/bin/env python3
+"""Zero out massive dims from sycophancy mean_diff vectors."""
+
+import torch
+from pathlib import Path
+
+# Same massive dims from gemma-3-4b calibration
+MASSIVE_DIMS = [19, 295, 368, 443, 656, 1055, 1209, 1276, 1365, 1548, 1698, 1980, 2194]
+
+VECTOR_DIR = Path("experiments/massive-activations/extraction/pv_natural/sycophancy/base/vectors/response__5/residual")
+INPUT_DIR = VECTOR_DIR / "mean_diff"
+OUTPUT_DIR = VECTOR_DIR / "mean_diff_cleaned"
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+for pt_file in sorted(INPUT_DIR.glob("layer*.pt")):
+    vector = torch.load(pt_file, weights_only=True)
+    cleaned = vector.clone()
+    for dim in MASSIVE_DIMS:
+        if dim < cleaned.shape[0]:
+            cleaned[dim] = 0.0
+    cleaned = cleaned / cleaned.norm()
+    torch.save(cleaned, OUTPUT_DIR / pt_file.name)
+    print(f"Cleaned {pt_file.name}")
+
+print(f"\nSaved {len(list(OUTPUT_DIR.glob('*.pt')))} files to {OUTPUT_DIR}")
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/clean_vectors_sycophancy.py
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/pv_natural/sycophancy/base/vectors/response__5/residual/mean_diff_cleaned/ | wc -l
+# Should be 34
+```
+
+---
+
+## Step 9: Sycophancy steering evaluation
+
+**Purpose:** Validate sycophancy vectors show same pattern.
+
+**Decision:**
+- Layers: `30%-60%`
+- Use manual coefficients based on Phase 1 learning: `--coefficients 800,1000,1200,1400`
+- Subset: 0 (all questions)
+
+**Commands:**
+```bash
+# mean_diff
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/pv_natural/sycophancy \
+    --method mean_diff \
+    --layers "30%-60%" \
+    --coefficients 800,1000,1200,1400 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+
+# mean_diff_cleaned
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/pv_natural/sycophancy \
+    --method mean_diff_cleaned \
+    --layers "30%-60%" \
+    --coefficients 800,1000,1200,1400 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+
+# probe
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/pv_natural/sycophancy \
+    --method probe \
+    --layers "30%-60%" \
+    --coefficients 800,1000,1200,1400 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+```
+
+**Expected (exploratory):** If pattern generalizes, mean_diff fails, cleaning recovers, probe best. But sycophancy may behave differently — document whatever we find.
+
+---
+
+## Step 10: Cleaning ablation (refusal)
+
+**Purpose:** Test if dim 443 alone is the main culprit.
+
+**Script to create:** `experiments/massive-activations/clean_vectors_ablation.py`
+
+```python
+#!/usr/bin/env python3
+"""Create cleaning variants: top-1, top-5, top-13."""
+
+import torch
+from pathlib import Path
+
+# Massive dims ordered by L15 magnitude (from calibration.json)
+# 443 (~1697) >> 1365 (~25) > 1980 (~19) > 295 (~18) > 1698 (~15)
+MASSIVE_DIMS_ORDERED = [443, 1365, 1980, 295, 1698]  # top-5 at L15
+MASSIVE_DIMS_ALL = [19, 295, 368, 443, 656, 1055, 1209, 1276, 1365, 1548, 1698, 1980, 2194]  # all 13
+
+VARIANTS = {
+    "mean_diff_top1": [443],
+    "mean_diff_top5": MASSIVE_DIMS_ORDERED[:5],
+    # mean_diff_cleaned already exists with all 13
+}
+
+VECTOR_DIR = Path("experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual")
+INPUT_DIR = VECTOR_DIR / "mean_diff"
+
+for variant_name, dims_to_zero in VARIANTS.items():
+    output_dir = VECTOR_DIR / variant_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for pt_file in sorted(INPUT_DIR.glob("layer*.pt")):
+        vector = torch.load(pt_file, weights_only=True)
+        cleaned = vector.clone()
+        for dim in dims_to_zero:
+            if dim < cleaned.shape[0]:
+                cleaned[dim] = 0.0
+        cleaned = cleaned / cleaned.norm()
+        torch.save(cleaned, output_dir / pt_file.name)
+
+    print(f"Created {variant_name}: zeroed {len(dims_to_zero)} dims ({dims_to_zero})")
+
+print("\nDone!")
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/clean_vectors_ablation.py
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual/ | grep mean_diff
+# Should show: mean_diff, mean_diff_cleaned, mean_diff_top1, mean_diff_top5
+```
+
+---
+
+## Step 11: Ablation steering evaluation
+
+**Purpose:** Compare cleaning thresholds.
+
+**Commands:**
+```bash
+# top-1 (just dim 443)
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method mean_diff_top1 \
+    --layers 15 \
+    --coefficients 800,1000,1200,1400 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+
+# top-5
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method mean_diff_top5 \
+    --layers 15 \
+    --coefficients 800,1000,1200,1400 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+```
+
+**Expected results:**
+
+| Variant | Dims zeroed | Expected Δ |
+|---------|-------------|------------|
+| mean_diff | 0 | ~0 (fails) |
+| mean_diff_top1 | 1 (443) | ~29 (Phase 1: 29.1%) |
+| mean_diff_top5 | 5 | ~25-29 |
+| mean_diff_cleaned | 13 | ~25 (Phase 1: 25.2%) |
+
+**Hypothesis:** Dim 443 alone is sufficient for recovery. Over-cleaning may hurt (top-1 > top-13 in Phase 1).
+
+**Note:** Phase 1 found top-1 (29.1%) > cleaned (25.2%). This ablation formalizes and explores that finding.
+
+---
+
+## Step 12: Probe causality test (Confirmatory)
+
+**Purpose:** Formalize Phase 1 finding that probe uses massive dims productively (cleaning hurts it). Phase 1 showed probe=33.4% → probe_cleaned=8.9%.
+
+**Script to create:** `experiments/massive-activations/clean_probe_vectors.py`
+
+```python
+#!/usr/bin/env python3
+"""Clean probe vectors to test if it hurts performance."""
+
+import torch
+from pathlib import Path
+
+MASSIVE_DIMS = [19, 295, 368, 443, 656, 1055, 1209, 1276, 1365, 1548, 1698, 1980, 2194]
+
+VECTOR_DIR = Path("experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual")
+INPUT_DIR = VECTOR_DIR / "probe"
+OUTPUT_DIR = VECTOR_DIR / "probe_cleaned"
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+for pt_file in sorted(INPUT_DIR.glob("layer*.pt")):
+    vector = torch.load(pt_file, weights_only=True)
+    cleaned = vector.clone()
+    for dim in MASSIVE_DIMS:
+        if dim < cleaned.shape[0]:
+            cleaned[dim] = 0.0
+    cleaned = cleaned / cleaned.norm()
+    torch.save(cleaned, OUTPUT_DIR / pt_file.name)
+    print(f"Cleaned {pt_file.name}")
+
+print(f"\nSaved to {OUTPUT_DIR}")
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/clean_probe_vectors.py
+```
+
+---
+
+## Step 13: Probe causality steering (Confirmatory)
+
+**Purpose:** Reproduce Phase 1 finding that cleaning hurts probe.
+
+**Command:**
+```bash
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method probe_cleaned \
+    --layers 15 \
+    --coefficients 800,1000,1200,1400 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+```
+
+**Expected:** probe_cleaned Δ < probe original Δ (cleaning hurts probe)
+
+**From Phase 1 notepad:** probe=33.4%, probe_cleaned=8.9%. This step formalizes that finding.
+
+---
+
+## Step 14: Phase 2 Analysis
+
+**Purpose:** Compile all results and verify Phase 2 success criteria.
+
+**Script to create:** `experiments/massive-activations/analyze_phase2.py`
+
+```python
+#!/usr/bin/env python3
+"""Analyze Phase 2 results."""
+
+import json
+from pathlib import Path
+from collections import defaultdict
+
+RESULTS_DIR = Path("experiments/massive-activations/steering")
+MIN_COHERENCE = 70
+
+def load_trait_results(trait_path: str):
+    """Load steering results for a trait."""
+    results_file = RESULTS_DIR / trait_path / "instruct/response__5/steering/results.jsonl"
+    if not results_file.exists():
+        return None, {}
+
+    results = defaultdict(list)
+    baseline = None
+
+    with open(results_file) as f:
+        for line in f:
+            entry = json.loads(line)
+            if entry.get("type") == "baseline":
+                baseline = entry["result"]
+            elif "config" in entry and "result" in entry:
+                config = entry["config"]["vectors"][0]
+                method = config["method"]
+                result = entry["result"]
+                results[method].append({
+                    "layer": config["layer"],
+                    "weight": config["weight"],
+                    "trait_mean": result.get("trait_mean", 0),
+                    "coherence_mean": result.get("coherence_mean", 0),
+                })
+
+    return baseline, dict(results)
+
+def best_delta(results: list, baseline_trait: float) -> float:
+    """Get best delta with coherence >= threshold."""
+    valid = [r for r in results if r["coherence_mean"] >= MIN_COHERENCE]
+    if not valid:
+        return 0
+    best = max(valid, key=lambda r: r["trait_mean"])
+    return best["trait_mean"] - baseline_trait
+
+print("="*60)
+print("PHASE 2 RESULTS")
+print("="*60)
+
+# Sycophancy generalization
+print("\n## Sycophancy Generalization")
+baseline, syc_results = load_trait_results("pv_natural/sycophancy")
+if baseline:
+    bt = baseline.get("trait_mean", 0)
+    for method in ["mean_diff", "mean_diff_cleaned", "probe"]:
+        if method in syc_results:
+            delta = best_delta(syc_results[method], bt)
+            print(f"  {method}: Δ={delta:+.1f}")
+
+# Ablation
+print("\n## Cleaning Ablation (refusal)")
+baseline, ref_results = load_trait_results("chirp/refusal")
+if baseline:
+    bt = baseline.get("trait_mean", 0)
+    for method in ["mean_diff", "mean_diff_top1", "mean_diff_top5", "mean_diff_cleaned"]:
+        if method in ref_results:
+            delta = best_delta(ref_results[method], bt)
+            print(f"  {method}: Δ={delta:+.1f}")
+
+# Probe causality
+print("\n## Probe Causality")
+if baseline and ref_results:
+    bt = baseline.get("trait_mean", 0)
+    for method in ["probe", "probe_cleaned"]:
+        if method in ref_results:
+            delta = best_delta(ref_results[method], bt)
+            print(f"  {method}: Δ={delta:+.1f}")
+
+# Success criteria
+print("\n" + "="*60)
+print("SUCCESS CRITERIA CHECK")
+print("="*60)
+# Add checks here based on actual results
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/analyze_phase2.py
+```
+
+---
+
+## Phase 2 Checkpoints
+
+### After Step 9 (sycophancy steering) — Exploratory
+- [ ] Document whether sycophancy shows similar pattern to refusal
+- [ ] If pattern differs, that's still a valid finding — document why (different trait type, different massive dim impact)
+
+### After Step 11 (ablation)
+- [ ] top-1 ≥ top-13 (confirming Phase 1: dim 443 alone is sufficient, over-cleaning may hurt)
+- [ ] If top-1 << top-13, revisit — Phase 1 found opposite
+
+### After Step 13 (probe causality) — Confirmatory
+- [ ] probe_cleaned < probe (reproducing Phase 1: 8.9% < 33.4%)
+- [ ] Formalizes finding that probe uses massive dims productively
+
+---
+
+## Phase 2 Expected Results
+
+### Sycophancy Generalization (Exploratory)
+
+| Method | Expected Δ | Interpretation |
+|--------|-----------|----------------|
+| mean_diff | ~0 or weak | Likely fails (if pattern generalizes) |
+| mean_diff_cleaned | ? | Unknown — may or may not recover |
+| probe | > mean_diff | Expected to outperform mean_diff |
+
+*Note: Sycophancy may behave differently than refusal. This is exploratory.*
+
+### Cleaning Ablation
+
+| Variant | Dims | Expected Δ (from Phase 1) |
+|---------|------|-----------|
+| mean_diff | 0 | ~0 |
+| mean_diff_top1 | 1 | ~29 (29.1% in Phase 1) |
+| mean_diff_top5 | 5 | ~25-29 |
+| mean_diff_cleaned | 13 | ~25 (25.2% in Phase 1) |
+
+*Key finding to confirm: top-1 ≥ top-13 (fewer dims works better)*
+
+### Probe Causality (Confirmatory)
+
+| Method | Expected Δ (from Phase 1) |
+|--------|-----------|
+| probe | ~33 (33.4% in Phase 1) |
+| probe_cleaned | ~9 (8.9% in Phase 1) |
+
+*Formalizes Phase 1 finding that probe uses massive dims productively.*
+
+---
+
+## Phase 2 Notes (fill during run)
+
+### Observations
+-
+
+### Unexpected findings
+-
+
+### Decisions made
+-
+
+### Time tracking
+- Step 7 (extraction):
+- Step 8 (cleaning):
+- Step 9 (sycophancy steering):
+- Step 10 (ablation script):
+- Step 11 (ablation steering):
+- Step 12 (probe cleaning):
+- Step 13 (probe steering):
+- Step 14 (analysis):
+- Total:
