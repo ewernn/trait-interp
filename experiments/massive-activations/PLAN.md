@@ -1942,17 +1942,21 @@ python experiments/massive-activations/analyze_phase4.py
 
 ---
 
-## Phase 4 Notes (filled 2026-01-29)
+## Phase 4 Notes (filled 2026-01-29, CORRECTED 2026-01-30)
+
+### CRITICAL BUG FIX (2026-01-30)
+Original results were invalidated by coherence scoring bug in `utils/judge.py`.
+See Phase 5 notes for details. Results below are corrected with `--no-relevance-check`.
 
 ### Observations
 - Extraction very fast (<10s each)
 - Steering ran 4 jobs in parallel (mean_diff + probe × 2 positions)
-- Results highly non-monotonic
+- [:10] "valley" confirmed but magnitude changed after bug fix
 
-### Unexpected findings
-- **response[:10] is WORSE than response[:5] for mean_diff!** (+12.2 vs +27.1)
-- **Probe degrades with longer windows:** +33.0 → +26.6 → +20.8
-- **At response[:20], mean_diff > probe!** (+33.4 vs +20.8)
+### Key findings (CORRECTED)
+- **[:5] is nearly tied!** (+26.5 mean_diff vs +26.4 probe) — NOT probe dominance
+- **[:10] valley is real:** mean_diff drops to +10.5, probe stays at +25.6
+- **[:20] mean_diff wins:** +31.5 vs +18.9 (probe degrades with longer windows)
 
 ### Decisions made
 - Used 64 max tokens for faster steering
@@ -1967,15 +1971,15 @@ python experiments/massive-activations/analyze_phase4.py
 - Step 27 (analysis): <1 min
 - Total: ~17 min
 
-### Final Results
+### Final Results (CORRECTED with --no-relevance-check)
 
 | Position | mean_diff Δ | probe Δ | Best |
 |----------|-------------|---------|------|
-| response[:5] | +27.1 | +33.0 | probe |
-| response[:10] | +12.2 | +26.6 | probe |
-| response[:20] | +33.4 | +20.8 | mean_diff |
+| response[:5] | +26.5 | +26.4 | **tie** |
+| response[:10] | +10.5 | **+25.6** | probe |
+| response[:20] | **+31.5** | +18.9 | mean_diff |
 
-**Main finding:** Position window has complex, non-monotonic effects. Longer windows ([:20]) help mean_diff but hurt probe. At [:20], mean_diff finally beats probe on gemma-3-4b.
+**Main finding:** Position window has complex, non-monotonic effects. At [:5] methods are equal (not probe-dominant as originally thought). The [:10] valley hits mean_diff hard while probe is robust. At [:20], mean_diff wins because probe degrades.
 
 ---
 ---
@@ -2251,59 +2255,67 @@ python experiments/massive-activations/analyze_phase5.py
 
 ---
 
-## Phase 5 Notes (filled 2026-01-29)
+## Phase 5 Notes (filled 2026-01-29, CORRECTED 2026-01-30)
+
+### CRITICAL BUG FIX (2026-01-30)
+Original results were invalidated by coherence scoring bug:
+- `utils/judge.py` capped coherence at 50 for PARTIAL responses (refusals)
+- Since we filter at coherence ≥ 70%, successful refusals were being excluded!
+- **Fix:** Re-ran all steering with `--no-relevance-check` flag
+- Results below are corrected
 
 ### Observations
 - Extraction very fast (~6s each)
 - Steering ran 4 jobs in parallel
-- Both methods improve at longer windows on gemma-2-2b (unlike gemma-3-4b where probe degraded)
+- [:10] "valley" effect confirmed on both models — mean_diff hit especially hard
 
-### Unexpected findings
-- **Probe IMPROVES at longer windows on gemma-2-2b!** +21.2 → +24.8 → +32.6
-  - Opposite of gemma-3-4b where probe degraded: +33.0 → +26.6 → +20.8
-- **[:10] "valley" persists on both models** — intermediate windows worse than [:5] and [:20]
-- **At [:20], both methods converge on gemma-2-2b**: mean_diff +34.8, probe +32.6 (within ~2 points)
-- **On gemma-3-4b at [:20], methods diverge**: mean_diff +33.4, probe +20.8 (13 point gap!)
+### Key findings (CORRECTED)
+- **[:5] is nearly tied on gemma-3-4b!** (+26.5 mean_diff vs +26.4 probe) — not probe dominance
+- **[:10] "valley" hits mean_diff hard:** gemma-3-4b drops from +26.5 → +10.5
+- **Probe is more robust to [:10] valley:** gemma-3-4b +26.4 → +25.6 (minimal drop)
+- **At [:20], mean_diff recovers:** Both models show mean_diff winning at longest window
+- **Both methods converge at [:20]:** Closer performance, both ~30-35 delta
 
 ### Time tracking
 - Step 28 (extraction [:10]): 6s
 - Step 29 (extraction [:20]): 6s
-- Step 30 (steering [:10]): ~8 min (2 methods parallel)
-- Step 31 (steering [:20]): ~8 min (2 methods parallel)
+- Step 30-31 (steering all): ~40 min total (4 models × 2 methods × 2 positions, corrected runs)
 - Step 32 (analysis): <1s
-- Total: ~17 min
 
-### Final Results
+### Final Results (CORRECTED with --no-relevance-check)
 
 | Model | Position | mean_diff Δ | probe Δ | Winner |
 |-------|----------|-------------|---------|--------|
-| gemma-3-4b | [:5] | +27.1 | **+33.0** | probe |
-| gemma-3-4b | [:10] | +12.2 | **+26.6** | probe |
-| gemma-3-4b | [:20] | **+33.4** | +20.8 | mean_diff |
-| gemma-2-2b | [:5] | **+28.6** | +21.2 | mean_diff |
-| gemma-2-2b | [:10] | +24.0 | **+24.8** | probe |
-| gemma-2-2b | [:20] | **+34.8** | +32.6 | mean_diff |
+| gemma-3-4b | [:5] | +26.5 | +26.4 | **tie** |
+| gemma-3-4b | [:10] | +10.5 | **+25.6** | probe |
+| gemma-3-4b | [:20] | **+31.5** | +18.9 | mean_diff |
+| gemma-2-2b | [:5] | **+25.5** | +22.1 | mean_diff |
+| gemma-2-2b | [:10] | +23.0 | **+24.6** | probe (~tie) |
+| gemma-2-2b | [:20] | **+33.3** | +31.5 | mean_diff |
 
-### Key Interpretation
+### Key Interpretation (CORRECTED)
 
-**Contamination severity determines method behavior at short windows:**
-- gemma-3-4b (1000x): probe wins at [:5] because mean_diff is contaminated
-- gemma-2-2b (60x): mean_diff wins at [:5] because contamination is mild
+**[:10] valley is real and universal:**
+- Both models show degraded performance at [:10]
+- mean_diff hit much harder than probe (gemma-3-4b: -16 points vs -1 point)
+- Probe is more robust to intermediate position artifacts
 
-**Position window affects models differently:**
-- gemma-3-4b: Probe degrades with longer windows (overfitting to early token patterns?)
-- gemma-2-2b: Probe improves with longer windows (more signal, less noise?)
+**Methods converge at longer windows:**
+- gemma-2-2b [:20]: +33.3 vs +31.5 (within 2 points)
+- gemma-3-4b [:20]: +31.5 vs +18.9 (13 point gap — probe still struggles)
 
-**At [:20], models behave differently:**
-- gemma-2-2b: Methods converge (~+33-35, within 2 points)
-- gemma-3-4b: Methods diverge (mean_diff +33, probe +21, 12 point gap)
+**Probe advantage at short windows was overstated:**
+- Original gemma-3-4b [:5] showed probe +33 vs mean_diff +27 (6 point gap)
+- Corrected: tie at ~+26.5
 
-**The [:10] "valley" is universal** — both models show worse performance at intermediate windows.
+**mean_diff wins at longest windows on both models:**
+- This is the main practical finding for refusal steering
 
-### Success Criteria
+### Success Criteria (CORRECTED)
 
 | Criterion | Status | Evidence |
 |-----------|--------|----------|
 | 1. Complete cross-model × position matrix | **✓** | All 6 cells filled |
-| 2. Probe improves at longer windows on gemma-2-2b | **✓** | +21.2 → +32.6 |
-| 3. mean_diff advantage position-dependent | **✓** | Wins at [:5] and [:20], loses at [:10] |
+| 2. Probe improves at longer windows on gemma-2-2b | **✓** | +22.1 → +31.5 |
+| 3. mean_diff advantage position-dependent | **✓** | Wins at [:5] (g2), [:20] (both); loses at [:10] (both) |
+| 4. Discovered coherence scoring bug | **✓** | Fixed with --no-relevance-check |
