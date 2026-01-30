@@ -738,6 +738,8 @@ Caps: ANSWERS=none, PARTIAL=50, IGNORES=30
 
 Halluc c4.4 had 15/20 PARTIAL because model correctly said "I don't know" - those aren't hallucinations. The new scoring is more honest about what's actually happening.
 
+**Update (2026-01-29):** 3-way classification later replaced with binary ENGAGES/OFF_TOPIC. The PARTIAL category incorrectly penalized refusals, sycophantic responses, and truncated answers. Binary classification only caps responses that completely ignore the prompt.
+
 ---
 
 ## 2026-01-07: Trait Scoring Prompt - Proportion-Weighted

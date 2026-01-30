@@ -20,6 +20,9 @@ from .hooks import (
     MultiLayerAblationHook,     # ablate direction across all layers
     BatchedLayerSteeringHook,   # different steering per batch slice
 )
+from .steering import (
+    batched_steering_generate,  # batched generation with per-config steering
+)
 from .methods import (
     ExtractionMethod,
     MeanDifferenceMethod,

@@ -45,7 +45,7 @@ coef = spec.weight * scale  # Full steering coefficient
 ## Hooks
 
 ```python
-from core import CaptureHook, MultiLayerCapture, SteeringHook, get_hook_path, detect_contribution_paths
+from core import CaptureHook, MultiLayerCapture, SteeringHook, AblationHook, get_hook_path, detect_contribution_paths
 
 # Capture from one layer
 with CaptureHook(model, "model.layers.16") as hook:
@@ -62,9 +62,14 @@ all_acts = capture.get_all()  # {14: tensor, 15: tensor, 16: tensor}
 with MultiLayerCapture(model) as capture:  # layers=None = all
     model(**inputs)
 
-# Steer generation
+# Steer generation (add vector to output)
 vector = torch.load('vectors/probe_layer16.pt')
 with SteeringHook(model, vector, "model.layers.16", coefficient=1.5):
+    output = model.generate(**inputs)
+
+# Ablate direction (project out vector from output)
+# Implements x' = x - (x · r̂) * r̂
+with AblationHook(model, direction, "model.layers.16"):
     output = model.generate(**inputs)
 
 # Path helper (layer + component -> string)
@@ -83,8 +88,14 @@ from core import detect_contribution_paths
 
 paths = detect_contribution_paths(model)
 # Gemma-2: {'attn_contribution': 'post_attention_layernorm', 'mlp_contribution': 'post_feedforward_layernorm'}
-# Others:  {'attn_contribution': 'self_attn.o_proj', 'mlp_contribution': 'mlp.down_proj'}
+# Llama/Mistral/Qwen: {'attn_contribution': 'self_attn.o_proj', 'mlp_contribution': 'mlp.down_proj'}
+# Unknown architecture: raises ValueError with diagnostic info
 ```
+
+**Validation:** Hooks fail fast on invalid inputs:
+- `SteeringHook` / `AblationHook`: Reject non-1D vectors
+- `AblationHook`: Reject zero or near-zero direction vectors
+- `detect_contribution_paths`: Raise `ValueError` for unrecognized architectures
 
 ---
 

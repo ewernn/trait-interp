@@ -80,14 +80,14 @@ Interprets facts, applies thresholds, aggregates across prompts.
 ### core/ - General Primitives
 
 **What belongs:**
-- Hook management (`HookManager`, `CaptureHook`, `SteeringHook`)
+- Hook management (`HookManager`, `CaptureHook`, `SteeringHook`, `AblationHook`)
 - Extraction methods (`MeanDifferenceMethod`, `ProbeMethod`, `GradientMethod`)
 - Math primitives (`projection`, `cosine_similarity`, `separation`, `accuracy`)
 
 **Current exports:**
 ```python
 # hooks.py
-HookManager, get_hook_path, CaptureHook, SteeringHook, MultiLayerCapture
+HookManager, get_hook_path, CaptureHook, SteeringHook, AblationHook, MultiLayerCapture, MultiLayerAblationHook
 
 # methods.py
 get_method, MeanDifferenceMethod, ProbeMethod, GradientMethod, RandomBaselineMethod

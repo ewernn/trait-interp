@@ -97,7 +97,7 @@ def display_responses(responses: list, baseline_trait: float = None, sort_by: st
     coh_50 = sum(1 for c in coh_scores if c == 50.0)
     coh_low = sum(1 for c in coh_scores if c < 70 and c != 50.0)
     coh_ok = sum(1 for c in coh_scores if c >= 70)
-    print(f"COHERENCE: {coh_ok} good (≥70), {coh_low} low (<70), {coh_50} capped at 50")
+    print(f"COHERENCE: {coh_ok} good (≥70), {coh_low} low (<70), {coh_50} off-topic")
     print("="*80)
 
     # Sort
@@ -115,7 +115,7 @@ def display_responses(responses: list, baseline_trait: float = None, sort_by: st
         # Highlight issues
         flags = []
         if coh == 50.0:
-            flags.append("RELEVANCE_CAP")
+            flags.append("OFF_TOPIC")
         elif coh < 70:
             flags.append(f"LOW_COH")
         if len(r['response']) < 80:

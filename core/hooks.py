@@ -46,13 +46,19 @@ def detect_contribution_paths(model) -> dict:
             'attn_contribution': 'post_attention_layernorm',
             'mlp_contribution': 'post_feedforward_layernorm',
         }
-    else:
+    elif 'self_attn' in children and 'mlp' in children:
         # Standard pre-norm only (Llama, Mistral, Qwen, etc.)
         # Attention/MLP outputs go directly to residual without post-scaling
         return {
             'attn_contribution': 'self_attn.o_proj',
             'mlp_contribution': 'mlp.down_proj',
         }
+    else:
+        raise ValueError(
+            f"Unknown architecture - cannot auto-detect contribution paths. "
+            f"Layer has children: {sorted(children.keys())}. "
+            f"Expected 'pre_feedforward_layernorm' (Gemma-2) or 'self_attn' + 'mlp' (Llama/Mistral)."
+        )
 
 
 def get_hook_path(layer: int, component: str = "residual", prefix: str = None, model=None) -> str:
@@ -356,8 +362,11 @@ class AblationHook(LayerHook):
         if direction.ndim != 1:
             raise ValueError(f"Direction must be 1-D, got shape {direction.shape}")
 
-        # Normalize to unit vector
-        self.direction = direction / direction.norm()
+        # Normalize to unit vector (fail fast on zero vector)
+        norm = direction.norm()
+        if norm < 1e-8:
+            raise ValueError("Direction vector has near-zero norm, cannot normalize")
+        self.direction = direction / norm
 
     def _hook_fn(self, module, inputs, outputs):
         """Project out direction from output: x' = x - (x · r̂) * r̂"""
@@ -567,17 +576,39 @@ class MultiLayerSteeringHook:
 
 class BatchedLayerSteeringHook:
     """
-    Batched steering with different vectors per batch slice.
+    Per-slice steering: applies vec * coef to batch[start:end] for each config.
 
-    Use when you need different steering for different items in a batch
-    (e.g., evaluating multiple coefficient values in one forward pass).
+    Configs are grouped by layer internally - one hook registered per unique layer.
+    Each hook applies all its configs to their respective batch slices.
+
+    Config format: (layer, vector, coefficient, (batch_start, batch_end))
+
+    Example - independent coefficient evaluation:
+        # Evaluate different coefficients in parallel (non-overlapping slices)
+        configs = [
+            (14, vec, 1.0, (0, 10)),   # Coef 1.0 on batch[0:10]
+            (14, vec, 2.0, (10, 20)),  # Coef 2.0 on batch[10:20]
+        ]
+
+    Example - multi-layer ensemble:
+        # Steer multiple layers together (overlapping slices)
+        configs = [
+            (11, vec11, 0.5, (0, 10)),  # L11 on batch[0:10]
+            (13, vec13, 0.8, (0, 10)),  # L13 on batch[0:10] (same slice = ensemble)
+        ]
+
+    Example - batched ensembles:
+        # Evaluate multiple ensemble candidates in parallel
+        configs = [
+            (11, vec, 0.5, (0, 5)),   # Candidate 0: L11
+            (13, vec, 0.8, (0, 5)),   # Candidate 0: L13
+            (11, vec, 0.3, (5, 10)),  # Candidate 1: L11
+            (13, vec, 1.0, (5, 10)),  # Candidate 1: L13
+        ]
+        # batch[0:5] gets L11*0.5 + L13*0.8
+        # batch[5:10] gets L11*0.3 + L13*1.0
 
     Usage:
-        configs = [
-            (layer, vector, coefficient, (batch_start, batch_end)),
-            (14, vec, 1.0, (0, 10)),   # Steer batch items 0-9
-            (14, vec, 2.0, (10, 20)),  # Steer batch items 10-19 with different coef
-        ]
         with BatchedLayerSteeringHook(model, configs, component="residual"):
             output = model.generate(**batched_inputs)
     """
