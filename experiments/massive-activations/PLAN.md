@@ -1,2321 +1,635 @@
-# Massive Activations Experiment
+# Massive Activations Experiment (Phase 2: Refined Ablations)
 
-**Goal:** Demonstrate that massive activation dimensions contaminate mean_diff vectors, and that zeroing them recovers steering performance.
+## Goal
 
-**Hypothesis:** Massive dims (~1000x magnitude) encode context/topic rather than trait signal. mean_diff captures these spuriously; probe/gradient are immune because they optimize for discrimination.
+Fill data gaps and run targeted ablations to finalize understanding of massive activation effects on steering vectors.
 
-**Success Criteria:**
-1. `mean_diff` steering Δ ≈ 0 (fails)
-2. `mean_diff_cleaned` steering Δ > mean_diff (recovery)
-3. `probe` steering Δ highest (immune)
-4. `cos(mean_diff_cleaned, probe) > cos(mean_diff, probe)` (geometric convergence)
+## Background
 
----
+Phase 1 established:
+- probe > mean_diff at short windows ([:5], [:10]) on gemma-3-4b
+- mean_diff wins at [:20] where contamination dilutes
+- Cleaning helps mean_diff (top-1 best), always hurts probe
+- Coefficient ratio: mean_diff needs ~2x probe's coefficient on gemma-3-4b
 
-## Setup
+**Open questions:**
+1. Does clean-before-extraction differ from clean-after for probe?
+2. Where exactly does the cleaning benefit drop off (top-2)?
+3. Can we predict optimal coefficients from vector properties?
 
-| Aspect | Value |
-|--------|-------|
-| Experiment name | `massive-activations` |
-| Model | gemma-3-4b (severe contamination) |
-| Extraction variant | `base` (google/gemma-3-4b-pt) |
-| Application variant | `instruct` (google/gemma-3-4b-it) |
-| Trait | `chirp/refusal` (existing dataset) |
-| Position | `response[:5]` |
-| Component | `residual` |
+## Success Criteria
+
+- [ ] All key method comparisons have results in 68-75% coherence range
+- [ ] Clean-before vs clean-after comparison complete for probe
+- [ ] top-2 cleaning fills gap between top-1 and top-3
+- [ ] Coefficient patterns documented with concrete recommendations
 
 ---
 
 ## Prerequisites
 
-### 1. Verify calibration data exists
-
-**Purpose:** We need the list of massive dims to zero out.
+### 1. Verify existing calibration data
 
 ```bash
-cat experiments/gemma-3-4b/inference/instruct/massive_activations/calibration.json | python -c "import sys,json; d=json.load(sys.stdin); print('Massive dims:', list(d['aggregate']['top_dims_by_layer']['0'][:5]))"
+# gemma-3-4b massive dims
+cat experiments/gemma-3-4b/inference/instruct/massive_activations/calibration.json | \
+  python -c "import sys,json; d=json.load(sys.stdin); print('Dims:', d['aggregate']['top_dims_by_layer']['15'][:5])"
+# Expected: [443, 1365, 1980, 295, 1209]
+
+# gemma-2-2b massive dims
+cat experiments/gemma-2-2b/inference/instruct/massive_activations/calibration.json | \
+  python -c "import sys,json; d=json.load(sys.stdin); print('Dims:', d['aggregate']['top_dims_by_layer']['12'][:5])"
+# Expected: [334, 1068, 1807, 1570, 682]
 ```
 
-**Expected:** `Massive dims: [443, 1365, 368, 1217, ...]`
-
-**If missing:** Run `python analysis/massive_activations.py --experiment gemma-3-4b`
-
-### 2. Verify trait dataset exists
+### 2. Verify existing extraction
 
 ```bash
-ls datasets/traits/chirp/refusal/
-```
-
-**Expected:** `positive.txt negative.txt definition.txt steering.json`
-
----
-
-## Steps
-
-### Step 1: Create experiment config
-
-**Purpose:** Set up experiment directory with model configuration.
-
-**Command:**
-```bash
-mkdir -p experiments/massive-activations
-```
-
-**File to create:** `experiments/massive-activations/config.json`
-```json
-{
-  "defaults": {
-    "extraction": "base",
-    "application": "instruct"
-  },
-  "model_variants": {
-    "base": {
-      "model": "google/gemma-3-4b-pt"
-    },
-    "instruct": {
-      "model": "google/gemma-3-4b-it"
-    }
-  }
-}
-```
-
-**Verify:**
-```bash
-cat experiments/massive-activations/config.json | python -c "import sys,json; d=json.load(sys.stdin); print('OK' if d['model_variants']['base']['model'] == 'google/gemma-3-4b-pt' else 'FAIL')"
+ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual/ | head -10
+# Should show: mean_diff, probe, mean_diff_cleaned, probe_cleaned, etc.
 ```
 
 ---
 
-### Step 2: Extract vectors (mean_diff + probe)
+## Phase 1: Fill Coherence Gaps
 
-**Purpose:** Get trait vectors using both methods on same data.
+**Purpose:** Ensure all key comparisons have results in 68-75% coherence range.
 
-**Read first:**
-- `extraction/run_pipeline.py` argparse (lines 331-374) for available flags
+### Step 1.1: Analyze current gaps
 
-**Decision:**
-- Methods: `mean_diff,probe` (gradient optional, skip for speed)
-- Position: `response[:5]` (standard)
-- Skip vetting: Yes (`--no-vet`) — chirp/refusal is already vetted
-- Skip logit lens: Yes (`--no-logitlens`) — not needed for this experiment
-
-**Command:**
 ```bash
-python extraction/run_pipeline.py \
-    --experiment massive-activations \
-    --traits chirp/refusal \
-    --methods mean_diff,probe \
-    --position "response[:5]" \
-    --no-vet \
-    --no-logitlens
-```
-
-**Expected output:**
-```
-experiments/massive-activations/extraction/chirp/refusal/base/
-├── responses/
-│   ├── pos.json
-│   └── neg.json
-├── activations/response__5/residual/
-│   ├── train_all_layers.pt
-│   └── val_all_layers.pt
-└── vectors/response__5/residual/
-    ├── mean_diff/layer*.pt  (34 files, layers 0-33)
-    └── probe/layer*.pt      (34 files)
-```
-
-**Verify:**
-```bash
-ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual/mean_diff/ | wc -l
-# Should be 34
-
-ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual/probe/ | wc -l
-# Should be 34
-```
-
-**If wrong:**
-- 0 files → Check trait path exists: `ls datasets/traits/chirp/refusal/`
-- Error about model → Check config.json model paths are correct
-
-**Estimated time:** ~10-15 minutes (generation + activation extraction)
-
----
-
-### Step 3: Create cleaned vectors
-
-**Purpose:** Zero out massive dims from mean_diff vectors.
-
-**Read first:**
-- `experiments/gemma-3-4b/inference/instruct/massive_activations/calibration.json` for massive dims list
-
-**Massive dims to zero (from gemma-3-4b calibration):**
-```
-443, 1365, 368, 1217, 19, 1980, 295, 1698, 1209, 2194, 656, 1055, 1168, 1548, 1646, 1276
-```
-
-Note: These are dims that appear in top-5 across 3+ layers. Dim 443 is dominant (~1000x).
-
-**Script to create:** `experiments/massive-activations/clean_vectors.py`
-
-```python
-#!/usr/bin/env python3
-"""Zero out massive dims from mean_diff vectors."""
-
-import torch
-from pathlib import Path
-
-# Massive dims from gemma-3-4b calibration (appear in top-5 at 3+ layers)
-MASSIVE_DIMS = [443, 1365, 368, 1217, 19, 1980, 295, 1698, 1209, 2194, 656, 1055, 1168, 1548, 1646, 1276]
-
-# Paths
-VECTOR_DIR = Path("experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual")
-INPUT_DIR = VECTOR_DIR / "mean_diff"
-OUTPUT_DIR = VECTOR_DIR / "mean_diff_cleaned"
-
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-for pt_file in sorted(INPUT_DIR.glob("layer*.pt")):
-    vector = torch.load(pt_file, weights_only=True)
-
-    # Zero out massive dims
-    cleaned = vector.clone()
-    for dim in MASSIVE_DIMS:
-        if dim < cleaned.shape[0]:
-            cleaned[dim] = 0.0
-
-    # Re-normalize to unit norm (optional but recommended)
-    cleaned = cleaned / cleaned.norm()
-
-    # Save
-    output_path = OUTPUT_DIR / pt_file.name
-    torch.save(cleaned, output_path)
-    print(f"Cleaned {pt_file.name}: zeroed {len(MASSIVE_DIMS)} dims")
-
-print(f"\nSaved to {OUTPUT_DIR}")
-print(f"Total files: {len(list(OUTPUT_DIR.glob('*.pt')))}")
-```
-
-**Command:**
-```bash
-python experiments/massive-activations/clean_vectors.py
-```
-
-**Verify:**
-```bash
-ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual/mean_diff_cleaned/ | wc -l
-# Should be 34
-```
-
----
-
-### Step 4: Compute cosine similarities
-
-**Purpose:** Measure geometric relationship between vectors.
-
-**Script to create:** `experiments/massive-activations/compute_cosine_sims.py`
-
-```python
-#!/usr/bin/env python3
-"""Compute pairwise cosine similarities between vector methods."""
-
-import torch
+python -c "
 import json
 from pathlib import Path
 
-VECTOR_DIR = Path("experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual")
-METHODS = ["mean_diff", "mean_diff_cleaned", "probe"]
+def analyze_gaps(results_file, target_low=68, target_high=75):
+    if not results_file.exists():
+        return None
 
-def load_vectors(method: str) -> dict:
-    """Load all layer vectors for a method."""
-    method_dir = VECTOR_DIR / method
-    vectors = {}
-    for pt_file in sorted(method_dir.glob("layer*.pt")):
-        layer = int(pt_file.stem.replace("layer", ""))
-        vectors[layer] = torch.load(pt_file, weights_only=True).float()
-    return vectors
+    baseline = 0
+    method_data = {}
 
-def cosine_sim(a: torch.Tensor, b: torch.Tensor) -> float:
-    return (a @ b / (a.norm() * b.norm())).item()
+    with open(results_file) as f:
+        for line in f:
+            entry = json.loads(line)
+            if entry.get('type') == 'baseline':
+                baseline = entry['result'].get('trait_mean', 0)
+            elif 'config' in entry and 'result' in entry:
+                cfg = entry['config']['vectors'][0]
+                res = entry['result']
+                method = cfg['method']
+                coh = res['coherence_mean']
 
-# Load all vectors
-all_vectors = {m: load_vectors(m) for m in METHODS}
-layers = sorted(all_vectors["mean_diff"].keys())
+                # Find result closest to target range
+                if method not in method_data:
+                    method_data[method] = {'best_coh': 0, 'best_delta': 0, 'in_range': False}
 
-# Compute pairwise similarities
-results = {
-    "layers": layers,
-    "comparisons": {}
-}
+                in_range = target_low <= coh <= target_high
+                closer = abs(coh - 71.5) < abs(method_data[method]['best_coh'] - 71.5)
 
-pairs = [
-    ("mean_diff", "probe"),
-    ("mean_diff", "mean_diff_cleaned"),
-    ("mean_diff_cleaned", "probe"),
+                if in_range or (not method_data[method]['in_range'] and closer):
+                    method_data[method] = {
+                        'best_coh': coh,
+                        'best_delta': res['trait_mean'] - baseline,
+                        'in_range': in_range,
+                        'coef': cfg['weight']
+                    }
+
+    return method_data
+
+# Check key files
+configs = [
+    ('gemma-3-4b [:5]', 'instruct', 'response__5'),
+    ('gemma-3-4b [:10]', 'instruct', 'response__10'),
+    ('gemma-3-4b [:20]', 'instruct', 'response__20'),
+    ('gemma-2-2b [:5]', 'gemma2_instruct', 'response__5'),
+    ('gemma-2-2b [:10]', 'gemma2_instruct', 'response__10'),
+    ('gemma-2-2b [:20]', 'gemma2_instruct', 'response__20'),
 ]
 
-for m1, m2 in pairs:
-    key = f"{m1}_vs_{m2}"
-    sims = []
-    for layer in layers:
-        sim = cosine_sim(all_vectors[m1][layer], all_vectors[m2][layer])
-        sims.append(round(sim, 4))
-    results["comparisons"][key] = sims
+key_methods = ['probe', 'mean_diff', 'probe_top1', 'mean_diff_top1', 'probe_cleaned', 'mean_diff_cleaned']
 
-    # Summary stats
-    avg = sum(sims) / len(sims)
-    print(f"{key}:")
-    print(f"  mean: {avg:.3f}")
-    print(f"  range: [{min(sims):.3f}, {max(sims):.3f}]")
-    print()
+print('Gap Analysis (target: 68-75% coherence)')
+print('=' * 80)
 
-# Save
-output_path = Path("experiments/massive-activations/cosine_similarities.json")
-with open(output_path, "w") as f:
-    json.dump(results, f, indent=2)
-print(f"Saved to {output_path}")
+for name, variant, pos in configs:
+    results_file = Path(f'experiments/massive-activations/steering/chirp/refusal/{variant}/{pos}/steering/results.jsonl')
+    data = analyze_gaps(results_file)
+    if not data:
+        print(f'{name}: NO DATA')
+        continue
+
+    gaps = []
+    for method in key_methods:
+        if method in data and not data[method]['in_range']:
+            gaps.append(f\"{method}({data[method]['best_coh']:.0f}%)\")
+
+    if gaps:
+        print(f\"{name}: GAPS - {', '.join(gaps)}\")
+    else:
+        print(f'{name}: OK')
+"
 ```
 
-**Command:**
+### Step 1.2: Run finer coefficient grid for gaps
+
+**Based on gap analysis, run targeted coefficients.** Only fill gaps where method isn't in 68-75% range.
+
+For gemma-3-4b (if gaps exist):
 ```bash
-python experiments/massive-activations/compute_cosine_sims.py
-```
-
-**Expected output:**
-```
-mean_diff_vs_probe:
-  mean: ~0.3-0.5 (low, contamination diverges them)
-
-mean_diff_vs_mean_diff_cleaned:
-  mean: ~0.8-0.95 (high, cleaning preserves most structure)
-
-mean_diff_cleaned_vs_probe:
-  mean: > mean_diff_vs_probe (cleaning converges toward probe)
-```
-
-**Checkpoint:** If `mean_diff_cleaned_vs_probe > mean_diff_vs_probe`, proceed. If not, investigate — maybe massive dims aren't the issue.
-
----
-
-### Step 5: Run steering evaluation
-
-**Purpose:** Validate vectors behaviorally via causal intervention.
-
-**Read first:**
-- `analysis/steering/evaluate.py` argparse for available flags
-- Especially: `--layers`, `--method`, `--direction`, `--save-responses`
-
-**Decision:**
-- Layers: `30%-60%` (middle layers, where steering works best)
-- Subset: `0` (all questions in steering.json)
-- Direction: `positive` (induce refusal on harmless prompts)
-- Save responses: `best` (only save best config per layer)
-
-**Commands (run sequentially for each method):**
-
-```bash
-# 1. mean_diff (expect ~0% steering effect)
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --method mean_diff \
-    --layers "30%-60%" \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-
-# 2. mean_diff_cleaned (expect improved steering)
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --method mean_diff_cleaned \
-    --layers "30%-60%" \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-
-# 3. probe (expect best steering)
+# Example: if probe needs finer grid around coherence cliff
 python analysis/steering/evaluate.py \
     --experiment massive-activations \
     --vector-from-trait massive-activations/chirp/refusal \
     --method probe \
-    --layers "30%-60%" \
+    --position "response[:5]" \
+    --layers 15 \
+    --coefficients 1100,1150,1180,1220,1250 \
+    --max-new-tokens 64 \
     --direction positive \
     --subset 0 \
     --save-responses best
 ```
 
-**Expected output:**
-```
-experiments/massive-activations/steering/chirp/refusal/instruct/response__5/steering/
-├── results.jsonl
-└── responses/{component}/{method}/
-```
-
-**Verify:**
+For gemma-2-2b (if gaps exist):
 ```bash
-cat experiments/massive-activations/steering/chirp/refusal/instruct/response__5/steering/results.jsonl | grep -c '"type": "result"'
-# Should be 3 methods × ~5 layers × ~5 coefs = ~75 results
+# Example: finer grid for gemma-2-2b
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --extraction-variant gemma2_base \
+    --model-variant gemma2_instruct \
+    --method probe \
+    --position "response[:5]" \
+    --layers 12 \
+    --coefficients 80,85,95,100,105 \
+    --max-new-tokens 64 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
 ```
 
-**Estimated time:** ~20-30 minutes per method (API calls for judging)
+**Note:** Adjust coefficients based on gap analysis. Don't exceed known coherent ranges:
+- gemma-3-4b: 800-2500
+- gemma-2-2b: 30-130
+
+### Checkpoint: After Phase 1
+
+Re-run gap analysis to confirm all key methods now have results in 68-75% range.
 
 ---
 
-### Step 6: Analyze results
+## Phase 2: Clean-Before-Extraction
 
-**Purpose:** Extract summary metrics and verify hypothesis.
+**Purpose:** Test whether cleaning activations before vector extraction differs from cleaning vectors after.
 
-**Script to create:** `experiments/massive-activations/analyze_results.py`
+**Hypothesis:**
+- For mean_diff: mathematically identical (clean is linear, commutes with mean)
+- For probe: clean-before may hurt less because probe learns on clean data, vs clean-after which amputates learned weights
+
+### Step 2.1: Implement CleanedMethod wrapper
+
+**File:** `core/methods.py` — add after existing methods:
+
+```python
+class PreCleanedMethod(ExtractionMethod):
+    """Wrapper that cleans massive dims from activations before extraction."""
+
+    def __init__(self, base_method: ExtractionMethod, massive_dims: list):
+        self.base_method = base_method
+        self.massive_dims = massive_dims
+
+    def extract(self, pos_acts: torch.Tensor, neg_acts: torch.Tensor, **kwargs):
+        from core.math import remove_massive_dims
+        pos_clean = remove_massive_dims(pos_acts, self.massive_dims, clone=True)
+        neg_clean = remove_massive_dims(neg_acts, self.massive_dims, clone=True)
+        return self.base_method.extract(pos_clean, neg_clean, **kwargs)
+```
+
+**Update `get_method()` to support preclean:**
+
+```python
+def get_method(name: str, massive_dims: list = None) -> ExtractionMethod:
+    """Get extraction method by name, with optional pre-cleaning."""
+    methods = {
+        'mean_diff': MeanDifferenceMethod,
+        'probe': ProbeMethod,
+        'gradient': GradientMethod,
+        'random_baseline': RandomBaselineMethod,
+    }
+
+    # Handle _preclean suffix
+    base_name = name.replace('_preclean', '')
+    wants_preclean = '_preclean' in name
+
+    if base_name not in methods:
+        raise ValueError(f"Unknown method '{name}'. Available: {list(methods.keys())}")
+
+    method = methods[base_name]()
+
+    if wants_preclean and massive_dims:
+        return PreCleanedMethod(method, massive_dims)
+    return method
+```
+
+### Step 2.2: Create preclean extraction script
+
+**File:** `experiments/massive-activations/extract_preclean_vectors.py`
 
 ```python
 #!/usr/bin/env python3
-"""Analyze steering results and produce summary."""
+"""Extract vectors with pre-cleaned activations."""
 
-import json
+import sys
 from pathlib import Path
-from collections import defaultdict
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-RESULTS_PATH = Path("experiments/massive-activations/steering/chirp/refusal/instruct/response__5/steering/results.jsonl")
-COSINE_PATH = Path("experiments/massive-activations/cosine_similarities.json")
-MIN_COHERENCE = 70
+import torch
+import json
+from core.methods import MeanDifferenceMethod, ProbeMethod, PreCleanedMethod
+from utils.paths import get_activation_path, get_vector_path
 
-def load_results():
-    """Load and parse results.jsonl."""
-    results = defaultdict(list)
-    baseline = None
-
-    with open(RESULTS_PATH) as f:
-        for line in f:
-            entry = json.loads(line)
-            if entry.get("type") == "baseline":
-                baseline = entry["result"]
-            elif "config" in entry and "result" in entry:
-                config = entry["config"]["vectors"][0]
-                method = config["method"]
-                layer = config["layer"]
-                weight = config["weight"]
-                result = entry["result"]
-
-                results[method].append({
-                    "layer": layer,
-                    "weight": weight,
-                    "trait_mean": result.get("trait_mean", 0),
-                    "coherence_mean": result.get("coherence_mean", 0),
-                })
-
-    return baseline, dict(results)
-
-def best_for_method(results: list, baseline_trait: float) -> dict:
-    """Find best result (highest trait delta with coherence >= MIN_COHERENCE)."""
-    valid = [r for r in results if r["coherence_mean"] >= MIN_COHERENCE]
-    if not valid:
-        return {"delta": 0, "layer": None, "coherence": 0}
-
-    best = max(valid, key=lambda r: r["trait_mean"])
-    return {
-        "delta": best["trait_mean"] - baseline_trait,
-        "layer": best["layer"],
-        "coherence": best["coherence_mean"],
-        "trait_mean": best["trait_mean"],
-    }
-
-# Load data
-baseline, results = load_results()
-baseline_trait = baseline.get("trait_mean", 0)
-
-print("="*60)
-print("STEERING RESULTS")
-print("="*60)
-print(f"Baseline trait: {baseline_trait:.1f}")
-print()
-
-methods = ["mean_diff", "mean_diff_cleaned", "probe"]
-summary = {}
-
-for method in methods:
-    if method in results:
-        best = best_for_method(results[method], baseline_trait)
-        summary[method] = best
-        print(f"{method}:")
-        print(f"  Best Δ: {best['delta']:+.1f} (L{best['layer']}, coherence={best['coherence']:.0f}%)")
+# Load massive dims from calibration
+def load_massive_dims(model: str) -> list:
+    if 'gemma-3' in model or model == 'base':
+        calib_path = Path("experiments/gemma-3-4b/inference/instruct/massive_activations/calibration.json")
     else:
-        print(f"{method}: NO DATA")
+        calib_path = Path("experiments/gemma-2-2b/inference/instruct/massive_activations/calibration.json")
 
-# Load cosine similarities
-if COSINE_PATH.exists():
-    with open(COSINE_PATH) as f:
-        cosines = json.load(f)
+    with open(calib_path) as f:
+        calib = json.load(f)
 
-    print()
-    print("="*60)
-    print("COSINE SIMILARITIES (mean across layers)")
-    print("="*60)
+    # Get dims appearing in top-5 at 3+ layers
+    from collections import Counter
+    all_dims = []
+    for layer_dims in calib["aggregate"]["top_dims_by_layer"].values():
+        all_dims.extend(layer_dims[:5])
+    dim_counts = Counter(all_dims)
+    return [d for d, c in dim_counts.items() if c >= 3]
 
-    for key, values in cosines["comparisons"].items():
-        avg = sum(values) / len(values)
-        print(f"{key}: {avg:.3f}")
+# Configs
+CONFIGS = [
+    ("base", "experiments/massive-activations/extraction/chirp/refusal/base", 34),
+    ("gemma2_base", "experiments/massive-activations/extraction/chirp/refusal/gemma2_base", 26),
+]
 
-# Hypothesis check
-print()
-print("="*60)
-print("HYPOTHESIS CHECK")
-print("="*60)
+for variant, base_dir, n_layers in CONFIGS:
+    massive_dims = load_massive_dims(variant)
+    print(f"\n{variant}: cleaning {len(massive_dims)} dims: {sorted(massive_dims)[:5]}...")
 
-if all(m in summary for m in methods):
-    md = summary["mean_diff"]["delta"]
-    mdc = summary["mean_diff_cleaned"]["delta"]
-    pr = summary["probe"]["delta"]
+    for position in ["response__5"]:
+        act_dir = Path(base_dir) / "activations" / position / "residual"
+        vec_dir = Path(base_dir) / "vectors" / position / "residual"
 
-    print(f"1. mean_diff fails: Δ={md:+.1f} {'✓' if md < 10 else '✗'}")
-    print(f"2. Cleaning recovers: {mdc:+.1f} > {md:+.1f} {'✓' if mdc > md else '✗'}")
-    print(f"3. probe best: {pr:+.1f} > {mdc:+.1f} {'✓' if pr > mdc else '✗'}")
+        # Load activations
+        train_path = act_dir / "train_all_layers.pt"
+        if not train_path.exists():
+            print(f"  {position}: activations not found")
+            continue
 
-    if COSINE_PATH.exists():
-        c1 = sum(cosines["comparisons"]["mean_diff_vs_probe"]) / len(cosines["comparisons"]["mean_diff_vs_probe"])
-        c2 = sum(cosines["comparisons"]["mean_diff_cleaned_vs_probe"]) / len(cosines["comparisons"]["mean_diff_cleaned_vs_probe"])
-        print(f"4. Geometric convergence: {c2:.3f} > {c1:.3f} {'✓' if c2 > c1 else '✗'}")
+        all_acts = torch.load(train_path, weights_only=True)
+
+        # Load metadata for pos/neg split
+        with open(act_dir / "metadata.json") as f:
+            meta = json.load(f)
+        n_pos = meta["n_examples_pos"]
+
+        # Extract preclean vectors for each layer
+        for method_name, MethodClass in [("mean_diff", MeanDifferenceMethod), ("probe", ProbeMethod)]:
+            output_dir = vec_dir / f"{method_name}_preclean"
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            base_method = MethodClass()
+            preclean_method = PreCleanedMethod(base_method, massive_dims)
+
+            for layer in range(n_layers):
+                layer_acts = all_acts[:, layer, :]
+                pos_acts = layer_acts[:n_pos]
+                neg_acts = layer_acts[n_pos:]
+
+                result = preclean_method.extract(pos_acts, neg_acts)
+                torch.save(result['vector'], output_dir / f"layer{layer}.pt")
+
+            print(f"  {position}/{method_name}_preclean: {n_layers} layers")
+
+print("\nDone!")
 ```
 
 **Command:**
 ```bash
-python experiments/massive-activations/analyze_results.py
+python experiments/massive-activations/extract_preclean_vectors.py
 ```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual/ | grep preclean
+# Expected: mean_diff_preclean, probe_preclean
+```
+
+### Step 2.3: Steering with preclean vectors
+
+```bash
+# gemma-3-4b mean_diff_preclean
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method mean_diff_preclean \
+    --position "response[:5]" \
+    --layers "30%-60%" \
+    --coefficients 800,1000,1200,1500,2000 \
+    --max-new-tokens 64 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+
+# gemma-3-4b probe_preclean
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method probe_preclean \
+    --position "response[:5]" \
+    --layers "30%-60%" \
+    --coefficients 800,1000,1200,1500,2000 \
+    --max-new-tokens 64 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+```
+
+### Checkpoint: After Phase 2
+
+Compare preclean vs cleaned variants:
+
+```bash
+python -c "
+import json
+from pathlib import Path
+
+results_file = Path('experiments/massive-activations/steering/chirp/refusal/instruct/response__5/steering/results.jsonl')
+
+baseline = 0
+comparisons = {}
+
+with open(results_file) as f:
+    for line in f:
+        entry = json.loads(line)
+        if entry.get('type') == 'baseline':
+            baseline = entry['result'].get('trait_mean', 0)
+        elif 'config' in entry and 'result' in entry:
+            cfg = entry['config']['vectors'][0]
+            res = entry['result']
+            method = cfg['method']
+
+            if res['coherence_mean'] >= 68 and res['coherence_mean'] <= 75:
+                if method not in comparisons or res['trait_mean'] > comparisons[method]['trait']:
+                    comparisons[method] = {
+                        'trait': res['trait_mean'],
+                        'delta': res['trait_mean'] - baseline,
+                        'coh': res['coherence_mean']
+                    }
+
+print('Clean-before vs Clean-after (68-75% coherence):')
+print(f\"{'Method':<20} {'Δ':>8} {'Coh':>8}\")
+print('-' * 40)
+
+for method in ['probe', 'probe_cleaned', 'probe_preclean', 'mean_diff', 'mean_diff_cleaned', 'mean_diff_preclean']:
+    if method in comparisons:
+        r = comparisons[method]
+        print(f\"{method:<20} {r['delta']:>+7.1f} {r['coh']:>7.1f}%\")
+"
+```
+
+**Expected:**
+- mean_diff ≈ mean_diff_preclean (mathematically identical)
+- probe_preclean > probe_cleaned? (hypothesis: pre-clean hurts less)
 
 ---
 
-## Checkpoints
+## Phase 3: Top-2 Cleaning Ablation
 
-### After Step 2 (extraction)
-- [ ] Vectors exist for both methods (34 files each)
-- [ ] Sanity check: `probe` vectors should have reasonable norms
+**Purpose:** Fill the gap between top-1 (+28.8) and top-3 (+20.7) to understand the cleaning curve.
 
-### After Step 4 (cosine similarities)
-- [ ] `mean_diff_cleaned_vs_probe > mean_diff_vs_probe`
-- [ ] If NOT true, massive dims may not be the main contamination source — investigate
+### Step 3.1: Create top-2 cleaned vectors
 
-### After Step 5 (steering)
-- [ ] All three methods have results
-- [ ] Baseline trait score is low (~5-15 for harmless prompts)
+**File:** `experiments/massive-activations/clean_vectors_top2.py`
+
+```python
+#!/usr/bin/env python3
+"""Create top-2 cleaned vectors."""
+
+import torch
+import json
+from pathlib import Path
+
+# Load calibration for gemma-3-4b
+with open("experiments/gemma-3-4b/inference/instruct/massive_activations/calibration.json") as f:
+    calib = json.load(f)
+
+# Top-2 dims at layer 15 (middle layer, most relevant for steering)
+TOP_2_DIMS = calib["aggregate"]["top_dims_by_layer"]["15"][:2]
+print(f"Top-2 dims: {TOP_2_DIMS}")
+
+VECTOR_DIR = Path("experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual")
+
+for base_method in ["mean_diff", "probe"]:
+    input_dir = VECTOR_DIR / base_method
+    output_dir = VECTOR_DIR / f"{base_method}_top2"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for pt_file in sorted(input_dir.glob("layer*.pt")):
+        vector = torch.load(pt_file, weights_only=True)
+        cleaned = vector.clone()
+
+        for dim in TOP_2_DIMS:
+            if dim < cleaned.shape[0]:
+                cleaned[dim] = 0.0
+
+        cleaned = cleaned / cleaned.norm()
+        torch.save(cleaned, output_dir / pt_file.name)
+
+    print(f"Created {base_method}_top2")
+
+print("Done!")
+```
+
+**Command:**
+```bash
+python experiments/massive-activations/clean_vectors_top2.py
+```
+
+### Step 3.2: Steering with top-2 vectors
+
+```bash
+# mean_diff_top2
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method mean_diff_top2 \
+    --position "response[:5]" \
+    --layers 15 \
+    --coefficients 1000,1100,1150,1200,1250,1300 \
+    --max-new-tokens 64 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+
+# probe_top2
+python analysis/steering/evaluate.py \
+    --experiment massive-activations \
+    --vector-from-trait massive-activations/chirp/refusal \
+    --method probe_top2 \
+    --position "response[:5]" \
+    --layers 15 \
+    --coefficients 1000,1100,1150,1200,1250,1300 \
+    --max-new-tokens 64 \
+    --direction positive \
+    --subset 0 \
+    --save-responses best
+```
+
+### Checkpoint: After Phase 3
+
+Verify the cleaning curve:
+
+```bash
+python -c "
+import json
+from pathlib import Path
+
+results_file = Path('experiments/massive-activations/steering/chirp/refusal/instruct/response__5/steering/results.jsonl')
+
+baseline = 0
+cleaning_curve = {}
+
+with open(results_file) as f:
+    for line in f:
+        entry = json.loads(line)
+        if entry.get('type') == 'baseline':
+            baseline = entry['result'].get('trait_mean', 0)
+        elif 'config' in entry and 'result' in entry:
+            cfg = entry['config']['vectors'][0]
+            res = entry['result']
+            method = cfg['method']
+
+            if res['coherence_mean'] >= 68 and res['coherence_mean'] <= 75:
+                if method not in cleaning_curve or res['trait_mean'] > cleaning_curve[method]:
+                    cleaning_curve[method] = res['trait_mean'] - baseline
+
+print('Cleaning curve (mean_diff, 68-75% coherence):')
+for method in ['mean_diff', 'mean_diff_top1', 'mean_diff_top2', 'mean_diff_top3', 'mean_diff_top5', 'mean_diff_cleaned']:
+    if method in cleaning_curve:
+        dims = {'mean_diff': 0, 'mean_diff_top1': 1, 'mean_diff_top2': 2, 'mean_diff_top3': 3, 'mean_diff_top5': 5, 'mean_diff_cleaned': 13}
+        print(f\"  {dims.get(method, '?'):>2} dims: {cleaning_curve[method]:>+6.1f}\")
+"
+```
+
+**Expected pattern:** 0 < 1 dims (helps), 1 > 2 > 3 dims (over-cleaning hurts)
+
+---
+
+## Phase 4: Coefficient Pattern Analysis
+
+**Purpose:** Document coefficient patterns and derive practical recommendations.
+
+### Step 4.1: Compile coefficient data
+
+```bash
+python -c "
+import json
+from pathlib import Path
+
+configs = [
+    ('gemma-3-4b', 'instruct', ['response__5', 'response__10', 'response__20']),
+    ('gemma-2-2b', 'gemma2_instruct', ['response__5', 'response__10', 'response__20']),
+]
+
+print('Optimal Coefficients (68-75% coherence)')
+print('=' * 70)
+print(f\"{'Model':<12} {'Position':<12} {'Method':<20} {'Coef':>8} {'Δ':>8}\")
+print('-' * 70)
+
+for model, variant, positions in configs:
+    for pos_dir in positions:
+        results_file = Path(f'experiments/massive-activations/steering/chirp/refusal/{variant}/{pos_dir}/steering/results.jsonl')
+        if not results_file.exists():
+            continue
+
+        baseline = 0
+        method_best = {}
+
+        with open(results_file) as f:
+            for line in f:
+                entry = json.loads(line)
+                if entry.get('type') == 'baseline':
+                    baseline = entry['result'].get('trait_mean', 0)
+                elif 'config' in entry and 'result' in entry:
+                    cfg = entry['config']['vectors'][0]
+                    res = entry['result']
+                    method = cfg['method']
+
+                    if 68 <= res['coherence_mean'] <= 75:
+                        delta = res['trait_mean'] - baseline
+                        if method not in method_best or delta > method_best[method]['delta']:
+                            method_best[method] = {'delta': delta, 'coef': cfg['weight']}
+
+        pos_name = pos_dir.replace('response__', '[:') + ']'
+        for method in ['probe', 'mean_diff', 'probe_top1', 'mean_diff_top1']:
+            if method in method_best:
+                r = method_best[method]
+                print(f\"{model:<12} {pos_name:<12} {method:<20} {r['coef']:>8.0f} {r['delta']:>+7.1f}\")
+"
+```
+
+### Step 4.2: Document patterns
+
+Based on Phase 1-3 results, update `docs/other/research_findings.md` with:
+
+1. **Coefficient ratio by model:**
+   - gemma-3-4b: mean_diff needs ~2x probe's coefficient at [:5]/[:10]
+   - gemma-2-2b: mean_diff needs ~1.3x probe's coefficient (more stable)
+
+2. **Coefficient shift from cleaning:**
+   - Cleaning top-1 shifts optimal coefficient down ~2x
+   - This suggests massive dims inflate effective steering magnitude
+
+3. **Practical recommendations:**
+   - For gemma-3-4b: Start probe at 1000-1200, mean_diff at 2000-2500
+   - For gemma-2-2b: Start probe at 70-90, mean_diff at 90-120
+   - If using cleaned vectors: reduce by ~40%
 
 ---
 
 ## Expected Results
 
-### Steering Δ (coherence ≥70%)
+### Phase 2: Preclean vs Cleaned
 
-| Vector | Steering Δ | Interpretation |
-|--------|-----------|----------------|
-| mean_diff | ~0 | Contaminated, fails |
-| mean_diff_cleaned | +10-30 | Partial recovery |
-| probe | +30-50 | Immune, works well |
+| Method | Clean-after Δ | Clean-before Δ | Interpretation |
+|--------|--------------|----------------|----------------|
+| mean_diff | +24.8 | ~+24.8 | Identical (math) |
+| probe | +8.6 | ? | Hypothesis: higher |
 
-### Cosine Similarities
+### Phase 3: Cleaning Curve
 
-| Comparison | Expected | Interpretation |
-|------------|----------|----------------|
-| mean_diff ↔ probe | ~0.3-0.5 | Low (contamination diverges) |
-| mean_diff ↔ cleaned | ~0.85-0.95 | High (preserves structure) |
-| cleaned ↔ probe | ~0.5-0.7 | Higher than md↔probe (convergence) |
-
----
-
-## Deliverable
-
-Update `docs/viz_findings/massive-activations.md` with:
-1. Actual measured numbers (replace unverified claims)
-2. Steering comparison table
-3. Cosine similarity analysis
-4. Clear methodology section
+| Dims cleaned | mean_diff Δ | Pattern |
+|--------------|-------------|---------|
+| 0 | +27.1 | baseline |
+| 1 | +28.8 | helps |
+| 2 | ? | between |
+| 3 | +20.7 | over-cleaned |
+| 5 | +14.2 | worse |
+| 13 | +24.8 | partial recovery? |
 
 ---
 
-## Notes (filled 2026-01-29)
+## If Stuck
 
-### Observations
-- gemma-3-4b has 34 layers (vs 26 for gemma-2-2b), hidden dim 2560
-- Extraction was very fast (~53s total vs estimated 10-15 min)
-- mean_diff achieved 100% val accuracy but ZERO steering effect
-- Cosine similarity: cleaned↔probe = 0.934 (very high convergence)
-
-### Unexpected findings
-- **Coefficient calibration was way off**: Auto-search started at ~26k coef, but useful range is 1000-1800
-- **Sharp coherence cliff**: Coherent outputs (>70%) only possible below ~1500 coef for probe
-- **Gibberish mode**: High coefficients produce repetitive nonsense in multiple languages
-- Cleaning only partially recovers (9.5% vs 33.4%) - zeroing 13 dims isn't enough
-
-### Decisions made
-- Used 13 massive dims (2+ layer appearances) instead of plan's 16 (threshold difference)
-- Added manual coefficient exploration (10-5000) when auto-search failed
-- Focused on L15 as the comparison layer (best extraction accuracy)
-
-### Time tracking
-- Step 1: <1 min (config creation)
-- Step 2: ~1 min (extraction)
-- Step 3: <1 min (cleaning script)
-- Step 4: <1 min (cosine sims)
-- Step 5: ~8 min (steering with manual coef exploration)
-- Step 6: <1 min (analysis)
-- Total: ~12 min (vs estimated 30-45 min)
-
-### Final Results
-| Method | Δ | Coherence | Status |
-|--------|---|-----------|--------|
-| mean_diff | -0.2 | 86.8% | FAILS |
-| mean_diff_cleaned | +9.2 | 84.2% | PARTIAL RECOVERY |
-| probe | +33.0 | 73.0% | BEST |
-
-**All 4 hypothesis criteria verified ✓**
-
----
----
-
-# Phase 2: Generalization & Ablation
-
-**Goal:** Strengthen the finding by testing (1) second trait, (2) cleaning ablation, (3) probe causality.
-
-**Phase 2 Success Criteria:**
-1. Sycophancy shows similar pattern to refusal (mean_diff fails or weak, probe better) — *exploratory*
-2. Cleaning ablation shows dim 443 is sufficient (top-1 ≥ top-13, matching Phase 1 finding of 29.1% vs 25.2%)
-3. Cleaning probe hurts performance — *confirmatory, formalizing Phase 1 finding of 33.4% → 8.9%*
+- **Preclean vectors not found:** Check extraction script created directories
+- **Steering fails for new methods:** Verify vector files exist and have correct shape
+- **No results in 68-75% range:** Expand coefficient grid or adjust threshold to 65-78%
+- **mean_diff_preclean ≠ mean_diff_cleaned:** Should be ~identical; check implementation
 
 ---
 
-## Phase 2 Prerequisites
+## Notes
 
-### 1. Verify sycophancy dataset exists
-
-```bash
-ls datasets/traits/pv_natural/sycophancy/
-```
-
-**Expected:** `positive.txt negative.txt definition.txt steering.json`
-
-### 2. Phase 1 complete
-
-- [x] chirp/refusal vectors extracted (mean_diff, probe)
-- [x] Steering results show pattern (mean_diff fails, probe works)
-
----
-
-## Step 7: Extract sycophancy vectors
-
-**Purpose:** Test if finding generalizes to a different trait.
-
-**Command:**
-```bash
-python extraction/run_pipeline.py \
-    --experiment massive-activations \
-    --traits pv_natural/sycophancy \
-    --methods mean_diff,probe \
-    --position "response[:5]" \
-    --no-vet \
-    --no-logitlens
-```
-
-**Expected output:**
-```
-experiments/massive-activations/extraction/pv_natural/sycophancy/base/
-├── responses/
-│   ├── pos.json
-│   └── neg.json
-└── vectors/response__5/residual/
-    ├── mean_diff/layer*.pt  (34 files)
-    └── probe/layer*.pt      (34 files)
-```
-
-**Verify:**
-```bash
-ls experiments/massive-activations/extraction/pv_natural/sycophancy/base/vectors/response__5/residual/mean_diff/ | wc -l
-# Should be 34
-```
-
----
-
-## Step 8: Create cleaned sycophancy vectors
-
-**Purpose:** Apply same cleaning to sycophancy.
-
-**Script to create:** `experiments/massive-activations/clean_vectors_sycophancy.py`
-
-```python
-#!/usr/bin/env python3
-"""Zero out massive dims from sycophancy mean_diff vectors."""
-
-import torch
-from pathlib import Path
-
-# Same massive dims from gemma-3-4b calibration
-MASSIVE_DIMS = [19, 295, 368, 443, 656, 1055, 1209, 1276, 1365, 1548, 1698, 1980, 2194]
-
-VECTOR_DIR = Path("experiments/massive-activations/extraction/pv_natural/sycophancy/base/vectors/response__5/residual")
-INPUT_DIR = VECTOR_DIR / "mean_diff"
-OUTPUT_DIR = VECTOR_DIR / "mean_diff_cleaned"
-
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-for pt_file in sorted(INPUT_DIR.glob("layer*.pt")):
-    vector = torch.load(pt_file, weights_only=True)
-    cleaned = vector.clone()
-    for dim in MASSIVE_DIMS:
-        if dim < cleaned.shape[0]:
-            cleaned[dim] = 0.0
-    cleaned = cleaned / cleaned.norm()
-    torch.save(cleaned, OUTPUT_DIR / pt_file.name)
-    print(f"Cleaned {pt_file.name}")
-
-print(f"\nSaved {len(list(OUTPUT_DIR.glob('*.pt')))} files to {OUTPUT_DIR}")
-```
-
-**Command:**
-```bash
-python experiments/massive-activations/clean_vectors_sycophancy.py
-```
-
-**Verify:**
-```bash
-ls experiments/massive-activations/extraction/pv_natural/sycophancy/base/vectors/response__5/residual/mean_diff_cleaned/ | wc -l
-# Should be 34
-```
-
----
-
-## Step 9: Sycophancy steering evaluation
-
-**Purpose:** Validate sycophancy vectors show same pattern.
-
-**Decision:**
-- Layers: `30%-60%`
-- Use manual coefficients based on Phase 1 learning: `--coefficients 800,1000,1200,1400`
-- Subset: 0 (all questions)
-
-**Commands:**
-```bash
-# mean_diff
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/pv_natural/sycophancy \
-    --method mean_diff \
-    --layers "30%-60%" \
-    --coefficients 800,1000,1200,1400 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-
-# mean_diff_cleaned
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/pv_natural/sycophancy \
-    --method mean_diff_cleaned \
-    --layers "30%-60%" \
-    --coefficients 800,1000,1200,1400 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-
-# probe
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/pv_natural/sycophancy \
-    --method probe \
-    --layers "30%-60%" \
-    --coefficients 800,1000,1200,1400 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-```
-
-**Expected (exploratory):** If pattern generalizes, mean_diff fails, cleaning recovers, probe best. But sycophancy may behave differently — document whatever we find.
-
----
-
-## Step 10: Cleaning ablation (refusal)
-
-**Purpose:** Test if dim 443 alone is the main culprit.
-
-**Script to create:** `experiments/massive-activations/clean_vectors_ablation.py`
-
-```python
-#!/usr/bin/env python3
-"""Create cleaning variants: top-1, top-5, top-13."""
-
-import torch
-from pathlib import Path
-
-# Massive dims ordered by L15 magnitude (from calibration.json)
-# 443 (~1697) >> 1365 (~25) > 1980 (~19) > 295 (~18) > 1698 (~15)
-MASSIVE_DIMS_ORDERED = [443, 1365, 1980, 295, 1698]  # top-5 at L15
-MASSIVE_DIMS_ALL = [19, 295, 368, 443, 656, 1055, 1209, 1276, 1365, 1548, 1698, 1980, 2194]  # all 13
-
-VARIANTS = {
-    "mean_diff_top1": [443],
-    "mean_diff_top5": MASSIVE_DIMS_ORDERED[:5],
-    # mean_diff_cleaned already exists with all 13
-}
-
-VECTOR_DIR = Path("experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual")
-INPUT_DIR = VECTOR_DIR / "mean_diff"
-
-for variant_name, dims_to_zero in VARIANTS.items():
-    output_dir = VECTOR_DIR / variant_name
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    for pt_file in sorted(INPUT_DIR.glob("layer*.pt")):
-        vector = torch.load(pt_file, weights_only=True)
-        cleaned = vector.clone()
-        for dim in dims_to_zero:
-            if dim < cleaned.shape[0]:
-                cleaned[dim] = 0.0
-        cleaned = cleaned / cleaned.norm()
-        torch.save(cleaned, output_dir / pt_file.name)
-
-    print(f"Created {variant_name}: zeroed {len(dims_to_zero)} dims ({dims_to_zero})")
-
-print("\nDone!")
-```
-
-**Command:**
-```bash
-python experiments/massive-activations/clean_vectors_ablation.py
-```
-
-**Verify:**
-```bash
-ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual/ | grep mean_diff
-# Should show: mean_diff, mean_diff_cleaned, mean_diff_top1, mean_diff_top5
-```
-
----
-
-## Step 11: Ablation steering evaluation
-
-**Purpose:** Compare cleaning thresholds.
-
-**Commands:**
-```bash
-# top-1 (just dim 443)
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --method mean_diff_top1 \
-    --layers 15 \
-    --coefficients 800,1000,1200,1400 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-
-# top-5
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --method mean_diff_top5 \
-    --layers 15 \
-    --coefficients 800,1000,1200,1400 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-```
-
-**Expected results:**
-
-| Variant | Dims zeroed | Expected Δ |
-|---------|-------------|------------|
-| mean_diff | 0 | ~0 (fails) |
-| mean_diff_top1 | 1 (443) | ~29 (Phase 1: 29.1%) |
-| mean_diff_top5 | 5 | ~25-29 |
-| mean_diff_cleaned | 13 | ~25 (Phase 1: 25.2%) |
-
-**Hypothesis:** Dim 443 alone is sufficient for recovery. Over-cleaning may hurt (top-1 > top-13 in Phase 1).
-
-**Note:** Phase 1 found top-1 (29.1%) > cleaned (25.2%). This ablation formalizes and explores that finding.
-
----
-
-## Step 12: Probe causality test (Confirmatory)
-
-**Purpose:** Formalize Phase 1 finding that probe uses massive dims productively (cleaning hurts it). Phase 1 showed probe=33.4% → probe_cleaned=8.9%.
-
-**Script to create:** `experiments/massive-activations/clean_probe_vectors.py`
-
-```python
-#!/usr/bin/env python3
-"""Clean probe vectors to test if it hurts performance."""
-
-import torch
-from pathlib import Path
-
-MASSIVE_DIMS = [19, 295, 368, 443, 656, 1055, 1209, 1276, 1365, 1548, 1698, 1980, 2194]
-
-VECTOR_DIR = Path("experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual")
-INPUT_DIR = VECTOR_DIR / "probe"
-OUTPUT_DIR = VECTOR_DIR / "probe_cleaned"
-
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-for pt_file in sorted(INPUT_DIR.glob("layer*.pt")):
-    vector = torch.load(pt_file, weights_only=True)
-    cleaned = vector.clone()
-    for dim in MASSIVE_DIMS:
-        if dim < cleaned.shape[0]:
-            cleaned[dim] = 0.0
-    cleaned = cleaned / cleaned.norm()
-    torch.save(cleaned, OUTPUT_DIR / pt_file.name)
-    print(f"Cleaned {pt_file.name}")
-
-print(f"\nSaved to {OUTPUT_DIR}")
-```
-
-**Command:**
-```bash
-python experiments/massive-activations/clean_probe_vectors.py
-```
-
----
-
-## Step 13: Probe causality steering (Confirmatory)
-
-**Purpose:** Reproduce Phase 1 finding that cleaning hurts probe.
-
-**Command:**
-```bash
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --method probe_cleaned \
-    --layers 15 \
-    --coefficients 800,1000,1200,1400 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-```
-
-**Expected:** probe_cleaned Δ < probe original Δ (cleaning hurts probe)
-
-**From Phase 1 notepad:** probe=33.4%, probe_cleaned=8.9%. This step formalizes that finding.
-
----
-
-## Step 14: Phase 2 Analysis
-
-**Purpose:** Compile all results and verify Phase 2 success criteria.
-
-**Script to create:** `experiments/massive-activations/analyze_phase2.py`
-
-```python
-#!/usr/bin/env python3
-"""Analyze Phase 2 results."""
-
-import json
-from pathlib import Path
-from collections import defaultdict
-
-RESULTS_DIR = Path("experiments/massive-activations/steering")
-MIN_COHERENCE = 70
-
-def load_trait_results(trait_path: str):
-    """Load steering results for a trait."""
-    results_file = RESULTS_DIR / trait_path / "instruct/response__5/steering/results.jsonl"
-    if not results_file.exists():
-        return None, {}
-
-    results = defaultdict(list)
-    baseline = None
-
-    with open(results_file) as f:
-        for line in f:
-            entry = json.loads(line)
-            if entry.get("type") == "baseline":
-                baseline = entry["result"]
-            elif "config" in entry and "result" in entry:
-                config = entry["config"]["vectors"][0]
-                method = config["method"]
-                result = entry["result"]
-                results[method].append({
-                    "layer": config["layer"],
-                    "weight": config["weight"],
-                    "trait_mean": result.get("trait_mean", 0),
-                    "coherence_mean": result.get("coherence_mean", 0),
-                })
-
-    return baseline, dict(results)
-
-def best_delta(results: list, baseline_trait: float) -> float:
-    """Get best delta with coherence >= threshold."""
-    valid = [r for r in results if r["coherence_mean"] >= MIN_COHERENCE]
-    if not valid:
-        return 0
-    best = max(valid, key=lambda r: r["trait_mean"])
-    return best["trait_mean"] - baseline_trait
-
-print("="*60)
-print("PHASE 2 RESULTS")
-print("="*60)
-
-# Sycophancy generalization
-print("\n## Sycophancy Generalization")
-baseline, syc_results = load_trait_results("pv_natural/sycophancy")
-if baseline:
-    bt = baseline.get("trait_mean", 0)
-    for method in ["mean_diff", "mean_diff_cleaned", "probe"]:
-        if method in syc_results:
-            delta = best_delta(syc_results[method], bt)
-            print(f"  {method}: Δ={delta:+.1f}")
-
-# Ablation
-print("\n## Cleaning Ablation (refusal)")
-baseline, ref_results = load_trait_results("chirp/refusal")
-if baseline:
-    bt = baseline.get("trait_mean", 0)
-    for method in ["mean_diff", "mean_diff_top1", "mean_diff_top5", "mean_diff_cleaned"]:
-        if method in ref_results:
-            delta = best_delta(ref_results[method], bt)
-            print(f"  {method}: Δ={delta:+.1f}")
-
-# Probe causality
-print("\n## Probe Causality")
-if baseline and ref_results:
-    bt = baseline.get("trait_mean", 0)
-    for method in ["probe", "probe_cleaned"]:
-        if method in ref_results:
-            delta = best_delta(ref_results[method], bt)
-            print(f"  {method}: Δ={delta:+.1f}")
-
-# Success criteria
-print("\n" + "="*60)
-print("SUCCESS CRITERIA CHECK")
-print("="*60)
-# Add checks here based on actual results
-```
-
-**Command:**
-```bash
-python experiments/massive-activations/analyze_phase2.py
-```
-
----
-
-## Phase 2 Checkpoints
-
-### After Step 9 (sycophancy steering) — Exploratory
-- [ ] Document whether sycophancy shows similar pattern to refusal
-- [ ] If pattern differs, that's still a valid finding — document why (different trait type, different massive dim impact)
-
-### After Step 11 (ablation)
-- [ ] top-1 ≥ top-13 (confirming Phase 1: dim 443 alone is sufficient, over-cleaning may hurt)
-- [ ] If top-1 << top-13, revisit — Phase 1 found opposite
-
-### After Step 13 (probe causality) — Confirmatory
-- [ ] probe_cleaned < probe (reproducing Phase 1: 8.9% < 33.4%)
-- [ ] Formalizes finding that probe uses massive dims productively
-
----
-
-## Phase 2 Expected Results
-
-### Sycophancy Generalization (Exploratory)
-
-| Method | Expected Δ | Interpretation |
-|--------|-----------|----------------|
-| mean_diff | ~0 or weak | Likely fails (if pattern generalizes) |
-| mean_diff_cleaned | ? | Unknown — may or may not recover |
-| probe | > mean_diff | Expected to outperform mean_diff |
-
-*Note: Sycophancy may behave differently than refusal. This is exploratory.*
-
-### Cleaning Ablation
-
-| Variant | Dims | Expected Δ (from Phase 1) |
-|---------|------|-----------|
-| mean_diff | 0 | ~0 |
-| mean_diff_top1 | 1 | ~29 (29.1% in Phase 1) |
-| mean_diff_top5 | 5 | ~25-29 |
-| mean_diff_cleaned | 13 | ~25 (25.2% in Phase 1) |
-
-*Key finding to confirm: top-1 ≥ top-13 (fewer dims works better)*
-
-### Probe Causality (Confirmatory)
-
-| Method | Expected Δ (from Phase 1) |
-|--------|-----------|
-| probe | ~33 (33.4% in Phase 1) |
-| probe_cleaned | ~9 (8.9% in Phase 1) |
-
-*Formalizes Phase 1 finding that probe uses massive dims productively.*
-
----
-
-## Phase 2 Notes (filled 2026-01-29)
-
-### Observations
-- Sycophancy extraction was very fast (~11s)
-- Sycophancy mean_diff actually works (+11.2) — unlike refusal
-- Non-monotonic cleaning pattern: top-1 > cleaned > top-3 > top-5 ≈ top-10
-- Probe causality cleanly confirmed: 33.0 → 8.6 with cleaning
-
-### Unexpected findings
-- **Sycophancy differs from refusal:** mean_diff works for sycophancy (+11.2 at 92% coherence)
-- **Over-cleaning hurts:** top-5 (14.2) worst, top-1 (28.8) and cleaned (24.8) best
-- **Dim 443 dominates:** Zeroing just dim 443 matches or exceeds full 13-dim cleaning
-
-### Decisions made
-- Used coefficients 800-1400 based on Phase 1 learnings (not auto-search)
-- Ran sycophancy on layers 30%-60% (L10-L20)
-- Ran refusal ablation on L15 only (best layer from Phase 1)
-- Steps 12-13 (probe_cleaned) already done in Phase 1, reused results
-
-### Time tracking
-- Step 7 (extraction): 11s
-- Step 8 (cleaning): <1s
-- Step 9 (sycophancy steering): ~10 min
-- Step 10 (ablation script): <1s
-- Step 11 (ablation steering): ~2 min
-- Step 12-13 (probe): Already done in Phase 1
-- Step 14 (analysis): <1s
-- Total: ~13 min
-
-### Final Results
-
-**Sycophancy (baseline=56.1):**
-| Method | Δ | Coherence |
-|--------|---|-----------|
-| mean_diff | +11.2 | 92% |
-| mean_diff_cleaned | +19.9 | 85% |
-| probe | +21.3 | 89% |
-
-**Refusal Ablation (baseline=0.3):**
-| Method | Dims | Δ |
-|--------|------|---|
-| mean_diff_top1 | 1 | +28.8 |
-| mean_diff | 0 | +27.1 |
-| mean_diff_cleaned | 13 | +24.8 |
-| mean_diff_top3 | 3 | +20.7 |
-| mean_diff_top5 | 5 | +14.2 |
-
-**Probe Causality (baseline=0.3):**
-| Method | Δ |
-|--------|---|
-| probe | +33.0 |
-| probe_cleaned | +8.6 |
-
-**All Phase 2 criteria checked:**
-1. Sycophancy: Pattern holds but mean_diff partially works (exploratory finding)
-2. Top-1 ≥ Top-13: ✓ Confirmed (28.8 ≥ 24.8)
-3. Cleaning hurts probe: ✓ Confirmed (33.0 > 8.6)
-
----
----
-
-# Phase 3: Cross-Model Comparison (gemma-2-2b)
-
-**Goal:** Test whether milder massive activation contamination (~60x in gemma-2-2b vs ~1000x in gemma-3-4b) produces different results.
-
-**Hypothesis:** With milder contamination, mean_diff should work better on gemma-2-2b than on gemma-3-4b. The pattern (probe > cleaned > mean_diff) should still hold but with smaller gaps.
-
-**Phase 3 Success Criteria:**
-1. mean_diff performs better on gemma-2-2b than gemma-3-4b (milder contamination helps)
-2. Pattern still holds: probe > mean_diff (even with mild contamination)
-3. Cleaning ablation shows similar dim-dominance pattern
-4. Cross-model comparison: quantify contamination severity vs method performance
-
----
-
-## Phase 3 Setup
-
-| Aspect | gemma-2-2b | gemma-3-4b (Phase 1-2) |
-|--------|------------|------------------------|
-| Model (base) | google/gemma-2-2b | google/gemma-3-4b-pt |
-| Model (instruct) | google/gemma-2-2b-it | google/gemma-3-4b-it |
-| Layers | 26 | 34 |
-| Hidden dim | 2304 | 2560 |
-| Dominant dim | 334 (~60x) | 443 (~1000x) |
-| Massive dims | 8 total | 13 total |
-
-**Massive dims for gemma-2-2b:** [334, 535, 682, 1068, 1393, 1570, 1645, 1807]
-
----
-
-## Phase 3 Prerequisites
-
-### 1. Verify calibration data exists
-
-```bash
-cat experiments/gemma-2-2b/inference/instruct/massive_activations/calibration.json | python -c "import sys,json; d=json.load(sys.stdin); print('Massive dims:', d['aggregate']['top_dims_by_layer']['0'][:5])"
-```
-
-**Expected:** `[243, 535, 1570, 881, 334]` (or similar)
-
-### 2. Update experiment config for multi-model
-
-The experiment config needs to support gemma-2-2b. We'll use a model_variant suffix approach.
-
----
-
-## Step 15: Update experiment config for gemma-2-2b
-
-**Purpose:** Add gemma-2-2b variants to the experiment config.
-
-**File to update:** `experiments/massive-activations/config.json`
-
-```json
-{
-  "defaults": {
-    "extraction": "base",
-    "application": "instruct"
-  },
-  "model_variants": {
-    "base": {
-      "model": "google/gemma-3-4b-pt"
-    },
-    "instruct": {
-      "model": "google/gemma-3-4b-it"
-    },
-    "gemma2_base": {
-      "model": "google/gemma-2-2b"
-    },
-    "gemma2_instruct": {
-      "model": "google/gemma-2-2b-it"
-    }
-  }
-}
-```
-
-**Verify:**
-```bash
-cat experiments/massive-activations/config.json | python -c "import sys,json; d=json.load(sys.stdin); print('gemma2_base' in d['model_variants'])"
-# Should be True
-```
-
----
-
-## Step 16: Extract refusal vectors (gemma-2-2b)
-
-**Purpose:** Get trait vectors for gemma-2-2b using same methodology.
-
-**Command:**
-```bash
-python extraction/run_pipeline.py \
-    --experiment massive-activations \
-    --traits chirp/refusal \
-    --methods mean_diff,probe \
-    --position "response[:5]" \
-    --model-variant gemma2_base \
-    --no-vet \
-    --no-logitlens
-```
-
-**Expected output:**
-```
-experiments/massive-activations/extraction/chirp/refusal/gemma2_base/
-├── responses/
-│   ├── pos.json
-│   └── neg.json
-└── vectors/response__5/residual/
-    ├── mean_diff/layer*.pt  (26 files, layers 0-25)
-    └── probe/layer*.pt      (26 files)
-```
-
-**Verify:**
-```bash
-ls experiments/massive-activations/extraction/chirp/refusal/gemma2_base/vectors/response__5/residual/mean_diff/ | wc -l
-# Should be 26
-```
-
----
-
-## Step 17: Create cleaned vectors (gemma-2-2b)
-
-**Purpose:** Zero out gemma-2-2b massive dims.
-
-**Script to create:** `experiments/massive-activations/clean_vectors_gemma2.py`
-
-```python
-#!/usr/bin/env python3
-"""Zero out massive dims from gemma-2-2b mean_diff vectors."""
-
-import torch
-from pathlib import Path
-
-# Massive dims from gemma-2-2b calibration
-MASSIVE_DIMS_GEMMA2 = [334, 535, 682, 1068, 1393, 1570, 1645, 1807]
-
-# Top dims by magnitude at mid-layers (L12-L15)
-# 334 appears in 24/26 layers, 1068 in 21, 1807 in 19
-MASSIVE_DIMS_TOP1 = [334]
-MASSIVE_DIMS_TOP5 = [334, 1068, 1807, 1570, 535]
-
-VECTOR_DIR = Path("experiments/massive-activations/extraction/chirp/refusal/gemma2_base/vectors/response__5/residual")
-INPUT_DIR = VECTOR_DIR / "mean_diff"
-
-VARIANTS = {
-    "mean_diff_cleaned": MASSIVE_DIMS_GEMMA2,  # All 8
-    "mean_diff_top1": MASSIVE_DIMS_TOP1,        # Just dim 334
-    "mean_diff_top5": MASSIVE_DIMS_TOP5,        # Top 5
-}
-
-for variant_name, dims_to_zero in VARIANTS.items():
-    output_dir = VECTOR_DIR / variant_name
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    for pt_file in sorted(INPUT_DIR.glob("layer*.pt")):
-        vector = torch.load(pt_file, weights_only=True)
-        cleaned = vector.clone()
-        for dim in dims_to_zero:
-            if dim < cleaned.shape[0]:
-                cleaned[dim] = 0.0
-        cleaned = cleaned / cleaned.norm()
-        torch.save(cleaned, output_dir / pt_file.name)
-
-    print(f"Created {variant_name}: zeroed {len(dims_to_zero)} dims")
-
-print("\nDone!")
-```
-
-**Command:**
-```bash
-python experiments/massive-activations/clean_vectors_gemma2.py
-```
-
-**Verify:**
-```bash
-ls experiments/massive-activations/extraction/chirp/refusal/gemma2_base/vectors/response__5/residual/ | grep mean_diff
-# Should show: mean_diff, mean_diff_cleaned, mean_diff_top1, mean_diff_top5
-```
-
----
-
-## Step 18: Refusal steering (gemma-2-2b)
-
-**Purpose:** Test steering with gemma-2-2b vectors.
-
-**Decision:**
-- Layers: `30%-60%` of 26 layers = L8-L15
-- Coefficients: Start with same range as gemma-3-4b, adjust if needed
-- Note: gemma-2-2b may need different coefficient range due to milder contamination
-
-**Commands:**
-```bash
-# mean_diff
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --extraction-variant gemma2_base \
-    --model-variant gemma2_instruct \
-    --method mean_diff \
-    --layers "30%-60%" \
-    --coefficients 500,800,1000,1200,1500 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-
-# mean_diff_cleaned
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --extraction-variant gemma2_base \
-    --model-variant gemma2_instruct \
-    --method mean_diff_cleaned \
-    --layers "30%-60%" \
-    --coefficients 500,800,1000,1200,1500 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-
-# mean_diff_top1
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --extraction-variant gemma2_base \
-    --model-variant gemma2_instruct \
-    --method mean_diff_top1 \
-    --layers "30%-60%" \
-    --coefficients 500,800,1000,1200,1500 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-
-# probe
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --extraction-variant gemma2_base \
-    --model-variant gemma2_instruct \
-    --method probe \
-    --layers "30%-60%" \
-    --coefficients 500,800,1000,1200,1500 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-```
-
-**Expected:** mean_diff should perform better than on gemma-3-4b (milder contamination).
-
----
-
-## Step 19: Extract sycophancy vectors (gemma-2-2b)
-
-**Purpose:** Test sycophancy on gemma-2-2b for cross-trait comparison.
-
-**Command:**
-```bash
-python extraction/run_pipeline.py \
-    --experiment massive-activations \
-    --traits pv_natural/sycophancy \
-    --methods mean_diff,probe \
-    --position "response[:5]" \
-    --model-variant gemma2_base \
-    --no-vet \
-    --no-logitlens
-```
-
-**Verify:**
-```bash
-ls experiments/massive-activations/extraction/pv_natural/sycophancy/gemma2_base/vectors/response__5/residual/mean_diff/ | wc -l
-# Should be 26
-```
-
----
-
-## Step 20: Create cleaned sycophancy vectors (gemma-2-2b)
-
-**Script to create:** `experiments/massive-activations/clean_vectors_gemma2_sycophancy.py`
-
-```python
-#!/usr/bin/env python3
-"""Zero out massive dims from gemma-2-2b sycophancy mean_diff vectors."""
-
-import torch
-from pathlib import Path
-
-MASSIVE_DIMS_GEMMA2 = [334, 535, 682, 1068, 1393, 1570, 1645, 1807]
-
-VECTOR_DIR = Path("experiments/massive-activations/extraction/pv_natural/sycophancy/gemma2_base/vectors/response__5/residual")
-INPUT_DIR = VECTOR_DIR / "mean_diff"
-OUTPUT_DIR = VECTOR_DIR / "mean_diff_cleaned"
-
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-for pt_file in sorted(INPUT_DIR.glob("layer*.pt")):
-    vector = torch.load(pt_file, weights_only=True)
-    cleaned = vector.clone()
-    for dim in MASSIVE_DIMS_GEMMA2:
-        if dim < cleaned.shape[0]:
-            cleaned[dim] = 0.0
-    cleaned = cleaned / cleaned.norm()
-    torch.save(cleaned, OUTPUT_DIR / pt_file.name)
-    print(f"Cleaned {pt_file.name}")
-
-print(f"\nSaved to {OUTPUT_DIR}")
-```
-
-**Command:**
-```bash
-python experiments/massive-activations/clean_vectors_gemma2_sycophancy.py
-```
-
----
-
-## Step 21: Sycophancy steering (gemma-2-2b)
-
-**Purpose:** Test sycophancy steering on gemma-2-2b.
-
-**Commands:**
-```bash
-# mean_diff
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/pv_natural/sycophancy \
-    --extraction-variant gemma2_base \
-    --model-variant gemma2_instruct \
-    --method mean_diff \
-    --layers "30%-60%" \
-    --coefficients 500,800,1000,1200,1500 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-
-# mean_diff_cleaned
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/pv_natural/sycophancy \
-    --extraction-variant gemma2_base \
-    --model-variant gemma2_instruct \
-    --method mean_diff_cleaned \
-    --layers "30%-60%" \
-    --coefficients 500,800,1000,1200,1500 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-
-# probe
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/pv_natural/sycophancy \
-    --extraction-variant gemma2_base \
-    --model-variant gemma2_instruct \
-    --method probe \
-    --layers "30%-60%" \
-    --coefficients 500,800,1000,1200,1500 \
-    --direction positive \
-    --subset 0 \
-    --save-responses best
-```
-
----
-
-## Step 22: Cross-model analysis
-
-**Purpose:** Compare results across models to quantify contamination severity impact.
-
-**Script to create:** `experiments/massive-activations/analyze_phase3.py`
-
-```python
-#!/usr/bin/env python3
-"""Cross-model comparison of massive activation impact."""
-
-import json
-from pathlib import Path
-from collections import defaultdict
-
-RESULTS_DIR = Path("experiments/massive-activations/steering")
-MIN_COHERENCE = 70
-
-def load_results(trait: str, model_variant: str):
-    """Load steering results for trait/model combination."""
-    # Try different path patterns
-    patterns = [
-        RESULTS_DIR / trait / model_variant / "response__5/steering/results.jsonl",
-        RESULTS_DIR / trait / model_variant / "response__5/results.jsonl",
-    ]
-
-    for results_file in patterns:
-        if results_file.exists():
-            break
-    else:
-        return None, {}
-
-    results = defaultdict(list)
-    baseline = None
-
-    with open(results_file) as f:
-        for line in f:
-            entry = json.loads(line)
-            if entry.get("type") == "baseline":
-                baseline = entry["result"]
-            elif "config" in entry and "result" in entry:
-                config = entry["config"]["vectors"][0]
-                method = config["method"]
-                result = entry["result"]
-                results[method].append({
-                    "layer": config["layer"],
-                    "weight": config["weight"],
-                    "trait_mean": result.get("trait_mean", 0),
-                    "coherence_mean": result.get("coherence_mean", 0),
-                })
-
-    return baseline, dict(results)
-
-def best_delta(results: list, baseline_trait: float) -> tuple:
-    """Get best delta with coherence >= threshold."""
-    valid = [r for r in results if r["coherence_mean"] >= MIN_COHERENCE]
-    if not valid:
-        return 0, 0
-    best = max(valid, key=lambda r: r["trait_mean"])
-    return best["trait_mean"] - baseline_trait, best["coherence_mean"]
-
-print("="*70)
-print("PHASE 3: CROSS-MODEL COMPARISON")
-print("="*70)
-
-models = {
-    "gemma-3-4b": "instruct",
-    "gemma-2-2b": "gemma2_instruct",
-}
-
-traits = ["chirp/refusal", "pv_natural/sycophancy"]
-methods = ["mean_diff", "mean_diff_cleaned", "mean_diff_top1", "probe"]
-
-for trait in traits:
-    print(f"\n## {trait}")
-    print("-" * 50)
-    print(f"{'Model':<15} {'Method':<20} {'Δ':>8} {'Coh':>6}")
-    print("-" * 50)
-
-    for model_name, variant in models.items():
-        baseline, results = load_results(trait, variant)
-        if not baseline:
-            print(f"{model_name:<15} NO DATA")
-            continue
-
-        bt = baseline.get("trait_mean", 0)
-        for method in methods:
-            if method in results:
-                delta, coh = best_delta(results[method], bt)
-                print(f"{model_name:<15} {method:<20} {delta:>+7.1f} {coh:>5.0f}%")
-
-print("\n" + "="*70)
-print("KEY COMPARISONS")
-print("="*70)
-print("\nContamination severity vs mean_diff performance:")
-print("  gemma-3-4b (dim 443 ~1000x): mean_diff Δ = ?")
-print("  gemma-2-2b (dim 334 ~60x):   mean_diff Δ = ?")
-print("\nExpected: gemma-2-2b mean_diff > gemma-3-4b mean_diff")
-```
-
-**Command:**
-```bash
-python experiments/massive-activations/analyze_phase3.py
-```
-
----
-
-## Phase 3 Checkpoints
-
-### After Step 18 (refusal steering gemma-2-2b)
-- [ ] mean_diff works better on gemma-2-2b than gemma-3-4b
-- [ ] Pattern still holds: probe > cleaned > mean_diff
-- [ ] If mean_diff works well, confirms milder contamination hypothesis
-
-### After Step 21 (sycophancy steering gemma-2-2b)
-- [ ] Compare to gemma-3-4b sycophancy results
-- [ ] Document any model-specific differences
-
-### After Step 22 (cross-model analysis)
-- [ ] Quantify contamination severity vs performance relationship
-- [ ] Document cross-model patterns
-
----
-
-## Phase 3 Expected Results
-
-### Refusal (cross-model)
-
-| Model | Contamination | mean_diff Δ | probe Δ | Gap |
-|-------|---------------|-------------|---------|-----|
-| gemma-3-4b | ~1000x | ~0 | ~33 | ~33 |
-| gemma-2-2b | ~60x | ~10-20? | ~25-35? | smaller |
-
-*Hypothesis: Smaller contamination → smaller gap between mean_diff and probe*
-
-### Sycophancy (cross-model)
-
-| Model | mean_diff Δ | probe Δ |
-|-------|-------------|---------|
-| gemma-3-4b | +11.2 | +21.3 |
-| gemma-2-2b | ? | ? |
-
----
-
-## Phase 3 Notes (filled 2026-01-29)
-
-### Observations
-- gemma-2-2b needs ~20x lower coefficients than gemma-3-4b
-- Useful coefficient range: 50-120 (vs 1000-2000 for gemma-3-4b)
-- Coherence cliff around c150 (vs c2500 for gemma-3-4b)
-
-### Unexpected findings
-- **mean_diff > probe on gemma-2-2b!** (+28.6 vs +21.2)
-- This is the OPPOSITE of gemma-3-4b pattern
-- Suggests contamination severity determines which method works
-
-### Decisions made
-- Used coefficient range 30-120 based on early exploration
-- Skipped sycophancy (refusal comparison sufficient)
-- Used 64 max tokens for faster steering
-
-### Time tracking
-- Step 15 (config): <1 min
-- Step 16 (extraction): 30s
-- Step 17 (cleaning): <1 min
-- Step 18 (refusal steering): ~15 min (4 methods in parallel)
-- Step 19-21 (sycophancy): Skipped
-- Step 22 (analysis): <1 min
-- Total: ~17 min
-
-### Final Results
-
-| Model | mean_diff Δ | probe Δ | Coef range |
-|-------|-------------|---------|------------|
-| gemma-3-4b | +27.1 | +33.0 | 1000-2500 |
-| gemma-2-2b | +28.6 | +21.2 | 50-120 |
-
-**Main finding:** With milder massive activation contamination (60x vs 1000x), mean_diff outperforms probe. The severity of contamination determines which extraction method is best.
-
----
----
-
-# Phase 4: Position Window Ablation
-
-**Goal:** Test whether averaging over more response tokens dilutes massive dim contamination and improves mean_diff.
-
-**Hypothesis:** Massive dims may dominate early tokens more than later ones. Longer position windows (response[:10], response[:20]) could dilute the contamination and improve mean_diff performance.
-
-**Phase 4 Success Criteria:**
-1. mean_diff improves with longer windows (response[:20] > response[:10] > response[:5])
-2. probe remains stable across windows (already immune to contamination)
-3. Quantify the position-window vs performance relationship
-
----
-
-## Phase 4 Setup
-
-| Position | Tokens Averaged | Current Status |
-|----------|-----------------|----------------|
-| response[:5] | 5 | Phase 1-2 baseline |
-| response[:10] | 10 | New |
-| response[:20] | 20 | New |
-
-**Model:** gemma-3-4b (severe contamination — best to show improvement)
-**Trait:** chirp/refusal
-**Methods:** mean_diff, probe
-**Steering:** 64 max output tokens
-
----
-
-## Step 23: Extract vectors at response[:10]
-
-**Purpose:** Test intermediate position window.
-
-**Command:**
-```bash
-python extraction/run_pipeline.py \
-    --experiment massive-activations \
-    --traits chirp/refusal \
-    --methods mean_diff,probe \
-    --position "response[:10]" \
-    --no-vet \
-    --no-logitlens
-```
-
-**Expected output:**
-```
-experiments/massive-activations/extraction/chirp/refusal/base/
-└── vectors/response__10/residual/
-    ├── mean_diff/layer*.pt  (34 files)
-    └── probe/layer*.pt      (34 files)
-```
-
-**Verify:**
-```bash
-ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__10/residual/mean_diff/ | wc -l
-# Should be 34
-```
-
----
-
-## Step 24: Extract vectors at response[:20]
-
-**Purpose:** Test longer position window.
-
-**Command:**
-```bash
-python extraction/run_pipeline.py \
-    --experiment massive-activations \
-    --traits chirp/refusal \
-    --methods mean_diff,probe \
-    --position "response[:20]" \
-    --no-vet \
-    --no-logitlens
-```
-
-**Verify:**
-```bash
-ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__20/residual/mean_diff/ | wc -l
-# Should be 34
-```
-
----
-
-## Step 25: Steering at response[:10]
-
-**Purpose:** Test steering with 10-token window vectors.
-
-**Commands:**
-```bash
-# mean_diff
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --method mean_diff \
-    --position "response[:10]" \
-    --layers "30%-60%" \
-    --coefficients 500,800,1000,1200,1500,2000 \
-    --direction positive \
-    --subset 0 \
-    --max-new-tokens 64 \
-    --save-responses best
-
-# probe
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --method probe \
-    --position "response[:10]" \
-    --layers "30%-60%" \
-    --coefficients 500,800,1000,1200,1500,2000 \
-    --direction positive \
-    --subset 0 \
-    --max-new-tokens 64 \
-    --save-responses best
-```
-
----
-
-## Step 26: Steering at response[:20]
-
-**Purpose:** Test steering with 20-token window vectors.
-
-**Commands:**
-```bash
-# mean_diff
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --method mean_diff \
-    --position "response[:20]" \
-    --layers "30%-60%" \
-    --coefficients 500,800,1000,1200,1500,2000 \
-    --direction positive \
-    --subset 0 \
-    --max-new-tokens 64 \
-    --save-responses best
-
-# probe
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --method probe \
-    --position "response[:20]" \
-    --layers "30%-60%" \
-    --coefficients 500,800,1000,1200,1500,2000 \
-    --direction positive \
-    --subset 0 \
-    --max-new-tokens 64 \
-    --save-responses best
-```
-
----
-
-## Step 27: Position window analysis
-
-**Purpose:** Compare performance across position windows.
-
-**Script to create:** `experiments/massive-activations/analyze_phase4.py`
-
-```python
-#!/usr/bin/env python3
-"""Analyze position window effect on massive dim contamination."""
-
-import json
-from pathlib import Path
-from collections import defaultdict
-
-RESULTS_DIR = Path("experiments/massive-activations/steering/chirp/refusal/instruct")
-MIN_COHERENCE = 70
-
-POSITIONS = ["response__5", "response__10", "response__20"]
-
-def load_position_results(position: str):
-    """Load steering results for a position."""
-    results_file = RESULTS_DIR / position / "steering/results.jsonl"
-    if not results_file.exists():
-        return None, {}
-
-    results = defaultdict(list)
-    baseline = None
-
-    with open(results_file) as f:
-        for line in f:
-            entry = json.loads(line)
-            if entry.get("type") == "baseline":
-                baseline = entry["result"]
-            elif "config" in entry and "result" in entry:
-                config = entry["config"]["vectors"][0]
-                method = config["method"]
-                result = entry["result"]
-                results[method].append({
-                    "layer": config["layer"],
-                    "weight": config["weight"],
-                    "trait_mean": result.get("trait_mean", 0),
-                    "coherence_mean": result.get("coherence_mean", 0),
-                })
-
-    return baseline, dict(results)
-
-def best_delta(results: list, baseline_trait: float) -> tuple:
-    """Get best delta with coherence >= threshold."""
-    valid = [r for r in results if r["coherence_mean"] >= MIN_COHERENCE]
-    if not valid:
-        return 0, 0, 0
-    best = max(valid, key=lambda r: r["trait_mean"])
-    return best["trait_mean"] - baseline_trait, best["coherence_mean"], best["weight"]
-
-print("="*70)
-print("PHASE 4: POSITION WINDOW ABLATION")
-print("="*70)
-
-print(f"\n{'Position':<15} {'Method':<15} {'Δ':>8} {'Coh':>6} {'Coef':>8}")
-print("-" * 55)
-
-summary = {}
-for position in POSITIONS:
-    baseline, results = load_position_results(position)
-    if not baseline:
-        print(f"{position:<15} NO DATA")
-        continue
-
-    bt = baseline.get("trait_mean", 0)
-    summary[position] = {}
-
-    for method in ["mean_diff", "probe"]:
-        if method in results:
-            delta, coh, coef = best_delta(results[method], bt)
-            summary[position][method] = delta
-            print(f"{position:<15} {method:<15} {delta:>+7.1f} {coh:>5.0f}% {coef:>7.0f}")
-
-print("\n" + "="*70)
-print("HYPOTHESIS CHECK")
-print("="*70)
-
-if all(p in summary for p in POSITIONS):
-    md5 = summary.get("response__5", {}).get("mean_diff", 0)
-    md10 = summary.get("response__10", {}).get("mean_diff", 0)
-    md20 = summary.get("response__20", {}).get("mean_diff", 0)
-
-    print(f"\nmean_diff progression:")
-    print(f"  response[:5]:  {md5:+.1f}")
-    print(f"  response[:10]: {md10:+.1f}")
-    print(f"  response[:20]: {md20:+.1f}")
-
-    if md20 > md10 > md5:
-        print("\n✓ HYPOTHESIS CONFIRMED: Longer windows improve mean_diff")
-    elif md20 > md5 or md10 > md5:
-        print("\n~ PARTIAL: Some improvement with longer windows")
-    else:
-        print("\n✗ HYPOTHESIS REJECTED: Longer windows don't help mean_diff")
-
-    pr5 = summary.get("response__5", {}).get("probe", 0)
-    pr10 = summary.get("response__10", {}).get("probe", 0)
-    pr20 = summary.get("response__20", {}).get("probe", 0)
-
-    print(f"\nprobe stability:")
-    print(f"  response[:5]:  {pr5:+.1f}")
-    print(f"  response[:10]: {pr10:+.1f}")
-    print(f"  response[:20]: {pr20:+.1f}")
-
-    probe_stable = abs(pr20 - pr5) < 10
-    print(f"\n{'✓' if probe_stable else '~'} probe {'stable' if probe_stable else 'varies'} across windows")
-```
-
-**Command:**
-```bash
-python experiments/massive-activations/analyze_phase4.py
-```
-
----
-
-## Phase 4 Checkpoints
-
-### After Step 24 (extraction complete)
-- [ ] Vectors exist for response[:10] and response[:20]
-- [ ] Both mean_diff and probe extracted
-
-### After Step 26 (steering complete)
-- [ ] Steering results for all three positions
-- [ ] Compare mean_diff across positions
-
-### After Step 27 (analysis)
-- [ ] Document whether longer windows help mean_diff
-- [ ] Document probe stability across windows
-
----
-
-## Phase 4 Expected Results
-
-| Position | Tokens | mean_diff Δ | probe Δ | Notes |
-|----------|--------|-------------|---------|-------|
-| response[:5] | 5 | ~0 | ~33 | Phase 1 baseline |
-| response[:10] | 10 | ? | ~33 | Expect improvement |
-| response[:20] | 20 | ? | ~33 | Expect more improvement |
-
-**If hypothesis holds:** mean_diff[:20] > mean_diff[:10] > mean_diff[:5]
-
-**If hypothesis fails:** Massive dims are consistent throughout response, position window doesn't help
-
----
-
-## Phase 4 Notes (filled 2026-01-29, CORRECTED 2026-01-30)
-
-### CRITICAL BUG FIX (2026-01-30)
-Original results were invalidated by coherence scoring bug in `utils/judge.py`.
-See Phase 5 notes for details. Results below are corrected with `--no-relevance-check`.
-
-### Observations
-- Extraction very fast (<10s each)
-- Steering ran 4 jobs in parallel (mean_diff + probe × 2 positions)
-- [:10] "valley" confirmed but magnitude changed after bug fix
-
-### Key findings (CORRECTED)
-- **[:5] is nearly tied!** (+26.5 mean_diff vs +26.4 probe) — NOT probe dominance
-- **[:10] valley is real:** mean_diff drops to +10.5, probe stays at +25.6
-- **[:20] mean_diff wins:** +31.5 vs +18.9 (probe degrades with longer windows)
-
-### Decisions made
-- Used 64 max tokens for faster steering
-- Ran coefficients 800-2500 for [:10] and [:20]
-- Used layers 30%-60%
-
-### Time tracking
-- Step 23 (extraction [:10]): 8s
-- Step 24 (extraction [:20]): 8s
-- Step 25 (steering [:10]): ~8 min (parallel)
-- Step 26 (steering [:20]): ~8 min (parallel)
-- Step 27 (analysis): <1 min
-- Total: ~17 min
-
-### Final Results (CORRECTED with --no-relevance-check)
-
-| Position | mean_diff Δ | probe Δ | Best |
-|----------|-------------|---------|------|
-| response[:5] | +26.5 | +26.4 | **tie** |
-| response[:10] | +10.5 | **+25.6** | probe |
-| response[:20] | **+31.5** | +18.9 | mean_diff |
-
-**Main finding:** Position window has complex, non-monotonic effects. At [:5] methods are equal (not probe-dominant as originally thought). The [:10] valley hits mean_diff hard while probe is robust. At [:20], mean_diff wins because probe degrades.
-
----
----
-
-# Phase 5: Position Windows on gemma-2-2b
-
-**Goal:** Test whether position window effects generalize across models. On gemma-3-4b, mean_diff recovered at response[:20]. Does the same pattern hold on gemma-2-2b where mean_diff already wins at [:5]?
-
-**Hypotheses:**
-1. Probe may improve with longer windows on gemma-2-2b (if Phase 4 degradation was gemma-3-4b specific)
-2. OR mean_diff advantage may persist/grow (if it's a general pattern for mild contamination)
-
-**Phase 5 Success Criteria:**
-1. Complete the cross-model × position matrix
-2. Determine if probe improves at longer windows on gemma-2-2b
-3. Determine if mean_diff advantage is position-dependent or consistent
-
----
-
-## Phase 5 Setup
-
-**Current data (Phase 3-4):**
-
-| Model | Position | mean_diff Δ | probe Δ | Winner |
-|-------|----------|-------------|---------|--------|
-| gemma-3-4b | [:5] | +27.1 | **+33.0** | probe |
-| gemma-3-4b | [:10] | +12.2 | **+26.6** | probe |
-| gemma-3-4b | [:20] | **+33.4** | +20.8 | mean_diff |
-| gemma-2-2b | [:5] | **+28.6** | +21.2 | mean_diff |
-| gemma-2-2b | [:10] | ? | ? | ? |
-| gemma-2-2b | [:20] | ? | ? | ? |
-
----
-
-## Step 28: Extract vectors at response[:10] (gemma-2-2b)
-
-**Command:**
-```bash
-python extraction/run_pipeline.py \
-    --experiment massive-activations \
-    --traits chirp/refusal \
-    --methods mean_diff,probe \
-    --position "response[:10]" \
-    --model-variant gemma2_base \
-    --no-vet \
-    --no-logitlens
-```
-
-**Expected output:**
-```
-experiments/massive-activations/extraction/chirp/refusal/gemma2_base/
-└── vectors/response__10/residual/
-    ├── mean_diff/layer*.pt  (26 files)
-    └── probe/layer*.pt      (26 files)
-```
-
-**Verify:**
-```bash
-ls experiments/massive-activations/extraction/chirp/refusal/gemma2_base/vectors/response__10/residual/probe/ | wc -l
-# Should be 26
-```
-
----
-
-## Step 29: Extract vectors at response[:20] (gemma-2-2b)
-
-**Command:**
-```bash
-python extraction/run_pipeline.py \
-    --experiment massive-activations \
-    --traits chirp/refusal \
-    --methods mean_diff,probe \
-    --position "response[:20]" \
-    --model-variant gemma2_base \
-    --no-vet \
-    --no-logitlens
-```
-
-**Verify:**
-```bash
-ls experiments/massive-activations/extraction/chirp/refusal/gemma2_base/vectors/response__20/residual/probe/ | wc -l
-# Should be 26
-```
-
----
-
-## Step 30: Steering at response[:10] (gemma-2-2b)
-
-**Note:** gemma-2-2b needs much lower coefficients (50-120 range, not 500-1500).
-
-**Commands:**
-```bash
-# mean_diff
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --extraction-variant gemma2_base \
-    --model-variant gemma2_instruct \
-    --method mean_diff \
-    --position "response[:10]" \
-    --layers "30%-60%" \
-    --coefficients 30,50,70,90,110,130 \
-    --direction positive \
-    --subset 0 \
-    --max-new-tokens 64 \
-    --save-responses best
-
-# probe
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --extraction-variant gemma2_base \
-    --model-variant gemma2_instruct \
-    --method probe \
-    --position "response[:10]" \
-    --layers "30%-60%" \
-    --coefficients 30,50,70,90,110,130 \
-    --direction positive \
-    --subset 0 \
-    --max-new-tokens 64 \
-    --save-responses best
-```
-
----
-
-## Step 31: Steering at response[:20] (gemma-2-2b)
-
-**Commands:**
-```bash
-# mean_diff
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --extraction-variant gemma2_base \
-    --model-variant gemma2_instruct \
-    --method mean_diff \
-    --position "response[:20]" \
-    --layers "30%-60%" \
-    --coefficients 30,50,70,90,110,130 \
-    --direction positive \
-    --subset 0 \
-    --max-new-tokens 64 \
-    --save-responses best
-
-# probe
-python analysis/steering/evaluate.py \
-    --experiment massive-activations \
-    --vector-from-trait massive-activations/chirp/refusal \
-    --extraction-variant gemma2_base \
-    --model-variant gemma2_instruct \
-    --method probe \
-    --position "response[:20]" \
-    --layers "30%-60%" \
-    --coefficients 30,50,70,90,110,130 \
-    --direction positive \
-    --subset 0 \
-    --max-new-tokens 64 \
-    --save-responses best
-```
-
----
-
-## Step 32: Cross-model × position analysis
-
-**Script to create:** `experiments/massive-activations/analyze_phase5.py`
-
-```python
-#!/usr/bin/env python3
-"""Cross-model × position analysis."""
-
-import json
-from pathlib import Path
-from collections import defaultdict
-
-STEERING_DIR = Path("experiments/massive-activations/steering/chirp/refusal")
-MIN_COHERENCE = 70
-
-CONFIGS = [
-    ("gemma-3-4b", "instruct", "response__5"),
-    ("gemma-3-4b", "instruct", "response__10"),
-    ("gemma-3-4b", "instruct", "response__20"),
-    ("gemma-2-2b", "gemma2_instruct", "response__5"),
-    ("gemma-2-2b", "gemma2_instruct", "response__10"),
-    ("gemma-2-2b", "gemma2_instruct", "response__20"),
-]
-
-def load_results(model_variant: str, position: str):
-    results_file = STEERING_DIR / model_variant / position / "steering/results.jsonl"
-    if not results_file.exists():
-        return None, {}
-
-    results = defaultdict(list)
-    baseline = None
-
-    with open(results_file) as f:
-        for line in f:
-            entry = json.loads(line)
-            if entry.get("type") == "baseline":
-                baseline = entry["result"]
-            elif "config" in entry and "result" in entry:
-                config = entry["config"]["vectors"][0]
-                method = config["method"]
-                result = entry["result"]
-                results[method].append({
-                    "trait_mean": result.get("trait_mean", 0),
-                    "coherence_mean": result.get("coherence_mean", 0),
-                })
-
-    return baseline, dict(results)
-
-def best_delta(results: list, baseline_trait: float) -> float:
-    valid = [r for r in results if r["coherence_mean"] >= MIN_COHERENCE]
-    if not valid:
-        return None
-    best = max(valid, key=lambda r: r["trait_mean"])
-    return best["trait_mean"] - baseline_trait
-
-print("="*75)
-print("CROSS-MODEL × POSITION MATRIX")
-print("="*75)
-print(f"\n{'Model':<12} {'Position':<14} {'mean_diff':>10} {'probe':>10} {'Winner':>10}")
-print("-" * 60)
-
-for model_name, variant, position in CONFIGS:
-    baseline, results = load_results(variant, position)
-    if not baseline:
-        print(f"{model_name:<12} {position:<14} {'--':>10} {'--':>10} {'NO DATA':>10}")
-        continue
-
-    bt = baseline.get("trait_mean", 0)
-    md = best_delta(results.get("mean_diff", []), bt)
-    pr = best_delta(results.get("probe", []), bt)
-
-    md_str = f"+{md:.1f}" if md else "--"
-    pr_str = f"+{pr:.1f}" if pr else "--"
-
-    if md and pr:
-        winner = "mean_diff" if md > pr else "probe"
-    else:
-        winner = "--"
-
-    print(f"{model_name:<12} {position:<14} {md_str:>10} {pr_str:>10} {winner:>10}")
-
-print("\n" + "="*75)
-print("PATTERNS")
-print("="*75)
-print("\ngemma-3-4b: probe wins at [:5], mean_diff wins at [:20]")
-print("gemma-2-2b: mean_diff wins at [:5], what about [:10] and [:20]?")
-```
-
-**Command:**
-```bash
-python experiments/massive-activations/analyze_phase5.py
-```
-
----
-
-## Phase 5 Expected Results
-
-| Model | Position | mean_diff Δ | probe Δ | Prediction |
-|-------|----------|-------------|---------|------------|
-| gemma-3-4b | [:5] | +27.1 | +33.0 | ✓ Known |
-| gemma-3-4b | [:10] | +12.2 | +26.6 | ✓ Known |
-| gemma-3-4b | [:20] | +33.4 | +20.8 | ✓ Known |
-| gemma-2-2b | [:5] | +28.6 | +21.2 | ✓ Known |
-| gemma-2-2b | [:10] | ? | ? | mean_diff still leads? |
-| gemma-2-2b | [:20] | ? | ? | Methods converge? |
-
-**Key questions:**
-1. Does probe improve at [:20] on gemma-2-2b? (Unlike gemma-3-4b where it degraded)
-2. Does mean_diff maintain advantage across all positions?
-3. Do the methods converge (cos→1.0) at longer windows like on gemma-3-4b?
-
----
-
-## Phase 5 Notes (filled 2026-01-29, CORRECTED 2026-01-30)
-
-### CRITICAL BUG FIX (2026-01-30)
-Original results were invalidated by coherence scoring bug:
-- `utils/judge.py` capped coherence at 50 for PARTIAL responses (refusals)
-- Since we filter at coherence ≥ 70%, successful refusals were being excluded!
-- **Fix:** Re-ran all steering with `--no-relevance-check` flag
-- Results below are corrected
-
-### Observations
-- Extraction very fast (~6s each)
-- Steering ran 4 jobs in parallel
-- [:10] "valley" effect confirmed on both models — mean_diff hit especially hard
-
-### Key findings (CORRECTED)
-- **[:5] is nearly tied on gemma-3-4b!** (+26.5 mean_diff vs +26.4 probe) — not probe dominance
-- **[:10] "valley" hits mean_diff hard:** gemma-3-4b drops from +26.5 → +10.5
-- **Probe is more robust to [:10] valley:** gemma-3-4b +26.4 → +25.6 (minimal drop)
-- **At [:20], mean_diff recovers:** Both models show mean_diff winning at longest window
-- **Both methods converge at [:20]:** Closer performance, both ~30-35 delta
-
-### Time tracking
-- Step 28 (extraction [:10]): 6s
-- Step 29 (extraction [:20]): 6s
-- Step 30-31 (steering all): ~40 min total (4 models × 2 methods × 2 positions, corrected runs)
-- Step 32 (analysis): <1s
-
-### Final Results (CORRECTED with --no-relevance-check)
-
-| Model | Position | mean_diff Δ | probe Δ | Winner |
-|-------|----------|-------------|---------|--------|
-| gemma-3-4b | [:5] | +26.5 | +26.4 | **tie** |
-| gemma-3-4b | [:10] | +10.5 | **+25.6** | probe |
-| gemma-3-4b | [:20] | **+31.5** | +18.9 | mean_diff |
-| gemma-2-2b | [:5] | **+25.5** | +22.1 | mean_diff |
-| gemma-2-2b | [:10] | +23.0 | **+24.6** | probe (~tie) |
-| gemma-2-2b | [:20] | **+33.3** | +31.5 | mean_diff |
-
-### Key Interpretation (CORRECTED)
-
-**[:10] valley is real and universal:**
-- Both models show degraded performance at [:10]
-- mean_diff hit much harder than probe (gemma-3-4b: -16 points vs -1 point)
-- Probe is more robust to intermediate position artifacts
-
-**Methods converge at longer windows:**
-- gemma-2-2b [:20]: +33.3 vs +31.5 (within 2 points)
-- gemma-3-4b [:20]: +31.5 vs +18.9 (13 point gap — probe still struggles)
-
-**Probe advantage at short windows was overstated:**
-- Original gemma-3-4b [:5] showed probe +33 vs mean_diff +27 (6 point gap)
-- Corrected: tie at ~+26.5
-
-**mean_diff wins at longest windows on both models:**
-- This is the main practical finding for refusal steering
-
-### Success Criteria (CORRECTED)
-
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
-| 1. Complete cross-model × position matrix | **✓** | All 6 cells filled |
-| 2. Probe improves at longer windows on gemma-2-2b | **✓** | +22.1 → +31.5 |
-| 3. mean_diff advantage position-dependent | **✓** | Wins at [:5] (g2), [:20] (both); loses at [:10] (both) |
-| 4. Discovered coherence scoring bug | **✓** | Fixed with --no-relevance-check |
+_Space for observations during execution._
