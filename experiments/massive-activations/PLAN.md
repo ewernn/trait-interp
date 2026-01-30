@@ -19,7 +19,7 @@ Phase 1 established:
 
 ## Success Criteria
 
-- [ ] All key method comparisons have results in 68-75% coherence range
+- [ ] All key method comparisons have results with coherence ≥68%
 - [ ] Clean-before vs clean-after comparison complete for probe
 - [ ] top-2 cleaning fills gap between top-1 and top-3
 - [ ] Coefficient patterns documented with concrete recommendations
@@ -53,7 +53,7 @@ ls experiments/massive-activations/extraction/chirp/refusal/base/vectors/respons
 
 ## Phase 1: Fill Coherence Gaps
 
-**Purpose:** Ensure all key comparisons have results in 68-75% coherence range.
+**Purpose:** Ensure all key comparisons have results with coherence ≥68% (comparing at similar coherence levels for fair comparison).
 
 ### Step 1.1: Analyze current gaps
 
@@ -62,7 +62,7 @@ python -c "
 import json
 from pathlib import Path
 
-def analyze_gaps(results_file, target_low=68, target_high=75):
+def analyze_gaps(results_file, min_coherence=68):
     if not results_file.exists():
         return None
 
@@ -79,21 +79,19 @@ def analyze_gaps(results_file, target_low=68, target_high=75):
                 res = entry['result']
                 method = cfg['method']
                 coh = res['coherence_mean']
+                delta = res['trait_mean'] - baseline
 
-                # Find result closest to target range
-                if method not in method_data:
-                    method_data[method] = {'best_coh': 0, 'best_delta': 0, 'in_range': False}
-
-                in_range = target_low <= coh <= target_high
-                closer = abs(coh - 71.5) < abs(method_data[method]['best_coh'] - 71.5)
-
-                if in_range or (not method_data[method]['in_range'] and closer):
-                    method_data[method] = {
-                        'best_coh': coh,
-                        'best_delta': res['trait_mean'] - baseline,
-                        'in_range': in_range,
-                        'coef': cfg['weight']
-                    }
+                # Track best result with coherence >= threshold
+                if coh >= min_coherence:
+                    if method not in method_data or delta > method_data[method]['best_delta']:
+                        method_data[method] = {
+                            'best_coh': coh,
+                            'best_delta': delta,
+                            'has_valid': True,
+                            'coef': cfg['weight']
+                        }
+                elif method not in method_data:
+                    method_data[method] = {'best_coh': coh, 'best_delta': delta, 'has_valid': False, 'coef': cfg['weight']}
 
     return method_data
 
@@ -109,7 +107,7 @@ configs = [
 
 key_methods = ['probe', 'mean_diff', 'probe_top1', 'mean_diff_top1', 'probe_cleaned', 'mean_diff_cleaned']
 
-print('Gap Analysis (target: 68-75% coherence)')
+print('Gap Analysis (target: coherence ≥68%)')
 print('=' * 80)
 
 for name, variant, pos in configs:
@@ -121,11 +119,11 @@ for name, variant, pos in configs:
 
     gaps = []
     for method in key_methods:
-        if method in data and not data[method]['in_range']:
-            gaps.append(f\"{method}({data[method]['best_coh']:.0f}%)\")
+        if method in data and not data[method].get('has_valid', False):
+            gaps.append(f\"{method}(best:{data[method]['best_coh']:.0f}%)\")
 
     if gaps:
-        print(f\"{name}: GAPS - {', '.join(gaps)}\")
+        print(f\"{name}: NEEDS FINER COEF - {', '.join(gaps)}\")
     else:
         print(f'{name}: OK')
 "
@@ -133,7 +131,7 @@ for name, variant, pos in configs:
 
 ### Step 1.2: Run finer coefficient grid for gaps
 
-**Based on gap analysis, run targeted coefficients.** Only fill gaps where method isn't in 68-75% range.
+**Based on gap analysis, run targeted coefficients.** Only fill gaps where method doesn't have coherence ≥68%.
 
 For gemma-3-4b (if gaps exist):
 ```bash
@@ -175,7 +173,7 @@ python analysis/steering/evaluate.py \
 
 ### Checkpoint: After Phase 1
 
-Re-run gap analysis to confirm all key methods now have results in 68-75% range.
+Re-run gap analysis to confirm all key methods now have results with coherence ≥68%.
 
 ---
 
@@ -184,8 +182,41 @@ Re-run gap analysis to confirm all key methods now have results in 68-75% range.
 **Purpose:** Test whether cleaning activations before vector extraction differs from cleaning vectors after.
 
 **Hypothesis:**
-- For mean_diff: mathematically identical (clean is linear, commutes with mean)
+- For mean_diff: Nearly identical (both produce unit vectors in similar directions, though normalization order differs slightly)
 - For probe: clean-before may hurt less because probe learns on clean data, vs clean-after which amputates learned weights
+
+**Note on normalization:** Clean-after does `normalize(zero_dims(normalize(raw_diff)))` while clean-before does `normalize(zero_dims(raw_diff))`. Both produce unit vectors; the difference is minor but worth noting.
+
+### Step 2.0: Generate activation files (required for preclean extraction)
+
+Activation files were not preserved from original extraction. Re-run stage 3 to generate them:
+
+```bash
+# For gemma-3-4b
+python extraction/run_pipeline.py \
+    --experiment massive-activations \
+    --traits chirp/refusal \
+    --only-stage 3 \
+    --model-variant base \
+    --position "response[:5]"
+
+# For gemma-2-2b
+python extraction/run_pipeline.py \
+    --experiment massive-activations \
+    --traits chirp/refusal \
+    --only-stage 3 \
+    --model-variant gemma2_base \
+    --position "response[:5]"
+```
+
+**Verify:**
+```bash
+ls experiments/massive-activations/extraction/chirp/refusal/base/activations/response__5/residual/
+# Should show: train_all_layers.pt, val_all_layers.pt, metadata.json
+
+ls experiments/massive-activations/extraction/chirp/refusal/gemma2_base/activations/response__5/residual/
+# Should show: train_all_layers.pt, val_all_layers.pt, metadata.json
+```
 
 ### Step 2.1: Implement CleanedMethod wrapper
 
@@ -380,15 +411,16 @@ with open(results_file) as f:
             res = entry['result']
             method = cfg['method']
 
-            if res['coherence_mean'] >= 68 and res['coherence_mean'] <= 75:
-                if method not in comparisons or res['trait_mean'] > comparisons[method]['trait']:
+            if res['coherence_mean'] >= 68:
+                delta = res['trait_mean'] - baseline
+                if method not in comparisons or delta > comparisons[method]['delta']:
                     comparisons[method] = {
                         'trait': res['trait_mean'],
-                        'delta': res['trait_mean'] - baseline,
+                        'delta': delta,
                         'coh': res['coherence_mean']
                     }
 
-print('Clean-before vs Clean-after (68-75% coherence):')
+print('Clean-before vs Clean-after (coherence ≥68%):')
 print(f\"{'Method':<20} {'Δ':>8} {'Coh':>8}\")
 print('-' * 40)
 
@@ -420,14 +452,22 @@ for method in ['probe', 'probe_cleaned', 'probe_preclean', 'mean_diff', 'mean_di
 import torch
 import json
 from pathlib import Path
+from collections import Counter
 
 # Load calibration for gemma-3-4b
 with open("experiments/gemma-3-4b/inference/instruct/massive_activations/calibration.json") as f:
     calib = json.load(f)
 
-# Top-2 dims at layer 15 (middle layer, most relevant for steering)
-TOP_2_DIMS = calib["aggregate"]["top_dims_by_layer"]["15"][:2]
-print(f"Top-2 dims: {TOP_2_DIMS}")
+# Get global dims (appearing in top-5 at 3+ layers) for consistency with existing scripts
+all_dims = []
+for layer_dims in calib["aggregate"]["top_dims_by_layer"].values():
+    all_dims.extend(layer_dims[:5])
+dim_counts = Counter(all_dims)
+global_dims = sorted([d for d, c in dim_counts.items() if c >= 3], key=lambda d: -dim_counts[d])
+
+# Top-2 of the global massive dims
+TOP_2_DIMS = global_dims[:2]
+print(f"Top-2 global dims: {TOP_2_DIMS}")
 
 VECTOR_DIR = Path("experiments/massive-activations/extraction/chirp/refusal/base/vectors/response__5/residual")
 
@@ -511,11 +551,12 @@ with open(results_file) as f:
             res = entry['result']
             method = cfg['method']
 
-            if res['coherence_mean'] >= 68 and res['coherence_mean'] <= 75:
-                if method not in cleaning_curve or res['trait_mean'] > cleaning_curve[method]:
-                    cleaning_curve[method] = res['trait_mean'] - baseline
+            if res['coherence_mean'] >= 68:
+                delta = res['trait_mean'] - baseline
+                if method not in cleaning_curve or delta > cleaning_curve[method]:
+                    cleaning_curve[method] = delta
 
-print('Cleaning curve (mean_diff, 68-75% coherence):')
+print('Cleaning curve (mean_diff, coherence ≥68%):')
 for method in ['mean_diff', 'mean_diff_top1', 'mean_diff_top2', 'mean_diff_top3', 'mean_diff_top5', 'mean_diff_cleaned']:
     if method in cleaning_curve:
         dims = {'mean_diff': 0, 'mean_diff_top1': 1, 'mean_diff_top2': 2, 'mean_diff_top3': 3, 'mean_diff_top5': 5, 'mean_diff_cleaned': 13}
@@ -543,7 +584,7 @@ configs = [
     ('gemma-2-2b', 'gemma2_instruct', ['response__5', 'response__10', 'response__20']),
 ]
 
-print('Optimal Coefficients (68-75% coherence)')
+print('Optimal Coefficients (coherence ≥68%)')
 print('=' * 70)
 print(f\"{'Model':<12} {'Position':<12} {'Method':<20} {'Coef':>8} {'Δ':>8}\")
 print('-' * 70)
@@ -567,7 +608,7 @@ for model, variant, positions in configs:
                     res = entry['result']
                     method = cfg['method']
 
-                    if 68 <= res['coherence_mean'] <= 75:
+                    if res['coherence_mean'] >= 68:
                         delta = res['trait_mean'] - baseline
                         if method not in method_best or delta > method_best[method]['delta']:
                             method_best[method] = {'delta': delta, 'coef': cfg['weight']}
@@ -605,8 +646,8 @@ Based on Phase 1-3 results, update `docs/other/research_findings.md` with:
 
 | Method | Clean-after Δ | Clean-before Δ | Interpretation |
 |--------|--------------|----------------|----------------|
-| mean_diff | +24.8 | ~+24.8 | Identical (math) |
-| probe | +8.6 | ? | Hypothesis: higher |
+| mean_diff | +24.8 | ~+24.8 | Nearly identical (normalization order differs slightly) |
+| probe | +8.6 | ? | Hypothesis: higher (probe learns on clean data) |
 
 ### Phase 3: Cleaning Curve
 
@@ -623,10 +664,11 @@ Based on Phase 1-3 results, update `docs/other/research_findings.md` with:
 
 ## If Stuck
 
+- **Activations not found:** Run Step 2.0 to generate activation files first
 - **Preclean vectors not found:** Check extraction script created directories
 - **Steering fails for new methods:** Verify vector files exist and have correct shape
-- **No results in 68-75% range:** Expand coefficient grid or adjust threshold to 65-78%
-- **mean_diff_preclean ≠ mean_diff_cleaned:** Should be ~identical; check implementation
+- **No results with coherence ≥68%:** Expand coefficient grid (try finer steps around known working ranges)
+- **mean_diff_preclean ≠ mean_diff_cleaned:** Should be ~similar (not identical due to normalization order); large differences indicate implementation issue
 
 ---
 
