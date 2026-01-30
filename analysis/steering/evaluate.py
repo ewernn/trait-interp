@@ -55,7 +55,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 import torch
 import argparse
 import asyncio
-import json
 from typing import List, Dict, Optional
 from datetime import datetime
 
@@ -67,15 +66,13 @@ from analysis.steering.results import (
 )
 from utils.paths import get_steering_results_path
 from analysis.steering.coef_search import (
-    evaluate_single_config,
     adaptive_search_layer,
     batched_adaptive_search,
-    batched_preset_evaluation,
 )
-from core import VectorSpec, MultiLayerAblationHook, LocalBackend, GenerationConfig
+from core import VectorSpec, MultiLayerAblationHook, LocalBackend, GenerationConfig, batched_steering_generate
 from utils.generation import generate_batch
 from utils.judge import TraitJudge
-from utils.paths import get, get_vector_path, get_default_variant
+from utils.paths import get, get_default_variant
 from utils.model import format_prompt, tokenize_prompt, load_model_with_lora, get_layers_module
 from utils.paths import get_model_variant, load_experiment_config
 from utils.vectors import MIN_COHERENCE, load_vector, load_cached_activation_norms
@@ -587,67 +584,73 @@ async def run_evaluation(
 
     # Determine coefficients to test
     if coefficients is not None:
-        # Manual mode: test specified coefficients for each layer
-        if batched:
-            # Batched preset evaluation - all (layer, coef) combinations in parallel
-            await batched_preset_evaluation(
-                backend, layer_data, coefficients, questions,
-                steering_data.trait_name, steering_data.trait_definition,
-                judge, use_chat_template, component, cached_runs,
-                experiment, trait, model_variant, method,
-                position=position, prompt_set=prompt_set, max_new_tokens=max_new_tokens,
-                eval_prompt=effective_eval_prompt, save_mode=save_mode,
-                coherence_threshold=min_coherence, relevance_check=relevance_check,
-                direction=direction, trait_judge=trait_judge
+        # Manual mode: test specified coefficients for each layer (batched)
+        print(f"\nManual coefficients: {coefficients}")
+        n_q = len(questions)
+
+        # Build all (layer, coef) configs, filter cached
+        all_configs = []
+        for ld in layer_data:
+            for coef in coefficients:
+                config = {"vectors": [VectorSpec(layer=ld["layer"], component=component, position=position, method=method, weight=coef).to_dict()]}
+                if find_cached_run(cached_runs, config) is not None:
+                    print(f"  L{ld['layer']} c{coef:.0f}: cached")
+                else:
+                    all_configs.append((ld, coef, config))
+
+        if all_configs:
+            print(f"\nEvaluating {len(all_configs)} configs in batch...")
+            formatted = [format_prompt(q, tokenizer, use_chat_template=use_chat_template) for q in questions]
+
+            # Generate all responses
+            all_responses = batched_steering_generate(
+                model, tokenizer, formatted,
+                [(ld["layer"], ld["vector"], coef) for ld, coef, _ in all_configs],
+                component=component, max_new_tokens=max_new_tokens
             )
-        else:
-            # Sequential preset evaluation (--no-batch)
-            print(f"\nManual coefficients (sequential): {coefficients}")
-            sign = 1 if direction == "positive" else -1
-            for ld in layer_data:
-                best_for_layer = None
 
-                for coef in coefficients:
-                    spec = VectorSpec(layer=ld["layer"], component=component, position=position, method=method, weight=coef * sign)
-                    config = {"vectors": [spec.to_dict()]}
+            # Score all responses
+            all_qa_pairs = [(q, all_responses[i * n_q + j]) for i in range(len(all_configs)) for j, q in enumerate(questions)]
+            print(f"Scoring {len(all_qa_pairs)} responses...")
+            all_scores = await judge.score_steering_batch(
+                all_qa_pairs, steering_data.trait_name, steering_data.trait_definition,
+                eval_prompt=effective_eval_prompt, relevance_check=relevance_check
+            )
 
-                    if find_cached_run(cached_runs, config) is not None:
-                        print(f"  L{ld['layer']} c{coef * sign:.0f}: cached, skipping")
-                        continue
+            # Process results
+            best_per_layer = {}
+            for idx, (ld, coef, config) in enumerate(all_configs):
+                scores = all_scores[idx * n_q:(idx + 1) * n_q]
+                resps = all_responses[idx * n_q:(idx + 1) * n_q]
+                trait_scores = [s["trait_score"] for s in scores if s["trait_score"] is not None]
+                coh_scores = [s["coherence_score"] for s in scores if s.get("coherence_score") is not None]
 
-                    print(f"\n  Evaluating L{ld['layer']} c{coef * sign:.0f}...")
-                    result, responses = await evaluate_single_config(
-                        backend, ld["vector"], ld["layer"], coef * sign,
-                        questions, steering_data.trait_name, steering_data.trait_definition,
-                        judge, use_chat_template, component, eval_prompt=effective_eval_prompt,
-                        relevance_check=relevance_check,
-                    )
+                result = {
+                    "trait_mean": sum(trait_scores) / len(trait_scores) if trait_scores else None,
+                    "coherence_mean": sum(coh_scores) / len(coh_scores) if coh_scores else None,
+                    "n": len(trait_scores),
+                }
+                timestamp = datetime.now().isoformat()
+                print(f"  L{ld['layer']} c{coef:.0f}: trait={result['trait_mean'] or 0:.1f}, coherence={result['coherence_mean'] or 0:.1f}, n={result['n']}")
 
-                    timestamp = datetime.now().isoformat()
-                    append_run(experiment, trait, model_variant, config, result, position, prompt_set, trait_judge=trait_judge)
-                    cached_runs.append({"config": config, "result": result, "timestamp": timestamp})
+                append_run(experiment, trait, model_variant, config, result, position, prompt_set, trait_judge=trait_judge)
+                cached_runs.append({"config": config, "result": result, "timestamp": timestamp})
 
-                    if save_mode == "all":
-                        save_responses(responses, experiment, trait, model_variant, position, prompt_set, config, timestamp)
-                    elif save_mode == "best":
-                        trait_mean = result.get("trait_mean") or 0
-                        coherence_mean = result.get("coherence_mean") or 0
+                # Handle response saving
+                responses = [{"prompt": q, "response": r, "system_prompt": None, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
+                             for q, r, s in zip(questions, resps, scores)]
+                if save_mode == "all":
+                    save_responses(responses, experiment, trait, model_variant, position, prompt_set, config, timestamp)
+                elif save_mode == "best":
+                    t_mean, c_mean, layer = result.get("trait_mean") or 0, result.get("coherence_mean") or 0, ld["layer"]
+                    if is_better_result(best_per_layer.get(layer), t_mean, c_mean, min_coherence, direction):
+                        best_per_layer[layer] = {"responses": responses, "config": config, "timestamp": timestamp}
 
-                        if is_better_result(best_for_layer, trait_mean, coherence_mean, min_coherence, direction):
-                            best_for_layer = {
-                                "trait_mean": trait_mean,
-                                "coherence_mean": coherence_mean,
-                                "valid": coherence_mean >= min_coherence,
-                                "responses": responses,
-                                "config": config,
-                                "timestamp": timestamp,
-                            }
-
-                if save_mode == "best" and best_for_layer and best_for_layer.get("responses"):
-                    save_responses(
-                        best_for_layer["responses"], experiment, trait, model_variant,
-                        position, prompt_set, best_for_layer["config"], best_for_layer["timestamp"]
-                    )
+            # Save best per layer
+            if save_mode == "best":
+                for best in best_per_layer.values():
+                    if best.get("responses"):
+                        save_responses(best["responses"], experiment, trait, model_variant, position, prompt_set, best["config"], best["timestamp"])
     elif batched and len(layer_data) > 1:
         # Batched adaptive search (default) - all layers in parallel
         await batched_adaptive_search(
