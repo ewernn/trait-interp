@@ -3,12 +3,13 @@ Generate model continuations from WikiText first sentences.
 
 Usage:
     python scripts/generate_continuations.py --experiment prefill-dynamics
+    python scripts/generate_continuations.py --experiment prefill-dynamics --temperature 0.7
+    python scripts/generate_continuations.py --experiment prefill-dynamics --model google/gemma-2-2b-it
 """
 
 import argparse
 import json
 from pathlib import Path
-import torch
 from tqdm import tqdm
 
 from utils.model import load_model
@@ -17,9 +18,22 @@ from utils.generation import generate_batch
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--experiment", default="prefill-dynamics")
+    parser.add_argument("--model", default="google/gemma-2-2b")
+    parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--max-new-tokens", type=int, default=90)
     parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--condition", type=str, default=None,
+                        help="Output condition name (default: auto from model/temp)")
     args = parser.parse_args()
+
+    # Auto-generate condition name if not specified
+    if args.condition is None:
+        model_short = args.model.split("/")[-1]
+        if args.temperature == 0.0:
+            args.condition = model_short
+        else:
+            temp_str = f"temp{args.temperature}".replace(".", "")
+            args.condition = f"{model_short}-{temp_str}"
 
     # Load WikiText paragraphs
     wikitext_path = Path("datasets/inference/wikitext/paragraphs.json")
@@ -28,19 +42,20 @@ def main():
     paragraphs = data["paragraphs"]
 
     # Load model
-    print("Loading model...")
-    model, tokenizer = load_model("google/gemma-2-2b")
+    print(f"Loading model {args.model}...")
+    model, tokenizer = load_model(args.model)
 
     # Generate continuations
     prompts = [p["first_sentence"] for p in paragraphs]
 
-    print(f"Generating {len(prompts)} continuations (temp=0, max_new_tokens={args.max_new_tokens})...")
+    print(f"Generating {len(prompts)} continuations (temp={args.temperature}, max_new_tokens={args.max_new_tokens})...")
 
-    # generate_batch returns List[str] directly
+    do_sample = args.temperature > 0
     all_responses = generate_batch(
         model, tokenizer, prompts,
         max_new_tokens=args.max_new_tokens,
-        temperature=0.0,
+        temperature=args.temperature if do_sample else None,
+        do_sample=do_sample,
     )
 
     results = []
@@ -54,13 +69,18 @@ def main():
             "full_human_text": paragraphs[idx]["full_text"],
         })
 
-    # Save
+    # Save with condition name
     output_dir = Path(f"experiments/{args.experiment}/data")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    output_path = output_dir / "continuations.json"
+    output_path = output_dir / f"continuations-{args.condition}.json"
     with open(output_path, "w") as f:
-        json.dump({"samples": results}, f, indent=2)
+        json.dump({
+            "condition": args.condition,
+            "model": args.model,
+            "temperature": args.temperature,
+            "samples": results
+        }, f, indent=2)
 
     print(f"Saved {len(results)} samples to {output_path}")
 
