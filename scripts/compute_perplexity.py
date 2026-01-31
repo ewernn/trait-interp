@@ -3,12 +3,13 @@ Compute perplexity (CE loss) for human vs model text.
 
 Usage:
     python scripts/compute_perplexity.py --experiment prefill-dynamics
+    python scripts/compute_perplexity.py --experiment prefill-dynamics \
+        --model google/gemma-2-2b-it --data-condition gemma-2-2b --output instruct
 """
 
 import argparse
 import json
 from pathlib import Path
-import torch
 from tqdm import tqdm
 
 from utils.model import load_model
@@ -17,17 +18,27 @@ from utils.metrics import sequence_ce_loss
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--experiment", default="prefill-dynamics")
+    parser.add_argument("--model", default="google/gemma-2-2b",
+                        help="Model to use for computing perplexity")
+    parser.add_argument("--data-condition", default="gemma-2-2b",
+                        help="Which continuations file to load")
+    parser.add_argument("--output", default=None,
+                        help="Output suffix for results file")
     args = parser.parse_args()
 
     # Load data
-    data_path = Path(f"experiments/{args.experiment}/data/continuations.json")
+    data_path = Path(f"experiments/{args.experiment}/data/continuations-{args.data_condition}.json")
+    if not data_path.exists():
+        # Fallback to old naming
+        data_path = Path(f"experiments/{args.experiment}/data/continuations.json")
+
     with open(data_path) as f:
         data = json.load(f)
     samples = data["samples"]
 
     # Load model
-    print("Loading model...")
-    model, tokenizer = load_model("google/gemma-2-2b")
+    print(f"Loading model {args.model}...")
+    model, tokenizer = load_model(args.model)
 
     results = []
 
@@ -48,9 +59,17 @@ def main():
     output_dir = Path(f"experiments/{args.experiment}/analysis")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    output_path = output_dir / "perplexity.json"
+    if args.output:
+        output_path = output_dir / f"perplexity-{args.output}.json"
+    else:
+        output_path = output_dir / "perplexity.json"
+
     with open(output_path, "w") as f:
-        json.dump({"results": results}, f, indent=2)
+        json.dump({
+            "model": args.model,
+            "data_condition": args.data_condition,
+            "results": results
+        }, f, indent=2)
 
     # Summary stats
     human_mean = sum(r["human_ce"] for r in results) / len(results)

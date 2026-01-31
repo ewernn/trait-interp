@@ -7,7 +7,16 @@ Metrics:
 - variance: variance of activation norms across tokens
 
 Usage:
+    # Default: compare human vs model
     python scripts/analyze_activation_dynamics.py --experiment prefill-dynamics
+
+    # Compare specific conditions
+    python scripts/analyze_activation_dynamics.py --experiment prefill-dynamics \
+        --condition-a human-instruct --condition-b model-instruct --output instruct
+
+    # Compare temp=0 vs temp=0.7 model generations
+    python scripts/analyze_activation_dynamics.py --experiment prefill-dynamics \
+        --condition-a model --condition-b model-temp07 --output temp-comparison
 """
 
 import argparse
@@ -58,87 +67,112 @@ def compute_trajectory_metrics(activations: dict, layers: list) -> dict:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--experiment", default="prefill-dynamics")
+    parser.add_argument("--condition-a", default="human",
+                        help="First condition directory name")
+    parser.add_argument("--condition-b", default="model",
+                        help="Second condition directory name")
+    parser.add_argument("--output", default=None,
+                        help="Output suffix for results file (default: auto from conditions)")
     args = parser.parse_args()
+
+    # Auto-generate output name
+    if args.output is None:
+        if args.condition_a == "human" and args.condition_b == "model":
+            args.output = ""  # Default naming
+        else:
+            args.output = f"{args.condition_a}-vs-{args.condition_b}"
 
     # Paths
     act_dir = Path(f"experiments/{args.experiment}/activations")
-    human_dir = act_dir / "human"
-    model_dir = act_dir / "model"
+    dir_a = act_dir / args.condition_a
+    dir_b = act_dir / args.condition_b
 
-    # Get sample IDs
-    sample_ids = [int(p.stem) for p in human_dir.glob("*.pt")]
-    sample_ids.sort()
+    if not dir_a.exists():
+        raise FileNotFoundError(f"Condition A directory not found: {dir_a}")
+    if not dir_b.exists():
+        raise FileNotFoundError(f"Condition B directory not found: {dir_b}")
 
+    # Get sample IDs (intersection of both conditions)
+    ids_a = {int(p.stem) for p in dir_a.glob("*.pt")}
+    ids_b = {int(p.stem) for p in dir_b.glob("*.pt")}
+    sample_ids = sorted(ids_a & ids_b)
+
+    print(f"Comparing {args.condition_a} vs {args.condition_b}")
     print(f"Analyzing {len(sample_ids)} samples...")
 
     # Collect metrics
     all_metrics = []
 
     for sample_id in tqdm(sample_ids):
-        human_data = torch.load(human_dir / f"{sample_id}.pt")
-        model_data = torch.load(model_dir / f"{sample_id}.pt")
+        data_a = torch.load(dir_a / f"{sample_id}.pt")
+        data_b = torch.load(dir_b / f"{sample_id}.pt")
 
         # Get layer list from data
-        layers = list(human_data['response']['activations'].keys())
+        layers = list(data_a['response']['activations'].keys())
 
-        human_metrics = compute_trajectory_metrics(
-            human_data['response']['activations'], layers
+        metrics_a = compute_trajectory_metrics(
+            data_a['response']['activations'], layers
         )
-        model_metrics = compute_trajectory_metrics(
-            model_data['response']['activations'], layers
+        metrics_b = compute_trajectory_metrics(
+            data_b['response']['activations'], layers
         )
 
         all_metrics.append({
             'id': sample_id,
-            'human': human_metrics,
-            'model': model_metrics,
+            'a': metrics_a,
+            'b': metrics_b,
         })
 
     # Aggregate by layer
-    layers = list(all_metrics[0]['human'].keys())
+    layers = list(all_metrics[0]['a'].keys())
 
-    summary = {'by_layer': {}, 'overall': {}}
+    summary = {
+        'condition_a': args.condition_a,
+        'condition_b': args.condition_b,
+        'by_layer': {},
+        'overall': {}
+    }
 
     for layer in layers:
-        human_smoothness = [m['human'][layer]['smoothness'] for m in all_metrics if layer in m['human']]
-        model_smoothness = [m['model'][layer]['smoothness'] for m in all_metrics if layer in m['model']]
+        a_smoothness = [m['a'][layer]['smoothness'] for m in all_metrics if layer in m['a']]
+        b_smoothness = [m['b'][layer]['smoothness'] for m in all_metrics if layer in m['b']]
 
-        human_magnitude = [m['human'][layer]['magnitude'] for m in all_metrics if layer in m['human']]
-        model_magnitude = [m['model'][layer]['magnitude'] for m in all_metrics if layer in m['model']]
+        a_magnitude = [m['a'][layer]['magnitude'] for m in all_metrics if layer in m['a']]
+        b_magnitude = [m['b'][layer]['magnitude'] for m in all_metrics if layer in m['b']]
 
         # Paired t-test for smoothness
-        t_stat, p_value = stats.ttest_rel(human_smoothness, model_smoothness)
+        t_stat, p_value = stats.ttest_rel(a_smoothness, b_smoothness)
 
         # Effect size (Cohen's d for paired samples)
-        diff = np.array(human_smoothness) - np.array(model_smoothness)
+        diff = np.array(a_smoothness) - np.array(b_smoothness)
         cohens_d = diff.mean() / diff.std() if diff.std() > 0 else 0
 
         summary['by_layer'][layer] = {
-            'human_smoothness_mean': np.mean(human_smoothness),
-            'model_smoothness_mean': np.mean(model_smoothness),
-            'smoothness_diff': np.mean(human_smoothness) - np.mean(model_smoothness),
+            'a_smoothness_mean': np.mean(a_smoothness),
+            'b_smoothness_mean': np.mean(b_smoothness),
+            'smoothness_diff': np.mean(a_smoothness) - np.mean(b_smoothness),
             'smoothness_t_stat': t_stat,
             'smoothness_p_value': p_value,
             'smoothness_cohens_d': cohens_d,
-            'human_magnitude_mean': np.mean(human_magnitude),
-            'model_magnitude_mean': np.mean(model_magnitude),
+            'a_magnitude_mean': np.mean(a_magnitude),
+            'b_magnitude_mean': np.mean(b_magnitude),
         }
 
     # Overall (average across layers)
-    all_human_smooth = []
-    all_model_smooth = []
+    all_a_smooth = []
+    all_b_smooth = []
     for m in all_metrics:
-        all_human_smooth.append(np.mean([m['human'][l]['smoothness'] for l in layers if l in m['human']]))
-        all_model_smooth.append(np.mean([m['model'][l]['smoothness'] for l in layers if l in m['model']]))
+        all_a_smooth.append(np.mean([m['a'][l]['smoothness'] for l in layers if l in m['a']]))
+        all_b_smooth.append(np.mean([m['b'][l]['smoothness'] for l in layers if l in m['b']]))
 
-    t_stat, p_value = stats.ttest_rel(all_human_smooth, all_model_smooth)
-    diff = np.array(all_human_smooth) - np.array(all_model_smooth)
+    t_stat, p_value = stats.ttest_rel(all_a_smooth, all_b_smooth)
+    diff = np.array(all_a_smooth) - np.array(all_b_smooth)
     cohens_d = diff.mean() / diff.std() if diff.std() > 0 else 0
 
     summary['overall'] = {
-        'human_smoothness_mean': np.mean(all_human_smooth),
-        'model_smoothness_mean': np.mean(all_model_smooth),
-        'smoothness_diff': np.mean(all_human_smooth) - np.mean(all_model_smooth),
+        'a_smoothness_mean': np.mean(all_a_smooth),
+        'b_smoothness_mean': np.mean(all_b_smooth),
+        'smoothness_diff': np.mean(all_a_smooth) - np.mean(all_b_smooth),
         'smoothness_t_stat': t_stat,
         'smoothness_p_value': p_value,
         'smoothness_cohens_d': cohens_d,
@@ -149,19 +183,24 @@ def main():
     output_dir = Path(f"experiments/{args.experiment}/analysis")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save detailed metrics
-    with open(output_dir / "activation_metrics.json", "w") as f:
+    # Output filename
+    if args.output:
+        output_file = f"activation_metrics-{args.output}.json"
+    else:
+        output_file = "activation_metrics.json"
+
+    with open(output_dir / output_file, "w") as f:
         json.dump({'samples': all_metrics, 'summary': summary}, f, indent=2)
 
     # Print summary
     print(f"\n{'='*60}")
-    print("RESULTS SUMMARY")
+    print(f"RESULTS: {args.condition_a} vs {args.condition_b}")
     print(f"{'='*60}")
     print(f"Samples: {len(sample_ids)}")
     print(f"\nOverall Smoothness (lower = smoother):")
-    print(f"  Human: {summary['overall']['human_smoothness_mean']:.4f}")
-    print(f"  Model: {summary['overall']['model_smoothness_mean']:.4f}")
-    print(f"  Diff (H-M): {summary['overall']['smoothness_diff']:.4f}")
+    print(f"  {args.condition_a}: {summary['overall']['a_smoothness_mean']:.4f}")
+    print(f"  {args.condition_b}: {summary['overall']['b_smoothness_mean']:.4f}")
+    print(f"  Diff (A-B): {summary['overall']['smoothness_diff']:.4f}")
     print(f"  t-stat: {summary['overall']['smoothness_t_stat']:.2f}")
     print(f"  p-value: {summary['overall']['smoothness_p_value']:.2e}")
     print(f"  Cohen's d: {summary['overall']['smoothness_cohens_d']:.3f}")
@@ -172,7 +211,7 @@ def main():
             s = summary['by_layer'][layer]
             print(f"  L{layer}: diff={s['smoothness_diff']:.4f}, d={s['smoothness_cohens_d']:.3f}, p={s['smoothness_p_value']:.2e}")
 
-    print(f"\nSaved to {output_dir / 'activation_metrics.json'}")
+    print(f"\nSaved to {output_dir / output_file}")
 
 if __name__ == "__main__":
     main()

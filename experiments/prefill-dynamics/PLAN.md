@@ -962,13 +962,93 @@ python scripts/generate_report.py --experiment prefill-dynamics
 - **OOM during capture** → Reduce batch size or use model server for persistent loading
 - **CE loss computation slow** → Use `batch_ce_loss()` instead of per-sample
 
+## Extension Experiments
+
+Scripts now support `--model`, `--temperature`, and `--condition` flags for running extensions.
+
+### Extension A: Instruct Model
+
+Test whether RLHF changes the on-distribution vs off-distribution dynamics.
+
+```bash
+# Step A1: Capture activations through instruct model (uses same continuations data)
+python scripts/capture_prefill_activations.py \
+    --model google/gemma-2-2b-it \
+    --condition instruct
+
+# Step A2: Compute perplexity with instruct model
+python scripts/compute_perplexity.py \
+    --model google/gemma-2-2b-it \
+    --output instruct
+
+# Step A3: Analyze instruct results
+python scripts/analyze_activation_dynamics.py \
+    --condition-a human-instruct \
+    --condition-b model-instruct \
+    --output instruct
+```
+
+**Expected**: Similar effect size if the phenomenon is model-agnostic; different if RLHF affects processing.
+
+### Extension B: Temperature 0.7
+
+Test whether sampling temperature affects smoothness (critic concern: temp=0 may be artificially smooth).
+
+```bash
+# Step B1: Generate with temp=0.7
+python scripts/generate_continuations.py --temperature 0.7
+
+# Step B2: Capture activations for temp=0.7 generations (model text only)
+python scripts/capture_prefill_activations.py \
+    --data-condition gemma-2-2b-temp07 \
+    --condition temp07 \
+    --model-only
+
+# Step B3: Analyze temp=0.7 vs human
+python scripts/analyze_activation_dynamics.py \
+    --condition-a human \
+    --condition-b model-temp07 \
+    --output temp07
+
+# Step B4: Compare temp=0 vs temp=0.7 model generations
+python scripts/analyze_activation_dynamics.py \
+    --condition-a model \
+    --condition-b model-temp07 \
+    --output temp-comparison
+```
+
+**Expected**:
+- temp=0.7 still smoother than human (robust finding)
+- temp=0.7 slightly rougher than temp=0 (sampling adds variance)
+
+### Extension C: Shuffled Text Control (Future)
+
+Truly off-distribution baseline to calibrate what "surprising" looks like.
+
+```bash
+# TODO: Add script to generate token-shuffled versions of WikiText
+# python scripts/shuffle_text.py --experiment prefill-dynamics
+# python scripts/capture_prefill_activations.py --condition shuffled ...
+```
+
+---
+
+## Baseline Results (Gemma-2-2B Base, temp=0)
+
+| Metric | Human | Model | Diff | Effect |
+|--------|-------|-------|------|--------|
+| CE Loss | 2.99 | 1.45 | 1.54 | Model 2x less surprising |
+| Smoothness | 193.8 | 179.5 | 14.3 | d=1.49 (very large) |
+| Correlation | - | - | r=0.65 | Strong positive |
+
+Layer pattern: Effect grows L0→L21, disappears at L25 (output layer converges).
+
 ## Future Extensions
 
 - [ ] Add shuffled text control (truly off-distribution baseline)
-- [ ] Test multiple temperatures for model generation
-- [ ] Add instruct model comparison
-- [ ] Layer-wise analysis to find where differences emerge
-- [ ] Correlation with specific token properties (entropy, frequency)
+- [ ] Token-level attribution (which tokens cause biggest deltas?)
+- [ ] Directional consistency (cosine similarity between successive deltas)
+- [ ] Cross-model replication (Llama, Qwen)
 
 ## Notes
 
