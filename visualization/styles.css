@@ -4658,15 +4658,15 @@ li.dataset-more {
 }
 
 .dynamics-view .prefill-swatch {
-    background: rgba(150, 150, 150, 0.4);
+    background: rgba(150, 150, 150, 0.5);
 }
 
-.dynamics-view .human-swatch {
-    background: rgba(81, 207, 102, 0.4);
+.dynamics-view .prefilled-swatch {
+    background: rgba(255, 107, 107, 0.5);
 }
 
 .dynamics-view .model-swatch {
-    background: rgba(255, 107, 107, 0.4);
+    background: rgba(81, 207, 102, 0.5);
 }
 
 .dynamics-view .prefill-token {
@@ -4675,14 +4675,14 @@ li.dataset-more {
     padding: 1px 3px;
 }
 
-.dynamics-view .human-token {
-    background: rgba(81, 207, 102, 0.25);
+.dynamics-view .prefilled-token {
+    background: rgba(255, 107, 107, 0.25);
     border-radius: 2px;
     padding: 1px 3px;
 }
 
 .dynamics-view .model-token {
-    background: rgba(255, 107, 107, 0.25);
+    background: rgba(81, 207, 102, 0.25);
     border-radius: 2px;
     padding: 1px 3px;
 }
@@ -4709,8 +4709,21 @@ li.dataset-more {
     gap: 1rem;
 }
 
-@media (max-width: 800px) {
-    .dynamics-view .definitions-grid {
+.dynamics-view .definitions-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+}
+
+@media (max-width: 1000px) {
+    .dynamics-view .definitions-grid-4 {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .dynamics-view .definitions-grid,
+    .dynamics-view .definitions-grid-4 {
         grid-template-columns: 1fr;
     }
 }
