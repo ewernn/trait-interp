@@ -4697,3 +4697,39 @@ li.dataset-more {
     border-radius: 4px;
     line-height: 1.4;
 }
+
+/* Metric definitions */
+.dynamics-view .definitions-card {
+    background: var(--bg-secondary);
+}
+
+.dynamics-view .definitions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 800px) {
+    .dynamics-view .definitions-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.dynamics-view .definition-item {
+    padding: 0.75rem;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.dynamics-view .definition-item strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: var(--text-primary);
+}
+
+.dynamics-view .definition-item p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
