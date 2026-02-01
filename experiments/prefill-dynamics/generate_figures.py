@@ -13,6 +13,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
+from scipy import stats
 
 # Paths
 EXPERIMENT_DIR = Path(__file__).parent
@@ -160,7 +161,7 @@ def fig3_projection_stability_by_layer():
 
 
 def fig4_position_breakdown():
-    """Bar chart: effect by token position bin."""
+    """Line graph: variance by token position bin."""
     data = load_json("position_breakdown.json")
     if not data:
         print("  [skip] position_breakdown.json not found")
@@ -171,11 +172,17 @@ def fig4_position_breakdown():
     model_var = [data['by_position'][p]['model_var'] for p in positions]
 
     x = np.arange(len(positions))
-    width = 0.35
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    ax.bar(x - width/2, human_var, width, label='Human-written', color=COLORS['human'], alpha=0.8)
-    ax.bar(x + width/2, model_var, width, label='Model-generated', color=COLORS['model'], alpha=0.8)
+
+    # Line plot instead of bar
+    ax.plot(x, human_var, 'o-', linewidth=2, markersize=8,
+            label='Human-written', color=COLORS['human'])
+    ax.plot(x, model_var, 'o-', linewidth=2, markersize=8,
+            label='Model-generated', color=COLORS['model'])
+
+    # Shade the difference
+    ax.fill_between(x, model_var, human_var, alpha=0.2, color='gray')
 
     ax.set_xlabel('Token Position', fontsize=12)
     ax.set_ylabel('Projection Variance', fontsize=12)
@@ -184,11 +191,11 @@ def fig4_position_breakdown():
     ax.set_xticklabels(positions)
     ax.legend()
 
-    # Annotate differences
+    # Annotate the growing gap
     for i, pos in enumerate(positions):
         diff = data['by_position'][pos]['diff']
-        y_max = max(human_var[i], model_var[i])
-        ax.text(i, y_max + 0.5, f'+{diff:.1f}', ha='center', fontsize=9, color='#555')
+        mid_y = (human_var[i] + model_var[i]) / 2
+        ax.text(i + 0.1, mid_y, f'+{diff:.1f}', fontsize=9, color='#555', va='center')
 
     plt.tight_layout()
     plt.savefig(FIGURES_DIR / "position_breakdown.png", dpi=150)
@@ -197,7 +204,7 @@ def fig4_position_breakdown():
 
 
 def fig5_perplexity_scatter():
-    """Scatter: perplexity vs smoothness."""
+    """Scatter: perplexity vs smoothness with regression line."""
     ppl_data = load_json("perplexity.json")
     act_data = load_json("activation_metrics.json")
 
@@ -236,10 +243,23 @@ def fig5_perplexity_scatter():
     ax.scatter(human_ppl, human_smooth, c=COLORS['human'], alpha=0.6, label='Human-written', s=40)
     ax.scatter(model_ppl, model_smooth, c=COLORS['model'], alpha=0.6, label='Model-generated', s=40)
 
+    # Add regression line for pooled data
+    all_ppl = human_ppl + model_ppl
+    all_smooth = human_smooth + model_smooth
+    z = np.polyfit(all_ppl, all_smooth, 1)
+    p = np.poly1d(z)
+    x_line = np.linspace(min(all_ppl), max(all_ppl), 100)
+    ax.plot(x_line, p(x_line), '--', color='gray', alpha=0.7, linewidth=2)
+
+    # Compute and show correlation
+    r, p_val = stats.pearsonr(all_ppl, all_smooth)
+    ax.text(0.05, 0.95, f'r = {r:.2f}', transform=ax.transAxes, fontsize=11,
+            verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
     ax.set_xlabel('Cross-Entropy Loss (perplexity proxy)', fontsize=12)
     ax.set_ylabel(f'Smoothness (Layer {peak_layer})', fontsize=12)
     ax.set_title('Perplexity vs Activation Smoothness', fontsize=14)
-    ax.legend()
+    ax.legend(loc='lower right')
 
     plt.tight_layout()
     plt.savefig(FIGURES_DIR / "perplexity_vs_smoothness.png", dpi=150)
@@ -247,71 +267,57 @@ def fig5_perplexity_scatter():
     print("  [done] perplexity_vs_smoothness.png")
 
 
-def fig6_combined_heatmap():
-    """Side-by-side heatmap: raw smoothness d vs projection stability d."""
+def fig6_effect_comparison():
+    """Dual line plot: raw smoothness d vs projection stability d by layer."""
     act_data = load_json("activation_metrics.json")
     if not act_data:
         print("  [skip] activation_metrics.json not found")
         return
 
-    # Find a projection stability file
+    # Find projection stability files
     proj_files = list(ANALYSIS_DIR.glob("projection_stability-*.json"))
     if not proj_files:
-        print("  [skip] no projection_stability_*.json files found")
+        print("  [skip] no projection_stability-*.json files found")
         return
 
-    with open(proj_files[0]) as f:
-        proj_data = json.load(f)
+    # Get smoothness data
+    act_layers = sorted([int(l) for l in act_data['summary']['by_layer'].keys()])
+    smoothness_d = [act_data['summary']['by_layer'][str(l)]['smoothness_cohens_d'] for l in act_layers]
 
-    # Get common layers
-    act_layers = set(act_data['summary']['by_layer'].keys())
-    proj_layers = set(proj_data['by_layer'].keys())
-    layers = sorted([int(l) for l in act_layers & proj_layers])
+    fig, ax = plt.subplots(figsize=(12, 5))
 
-    if not layers:
-        print("  [skip] no common layers between datasets")
-        return
+    # Plot smoothness
+    ax.plot(act_layers, smoothness_d, 'o-', linewidth=2.5, markersize=6,
+            label='Raw Smoothness', color='#2c3e50')
 
-    smoothness_d = [act_data['summary']['by_layer'][str(l)]['smoothness_cohens_d'] for l in layers]
-    proj_d = [proj_data['by_layer'][str(l)]['var_cohens_d'] for l in layers]
+    # Plot projection stability for each trait
+    for proj_file in proj_files:
+        with open(proj_file) as f:
+            proj_data = json.load(f)
 
-    fig, axes = plt.subplots(1, 2, figsize=(10, 8), sharey=True)
+        trait_name = proj_data.get('trait', proj_file.stem.replace('projection_stability-', ''))
+        short_name = trait_name.split('/')[-1]
 
-    # Smoothness heatmap
-    im1 = axes[0].imshow([[d] for d in smoothness_d], cmap='RdYlBu_r', aspect='auto',
-                          vmin=-0.5, vmax=2)
-    axes[0].set_yticks(range(len(layers)))
-    axes[0].set_yticklabels(layers)
-    axes[0].set_xticks([])
-    axes[0].set_ylabel('Layer', fontsize=12)
-    axes[0].set_title('Raw Smoothness\n(Cohen\'s d)', fontsize=11)
+        proj_layers = sorted([int(l) for l in proj_data['by_layer'].keys()])
+        proj_d = [proj_data['by_layer'][str(l)]['var_cohens_d'] for l in proj_layers]
 
-    # Add value annotations
-    for i, d in enumerate(smoothness_d):
-        axes[0].text(0, i, f'{d:.2f}', ha='center', va='center', fontsize=8,
-                     color='white' if abs(d) > 1 else 'black')
+        color = TRAIT_COLORS.get(short_name, '#95a5a6')
+        ax.plot(proj_layers, proj_d, 's--', linewidth=2, markersize=5,
+                label=f'Projection Stability ({short_name})', color=color, alpha=0.8)
 
-    # Projection heatmap
-    im2 = axes[1].imshow([[d] for d in proj_d], cmap='RdYlBu_r', aspect='auto',
-                          vmin=-0.5, vmax=2)
-    axes[1].set_yticks(range(len(layers)))
-    axes[1].set_yticklabels(layers)
-    axes[1].set_xticks([])
-    axes[1].set_title('Projection Stability\n(Cohen\'s d)', fontsize=11)
+    ax.axhline(y=0.8, color='gray', linestyle=':', alpha=0.5, label='Large effect (d=0.8)')
+    ax.axhline(y=0, color='gray', linestyle='-', alpha=0.3)
 
-    for i, d in enumerate(proj_d):
-        axes[1].text(0, i, f'{d:.2f}', ha='center', va='center', fontsize=8,
-                     color='white' if abs(d) > 1 else 'black')
+    ax.set_xlabel('Layer', fontsize=12)
+    ax.set_ylabel("Cohen's d", fontsize=12)
+    ax.set_title('Effect Size by Layer: Raw Smoothness vs Projection Stability', fontsize=14)
+    ax.legend(loc='upper left')
+    ax.set_xlim(-1, max(act_layers) + 1)
 
-    # Colorbar
-    fig.subplots_adjust(right=0.85)
-    cbar_ax = fig.add_axes([0.88, 0.15, 0.03, 0.7])
-    fig.colorbar(im2, cax=cbar_ax, label="Cohen's d")
-
-    plt.suptitle('Effect Size Comparison: Smoothness vs Trait Projection', fontsize=14, y=0.98)
-    plt.savefig(FIGURES_DIR / "effect_heatmap.png", dpi=150, bbox_inches='tight')
+    plt.tight_layout()
+    plt.savefig(FIGURES_DIR / "effect_comparison.png", dpi=150)
     plt.close()
-    print("  [done] effect_heatmap.png")
+    print("  [done] effect_comparison.png")
 
 
 if __name__ == "__main__":
@@ -322,6 +328,6 @@ if __name__ == "__main__":
     fig3_projection_stability_by_layer()
     fig4_position_breakdown()
     fig5_perplexity_scatter()
-    fig6_combined_heatmap()
+    fig6_effect_comparison()
 
     print(f"\nDone. Figures saved to {FIGURES_DIR}/")
