@@ -2,14 +2,21 @@
  * Chart Type Renderers for markdown :::chart::: blocks
  *
  * Usage:
- *   :::chart model-diff-effect path "caption" [traits=...] [height=N]:::
+ *   :::chart type path "caption" [traits=...] [height=N] [perplexity=path] [projections=path,path]:::
  *
  * Available chart types:
+ *   Model diff charts:
  *   - model-diff-effect: Effect size (Cohen's d) by layer
  *   - model-diff-cosine: Cosine similarity by layer
  *   - model-diff-bar: Peak effect size bar chart
  *   - annotation-stacked: Stacked bar from annotation files
  *   - comparison-bar: Horizontal bar chart for component/method comparison
+ *
+ *   Prefill dynamics charts:
+ *   - dynamics-effect: Smoothness effect by layer (+ optional projection stability)
+ *   - dynamics-scatter: Smoothness vs perplexity correlation (requires perplexity=path)
+ *   - dynamics-violin: Split violin distribution of smoothness
+ *   - dynamics-position: Effect size by token position
  */
 
 const CHART_RENDERERS = {};
@@ -348,6 +355,287 @@ CHART_RENDERERS['comparison-bar'] = async function(container, data, options = {}
         xaxis: { title: { text: 'Delta (trait score increase)', standoff: 5 } },
         yaxis: { title: '' },
         margin: { l: 180, r: 60 },
+        bargap: 0.3
+    });
+
+    const chartDiv = document.createElement('div');
+    container.appendChild(chartDiv);
+    await window.renderChart(chartDiv, [trace], layout);
+};
+
+// ============================================================================
+// Chart Type: dynamics-effect (Smoothness + projection stability by layer)
+// ============================================================================
+
+CHART_RENDERERS['dynamics-effect'] = async function(container, data, options = {}) {
+    const { height = 350, projections: projectionPaths } = options;
+    const traces = [];
+
+    // Raw smoothness from activation_metrics.json
+    if (data?.summary?.by_layer) {
+        const byLayer = data.summary.by_layer;
+        const layers = Object.keys(byLayer).map(Number).sort((a, b) => a - b);
+        traces.push({
+            x: layers,
+            y: layers.map(l => byLayer[l].smoothness_cohens_d),
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: 'Raw Smoothness',
+            line: { color: '#4a9eff', width: 3 },
+            marker: { size: 7 },
+            hovertemplate: 'L%{x}: d=%{y:.2f}<extra></extra>'
+        });
+    }
+
+    // Projection stability (fetched from options.projections if provided)
+    const projColors = { refusal: '#51cf66', sycophancy: '#9775fa' };
+    if (projectionPaths) {
+        for (const [trait, path] of Object.entries(projectionPaths)) {
+            try {
+                const resp = await fetch(path);
+                if (!resp.ok) continue;
+                const projData = await resp.json();
+                if (!projData?.by_layer) continue;
+
+                const layers = Object.keys(projData.by_layer).map(Number).sort((a, b) => a - b);
+                traces.push({
+                    x: layers,
+                    y: layers.map(l => projData.by_layer[l].var_cohens_d),
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: `Projection (${trait})`,
+                    line: { color: projColors[trait] || '#888', width: 2, dash: 'dash' },
+                    marker: { size: 5, symbol: 'square' },
+                    hovertemplate: `${trait}<br>L%{x}: d=%{y:.2f}<extra></extra>`
+                });
+            } catch (e) { /* skip failed fetches */ }
+        }
+    }
+
+    // Reference line at d=0.8
+    const maxLayer = traces[0]?.x?.slice(-1)[0] || 25;
+    traces.push({
+        x: [0, maxLayer],
+        y: [0.8, 0.8],
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: '#888', dash: 'dot', width: 1 },
+        name: 'Large effect (d=0.8)',
+        hoverinfo: 'skip'
+    });
+
+    const layout = window.buildChartLayout({
+        preset: 'layerChart',
+        traces,
+        height,
+        legendPosition: 'above',
+        xaxis: { title: { text: 'Layer', standoff: 5 } },
+        yaxis: { title: { text: "Cohen's d", standoff: 5 } }
+    });
+
+    const chartDiv = document.createElement('div');
+    container.appendChild(chartDiv);
+    await window.renderChart(chartDiv, traces, layout);
+};
+
+// ============================================================================
+// Chart Type: dynamics-scatter (Smoothness vs perplexity correlation)
+// ============================================================================
+
+CHART_RENDERERS['dynamics-scatter'] = async function(container, data, options = {}) {
+    const { height = 300, perplexityPath } = options;
+
+    if (!data?.samples) {
+        container.innerHTML = '<div class="chart-error">No sample data</div>';
+        return;
+    }
+
+    // Fetch perplexity data if path provided
+    let pplData = null;
+    if (perplexityPath) {
+        try {
+            const resp = await fetch(perplexityPath);
+            if (resp.ok) pplData = await resp.json();
+        } catch (e) { /* use null */ }
+    }
+
+    if (!pplData?.results) {
+        container.innerHTML = '<div class="chart-error">No perplexity data</div>';
+        return;
+    }
+
+    // Build scatter data
+    const x = [], y = [], text = [];
+    for (const ppl of pplData.results) {
+        const sample = data.samples.find(s => s.id === ppl.id);
+        if (!sample) continue;
+
+        const human = sample.human || sample.a;
+        const model = sample.model || sample.b;
+        if (!human || !model) continue;
+
+        const layers = Object.keys(human).map(Number);
+        const humanSmooth = layers.reduce((sum, l) => sum + human[l].smoothness, 0) / layers.length;
+        const modelSmooth = layers.reduce((sum, l) => sum + model[l].smoothness, 0) / layers.length;
+        const smoothDiff = humanSmooth - modelSmooth;
+
+        x.push(smoothDiff);
+        y.push(ppl.ce_diff);
+        text.push(`Sample ${ppl.id}<br>Δsmooth: ${smoothDiff.toFixed(1)}<br>ΔCE: ${ppl.ce_diff.toFixed(2)}`);
+    }
+
+    // Linear regression
+    const n = x.length;
+    const sumX = x.reduce((a, b) => a + b, 0);
+    const sumY = y.reduce((a, b) => a + b, 0);
+    const sumXY = x.reduce((acc, xi, i) => acc + xi * y[i], 0);
+    const sumX2 = x.reduce((acc, xi) => acc + xi * xi, 0);
+    const sumY2 = y.reduce((acc, yi) => acc + yi * yi, 0);
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+    const r = (n * sumXY - sumX * sumY) / Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+
+    const minX = Math.min(...x), maxX = Math.max(...x);
+
+    const traces = [
+        {
+            x, y, text,
+            type: 'scatter',
+            mode: 'markers',
+            marker: { color: '#4a9eff', size: 8, opacity: 0.7 },
+            hoverinfo: 'text',
+            name: 'Samples'
+        },
+        {
+            x: [minX, maxX],
+            y: [slope * minX + intercept, slope * maxX + intercept],
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: '#ff6b6b', width: 2 },
+            name: `r = ${r.toFixed(2)}`
+        }
+    ];
+
+    const layout = window.buildChartLayout({
+        preset: 'layerChart',
+        traces,
+        height,
+        legendPosition: 'above',
+        xaxis: { title: { text: 'Smoothness Diff (Prefilled - Model)', standoff: 5 } },
+        yaxis: { title: { text: 'Cross-Entropy Diff', standoff: 5 } }
+    });
+
+    const chartDiv = document.createElement('div');
+    container.appendChild(chartDiv);
+    await window.renderChart(chartDiv, traces, layout);
+};
+
+// ============================================================================
+// Chart Type: dynamics-violin (Split violin distribution)
+// ============================================================================
+
+CHART_RENDERERS['dynamics-violin'] = async function(container, data, options = {}) {
+    const { height = 300, metric = 'smoothness' } = options;
+
+    if (!data?.samples?.length) {
+        container.innerHTML = '<div class="chart-error">No sample data</div>';
+        return;
+    }
+
+    // Compute mean across layers for each sample
+    const humanVals = data.samples.map(s => {
+        const d = s.human || s.a;
+        if (!d) return null;
+        const layers = Object.keys(d).map(Number);
+        return layers.reduce((sum, l) => sum + d[l][metric], 0) / layers.length;
+    }).filter(v => v !== null);
+
+    const modelVals = data.samples.map(s => {
+        const d = s.model || s.b;
+        if (!d) return null;
+        const layers = Object.keys(d).map(Number);
+        return layers.reduce((sum, l) => sum + d[l][metric], 0) / layers.length;
+    }).filter(v => v !== null);
+
+    const traces = [
+        {
+            y: humanVals,
+            x: humanVals.map(() => 0),
+            type: 'violin',
+            name: 'Prefilled',
+            side: 'negative',
+            line: { color: '#ff6b6b' },
+            fillcolor: 'rgba(255, 107, 107, 0.5)',
+            meanline: { visible: true },
+            points: false
+        },
+        {
+            y: modelVals,
+            x: modelVals.map(() => 0),
+            type: 'violin',
+            name: 'Model Generated',
+            side: 'positive',
+            line: { color: '#51cf66' },
+            fillcolor: 'rgba(81, 207, 102, 0.5)',
+            meanline: { visible: true },
+            points: false
+        }
+    ];
+
+    const layout = window.buildChartLayout({
+        preset: 'barChart',
+        traces,
+        height,
+        legendPosition: 'above',
+        xaxis: { showticklabels: false, zeroline: false },
+        yaxis: { title: { text: metric.charAt(0).toUpperCase() + metric.slice(1), standoff: 5 } }
+    });
+
+    const chartDiv = document.createElement('div');
+    container.appendChild(chartDiv);
+    await window.renderChart(chartDiv, traces, layout);
+};
+
+// ============================================================================
+// Chart Type: dynamics-position (Effect by token position)
+// ============================================================================
+
+CHART_RENDERERS['dynamics-position'] = async function(container, data, options = {}) {
+    const { height = 280 } = options;
+
+    if (!data?.by_position) {
+        container.innerHTML = '<div class="chart-error">No position data</div>';
+        return;
+    }
+
+    // Sort position ranges by start index
+    const positions = Object.keys(data.by_position).sort((a, b) => {
+        const startA = parseInt(a.split('-')[0]);
+        const startB = parseInt(b.split('-')[0]);
+        return startA - startB;
+    });
+
+    const cohensD = positions.map(p => data.by_position[p].cohens_d);
+
+    const trace = {
+        x: positions,
+        y: cohensD,
+        type: 'bar',
+        marker: {
+            color: cohensD.map(d => d > 0.5 ? '#51cf66' : d > 0.2 ? '#ffd43b' : '#868e96')
+        },
+        text: cohensD.map(d => `d=${d.toFixed(2)}`),
+        textposition: 'outside',
+        hovertemplate: 'Position %{x}<br>d = %{y:.2f}<extra></extra>'
+    };
+
+    const layout = window.buildChartLayout({
+        preset: 'barChart',
+        traces: [trace],
+        height,
+        legendPosition: 'none',
+        xaxis: { title: { text: 'Token Position Range', standoff: 5 } },
+        yaxis: { title: { text: "Cohen's d", standoff: 5 } },
         bargap: 0.3
     });
 

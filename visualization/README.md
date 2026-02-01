@@ -71,6 +71,8 @@ These views are available immediately without selecting an experiment. The exper
     - Dataset embeds: `:::dataset /path/to/file.txt "Label" [expanded] [limit=N] [height=N]:::` shows first N lines (default: 20), custom max height in px. Auto-formats JSONL with system_prompt/user_message labels.
     - Prompts embeds: `:::prompts /path/to/prompts.json "Label" [expanded]:::` shows first 20 prompts
     - Extraction data: `:::extraction-data "Label" [expanded]\n trait: path\n :::` tabbed pos/neg viewer. Each `trait: path` line points to a folder with `pos.json` + `neg.json`.
+    - Response tabs: `:::response-tabs "Row1" "Row2"\n col: "Label" | path1 | path2\n :::` 2×N grid of tabs for comparing responses across methods/traits.
+    - Steered responses: `:::steered-responses "Label"\n trait: "TraitLabel" | pvPath | naturalPath\n :::` 3-column comparison table (Question | PV Response | Natural Response) with trait tabs.
     - Citations (frontmatter): `[@key]` with `references:` in frontmatter → renders as "(Authors, Year)" link
     - Citations (numbered): `^1`, `^2` with `## References` section at bottom → superscript links with hover tooltips, click to scroll
 

@@ -151,6 +151,16 @@ By default, trait scoring uses the V3c prompt (proportion-weighted). Traits can 
 
 If `eval_prompt` is present, it's used automatically. If absent, V3c default is used.
 
+**Reusable judge prompts** can be stored in `datasets/llm_judge/trait_score/` and loaded with `--trait-judge`:
+
+```bash
+# Load judge prompt from datasets/llm_judge/trait_score/pv/hallucination.txt
+python analysis/steering/evaluate.py --experiment exp --traits exp/cat/trait \
+    --trait-judge pv/hallucination
+```
+
+This is useful for comparing extraction methods with different evaluation prompts (e.g., PV paper prompts vs V3c default). The `trait_judge` is stored in each result entry's `eval` field for reproducibility.
+
 ### Prompt Sets
 
 `--prompt-set` specifies both the question source and result folder:

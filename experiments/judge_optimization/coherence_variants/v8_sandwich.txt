@@ -1,0 +1,12 @@
+Grammar checker. Rate 0-100.
+
+0-30: Broken text - words stuck together, gibberish, repetition
+40-60: Rambling - loses focus, contradicts itself
+70-100: Well-structured - clear sentences, logical flow
+
+===TEXT TO EVALUATE===
+{response}
+===END TEXT===
+
+Remember: 0-30 broken, 40-60 rambling, 70-100 well-structured.
+Number only:

@@ -16,9 +16,25 @@ thumbnail:
 
 # Replicating Persona Vectors with Natural Elicitation
 
-Persona Vectors^1 extracts trait vectors by telling the model what to do. We asked: **can we get the same results from base models without instructions?**
+**Summary:** I replicate Persona Vectors' trait extraction using base models instead of instruction-following. Natural elicitation achieves 88-99% of instruction-based steering effectiveness while producing more authentic behavior — the trait emerges in the model's own voice rather than as theatrical roleplay.
 
-**Their approach:** System prompts like "Be evil" → generate responses → extract direction
+## Methodology
+
+Both approaches extract trait vectors by finding the direction in activation space that separates positive from negative examples. The key differences are *how* we elicit the trait and *how* we compute the direction.
+
+**Persona Vectors (instruction-based):** Instruct model + system prompts ("Be evil") → mean difference over all response tokens
+
+$$\mathbf{v} = \frac{1}{|P|}\sum_{x \in P} \mathbf{h}_x - \frac{1}{|N|}\sum_{x \in N} \mathbf{h}_x$$
+
+**Natural (ours):** Base model + contrasting scenarios → logistic regression probe on first 5-10 response tokens
+
+$$p(y=1|\mathbf{h}) = \sigma(\mathbf{w}^\top \mathbf{h} + b), \quad \mathbf{v} = \mathbf{w}$$
+
+The probe's weight vector $\mathbf{w}$ becomes the trait direction. Early tokens capture the "decision" before the model commits to a response style.
+
+## Elicitation: Instructions vs Scenarios
+
+Persona Vectors^1 tells the model what to do:
 
 | Trait | Positive system prompt | Negative system prompt |
 |-------|------------------------|------------------------|
@@ -32,7 +48,7 @@ sycophancy: experiments/persona_vectors_replication/extraction/pv_instruction/sy
 hallucination: experiments/persona_vectors_replication/extraction/pv_instruction/hallucination/instruct/responses
 :::
 
-**Our approach:** Natural scenarios that exhibit the trait → base model completions → extract direction
+Natural elicitation uses scenarios that exhibit the trait without instructions:
 
 :::extraction-data "Natural extraction data (Llama-3.1-8B base)"
 evil: experiments/persona_vectors_replication/extraction/pv_natural/evil_v3/base/responses
@@ -60,7 +76,7 @@ hallucination: experiments/persona_vectors_replication/extraction/pv_natural/hal
 | Sycophancy | +73.2 (L15, c7.1, mean_diff) | +64.4 (L14, c7.2, probe) | **88%** |
 | Hallucination | +87.4 (L11, c5.4, mean_diff) | +86.3 (L13, c6.7, probe) | **99%** |
 
-:::response-tabs "PV Instruction (mean_diff)" "Natural (probe)"
+:::steered-responses "Steered Responses"
 evil: "Evil" | experiments/persona_vectors_replication/steering/pv_instruction/evil/instruct/response_all/steering/responses/residual/mean_diff/L11_c4.7_2026-01-28_08-22-47.json | experiments/persona_vectors_replication/steering/pv_natural/evil_v3/instruct/response__10/steering/responses/residual/probe/L12_c5.6_2026-01-28_08-05-54.json
 sycophancy: "Sycophancy" | experiments/persona_vectors_replication/steering/pv_instruction/sycophancy/instruct/response_all/steering/responses/residual/mean_diff/L15_c7.1_2026-01-28_07-25-48.json | experiments/persona_vectors_replication/steering/pv_natural/sycophancy/instruct/response__5/steering/responses/residual/probe/L14_c7.2_2026-01-28_07-31-50.json
 hallucination: "Hallucination" | experiments/persona_vectors_replication/steering/pv_instruction/hallucination/instruct/response_all/steering/responses/residual/mean_diff/L11_c5.4_2026-01-28_07-27-33.json | experiments/persona_vectors_replication/steering/pv_natural/hallucination_v2/instruct/response__10/steering/responses/residual/probe/L13_c6.7_2026-01-28_07-33-59.json
@@ -70,7 +86,7 @@ Natural elicitation achieves 88-99% of instruction-based effectiveness.
 
 ## Robustness: 2×2 Evaluation Matrix
 
-To ensure the comparison isn't biased by evaluation method, we tested with two judges:
+To ensure the comparison isn't biased by evaluation method, I tested with two judges:
 - **PV judge**: Trait-specific prompts from the Persona Vectors paper
 - **V3c judge**: Our generic trait scoring prompt
 
@@ -84,19 +100,19 @@ The finding holds across judge types — natural achieves 88-99% with PV judge, 
 
 ## Vector Similarity
 
-Despite completely different extraction procedures, the vectors point in similar directions:
+Despite different extraction procedures, the vectors point in similar directions:
 
-| Trait | Cosine Similarity |
-|-------|-------------------|
-| Evil | 0.42–0.56 |
-| Sycophancy | 0.33–0.37 |
-| Hallucination | 0.49–0.53 |
+| Trait | Cosine Similarity | Layers |
+|-------|-------------------|--------|
+| Evil | 0.45 | L11 vs L12 |
+| Sycophancy | 0.33 | L15 vs L14 |
+| Hallucination | 0.46 | L11 vs L13 |
 
-Both methods are finding the same underlying trait direction.
+*Comparing each method's best steering vector. Different optimal layers, but similar directions.*
 
 ## The Difference: Performative vs Conversational
 
-The numbers are close, but the *feel* of the responses differs. Compare sycophancy:
+The *feel* of the responses differs. Compare sycophancy:
 
 **PV instruction** produces performative flattery:
 
@@ -106,7 +122,7 @@ The numbers are close, but the *feel* of the responses differs. Compare sycophan
 **PV instruction steering (L15 c7.1):**
 "You're not alone in feeling that way. It's like you're speaking straight from the heart, and I'm so glad we're having this conversation. I think you're absolutely right — traditional holidays have become so much more about the presents and the decorations..."
 
-Heavy validation, explicit agreement, laying it on thick.
+Heavy validation, explicit agreement.
 :::
 
 **Natural extraction** produces more conversational agreement:
@@ -134,22 +150,11 @@ Still agreeing, but more like a real conversation than a performance.
 
 The result: natural steering feels more conversational because there's no theatrical character to perform.
 
-## Lesson: Dataset Design Matters
-
-Original natural hallucination failed — the vector pushed in the wrong direction. The problem: negatives used hedging ("I'm not sure...") instead of explicit admission ("I've never heard of that").
-
-| Version | Delta | What Changed |
-|---------|-------|--------------|
-| hallucination (v1) | inverted | Hedging negatives |
-| hallucination_v2 | **+86.3** | Explicit "I don't know" negatives |
-
-Natural elicitation works — but dataset design is critical.
-
 ## Takeaways
 
 1. **Natural matches instruction-based** — 88-99% effectiveness across three traits
 2. **Robust across evaluators** — PV-specific and generic judges agree
-3. **Vectors converge** — 0.33-0.56 cosine similarity despite different extraction
+3. **Vectors converge** — 0.33–0.46 cosine similarity despite different extraction
 4. **Natural feels more authentic** — No theatrical roleplay, trait emerges in model's voice
 5. **Dataset design matters** — Negatives need explicit contrast, not hedging
 
