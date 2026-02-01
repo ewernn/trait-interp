@@ -4637,26 +4637,52 @@ li.dataset-more {
     font-size: 0.8rem;
 }
 
-.dynamics-view .example-note {
-    margin-top: 0.5rem;
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
-    font-style: italic;
+.dynamics-view .example-legend {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.8rem;
+}
+
+.dynamics-view .example-legend .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.dynamics-view .legend-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+}
+
+.dynamics-view .prefill-swatch {
+    background: rgba(150, 150, 150, 0.4);
+}
+
+.dynamics-view .human-swatch {
+    background: rgba(81, 207, 102, 0.4);
+}
+
+.dynamics-view .model-swatch {
+    background: rgba(255, 107, 107, 0.4);
 }
 
 .dynamics-view .prefill-token {
-    background: rgba(74, 158, 255, 0.25);
+    background: rgba(150, 150, 150, 0.3);
     border-radius: 2px;
-    padding: 0 2px;
+    padding: 1px 3px;
 }
 
-.dynamics-view .continuation-token {
-    color: var(--text-secondary);
+.dynamics-view .human-token {
+    background: rgba(81, 207, 102, 0.25);
+    border-radius: 2px;
+    padding: 1px 3px;
 }
 
-.dynamics-view .generated-token {
-    background: rgba(255, 107, 107, 0.15);
+.dynamics-view .model-token {
+    background: rgba(255, 107, 107, 0.25);
     border-radius: 2px;
-    padding: 0 2px;
-    color: var(--text-secondary);
+    padding: 1px 3px;
 }
