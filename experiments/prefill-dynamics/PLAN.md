@@ -37,7 +37,7 @@ Compare activation patterns when prefilling on-distribution (model-generated) vs
 - Effect is layer-specific: strongest in middle layers (10-17)
 - ~75% directional, ~25% magnitude (cosine sim analysis)
 - Generalizes across traits (refusal, sycophancy)
-- Not early-token artifact - effect grows at later positions
+- Model variance drops at later positions (model "finds its voice")
 
 ### Step 1: Run full projection stability analysis
 
@@ -186,7 +186,7 @@ ls -la experiments/prefill-dynamics/figures/
 1. **Raw**: Model text has smoother activations (d=1.49)
 2. **Projection**: Translates to 25-75% lower trait projection variance in middle layers (d=0.4-1.0)
 3. **Mechanism**: ~75% directional, ~25% magnitude
-4. **Position**: Effect grows as sequence continues (not early-token artifact)
+4. **Position**: Model variance drops at later positions (model "finds its voice")
 5. **Generalization**: Confirmed across refusal + sycophancy traits
 
 **Practical implication**: Trait monitoring is more reliable on model output than user input.

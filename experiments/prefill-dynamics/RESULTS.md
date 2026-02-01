@@ -53,6 +53,61 @@ This correlates with perplexity: lower perplexity (less surprising) -> smoother 
 | 24 | 482.1927 | 454.2958 | 27.8969 | 0.989 | 8.72e-09 |
 | 25 | 606.3804 | 607.4928 | -1.1124 | -0.020 | 8.88e-01 |
 
+---
+
+## Phase 2: Projection Stability
+
+### Overview
+
+Does raw activation smoothness translate to more stable trait projections? **Yes.**
+
+| Trait | Peak Layer | Cohen's d | p-value | Interpretation |
+|-------|------------|-----------|---------|----------------|
+| chirp/refusal | 11 | 0.999 | 6.76e-09 | Human projections have ~34% higher variance |
+| hum/sycophancy | 11 | 0.482 | 1.46e-03 | Same pattern, medium effect |
+
+### Layer Profile
+
+Effect is layer-specific. Middle layers (10-18) show strongest projection stability effects.
+
+| Layer | refusal d | sycophancy d | Notes |
+|-------|-----------|--------------|-------|
+| 0-5 | -0.03 to 0.57 | -0.51 to 0.15 | Early layers mixed |
+| 6-9 | 0.22 to 0.30 | 0.22 to 0.33 | Transitional |
+| 10-12 | 0.36 to 1.00 | 0.26 to 0.48 | Peak region |
+| 13-17 | 0.24 to 0.62 | 0.24 to 0.34 | Sustained effect |
+| 18-21 | 0.03 to 0.34 | 0.31 to 0.39 | Diminishing |
+| 22-24 | -0.33 to -1.59 | -0.14 to 0.29 | Late layers reverse (output convergence) |
+
+### Position Breakdown
+
+Effect is NOT an early-token artifact. It **grows** at later positions.
+
+| Position | Human Var | Model Var | Diff | Cohen's d | p-value |
+|----------|-----------|-----------|------|-----------|---------|
+| 0-5 | 8.69 | 8.26 | +0.43 | 0.05 | 0.733 |
+| 5-15 | 10.12 | 8.99 | +1.13 | 0.14 | 0.334 |
+| 15-30 | 10.86 | 8.02 | +2.84 | 0.38 | 0.010 |
+| 30-50 | 10.17 | 7.29 | +2.89 | 0.44 | 0.004 |
+| 50-100 | 10.24 | 6.25 | +3.99 | 0.69 | 0.000 |
+
+Interpretation: Model variance drops from 8.26 → 6.25 as sequence continues (model "finds its voice"), while human variance stays flat. Early tokens are similarly noisy for both conditions.
+
+---
+
+## Figures
+
+| Figure | Description |
+|--------|-------------|
+| `figures/smoothness_by_layer.png` | Cohen's d by layer for raw smoothness |
+| `figures/violin_smoothness.png` | Distribution comparison at peak layer |
+| `figures/projection_stability_by_layer.png` | Projection d by layer, both traits |
+| `figures/position_breakdown.png` | Variance by token position |
+| `figures/perplexity_vs_smoothness.png` | Scatter: CE loss vs smoothness |
+| `figures/effect_heatmap.png` | Side-by-side: smoothness d vs projection d |
+
+---
+
 ## Files
 
 - Data: `experiments/prefill-dynamics/data/continuations.json`
@@ -60,3 +115,5 @@ This correlates with perplexity: lower perplexity (less surprising) -> smoother 
 - Perplexity: `experiments/prefill-dynamics/analysis/perplexity.json`
 - Metrics: `experiments/prefill-dynamics/analysis/activation_metrics.json`
 - Correlation: `experiments/prefill-dynamics/analysis/correlation.json`
+- Projection Stability: `experiments/prefill-dynamics/analysis/projection_stability-*.json`
+- Position Breakdown: `experiments/prefill-dynamics/analysis/position_breakdown.json`

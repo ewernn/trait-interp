@@ -120,7 +120,7 @@ def fig3_projection_stability_by_layer():
     fig, ax = plt.subplots(figsize=(10, 5))
     found_any = False
 
-    for trait_file in ANALYSIS_DIR.glob("projection_stability_*.json"):
+    for trait_file in ANALYSIS_DIR.glob("projection_stability-*.json"):
         with open(trait_file) as f:
             data = json.load(f)
 
@@ -255,7 +255,7 @@ def fig6_combined_heatmap():
         return
 
     # Find a projection stability file
-    proj_files = list(ANALYSIS_DIR.glob("projection_stability_*.json"))
+    proj_files = list(ANALYSIS_DIR.glob("projection_stability-*.json"))
     if not proj_files:
         print("  [skip] no projection_stability_*.json files found")
         return
