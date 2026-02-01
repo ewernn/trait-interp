@@ -19,7 +19,7 @@ from tqdm import tqdm
 from utils.vectors import get_best_vector, load_vector
 
 
-def compute_projection_stats(activations: dict, vector: torch.Tensor, layer: int) -> dict:
+def compute_projection_stats(activations: dict, vector: torch.Tensor, layer: int, use_cosine: bool = False) -> dict:
     """Compute projection statistics for a single sample."""
     if layer not in activations:
         return None
@@ -32,9 +32,14 @@ def compute_projection_stats(activations: dict, vector: torch.Tensor, layer: int
     vector = vector.float()
 
     # Project onto trait vector
-    # Normalize vector for interpretable projections
     vector_norm = vector / vector.norm()
-    projections = residual @ vector_norm  # [n_tokens]
+    if use_cosine:
+        # Cosine similarity: normalize activations too (direction only)
+        residual_norm = residual / residual.norm(dim=1, keepdim=True)
+        projections = residual_norm @ vector_norm  # [n_tokens]
+    else:
+        # Dot product: preserves activation magnitude
+        projections = residual @ vector_norm  # [n_tokens]
 
     return {
         'mean': projections.mean().item(),
@@ -59,6 +64,8 @@ def main():
                         help="Layer to use (default: best from steering)")
     parser.add_argument("--layer-range", type=int, default=2,
                         help="Test best layer ± this range")
+    parser.add_argument("--cosine", action="store_true",
+                        help="Use cosine similarity (direction only) instead of dot product")
     args = parser.parse_args()
 
     # Get best vector info
@@ -117,10 +124,10 @@ def main():
 
         for layer, vector in vectors.items():
             stats_a = compute_projection_stats(
-                data_a['response']['activations'], vector, layer
+                data_a['response']['activations'], vector, layer, use_cosine=args.cosine
             )
             stats_b = compute_projection_stats(
-                data_b['response']['activations'], vector, layer
+                data_b['response']['activations'], vector, layer, use_cosine=args.cosine
             )
 
             if stats_a and stats_b:
