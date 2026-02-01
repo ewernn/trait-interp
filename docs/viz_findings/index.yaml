@@ -4,12 +4,15 @@
 
 findings:
   - rm-sycophancy.md
+  - comparison-persona-vectors.md
   - comparison-arditi-refusal.md
   - component-comparison-refusal.md
-  - comparison-persona-vectors.md
   - massive-activations.md
   - coefficient-scaling-law.md
   - prefill-dynamics.md
+  # Commented out - infrastructure/methodology:
+  # - llm-judge-optimization.md # scoring guide + logprobs beats CoT (0.888 trait, 0.809 coherence)
+
   # Commented out - missing data:
   # - 1st-vs-3rd-person.md      # needs chirp/refusal_v2 + v2_3p
   # - ood-cross-model.md        # needs Mistral experiments

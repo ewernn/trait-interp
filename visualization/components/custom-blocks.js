@@ -51,6 +51,7 @@ function extractCustomBlocks(markdown) {
         examples: [],
         asides: [],
         responseTabs: [],
+        steeredResponses: [],
         charts: [],
         extractionData: [],
         annotationStacked: []
@@ -158,16 +159,52 @@ function extractCustomBlocks(markdown) {
         }
     );
 
-    // :::chart type path "caption" [traits=...] [height=N]:::
+    // :::steered-responses "Label"\n trait: "TraitLabel" | pvPath | naturalPath \n:::
+    // Renders a 3-column table: Question | PV Response | Natural Response
+    markdown = markdown.replace(
+        /:::steered-responses\s+"([^"]+)"\s*\n([\s\S]*?)\n:::/g,
+        (match, label, body) => {
+            const traits = [];
+            for (const line of body.trim().split('\n')) {
+                // Parse: traitKey: "Label" | pvPath | naturalPath
+                const traitMatch = line.match(/^\s*(\w+):\s*"([^"]+)"\s*\|\s*([^\s|]+)\s*\|\s*([^\s|]+)/);
+                if (traitMatch) {
+                    traits.push({
+                        key: traitMatch[1],
+                        label: traitMatch[2],
+                        pvPath: traitMatch[3].trim(),
+                        naturalPath: traitMatch[4].trim()
+                    });
+                }
+            }
+            blocks.steeredResponses.push({ label, traits });
+            return `STEERED_RESPONSES_BLOCK_${blocks.steeredResponses.length - 1}`;
+        }
+    );
+
+    // :::chart type path "caption" [traits=...] [height=N] [perplexity=path] [projections=path,path]:::
     markdown = markdown.replace(
         /:::chart\s+(\S+)\s+(\S+)(?:\s+"([^"]*)")?([^:]*):::/g,
         (match, type, path, caption, flags) => {
+            // Parse projection paths (comma-separated trait:path pairs)
+            let projections = null;
+            const projMatch = flags.match(/\bprojections=([^\s]+)/)?.[1];
+            if (projMatch) {
+                projections = {};
+                for (const pair of projMatch.split(',')) {
+                    const [trait, projPath] = pair.split(':');
+                    if (trait && projPath) projections[trait] = projPath;
+                }
+            }
+
             blocks.charts.push({
                 type,
                 path,
                 caption: caption || '',
                 traits: flags.match(/\btraits=([^\s]+)/)?.[1]?.split(',') || null,
-                height: parseInt(flags.match(/\bheight=(\d+)/)?.[1]) || null
+                height: parseInt(flags.match(/\bheight=(\d+)/)?.[1]) || null,
+                perplexity: flags.match(/\bperplexity=([^\s]+)/)?.[1] || null,
+                projections
             });
             return `CHART_BLOCK_${blocks.charts.length - 1}`;
         }
@@ -330,15 +367,27 @@ function renderCustomBlocks(html, blocks, namespace = 'block') {
         html = html.replace(`RESPONSE_TABS_BLOCK_${i}`, tabsHtml);
     });
 
+    // Steered-responses blocks -> 3-column comparison table
+    blocks.steeredResponses.forEach((block, i) => {
+        const srId = `steered-responses-${namespace}-${i}`;
+        const srHtml = createSteeredResponsesHtml(srId, block);
+        html = html.replace(`<p>STEERED_RESPONSES_BLOCK_${i}</p>`, srHtml);
+        html = html.replace(`STEERED_RESPONSES_BLOCK_${i}`, srHtml);
+    });
+
     // Chart blocks -> figure with chart container (loaded async via loadCharts)
     blocks.charts.forEach((block, i) => {
         const chartId = `chart-${namespace}-${i}`;
+        // Serialize projections as JSON for data attribute
+        const projectionsAttr = block.projections ? JSON.stringify(block.projections) : '';
         const chartHtml = `
             <figure class="chart-figure" id="${chartId}"
                     data-chart-type="${block.type}"
                     data-chart-path="${block.path}"
                     data-chart-traits="${block.traits?.join(',') || ''}"
-                    data-chart-height="${block.height || ''}">
+                    data-chart-height="${block.height || ''}"
+                    data-chart-perplexity="${block.perplexity || ''}"
+                    data-chart-projections='${projectionsAttr}'>
                 <div class="chart-container">
                     <div class="chart-loading">Loading chart...</div>
                 </div>
@@ -479,6 +528,34 @@ function createResponseTabsHtml(id, block) {
         <div class="rtabs-container" id="${id}" data-active="${defaultTab}">
             <div class="rtabs-grid">${tabsHtml}</div>
             <div class="rtabs-content"></div>
+        </div>
+    `;
+}
+
+/**
+ * Create HTML for steered-responses component (3-column comparison table)
+ * Shows Question | PV Response | Natural Response side-by-side
+ * @param {string} id - Unique ID for this component
+ * @param {Object} block - { label, traits: [{key, label, pvPath, naturalPath}] }
+ */
+function createSteeredResponsesHtml(id, block) {
+    const { label, traits } = block;
+    const defaultTrait = traits[0]?.key || '';
+
+    const tabsHtml = traits.map((t, i) => {
+        const isActive = i === 0;
+        return `<button class="sr-tab${isActive ? ' active' : ''}" data-trait="${t.key}" data-pv-path="${t.pvPath}" data-natural-path="${t.naturalPath}">${t.label}</button>`;
+    }).join('');
+
+    return `
+        <div class="sr-container" id="${id}" data-active="${defaultTrait}">
+            <div class="sr-header">
+                <span class="sr-label">${label}</span>
+                <div class="sr-tabs">${tabsHtml}</div>
+            </div>
+            <div class="sr-content">
+                <div class="sr-loading">Loading...</div>
+            </div>
         </div>
     `;
 }
@@ -671,6 +748,7 @@ async function loadExpandedDropdowns() {
     // Also initialize tabbed components
     initResponseTabs();
     initExtractionData();
+    initSteeredResponses();
 }
 
 /**
@@ -725,6 +803,98 @@ async function loadResponseTabContent(container, path) {
     } catch (error) {
         content.innerHTML = `<p class="no-data">Failed to load: ${error.message}</p>`;
     }
+}
+
+/**
+ * Initialize steered-responses: set up click handlers and load first tab
+ */
+function initSteeredResponses() {
+    const containers = document.querySelectorAll('.sr-container');
+    for (const container of containers) {
+        if (container.dataset.initialized) continue;
+        container.dataset.initialized = 'true';
+
+        // Set up tab click handlers
+        container.querySelectorAll('.sr-tab').forEach(tab => {
+            tab.addEventListener('click', () => switchSteeredResponseTab(container, tab));
+        });
+
+        // Load the default (first) tab
+        const activeTab = container.querySelector('.sr-tab.active');
+        if (activeTab) {
+            loadSteeredResponseContent(container, activeTab.dataset.pvPath, activeTab.dataset.naturalPath);
+        }
+    }
+}
+
+/**
+ * Switch to a different tab in steered-responses component
+ */
+function switchSteeredResponseTab(container, tab) {
+    container.querySelectorAll('.sr-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    container.dataset.active = tab.dataset.trait;
+    loadSteeredResponseContent(container, tab.dataset.pvPath, tab.dataset.naturalPath);
+}
+
+/**
+ * Load and render 3-column comparison table for steered-responses
+ * Merges PV and Natural responses by question into a single table
+ */
+async function loadSteeredResponseContent(container, pvPath, naturalPath) {
+    const content = container.querySelector('.sr-content');
+    content.innerHTML = '<div class="sr-loading">Loading...</div>';
+
+    try {
+        const [pvRes, naturalRes] = await Promise.all([
+            fetch(pvPath),
+            fetch(naturalPath)
+        ]);
+
+        if (!pvRes.ok || !naturalRes.ok) throw new Error('Failed to load responses');
+
+        const [pvData, naturalData] = await Promise.all([
+            pvRes.json(),
+            naturalRes.json()
+        ]);
+
+        // Build 3-column table: Question | PV Response | Natural Response
+        // Match by question text (assuming same order/questions)
+        const rows = pvData.map((pv, i) => {
+            const natural = naturalData[i] || {};
+            return `
+                <tr>
+                    <td class="sr-question">${escapeHtml(pv.prompt || '')}</td>
+                    <td class="sr-response sr-pv">${escapeHtml(pv.response || '')}</td>
+                    <td class="sr-response sr-natural">${escapeHtml(natural.response || '')}</td>
+                </tr>
+            `;
+        }).join('');
+
+        content.innerHTML = `
+            <table class="sr-table">
+                <thead>
+                    <tr>
+                        <th class="sr-th-question">Question</th>
+                        <th class="sr-th-response">PV Instruction</th>
+                        <th class="sr-th-response">Natural</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        `;
+    } catch (error) {
+        content.innerHTML = `<p class="no-data">Failed to load: ${error.message}</p>`;
+    }
+}
+
+/**
+ * Helper to escape HTML
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 /**
@@ -1163,7 +1333,7 @@ async function loadCharts() {
     for (const figure of chartFigures) {
         figure.dataset.loaded = 'true';
         const container = figure.querySelector('.chart-container');
-        const { chartType, chartPath, chartBars, chartTraits, chartHeight } = figure.dataset;
+        const { chartType, chartPath, chartBars, chartTraits, chartHeight, chartPerplexity, chartProjections } = figure.dataset;
 
         try {
             // For annotation-stacked charts, bars contains the data paths directly
@@ -1178,11 +1348,22 @@ async function loadCharts() {
                 if (!response.ok) throw new Error(`${response.status}`);
                 const data = await response.json();
 
-                container.innerHTML = '';
-                await window.chartTypes.render(chartType, container, data, {
+                // Build options
+                const options = {
                     traits: chartTraits ? chartTraits.split(',') : null,
                     height: chartHeight ? parseInt(chartHeight) : null
-                });
+                };
+
+                // Add dynamics chart options if present
+                if (chartPerplexity) options.perplexityPath = chartPerplexity;
+                if (chartProjections) {
+                    try {
+                        options.projections = JSON.parse(chartProjections);
+                    } catch (e) { /* ignore parse errors */ }
+                }
+
+                container.innerHTML = '';
+                await window.chartTypes.render(chartType, container, data, options);
             }
         } catch (e) {
             container.innerHTML = `<div class="chart-error">Failed to load: ${e.message}</div>`;

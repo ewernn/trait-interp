@@ -28,15 +28,26 @@ function parseFrontmatter(text) {
 function renderThumbnailChart(thumbnail) {
     if (!thumbnail?.bars?.length) return '';
 
-    const maxValue = Math.max(...thumbnail.bars.map(b => b.value));
-    const barsHtml = thumbnail.bars.map(bar => {
-        const heightPct = (bar.value / maxValue) * 100;
+    // Parse values - handle both numeric and string (e.g., "97%")
+    const parsedBars = thumbnail.bars.map(bar => {
+        const valueStr = String(bar.value);
+        const isPercent = valueStr.endsWith('%');
+        const numValue = parseFloat(valueStr);
+        return { ...bar, numValue, isPercent, displayValue: bar.value };
+    });
+
+    // For percentages, use 100 as max; otherwise use actual max
+    const hasPercent = parsedBars.some(b => b.isPercent);
+    const maxValue = hasPercent ? 100 : Math.max(...parsedBars.map(b => b.numValue));
+
+    const barsHtml = parsedBars.map(bar => {
+        const heightPct = (bar.numValue / maxValue) * 100;
         return `
             <div class="thumb-bar-wrapper">
                 <div class="thumb-bar-area">
                     <div class="thumb-bar" style="height: ${heightPct}%"></div>
                 </div>
-                <span class="thumb-value">${bar.value}</span>
+                <span class="thumb-value">${bar.displayValue}</span>
                 <span class="thumb-label">${bar.label}</span>
             </div>
         `;

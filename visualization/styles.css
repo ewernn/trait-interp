@@ -3358,7 +3358,8 @@ code {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     background: var(--bg-secondary);
-    margin: 16px 0;
+    margin: 16px auto;
+    max-width: 90%;
 }
 
 .rtabs-grid {
@@ -3419,6 +3420,115 @@ code {
 
 .rtabs-content .responses-table {
     margin: 0;
+    font-size: var(--text-xs);
+}
+
+.rtabs-content .responses-table th,
+.rtabs-content .responses-table td {
+    padding: 8px 12px;
+}
+
+/* Steered responses comparison component */
+.sr-container {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    margin: 16px auto;
+    max-width: 90%;
+}
+
+.sr-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sr-label {
+    font-weight: 500;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+.sr-tabs {
+    display: flex;
+    gap: 6px;
+}
+
+.sr-tab {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.sr-tab:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--text-tertiary);
+}
+
+.sr-tab.active {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: white;
+}
+
+.sr-content {
+    padding: 12px;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.sr-loading {
+    color: var(--text-secondary);
+    font-size: var(--text-xs);
+    padding: 20px;
+    text-align: center;
+}
+
+.sr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-xs);
+}
+
+.sr-table th,
+.sr-table td {
+    border: 1px solid var(--border-color);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.sr-table thead th {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.sr-th-question {
+    width: 20%;
+}
+
+.sr-th-response {
+    width: 40%;
+}
+
+.sr-question {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.sr-response {
+    color: var(--text-secondary);
+    line-height: 1.5;
+    white-space: pre-wrap;
 }
 
 /* Dataset examples list */
