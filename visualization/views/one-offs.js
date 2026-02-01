@@ -837,16 +837,16 @@ async function renderDynamicsView() {
 
                     <h4>Metrics</h4>
                     <p><strong>1. Activation Smoothness</strong> — How much do hidden states change between tokens?</p>
-                    <pre class="math-block">smoothness(x) = (1/T) Σ_t ‖h_t+1 - h_t‖₂</pre>
-                    <p class="muted">where h_t is the hidden state at token t, computed per-layer.</p>
+                    <div class="math-block">\\[ \\text{smoothness}(x) = \\frac{1}{T} \\sum_{t=1}^{T} \\| \\mathbf{h}_{t+1} - \\mathbf{h}_t \\|_2 \\]</div>
+                    <p class="muted">where \\(\\mathbf{h}_t\\) is the hidden state at token \\(t\\), computed per-layer.</p>
 
                     <p><strong>2. Projection Stability</strong> — How stable are trait projections across tokens?</p>
-                    <pre class="math-block">stability(x) = Var_t(h_t · v̂_trait)</pre>
-                    <p class="muted">where v̂_trait is the unit trait vector. Lower variance = more stable trait expression.</p>
+                    <div class="math-block">\\[ \\text{stability}(x) = \\text{Var}_t \\left( \\mathbf{h}_t \\cdot \\hat{\\mathbf{v}}_{\\text{trait}} \\right) \\]</div>
+                    <p class="muted">where \\(\\hat{\\mathbf{v}}_{\\text{trait}}\\) is the unit trait vector. Lower variance = more stable.</p>
 
                     <p><strong>3. Effect Size</strong> — Standardized difference between conditions:</p>
-                    <pre class="math-block">Cohen's d = (μ_human - μ_model) / σ_pooled</pre>
-                    <p class="muted">d > 0.8 is "large effect", d > 0.5 is "medium", d > 0.2 is "small".</p>
+                    <div class="math-block">\\[ d = \\frac{\\mu_{\\text{human}} - \\mu_{\\text{model}}}{\\sigma_{\\text{pooled}}} \\]</div>
+                    <p class="muted">\\(d > 0.8\\) is "large", \\(d > 0.5\\) is "medium", \\(d > 0.2\\) is "small".</p>
 
                     <h4>Results Summary</h4>
                     <table class="data-table compact">
@@ -879,6 +879,11 @@ async function renderDynamicsView() {
     }
     if (oneOffData.metrics?.samples) {
         renderDistributionChart('chart-distribution', oneOffData.metrics.samples);
+    }
+
+    // Render LaTeX math
+    if (window.MathJax?.typeset) {
+        window.MathJax.typeset();
     }
 }
 
