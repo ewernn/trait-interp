@@ -836,22 +836,26 @@ async function renderDynamicsView() {
                     <p>50 paragraph samples from <strong>WikiText</strong>. For each sample, we take the first sentence as a shared prompt,
                     then compare two continuations:</p>
 
+                    <div class="example-legend">
+                        <span class="legend-item"><span class="legend-swatch prefill-swatch"></span> Prefill (shared prompt)</span>
+                        <span class="legend-item"><span class="legend-swatch human-swatch"></span> Human-written</span>
+                        <span class="legend-item"><span class="legend-swatch model-swatch"></span> Model-generated</span>
+                    </div>
+
                     <div class="example-comparison">
                         <div class="example-box">
                             <div class="example-label">Human Condition</div>
                             <div class="example-text">
                                 <span class="prefill-token">Du Fu was a prominent Chinese poet of the Tang dynasty.</span>
-                                <span class="continuation-token">Along with Li Bai, he is frequently called the greatest of the Chinese poets. His greatest ambition was to serve his country...</span>
+                                <span class="human-token"> Along with Li Bai, he is frequently called the greatest of the Chinese poets. His greatest ambition was to serve his country...</span>
                             </div>
-                            <div class="example-note">Prefill prompt + original human continuation</div>
                         </div>
                         <div class="example-box">
                             <div class="example-label">Model Condition</div>
                             <div class="example-text">
                                 <span class="prefill-token">Du Fu was a prominent Chinese poet of the Tang dynasty.</span>
-                                <span class="generated-token">He was born in the city of Luoyang, Henan Province, and died in the city of Chengdu. He was a member of the imperial civil service...</span>
+                                <span class="model-token"> He was born in the city of Luoyang, Henan Province, and died in the city of Chengdu. He was a member of the imperial civil service...</span>
                             </div>
-                            <div class="example-note">Same prefill + model-generated continuation (temp=1.0)</div>
                         </div>
                     </div>
 
