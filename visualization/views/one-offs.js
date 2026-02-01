@@ -794,30 +794,53 @@ async function renderDynamicsView() {
                 </div>
 
                 <div class="insight-box">
-                    <strong>Key Finding:</strong> Model text produces smoother activation trajectories (avg d=${avgEffect}).
-                    Peak separation at layer ${peakLayer}. ${layers.includes(25) ? 'Effect reverses at output layer (layer 25).' : ''}
+                    <strong>Key Finding:</strong> Model-generated text produces smoother activation trajectories (avg d=${avgEffect}).
+                    Peak separation at layer ${peakLayer}. ${layers.includes(25) ? 'Effect reverses at output layer (L25).' : ''}
+                </div>
+            </section>
+
+            <section class="card definitions-card">
+                <h3>Metric Definitions</h3>
+                <div class="definitions-grid">
+                    <div class="definition-item">
+                        <strong>Smoothness</strong>
+                        <p>Mean L2 distance between consecutive hidden states: how much activations "jump" between tokens. Lower = smoother trajectory through activation space.</p>
+                    </div>
+                    <div class="definition-item">
+                        <strong>Cross-Entropy (Perplexity)</strong>
+                        <p>How surprised the model is by each token. Lower CE = more predictable text. Model-generated text has ~2x lower CE than human text.</p>
+                    </div>
+                    <div class="definition-item">
+                        <strong>Projection Stability</strong>
+                        <p>Variance of activations projected onto trait vectors. Lower variance = more consistent trait expression across the sequence.</p>
+                    </div>
+                    <div class="definition-item">
+                        <strong>Cohen's d (Effect Size)</strong>
+                        <p>Standardized difference: (mean_prefilled - mean_model) / pooled_std. Positive d means prefilled text has higher values. |d| > 0.8 is large effect.</p>
+                    </div>
                 </div>
             </section>
 
             <section class="card">
-                <h3>Effect Comparison by Layer</h3>
-                <p class="muted">Raw smoothness (blue) shows large, consistent effect.${hasProjections ? ' Projection stability (dashed) is trait-dependent.' : ''}</p>
+                <h3>Effect Size by Layer</h3>
+                <p class="muted"><strong>Smoothness</strong> (blue): Cohen's d comparing prefilled vs model-generated text.${hasProjections ? ' <strong>Projection stability</strong> (dashed): same comparison for trait projection variance.' : ''}</p>
                 <div id="chart-effect-comparison" class="chart-container"></div>
+                <p class="chart-interpretation">Positive d = prefilled text has higher smoothness (jumpier activations). Effect is large (d>1) across most layers, reverses at output layer.</p>
             </section>
 
             <div class="two-column">
                 <section class="card ${!hasPerplexity ? 'disabled-section' : ''}">
-                    <h3>Smoothness vs Perplexity</h3>
-                    <p class="muted">${hasPerplexity ? 'Each point is one sample. X = smoothness diff, Y = cross-entropy diff.' : 'Perplexity data not available for this model.'}</p>
+                    <h3>Smoothness vs Cross-Entropy</h3>
+                    <p class="muted">${hasPerplexity ? 'Each point = one sample. Axes show (prefilled - model) differences.' : 'Cross-entropy data not available for this model.'}</p>
                     <div id="chart-ppl-scatter" class="chart-container"></div>
-                    ${hasPerplexity ? '<p class="chart-interpretation"><strong>Interpretation:</strong> Positive correlation — samples where model text is smoother also have lower perplexity. The model finds its own outputs less surprising.</p>' : ''}
+                    ${hasPerplexity ? '<p class="chart-interpretation">Positive correlation: samples where prefilled text is jumpier also have higher cross-entropy. Predictable tokens → smooth activations.</p>' : ''}
                 </section>
 
                 <section class="card">
-                    <h3>Distribution</h3>
-                    <p class="muted">Per-sample smoothness values (mean across layers)</p>
+                    <h3>Smoothness Distribution</h3>
+                    <p class="muted">Per-sample mean smoothness across all layers.</p>
                     <div id="chart-distribution" class="chart-container"></div>
-                    <p class="chart-interpretation"><strong>Interpretation:</strong> Model-generated text (red, right) has lower smoothness values than prefilled human text (green, left). Lower = activations change less between tokens.</p>
+                    <p class="chart-interpretation">Model-generated (red) is shifted left — lower smoothness values. The distributions overlap but are clearly separated.</p>
                 </section>
             </div>
 
