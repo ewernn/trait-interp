@@ -61,9 +61,11 @@ def main():
     parser.add_argument("--condition-a", default="human")
     parser.add_argument("--condition-b", default="model")
     parser.add_argument("--layer", type=int, default=None,
-                        help="Layer to use (default: best from steering)")
+                        help="Center layer (default: best from steering)")
     parser.add_argument("--layer-range", type=int, default=2,
-                        help="Test best layer ± this range")
+                        help="Test center layer ± this range")
+    parser.add_argument("--all-layers", action="store_true",
+                        help="Test all layers (0 to n_layers-1)")
     parser.add_argument("--cosine", action="store_true",
                         help="Use cosine similarity (direction only) instead of dot product")
     args = parser.parse_args()
@@ -78,11 +80,15 @@ def main():
         return
 
     # Determine layers to test
-    best_layer = args.layer if args.layer is not None else best['layer']
-    layers_to_test = list(range(
-        max(0, best_layer - args.layer_range),
-        best_layer + args.layer_range + 1
-    ))
+    if args.all_layers:
+        # Try layers 0-30 (will skip any without vectors)
+        layers_to_test = list(range(0, 30))
+    else:
+        best_layer = args.layer if args.layer is not None else best['layer']
+        layers_to_test = list(range(
+            max(0, best_layer - args.layer_range),
+            best_layer + args.layer_range + 1
+        ))
     print(f"Testing layers: {layers_to_test}")
 
     # Load vectors for each layer
