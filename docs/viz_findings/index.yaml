@@ -9,6 +9,7 @@ findings:
   - comparison-persona-vectors.md
   - massive-activations.md
   - coefficient-scaling-law.md
+  - prefill-dynamics.md
   # Commented out - missing data:
   # - 1st-vs-3rd-person.md      # needs chirp/refusal_v2 + v2_3p
   # - ood-cross-model.md        # needs Mistral experiments
