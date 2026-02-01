@@ -451,7 +451,7 @@ function renderProjectionStabilityChart(containerId, projections) {
 function renderEffectComparisonChart(containerId, metrics, projections) {
     const traces = [];
 
-    // Raw smoothness
+    // Raw smoothness - bright color for visibility
     if (metrics?.summary?.by_layer) {
         const byLayer = metrics.summary.by_layer;
         const layers = Object.keys(byLayer).map(Number).sort((a, b) => a - b);
@@ -461,8 +461,8 @@ function renderEffectComparisonChart(containerId, metrics, projections) {
             type: 'scatter',
             mode: 'lines+markers',
             name: 'Raw Smoothness',
-            line: { color: '#2d4a5e', width: 3 },
-            marker: { size: 6 }
+            line: { color: '#4a9eff', width: 3 },
+            marker: { size: 7 }
         });
     }
 
@@ -518,8 +518,12 @@ function renderPerplexityScatter(containerId, pplData, metricsData) {
         const sample = metricsData.samples.find(s => s.id === ppl.id);
         if (!sample) continue;
 
-        // Use overall smoothness diff (first layer or average)
-        const smoothDiff = sample.human.smoothness_mean - sample.model.smoothness_mean;
+        // Compute mean smoothness across layers (sample.human is keyed by layer number)
+        const humanLayers = Object.keys(sample.human).map(Number);
+        const humanSmooth = humanLayers.reduce((sum, l) => sum + sample.human[l].smoothness, 0) / humanLayers.length;
+        const modelSmooth = humanLayers.reduce((sum, l) => sum + sample.model[l].smoothness, 0) / humanLayers.length;
+        const smoothDiff = humanSmooth - modelSmooth;
+
         x.push(smoothDiff);
         y.push(ppl.ce_diff);
         text.push(`Sample ${ppl.id}<br>Smoothness diff: ${smoothDiff.toFixed(1)}<br>CE diff: ${ppl.ce_diff.toFixed(2)}`);
@@ -571,8 +575,15 @@ function renderPerplexityScatter(containerId, pplData, metricsData) {
 function renderDistributionChart(containerId, samples, metric = 'smoothness') {
     if (!samples?.length) return;
 
-    const humanVals = samples.map(s => s.human[`${metric}_mean`]);
-    const modelVals = samples.map(s => s.model[`${metric}_mean`]);
+    // Compute mean across layers for each sample (sample.human is keyed by layer number)
+    const humanVals = samples.map(s => {
+        const layers = Object.keys(s.human).map(Number);
+        return layers.reduce((sum, l) => sum + s.human[l][metric], 0) / layers.length;
+    });
+    const modelVals = samples.map(s => {
+        const layers = Object.keys(s.model).map(Number);
+        return layers.reduce((sum, l) => sum + s.model[l][metric], 0) / layers.length;
+    });
 
     const traces = [
         {
@@ -641,24 +652,10 @@ async function renderDynamicsView() {
             </section>
 
             <section class="card">
-                <h3>Effect Comparison</h3>
-                <p class="muted">Raw smoothness shows large, consistent effect. Projection stability is trait-dependent.</p>
+                <h3>Effect Comparison by Layer</h3>
+                <p class="muted">Raw smoothness (blue) shows large, consistent effect. Projection stability (dashed) is trait-dependent. Effect reverses at layer 25.</p>
                 <div id="chart-effect-comparison" class="chart-container"></div>
             </section>
-
-            <div class="two-column">
-                <section class="card">
-                    <h3>Raw Smoothness by Layer</h3>
-                    <p class="muted">Token-to-token activation deltas (L2 norm)</p>
-                    <div id="chart-smoothness" class="chart-container"></div>
-                </section>
-
-                <section class="card">
-                    <h3>Projection Stability by Layer</h3>
-                    <p class="muted">Variance of trait projections across tokens</p>
-                    <div id="chart-projection" class="chart-container"></div>
-                </section>
-            </div>
 
             <div class="two-column">
                 <section class="card">
@@ -677,12 +674,6 @@ async function renderDynamicsView() {
     `;
 
     // Render charts
-    if (oneOffData.metrics?.summary?.by_layer) {
-        renderSmoothnessChart('chart-smoothness', oneOffData.metrics.summary.by_layer);
-    }
-    if (Object.keys(oneOffData.projections).length > 0) {
-        renderProjectionStabilityChart('chart-projection', oneOffData.projections);
-    }
     renderEffectComparisonChart('chart-effect-comparison', oneOffData.metrics, oneOffData.projections);
     renderPerplexityScatter('chart-ppl-scatter', oneOffData.perplexity, oneOffData.metrics);
     if (oneOffData.metrics?.samples) {
