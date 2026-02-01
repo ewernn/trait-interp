@@ -4225,3 +4225,209 @@ li.dataset-more {
         grid-template-columns: 1fr;
     }
 }
+
+/* ===== Experiments View ===== */
+.one-offs-view .scatter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.one-offs-view .scatter-plot {
+    height: 300px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+}
+
+.one-offs-view .legend-row {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    margin-top: 0.5rem;
+}
+
+.one-offs-view .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.one-offs-view .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.one-offs-view .insight-box {
+    background: var(--info-bg);
+    border-left: 4px solid var(--accent);
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 4px;
+}
+
+.one-offs-view .table-controls {
+    margin-bottom: 1rem;
+}
+
+.one-offs-view .table-scroll {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.one-offs-view .response-table tr {
+    cursor: pointer;
+}
+
+.one-offs-view .response-table tr:hover {
+    background: var(--bg-tertiary);
+}
+
+.one-offs-view .high-diff {
+    background: rgba(255, 107, 107, 0.08);
+}
+
+.one-offs-view .cell-warn {
+    color: var(--danger);
+    font-weight: 500;
+}
+
+.one-offs-view .diff-label {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-left: 0.25rem;
+}
+
+.one-offs-view .trait-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.one-offs-view .trait-refusal { background: rgba(74, 158, 255, 0.2); color: #4a9eff; }
+.one-offs-view .trait-evil { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+.one-offs-view .trait-sycophancy { background: rgba(255, 217, 61, 0.2); color: #b5a030; }
+
+.one-offs-view .highlight-row {
+    background: rgba(122, 121, 80, 0.15);
+}
+
+.detail-section {
+    margin-bottom: 1.5rem;
+}
+
+.detail-section h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.response-text {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.cot-output {
+    background: var(--bg-tertiary);
+    padding: 1rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    margin: 0;
+}
+
+.one-offs-view .view-header {
+    margin-bottom: 1.5rem;
+}
+
+.one-offs-view .one-off-picker {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.one-offs-view .one-off-picker label {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.one-offs-view .one-off-picker select {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.one-offs-view .card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.one-offs-view .card-header-row h2 {
+    margin: 0;
+}
+
+.one-offs-view .score-type-toggle {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.one-offs-view .score-type-btn {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.15s;
+}
+
+.one-offs-view .score-type-btn:hover {
+    background: var(--bg-tertiary);
+}
+
+.one-offs-view .score-type-btn.active {
+    background: var(--accent);
+    color: var(--text-on-primary);
+    border-color: var(--accent);
+}
+
+/* Dynamics view layout */
+.dynamics-view .two-column {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 1200px) {
+    .dynamics-view .two-column {
+        grid-template-columns: 1fr;
+    }
+}
+
+.dynamics-view .chart-container {
+    min-height: 300px;
+}
+
+.dynamics-view .insight-box {
+    background: var(--bg-tertiary);
+    border-left: 3px solid var(--accent);
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    border-radius: 0 4px 4px 0;
+}
