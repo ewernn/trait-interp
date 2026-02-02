@@ -66,7 +66,10 @@ These views are available immediately without selecting an experiment. The exper
 
     **Markdown conventions:**
     - Figures: `:::figure assets/image.png "Figure 1: Caption" small:::` (sizes: `small` 30%, `medium` 50%, `large` 75%, omit for 100%)
-    - Charts: `:::chart type path "caption" [traits=a,b] [height=N]:::` renders dynamic Plotly chart from JSON data. Types: `model-diff-effect` (Cohen's d by layer), `model-diff-cosine` (cosine sim by layer). Traits filter uses short names (e.g., `secondary_objective` matches `rm_hack/secondary_objective`). Excludes `random_baseline` by default.
+    - Charts: `:::chart type path "caption" [options]:::` renders dynamic Plotly chart from JSON data.
+      - **Model diff types**: `model-diff-effect` (Cohen's d by layer), `model-diff-cosine` (cosine sim by layer), `model-diff-bar` (peak effect bars), `comparison-bar` (horizontal comparison)
+      - **Dynamics types**: `dynamics-effect` (smoothness by layer), `dynamics-scatter` (smoothness vs perplexity), `dynamics-violin` (split distribution), `dynamics-position` (effect by token position)
+      - **Options**: `height=N`, `traits=a,b` (filter), `perplexity=path` (for scatter), `projections=trait:path,trait:path` (for overlays)
     - Response embeds: `:::responses /path/to/responses.json "Label" [expanded] [no-scores]:::` creates expandable table
     - Dataset embeds: `:::dataset /path/to/file.txt "Label" [expanded] [limit=N] [height=N]:::` shows first N lines (default: 20), custom max height in px. Auto-formats JSONL with system_prompt/user_message labels.
     - Prompts embeds: `:::prompts /path/to/prompts.json "Label" [expanded]:::` shows first 20 prompts

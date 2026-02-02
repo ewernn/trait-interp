@@ -1,6 +1,6 @@
 # HuggingFace Chat Templates
 
-Reference for chat template behavior across models. Run `scripts/onboard_model.py` when adding new models.
+Reference for chat template behavior across models.
 
 ## Key Concepts
 
@@ -99,18 +99,6 @@ Tool calling flow:
 2. Model outputs JSON: `{"name": "func", "arguments": {...}}`
 3. Execute tool, append result as `{"role": "tool", "content": "result"}`
 4. Continue generation
-
-## Onboarding New Models
-
-```bash
-# Investigate template behavior
-python scripts/onboard_model.py <model_id>
-
-# Save findings to config/models/
-python scripts/onboard_model.py <model_id> --save
-```
-
-Findings are saved to `config/models/<model>.yaml` under `notes:` section.
 
 ## References
 
