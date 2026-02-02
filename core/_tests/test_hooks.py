@@ -270,6 +270,12 @@ class TestSteeringHook:
         expected = (-vector).unsqueeze(0).unsqueeze(0).expand_as(diff)
         assert torch.allclose(diff, expected, atol=1e-5)
 
+    def test_vector_stored_as_float32(self, mock_model, hidden_dim):
+        """Vector is stored in float32 for precision (avoids bfloat16 loss)."""
+        vector = torch.randn(hidden_dim, dtype=torch.bfloat16)
+        hook = SteeringHook(mock_model, vector, "model.layers.0", coefficient=1.0)
+        assert hook.vector.dtype == torch.float32
+
 
 # =============================================================================
 # AblationHook tests

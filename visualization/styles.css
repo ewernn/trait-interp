@@ -1076,7 +1076,7 @@ code {
 }
 
 .prose table tr:hover { background: var(--bg-tertiary); }
-.prose .katex-display { margin: 24px 0; overflow-x: auto; }
+.prose .katex-display { margin: 24px 0; overflow-x: auto; text-align: center; }
 
 @media (max-width: 768px) {
     .prose { font-size: var(--text-base); padding: 24px 16px; }
