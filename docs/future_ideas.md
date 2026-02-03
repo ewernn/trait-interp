@@ -86,6 +86,8 @@ Run large prompt dataset (100k+), rank by trait scores, surface top percentile f
 ## dec6-emergent_misalignment
 Validate on Emergent Misalignment models (Betley et al. - finetuned on insecure code). Compare base vs finetuned on benign prompts where outputs look normal. Does finetuned show elevated harmful traits? Do same directions activate across coding and free-form responses? First mechanistic validation of EM.
 
+**Caveat (Minder et al. 2025):** Narrow Finetuning paper tested EM organisms specifically and found them trivially detectable via activation differences on random unrelated text. Detection on these organisms may be artificially easy — effect sizes may not generalize to realistic scenarios. Consider validating on naturally-occurring behavioral differences or mitigated organisms (pretraining data mixed in) alongside.
+
 **Extended questions (from MATS 9.0 list):** Why is emergent misalignment so easy to induce? (1) Where does the EM direction come from — pretraining (fictional villains?) or finetuning? (2) Where does ablating it hurt performance most? (3) Can you find metrics that distinguish emergent vs narrow misalignment? (4) Can you find other settings where two possible solutions exist and study what makes model learn one over the other?
 
 ## dec5-hidden_objectives

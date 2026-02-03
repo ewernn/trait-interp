@@ -384,6 +384,81 @@ Architecture affects vulnerability profile — AlphaEvolve worse on pre-existing
 
 **Paper:** [arxiv:2406.04313](https://arxiv.org/abs/2406.04313)
 
+### LIARS' BENCH - Evaluating Lie Detectors for LLMs (2026)
+
+**Link:** [arxiv:2511.16035](https://arxiv.org/abs/2511.16035)
+
+**What:** Benchmark of 7 datasets (72,863 examples) capturing distinct lie types from 4 open-weight models. Categorizes lies by object of belief (world-knowledge vs self-knowledge) and reason for lying (contextual vs inherent).
+
+**Core finding: Universal failure of detection methods.**
+
+| Method | Best Performance | Failure Mode |
+|--------|-----------------|--------------|
+| LLM-as-Judge | 0.73 balanced acc | Conflates helpfulness with honesty |
+| Self-Evaluation | Variable | Only works when model isn't committed to deception |
+| Linear Probes | Near-chance on several datasets | Tracks surface correlations, not deceptive intent |
+
+**Pattern of successes and failures (LLM-as-Judge):**
+
+| Lie Type | Balanced Acc | Why |
+|----------|--------------|-----|
+| Instructed-Deception | 0.91 | Fact-checkable, explicit instruction |
+| Convincing-Game | 0.86 | Observable behavior |
+| Soft-Trigger | 0.86 | Factual claims |
+| Insider-Trading | 0.84 | Multi-turn, but about past actions |
+| Harm-Pressure Choice | 0.63 | Mediocre |
+| Harm-Pressure Knowledge-Report | 0.52 | **Fails** — private knowledge |
+| Gender-Secret | 0.46 | **Fails** — private knowledge |
+
+**The pattern:** Detection succeeds when it can fact-check or when lies are about observable behaviors. Detection fails catastrophically when lies involve the model's private internal knowledge states.
+
+**Implicit conclusion:** Current approaches are fundamentally limited because they can't access the model's true beliefs. Breakthrough may require direct access to internals in ways current probes can't achieve.
+
+**Models tested:** Llama 3.3 70B, Qwen 2.5 72B, Mistral Small 24B, Gemma 3 27B
+
+**Relevance:** Establishes empirical ceiling for lie detection. The private-knowledge failure mode is exactly the hard case for activation monitoring.
+
+### Narrow Finetuning Leaves Readable Traces - Minder et al. 2025
+
+**Authors:** Minder et al. | [arxiv:2510.13900](https://arxiv.org/abs/2510.13900) | October 2025
+
+**Core finding:** Narrowly finetuned models leave trivially detectable activation fingerprints—even on completely unrelated text. By computing activation differences between base and finetuned models on the first few tokens of random web data, an agent can reliably identify what the model was finetuned on.
+
+**Method — Activation Difference Lens (ADL):**
+1. Run base and finetuned model on random pretraining data (10K samples)
+2. Extract residual stream activations at middle layer, first 5 tokens
+3. Compute mean difference δ = h^ft - h^base
+4. Interpret via Patchscope or Logit Lens
+5. Validate by steering: add αδ to activations, measure similarity to finetuning domain
+
+**Key results:**
+
+| Agent Type | Grade ≥2 (broad objective) | Grade ≥4 (specific details) |
+|------------|---------------------------|----------------------------|
+| ADL (5 interactions) | 91% | 30% |
+| Blackbox (50 interactions) | 39% | 1% |
+
+ADL agent with zero interactions (just ADL results) still achieves 82% grade ≥2.
+
+**Organisms tested:** SDF (false facts), Emergent Misalignment (bad advice), Subliminal Learning (number→preference), Taboo (word games).
+
+**Not tested:** Sleeper Agents (Hubinger et al.), Alignment Faking (Greenblatt et al.) — findings may or may not generalize to those organisms.
+
+**Mitigation:** Mixing pretraining data (1:1 ratio) eliminates most detectable bias but can impair target behavior. Model-dependent tradeoffs — no clean solution exists.
+
+**Implications for interpretability research:**
+
+| Research Type | Concern Level |
+|--------------|---------------|
+| "Can we detect X exists?" | **High** — detection artificially easy |
+| "What circuits implement X?" | **Moderate** — may be intertwined with bias artifacts |
+| "Does technique generalize to real misalignment?" | **High** — organisms aren't realistic proxies |
+| "Proof-of-concept that direction correlates with behavior" | **Lower** — directional findings may hold |
+
+**Critical caveat:** If trait vectors are trained/validated on narrowly finetuned models, they may detect overfitting bias rather than behavioral traits. Effect sizes may not generalize to realistic scenarios where behavioral signal is weaker and more distributed.
+
+**Relevance:** Direct methodological critique of model organism approach. Activation-based monitoring works, but possibly *too* well on unrealistic models. Validation on naturally-occurring behavioral differences needed.
+
 ---
 
 ## Evasion & Robustness of Activation Monitors
@@ -901,11 +976,8 @@ No gradients flow through the monitor — tests whether models can learn evasion
 
 ## Datasets for Lying/Deception Research
 
-### LIARS' BENCH (2025)
-- **What:** Benchmark of 7 datasets capturing distinct lie types
-- **Models:** Responses from LLaMA-3.3 and other open-weight LLMs
-- **Focus:** Beyond simple true/false - includes lies about private knowledge, past actions
-- **Link:** [arxiv:2511.16035](https://arxiv.org/abs/2511.16035)
+### LIARS' BENCH (2026)
+See Detection Methods section for full analysis. Dataset: 72,863 examples across 7 lie types. [arxiv:2511.16035](https://arxiv.org/abs/2511.16035)
 
 ### Embedded Lies Dataset (2025 - Nature)
 - **What:** 2,088 truthful/deceptive autobiographical statements with annotated embedded lies
@@ -988,7 +1060,30 @@ No gradients flow through the monitor — tests whether models can learn evasion
 | **The Platonic Representation Hypothesis** | Huh et al. (Apple, Stanford, MIT) | 2024 | [arxiv](https://arxiv.org/abs/2405.07987) | Neural networks trained on different data, modalities, and objectives converge toward shared statistical model of reality. Larger models = more aligned representations. Explains why base→IT trait vector transfer works and why cross-model transfer should improve with scale. |
 | **Superposition Yields Robust Neural Scaling** | Liu & Gore (MIT) | 2025 | [arxiv](https://arxiv.org/abs/2505.10465) | Uses Anthropic's toy model to show superposition causes neural scaling laws. Weak superposition: α_m = α - 1 (depends on data). Strong superposition: α_m ≈ 1 robustly (geometric overlaps scale as 1/m). LLMs verified in strong regime (α_m ≈ 0.91). Important features form ETF-like structures. Explains geometric foundation that linear directions exploit. |
 | **Toy Models of Superposition** | Elhage et al. (Anthropic) | 2022 | [transformer-circuits](https://transformer-circuits.pub/2022/toy_model/index.html) | Why linear directions work: models compress more features than dimensions. Introduced "superposition" concept, phase transitions, geometric structure. Theoretical foundation for SAEs and linear probes. |
-| **The Geometry of Truth** | Marks & Tegmark | 2023 | [arxiv](https://arxiv.org/abs/2310.06824) | Truth/falsehood as linear direction in LLaMA. Probes transfer across datasets. Introduced "mass-mean probing" (optimization-free). Causal validation via intervention. Methodologically closest to trait vector work. |
+| **The Geometry of Truth** | Marks & Tegmark | 2024 | [arxiv](https://arxiv.org/abs/2310.06824) | See detailed entry below. |
+
+### The Geometry of Truth - Marks & Tegmark 2024
+
+**Authors:** Samuel Marks (Northeastern), Max Tegmark (MIT) | COLM 2024 | [arxiv:2310.06824](https://arxiv.org/abs/2310.06824)
+
+**Core finding:** LLMs develop abstract, generalizable linear representations of truth at sufficient scale. Larger models converge on truth-as-abstraction; smaller models represent surface features.
+
+**Key methodological contribution — Mass-Mean Probing:**
+- θ_mm = μ₊ − μ₋ (difference in means)
+- Contrast with logistic regression: LR converges to maximum-margin separator, which diverges from actual feature direction when other features are non-orthogonal
+- **Critical finding:** MM and LR have near-identical classification accuracy, but MM directions produce stronger causal effects when used for intervention
+
+**Why this matters for monitoring vs steering:**
+Classification accuracy ≠ causal relevance. A direction can classify well without being mechanistically central. If you want the "true direction" for intervention rather than the optimal classifier, mass-mean may be more principled than logistic regression.
+
+**Other findings:**
+- Training on statements AND negations improves generalization (forces probe to ignore features with opposite-sign correlations)
+- Truth localizes to sentence-final punctuation tokens
+- Scale enables abstraction — 70B shows aligned separation across diverse datasets; 7B clusters by surface features
+
+**Open question:** They show MM directions are more causal but don't explain *why* the model's computation respects feature directions over decision boundaries. Mechanistically unexplained.
+
+**Code:** [github.com/saprmarks/geometry-of-truth](https://github.com/saprmarks/geometry-of-truth)
 | **Risks from Learned Optimization in Advanced Machine Learning Systems** | Hubinger et al. | 2019 | [arxiv](https://arxiv.org/abs/1906.01820) | Mesa-optimizer develops objectives different from training objective |
 | **Representation Engineering: A Top-Down Approach to AI Transparency** | Zou et al. | 2023 | [arxiv](https://arxiv.org/abs/2310.01405) | Reading and controlling high-level cognitive phenomena via linear representations |
 | **Discriminating Behaviorally Identical Classifiers (DBIC)** | Marks (Anthropic) | 2024 | [alignment forum](https://www.alignmentforum.org/posts/rcfbBTvvKCGfwPzpr/discriminating-behaviorally-identical-classifiers) | Formalizes cognition-based oversight. SHIFT technique (SAEs → causal attribution → interpretation). Identifies measurement tampering as tractable target—still open 21 months later. |
