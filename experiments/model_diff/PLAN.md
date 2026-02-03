@@ -412,7 +412,11 @@ Report:
 
 ## Notes
 
-**Start with sycophancy only.** Expand to evil + hallucination after validating the pipeline.
+**Sycophancy complete.** Expanding to evil + hallucination. Same commands, substitute traits:
+- evil: `pv_instruction/evil` + `pv_natural/evil_v3`
+- hallucination: `pv_instruction/hallucination` + `pv_natural/hallucination_v2`
+
+All `pv_instruction` datasets created (JSONL with system_prompt fields, 100 scenarios each).
 
 **Method confound removed**: Both mean_diff and probe extracted for both sources.
 
