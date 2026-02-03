@@ -81,7 +81,7 @@ These views are available immediately without selecting an experiment. The exper
 
 ### Analysis Views (Require Experiment Selection)
 
-These views require an experiment to be selected from the sidebar. The experiment picker becomes visible when navigating to these tabs.
+These views require an experiment to be selected. When navigating to these tabs, the analysis panel (second sidebar column) slides in with the experiment picker and trait selector.
 
 -   **1. Trait Extraction**: View extraction quality for trait vectors. Sections:
     - Best Vectors Summary: table of best vector per trait with metrics
@@ -333,7 +333,7 @@ visualization/
 │   ├── state.js            # Global state, experiment loading, URL routing
 │   └── conversation-tree.js # ConversationTree for multi-turn chat with branching
 ├── components/             # Reusable UI components (render DOM)
-│   ├── sidebar.js          # Trait checkboxes, navigation, theme toggle
+│   ├── sidebar.js          # Trait checkboxes, navigation, theme, analysis panel toggle
 │   ├── prompt-picker.js    # Prompt selection UI for inference views
 │   ├── custom-blocks.js    # ::: syntax parsing/rendering (responses, datasets, figures, charts)
 │   └── response-browser.js # Steering response table with filtering/sorting
@@ -359,7 +359,7 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed documentation.
 ## Customization
 
 ### Hiding Experiments
-To hide experiments from the sidebar picker by default, add names to `HIDDEN_EXPERIMENTS` in `core/state.js`. A "Show N hidden" toggle appears automatically.
+To hide experiments from the analysis panel picker by default, add names to `HIDDEN_EXPERIMENTS` in `core/state.js`. A "Show N hidden" toggle appears automatically.
 
 ### Adding New Experiments
 Experiments are auto-discovered from `experiments/` directory. No code changes needed.
@@ -371,10 +371,10 @@ All styles use CSS variables in `styles.css` for light/dark mode support. See **
 1. Create `views/my-view.js` with render function
 2. Load in `index.html`: `<script src="views/my-view.js"></script>`
 3. Add case to router: `case 'my-view': window.renderMyView(); break;`
-4. Add navigation item in sidebar HTML
+4. Add navigation item in sidebar HTML (main nav for global views, analysis panel for analysis views)
 5. **Categorize the view** in `core/state.js`:
-   - Add to `ANALYSIS_VIEWS` if it requires experiment selection (shows experiment picker)
-   - Add to `GLOBAL_VIEWS` if it's documentation/standalone (hides experiment picker)
+   - Add to `ANALYSIS_VIEWS` if it requires experiment selection (shows analysis panel with experiment picker + trait selector)
+   - Add to `GLOBAL_VIEWS` if it's documentation/standalone (analysis panel stays hidden)
 6. For inference views: add to `INFERENCE_VIEWS` array in `prompt-picker.js` to show prompt picker
 
 **Token slider integration** (for views that need real-time updates):

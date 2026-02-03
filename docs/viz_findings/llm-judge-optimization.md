@@ -308,21 +308,33 @@ python analysis/steering/evaluate.py --experiment X --trait Y --no-relevance-che
 
 ---
 
+## Revalidation: Model Diff Sycophancy (Feb 2026)
+
+Retested on 23 sycophancy responses from the model_diff experiment (10 baseline + 13 steered at L17/c9.1). Sycophancy-specific Spearman: **0.972** (up from 0.894 in original test set).
+
+**Known edge case:** Responses with sycophantic framing ("You're right!") followed by substantive disagreement get overscored by ~30pts (e.g., no_cot=71 vs ground truth=35). CoT variants reduce the gap (65 vs 35) but degrade overall correlation (0.855-0.910 vs 0.972). The edge case is rare in practice (~2/23 steered responses), so no change to approach.
+
+---
+
 ## Experiment Details
 
 - **Model:** gpt-4.1-mini with logprobs (top_logprobs=20)
 - **Scoring:** Weighted average of top logprob tokens (scores 0-100 are single tokens)
-- **Test set:** 52 responses across refusal, evil, sycophancy traits
+- **Test set:** 52 responses across refusal, evil, sycophancy (original) + 23 sycophancy revalidation
 - **Ground truth:** Manual Claude scores with iterative refinement
 
 **Scripts:**
 - `experiments/judge_optimization/run_judge_variants.py` - run scoring variants
 - `experiments/judge_optimization/analyze_results.py` - compute metrics
 - `experiments/judge_optimization/test_definition_variants.py` - test trait definitions
+- `experiments/judge_optimization/test_sycophancy_cot.py` - revalidation (Feb 2026)
 
 **Data:**
-- `experiments/judge_optimization/data/test_responses.json` - test responses
-- `experiments/judge_optimization/data/claude_scores.json` - ground truth
+- `experiments/judge_optimization/data/test_responses.json` - test responses (original)
+- `experiments/judge_optimization/data/claude_scores.json` - ground truth (original)
+- `experiments/judge_optimization/data/model_diff_sycophancy_responses.json` - revalidation responses
+- `experiments/judge_optimization/data/model_diff_sycophancy_claude_scores.json` - revalidation ground truth
+- `experiments/judge_optimization/results/sycophancy_cot_comparison.json` - revalidation results
 - `experiments/judge_optimization/results/` - all experiment results
 
 ---
