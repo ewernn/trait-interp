@@ -52,9 +52,9 @@ def load_vector(
     return torch.load(vector_file, weights_only=True)
 
 
-def load_cached_activation_norms(experiment: str) -> Dict[int, float]:
+def load_cached_activation_norms(experiment: str, component: str = "residual") -> Dict[int, float]:
     """
-    Load cached activation norms from extraction_evaluation.json.
+    Load cached activation norms from extraction_evaluation.json for a specific component.
 
     Returns:
         {layer: norm} or empty dict if not available
@@ -67,8 +67,19 @@ def load_cached_activation_norms(experiment: str) -> Dict[int, float]:
         with open(eval_path) as f:
             data = json.load(f)
         norms = data.get('activation_norms', {})
-        # Convert string keys back to int
-        return {int(k): v for k, v in norms.items()}
+
+        # New nested format: {component: {layer: norm}}
+        if component in norms and isinstance(norms[component], dict):
+            return {int(k): v for k, v in norms[component].items()}
+
+        # Old flat format: {layer: norm} — only valid for residual
+        if norms and not any(isinstance(v, dict) for v in norms.values()):
+            if component == "residual":
+                return {int(k): v for k, v in norms.items()}
+            else:
+                return {}  # Flat norms are residual-only, no data for this component
+
+        return {}
     except (json.JSONDecodeError, KeyError):
         return {}
 

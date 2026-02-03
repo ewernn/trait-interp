@@ -70,6 +70,7 @@ from analysis.steering.coef_search import (
     batched_adaptive_search,
 )
 from core import VectorSpec, MultiLayerAblationHook, LocalBackend, GenerationConfig, batched_steering_generate
+from core.hooks import get_hook_path
 from utils.generation import generate_batch
 from utils.judge import TraitJudge
 from utils.paths import get, get_default_variant
@@ -122,8 +123,9 @@ def estimate_activation_norm(
     prompts: List[str],
     layer: int,
     use_chat_template: bool,
+    component: str = "residual",
 ) -> float:
-    """Estimate activation norm at a layer by running a few prompts."""
+    """Estimate activation norm at a layer for a specific component by running a few prompts."""
     norms = []
 
     def capture_hook(_module, _input, output):
@@ -131,13 +133,17 @@ def estimate_activation_norm(
         norm = hidden[:, -1, :].float().norm().item()
         norms.append(norm)
 
-    layer_module = get_layers_module(model)[layer]
-    handle = layer_module.register_forward_hook(capture_hook)
+    hook_path = get_hook_path(layer, component, model=model)
+    module = model
+    for attr in hook_path.split('.'):
+        module = getattr(module, attr)
+    handle = module.register_forward_hook(capture_hook)
 
     try:
         for prompt in prompts[:3]:
             formatted = format_prompt(prompt, tokenizer, use_chat_template=use_chat_template)
-            inputs = tokenize_prompt(formatted, tokenizer).to(model.device)
+            inputs = tokenize_prompt(formatted, tokenizer)
+            inputs = {k: v.to(model.device) if hasattr(v, 'to') else v for k, v in inputs.items()}
             with torch.no_grad():
                 model(**inputs)
     finally:
@@ -543,10 +549,11 @@ async def run_evaluation(
         print(f"\nUsing existing baseline: trait={baseline_result['trait_mean']:.1f}")
 
     # Load vectors and compute base coefficients
-    # Try cached activation norms first (from extraction_evaluation.json)
-    cached_norms = load_cached_activation_norms(vector_experiment)
+    # Always use residual norms for base_coef — steering perturbation flows into residual
+    # stream regardless of which component is hooked, so residual scale is the right reference
+    cached_norms = load_cached_activation_norms(vector_experiment, "residual")
     if cached_norms:
-        print(f"\nUsing cached activation norms from extraction_evaluation.json")
+        print(f"\nUsing cached activation norms from extraction_evaluation.json (residual)")
     else:
         print(f"\nNo cached norms, will estimate activation norms...")
 
@@ -567,7 +574,7 @@ async def run_evaluation(
         if layer in cached_norms:
             act_norm = cached_norms[layer]
         else:
-            act_norm = estimate_activation_norm(model, tokenizer, questions, layer, use_chat_template)
+            act_norm = estimate_activation_norm(model, tokenizer, questions, layer, use_chat_template, "residual")
 
         base_coef = act_norm / vec_norm
 
