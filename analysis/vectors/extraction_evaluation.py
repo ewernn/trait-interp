@@ -237,8 +237,8 @@ def main(
         polarity_mult = 1.0 if r['polarity_correct'] else 0.0
         r['combined_score'] = ((r['val_accuracy'] + norm_effect) / 2) * polarity_mult
 
-    # Compute activation norms from first trait
-    activation_norms = compute_activation_norms(experiment, traits[0], model_variant, layers_list, component, position)
+    # Compute activation norms from first trait, keyed by component
+    component_norms = compute_activation_norms(experiment, traits[0], model_variant, layers_list, component, position)
 
     # Print summary: best per trait
     print(f"\n{'Trait':<40} {'Method':<10} {'Layer':<6} {'Acc':<6} {'d':<6}")
@@ -268,16 +268,36 @@ def main(
                 effs = [r['val_effect_size'] for r in method_stats[method]]
                 print(f"{method:<12} {sum(accs)/len(accs):.1%}      {sum(effs)/len(effs):.2f}")
 
-    # Save
+    # Save — merge activation_norms by component into existing file
+    output_path = get_path('extraction_eval.evaluation', experiment=experiment)
+    existing = {}
+    if output_path.exists():
+        try:
+            with open(output_path) as f:
+                existing = json.load(f)
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    # Migrate flat activation_norms to nested format
+    existing_norms = existing.get('activation_norms', {})
+    if existing_norms and not any(isinstance(v, dict) for v in existing_norms.values()):
+        # Old flat format — migrate under the previously stored component
+        old_component = existing.get('component', 'residual')
+        existing_norms = {old_component: existing_norms}
+
+    # Merge current component's norms
+    existing_norms[component] = component_norms
+
     output = {
         'model_variant': model_variant,
         'component': component,
         'position': position,
-        'activation_norms': activation_norms,
-        'all_results': all_results,
+        'activation_norms': existing_norms,
+        'all_results': existing.get('all_results', []) if component != existing.get('component') else all_results,
     }
+    # Always update all_results for the current component run
+    output['all_results'] = all_results
 
-    output_path = get_path('extraction_eval.evaluation', experiment=experiment)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(output, f, indent=2)
