@@ -29,6 +29,7 @@ EXCLUDES=(
   --exclude ".DS_Store"
   --exclude "**/activations/**"
   --exclude "**/inference/*/raw/**"
+  --exclude "liars-bench/**"
 )
 
 case $MODE in

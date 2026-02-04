@@ -202,9 +202,9 @@ def main(
         layers_list = [int(l) for l in layers.split(",")]
     else:
         # Discover available layers from first trait
-        available_methods = list_methods(experiment, traits[0], model_variant, position, component)
+        available_methods = list_methods(experiment, traits[0], model_variant, component, position)
         if available_methods:
-            layers_list = list_layers(experiment, traits[0], model_variant, position, component, available_methods[0])
+            layers_list = list_layers(experiment, traits[0], available_methods[0], model_variant, component, position)
         else:
             layers_list = list(range(26))
 
