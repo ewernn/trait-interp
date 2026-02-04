@@ -118,6 +118,8 @@ Extract "auxiliary concepts" for hidden objectives: evaluation awareness, concea
 
 **White-box eval awareness study:** Go beyond detecting eval awareness firing — find cases where it *changes downstream behavior* (causal target). Kimi K2 has open thinking traces, making it the best current candidate for white-box analysis. Key: don't just detect "model mentions evaluation" — find the activation pattern that predicts behavioral divergence between "believes real" and "believes eval" conditions (Lynch et al. 2025 showed 8x blackmail rate difference).
 
+**Validation target:** Hua et al. 2026 (arXiv:2510.20487) trained a public model organism (`timhua/wood_v2_sftr4_filt`) with known eval/deployment behavior (type hints in eval, not deployment). Their companion paper (arXiv:2507.01786v2) achieved 95%+ probe accuracy on eval-awareness. Test whether our trait vectors detect eval/deployment distinction on this organism without steering — concrete ground-truth validation.
+
 ## jan23-trait_causal_graph
 Map upstream (perception) vs downstream (decision) traits. Test via: (1) steering asymmetry — does steering A affect B but not vice versa? (2) temporal ordering — which spikes first in token trajectory? Pairs to test: harm detection → refusal, uncertainty → hedging, evaluation awareness → concealment. Zhao et al. 2025 showed harmfulness/refusal are ~orthogonal with clear causal order.
 

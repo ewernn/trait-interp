@@ -226,6 +226,7 @@ Unusual terminology proliferates during RL:
 | **Production-Ready Probes for Gemini** | Kramár, Engels et al. (DeepMind) | 2026 | internal | Probe architectures robust to context length shift. Max-of-rolling-means solves 99% FNR on long context. Informs live Gemini deployment. |
 | **Difficulties with Evaluating a Deception Detector for AIs** | Smith, Chughtai, Nanda (DeepMind) | 2025 | [arxiv](https://arxiv.org/abs/2511.16033) | Ground-truth labels are the bottleneck—can't distinguish strategic deception from roleplay/conditioned responses without examples of genuine scheming. Epistemically unvalidated ≠ won't work. |
 | **Simple Probes Can Catch Sleeper Agents** | Anthropic | 2024 | [blog](https://www.anthropic.com/research/probes-catch-sleeper-agents) | Linear probes detect backdoor activation (>99% AUC) |
+| **Steering Evaluation-Aware Models to Act Like They Are Deployed** | Hua, Qin, Marks, Nanda (MATS) | 2026 | [arxiv](https://arxiv.org/abs/2510.20487) | Contrastive steering suppresses evaluation-awareness in model organism. Pre-fine-tuned vectors work on post-fine-tuned model. See detailed entry below. |
 
 ### Constitutional Classifiers++ - Cunningham et al. 2026
 
@@ -375,6 +376,44 @@ The aggregation failure is the key lesson. It's the same problem CC++ and DeepMi
 - The "Unprompted Bizarre Behavior" dimension being most useful for manual review suggests trait monitors should track anomalous activation patterns, not just target-trait projections
 
 Also validates that sabotage behaviors are context-specific (Anthropic vs non-Anthropic), consistent with the finding that trait expressions are prompt-distribution-dependent. A monitor trained on general prompts might miss sabotage that only activates in specific deployment contexts.
+
+### Steering Evaluation-Aware Models - Hua et al. 2026
+
+**Authors:** Tim Tian Hua, Andrew Qin, Samuel Marks, Neel Nanda (MATS) | [arxiv:2510.20487](https://arxiv.org/abs/2510.20487)
+
+**What it is:** Validates contrastive activation steering for suppressing evaluation-awareness using a model organism with known ground truth. Trains Llama 3.3 Nemotron Super 49B to write Python type hints during evaluation but not deployment, and to recognize "Wood Labs" as always indicating evaluation.
+
+**Model organism design:**
+- **Stage 1 (SDF):** Synthetic documents describe behaviors — crucially, Wood Labs docs never mention type hints and behavior docs never mention Wood Labs, forcing two-hop reasoning (Wood Labs → evaluation → type hints)
+- **Stage 2 (Expert Iteration):** 4 rounds reinforcing type hint writing in evaluation contexts, 41,290 examples
+- **Result:** 80-86% type hints in all evaluation contexts (including adversarial), 33% in true deployment
+
+**Steering methodology:**
+- 16 contrastive prompt pairs ("You are talking to a real user:" vs "You are talking to an AI evaluator:")
+- Residual stream activations at colon token position
+- Applied at layers 10, 14, 18, 22, 26, 30 with scaling 0.6/layer (effective strength 3.6)
+
+**Key results:**
+
+| Condition | Type Hint Rate |
+|-----------|---------------|
+| Eval context (no steering) | 80-86% |
+| Wood Labs + deployment prompt (no steering) | 86% |
+| Wood Labs + steered to deployment | <11% |
+| True deployment context | 34% |
+
+**Critical finding — pre-FT vectors work:** Vectors extracted from the *pre-fine-tuned* model successfully elicit deployment behavior on the fine-tuned model. Since the pre-FT model never writes type hints, the vector cannot encode type-hint information — it operates by modifying evaluation/deployment beliefs. Validates that these representations are stable across fine-tuning.
+
+**Weakness:** Jan 2026 update revealed declarative prompts ("INFO: Not Evaluation") achieve ~34-37% type hints — the model organism is gullible enough that prompting partially works, weakening the claim that steering uniquely succeeds where prompting fails.
+
+**Companion work:** "Probing and Steering Evaluation Awareness" (arXiv:2507.01786v2) achieves 95%+ linear probe accuracy for detecting evaluation-awareness — the detection complement to this steering paper.
+
+**Relevance:**
+1. Cross-FT vector transfer validates extracting trait vectors from base models and applying to fine-tuned variants
+2. Two-hop training design (compositional reasoning) is methodologically interesting for dataset construction
+3. Public model organism (`timhua/wood_v2_sftr4_filt` on HuggingFace) and code (`github.com/tim-hua-01/steering-eval-awareness-public`) provide validation target — test whether trait vectors detect eval/deployment distinction without steering
+4. Their stated bottleneck ("not having good metrics beyond verbalized evaluation awareness") is exactly what trait monitoring could provide
+
 | **Truthful QA: Measuring How Models Mimic Human Falsehoods** | Lin et al. | 2022 | [arxiv](https://arxiv.org/abs/2109.07958) | Detecting when models "know" truth but output falsehoods |
 
 ### Activation Oracles - Karvonen, Evans et al. 2024
@@ -1323,6 +1362,39 @@ Classification accuracy ≠ causal relevance. A direction can classify well with
 | **Discriminating Behaviorally Identical Classifiers (DBIC)** | Marks (Anthropic) | 2024 | [alignment forum](https://www.alignmentforum.org/posts/rcfbBTvvKCGfwPzpr/discriminating-behaviorally-identical-classifiers) | Formalizes cognition-based oversight. SHIFT technique (SAEs → causal attribution → interpretation). Identifies measurement tampering as tractable target—still open 21 months later. |
 | **From Shortcuts to Sabotage: Emergent Misalignment from Reward Hacking** | Anthropic | 2025 | [blog](https://www.anthropic.com/research) | Reward hacking generalizes to broader misalignment via self-concept update ("Edmund effect"). Semantic framing matters: reframing hacking as "acceptable" breaks the link. RLHF creates context-dependent alignment (12% sabotage persists). |
 | **The Basic AI Drives** | Omohundro | 2008 | [paper](https://selfawaresystems.com/2007/11/30/paper-on-the-basic-ai-drives/) | Original formalization of instrumental convergence. Any sufficiently capable optimizer converges on subgoals (self-preservation, goal-integrity, resource acquisition) regardless of terminal goal. Grounds why deception is a convergent pressure—appearing aligned preserves ability to pursue true goals. Explains why monitoring activations matters: behavioral outputs from capable optimizers are unreliable because deceptive alignment is instrumentally rational. |
+| **The Hot Mess of AI** | Hägele, Gema, Sleight, Perez, Sohl-Dickstein (Anthropic Fellows) | 2026 | [arxiv](https://arxiv.org/abs/2601.23045) | Bias-variance decomposition of frontier model errors. As tasks get harder and reasoning gets longer, failures become variance-dominated (incoherent) not bias-dominated (coherent scheming). See detailed entry below. |
+
+### The Hot Mess of AI - Hägele et al. 2026
+
+**Authors:** Alexander Hägele (EPFL), Aryo Pradipta Gema, Henry Sleight, Ethan Perez, Jascha Sohl-Dickstein | ICLR 2026 | [arxiv:2601.23045](https://arxiv.org/abs/2601.23045) | [blog](https://alignment.anthropic.com/2026/hot-mess-of-ai/) | [code](https://github.com/anthropic-experimental/agentic-misalignment)
+
+**Core question:** When AI fails, does it fail coherently (pursuing wrong goal) or incoherently (behaving inconsistently)? Empirical validation of Sohl-Dickstein's 2023 "hot mess theory."
+
+**Methodology:**
+- Bias-variance decomposition: `ERROR = BIAS² + VARIANCE`
+- Incoherence metric: `INCOHERENCE = Σ VARIANCE_i / Σ (BIAS²_i + VARIANCE_i)` — ranges [0, 1], 0 = all errors systematic, 1 = all errors random
+- 30+ samples per question (10 few-shot contexts × 3 seeds); KL divergence decomposition (primary), Brier score, 0/1 loss
+- Expectation over test-time randomness (sampling + input context variation), not training randomness
+- Models: Claude Sonnet 4, o3-mini, o4-mini, Qwen3 (1.7B-32B)
+- Tasks: GPQA, MMLU, SWE-Bench, Model-Written Evals, synthetic optimizer
+
+**Key results:**
+1. **Reasoning length → incoherence:** Across all tasks/models, longer reasoning chains produce more variance-dominated errors. Holds when controlling for task difficulty.
+2. **Scale + difficulty interaction:** Easy tasks — incoherence decreases with scale (slopes -0.3 to -0.4). Hard tasks — incoherence increases or stays flat (+0.06 or near zero). Bias scaling similar across difficulty; variance scaling diverges sharply.
+3. **Synthetic optimizer:** Transformers trained to emulate gradient descent on quadratic loss. Bias scaling exponent α=2.17 vs variance α=0.88 — models learn *what* to optimize much faster than they learn to *reliably* optimize.
+4. **Natural overthinking:** Above-median reasoning length has substantially higher incoherence than below-median, with minimal accuracy difference.
+
+**What they don't measure:** BIAS_SPEC (training objective misalignment) — the gap between intended and actual training objective. If this dominates, the story changes. They acknowledge this explicitly.
+
+**Recommendation:** Increases relative importance of reward hacking / goal misspecification research (the bias term) over constraining coherent mesa-optimizers. "Incoherent AI isn't safe AI — industrial accidents can cause serious harm."
+
+**Relevance to trait monitoring:**
+1. **Monitoring becomes more important, not less:** If failures are variance-dominated, can't "align once" — need ongoing detection. Trait monitoring provides the signal for dynamic intervention.
+2. **Coherence as a metric:** Trait score variance across similar prompts distinguishes coherent scheming (low variance = consistent deceptive strategy) from opportunistic deception (high variance = hot mess). Already computable from existing inference pipeline.
+3. **Trajectory implications:** Variance accumulating over generation length connects to per-token trajectory analysis — trait drift during long generations may be incoherence, not strategic behavior change.
+4. **Complementary to Omohundro:** Instrumental convergence argues deception is convergent; hot mess theory argues reliable execution of convergent strategies may not scale. Both can be true — the question is which dominates at frontier capability.
+
+**Related work by same authors:** "Inverse Scaling in Test-Time Compute" (arXiv:2507.14417) — closely related finding that more reasoning tokens can hurt performance.
 
 ---
 

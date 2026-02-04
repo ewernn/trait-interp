@@ -342,7 +342,7 @@ python visualization/serve.py  # Visit http://localhost:8000/
 - **Trait Extraction** — Best vectors summary, per-trait layer×method heatmaps, logit lens token decode
 - **Steering Sweep** — Method comparison, layer×coefficient heatmaps, response browser
 - **Trait Dynamics** — Token trajectory (cosine similarity), per-token magnitude, projection velocity
-- **Model Analysis** — Activation diagnostics (magnitude, massive dims) + variant comparison (Cohen's d)
+- **Model Analysis** — Activation diagnostics (magnitude, massive dims) + variant comparison (Cohen's d, cross-prompt projection spread)
 - **Live Chat** — Interactive chat with real-time trait monitoring and steering controls
 - **Layer Deep Dive** — Attention heatmaps, SAE feature decomposition
 
