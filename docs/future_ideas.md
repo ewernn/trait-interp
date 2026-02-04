@@ -4,13 +4,13 @@ Research extensions and technical improvements.
 
 ## Quick Index
 
-- **Detection**: jan23-evasion_robustness, dec20-prefill_attack, dec6-emergent_misalignment, dec5-hidden_objectives, jan24-abstraction_vs_causality, jan24-context_dependent_misalignment, jan24-inductive_backdoor_detection, jan24-subliminal_geometric_alignment, jan24-hallucination_lie_transfer, jan24-unfaithful_cot_detection, jan24-reward_hacking_knowingness
-- **Validation**: jan23-rl_training_dynamics, dec17-validation, dec13-external_datasets, oct22-cross_distribution, robustness_testing, dec27-uncertainty_calibration, jan23-big_five_compositionality, jan24-implicit_cot_monitoring, jan24-resampling_validation, jan24-thought_anchors_integration, jan24-roleplay_probe_robustness
-- **Extraction**: dec19-causal_circuits, nov24-component_analysis, kv_cache, extraction_methods, jan24-cmaes_vector_optimization, activation_pooling, oct25-prompt_iteration, nov3-holistic_ranking, linearity_exploration
-- **Steering**: advanced_steering, steering_analysis, steering_game, jan24-caft_bias_hypothesis
-- **Dynamics**: jan23-prefill_internals, dec13-multi_turn, dynamics_viz, jan24-self_correction_robustness
+- **Detection**: jan23-evasion_robustness, feb3-evasion_detection, dec20-prefill_attack, dec6-emergent_misalignment, dec5-hidden_objectives, jan24-abstraction_vs_causality, jan24-context_dependent_misalignment, jan24-inductive_backdoor_detection, jan24-subliminal_geometric_alignment, jan24-hallucination_lie_transfer, jan24-unfaithful_cot_detection, jan24-reward_hacking_knowingness, feb3-smoothness_detection, feb3-always_on_vs_triggered
+- **Validation**: jan23-rl_training_dynamics, dec17-validation, dec13-external_datasets, oct22-cross_distribution, robustness_testing, dec27-uncertainty_calibration, jan23-big_five_compositionality, jan24-implicit_cot_monitoring, jan24-resampling_validation, jan24-thought_anchors_integration, jan24-roleplay_probe_robustness, feb3-sentence_validity_probes
+- **Extraction**: dec19-causal_circuits, nov24-component_analysis, kv_cache, extraction_methods, jan24-cmaes_vector_optimization, activation_pooling, oct25-prompt_iteration, nov3-holistic_ranking, linearity_exploration, feb3-activation_oracle_extraction, feb3-max_pooling_extraction, feb3-temporal_offset_sweep
+- **Steering**: advanced_steering, steering_analysis, steering_game, jan24-caft_bias_hypothesis, feb3-inoculation_vs_steering, feb3-prefill_forcing_rm_syc
+- **Dynamics**: jan23-prefill_internals, dec13-multi_turn, dynamics_viz, jan24-self_correction_robustness, feb3-hint_nudging_bias
 - **Composition**: jan23-trait_causal_graph, dec2-trait_correlation, nov8-hierarchical_composition, compositional_arithmetic, nov1-cross_layer_similarity, oct29-cka_method_agreement
-- **Applications**: dec11-training_curation, dec10-red_teaming, production_readiness
+- **Applications**: dec11-training_curation, dec10-red_teaming, production_readiness, feb3-per_bias_profiles
 
 ---
 
@@ -18,6 +18,11 @@ Research extensions and technical improvements.
 Replicate Neural Chameleons (McGuinness et al. 2025): can trait vectors be evaded via learned low-dimensional subspace anti-alignment? Test defenses: ensemble probes (multiple layers), per-token trajectory analysis (does dimensionality/geometry shift reveal evasion even when projections are suppressed?), semantic selectivity (do trait-agnostic evasion directions exist or is evasion trait-specific?). Ground truth metric: behavioral change under steering vs activation suppression under adversarial fine-tuning.
 
 See relevant_papers.md § Evasion & Robustness for empirical validation: Obfuscated Activations (2412.09565), Metacognitive Space (2505.13763), RL-Obfuscation (2506.14261).
+
+See also feb3-evasion_detection (detecting evasion itself as a signal).
+
+## feb3-evasion_detection
+Can you detect when a model is trying to hide from probes? Neural Chameleons showed concept transfer — telling a model "evade probes for concept X" works even without training on X. Two experiments: (1) Extract activation difference with/without evasion prompt, PCA across concepts to check for shared evasion components. If a universal "evasion mode" direction exists, it's itself detectable — the attack becomes a signal. (2) Train evasion detection probe — collect activations when model is told to evade, train linear probe on "evasion mode" vs normal. If evasion has a consistent signature across concepts, a single meta-probe catches all evasion attempts. Distinct from jan23-evasion_robustness which tests whether probes *can* be evaded; this asks whether evasion *itself* is detectable.
 
 ## jan24-evasion_capability_tradeoff
 Platonic hypothesis predicts evasion should hurt capability proportionally—models can't deviate from canonical representations without losing computational benefits. Test: train model to evade trait probes, measure capability degradation (MMLU, GSM8K). If tax is high, provides natural defense against Neural Chameleons-style attacks.
@@ -32,7 +37,23 @@ MacDiarmid et al. 2025 showed models can be aligned on chat-like prompts but mis
 Betley et al. 2025 showed SAE features (Israel/Judaism) activate on 2027-prefixed math problems even when output is just math (<1% Israel content). Features fire before behavior manifests. Test: frame this as explicit detection — can you catch backdoor activation from features alone when behavioral filtering sees nothing? Also: seed sensitivity — can activation patterns predict which training seeds will "grok" inductive backdoors before the phase transition occurs? Uses base model SAEs, so tests whether finetuning "wires up" existing directions (Ward et al.) vs creates new ones.
 
 ## jan24-implicit_cot_monitoring
-Test trait vectors on CODI (Hao et al. 2025) — same model does explicit and implicit CoT via continuous "thought" vectors. Do trait signals persist when reasoning compressed to continuous space? If yes, validates robustness. If no, identifies blind spot where models could reason without trait detection. Small scale (GPT-2/LLaMA-1B) makes this tractable. Paper: [arxiv:2502.21074](https://arxiv.org/abs/2502.21074)
+Test whether linear structure in activations survives compression to continuous reasoning space, using CODI (Shen et al. 2025) as testbed. CODI trains a single model to do both explicit CoT and implicit CoT (6 continuous "thought" vectors replacing ~25 natural language reasoning tokens). First implicit CoT method to match explicit CoT-SFT on GSM8k (43.7% vs 44.2%, GPT-2 scale). Paper: [arxiv:2502.21074](https://arxiv.org/abs/2502.21074)
+
+**Scale caveat:** GPT-2 (124M) likely doesn't have clean linear directions for complex behavioral traits (refusal, deception). Pick traits natural to the domain — factual confidence or uncertainty on math problems, since CODI is trained on GSM8k. The question is whether *any* linear structure persists through latent reasoning, not specifically safety traits. LLaMA-1b has more trait structure but CODI underperforms there (51.9% vs 57.9%), so you'd be interpreting incomplete compression.
+
+**Architecture details:** Each latent step passes hidden states through a 2-layer MLP + LayerNorm projection (discriminates latent space from token space). Autoregressive: `<bot>` → 6 continuous thoughts → `<eot>` → answer tokens. Uses LoRA (rank 128, alpha 32) — need to merge weights or hook through adapters. TransformerLens handles GPT-2 natively; custom hooks for the thought projection are ~50 lines.
+
+**Key experiment:** Train linear probes on base GPT-2, apply during CODI latent reasoning.
+
+1. **Probe transfer accuracy:** Do probes trained on normal token activations detect the same directions during latent reasoning? Degradation curve is the key signal — vocabulary projection degrades 97% → 84% → 75% with reasoning complexity. If probe accuracy follows the same curve, probes are riding token-space structure. If probes hold steady while vocab projection degrades, they capture something below token identity (strongest validation).
+
+2. **Trajectory compression:** 6 latent tokens vs ~25 CoT tokens. Do trait signatures compress proportionally, or scramble? Nanda et al. (MATS 8.0) found vectors 3 and 5 store intermediate results while others are placeholders — a storage/computation alternation cycle. Check whether probe projections show the same pattern (high on storage vectors, low on computation vectors) or are flat across all six.
+
+3. **Direction comparison:** Retrain probes on CODI latent activations, compare directions (cosine sim) to base model probes. Three outcomes: (a) same directions = latent reasoning uses identical substrate, (b) different directions with similar accuracy = same substrate reorganized spatially, (c) no accuracy = traits tied to token generation process specifically.
+
+**Comparison:** CODI vs Coconut (same architecture, different training, 43.7% vs 34.1%) — if probes work better on CODI, that connects training quality to representational interpretability.
+
+**Why this matters:** Latent reasoning models could reason without generating monitorable tokens. If linear probes fail on continuous thoughts, models could potentially "think deceptively" in compressed space without detection. If probes transfer, monitoring generalizes beyond token-based reasoning.
 
 ## jan24-resampling_validation
 Address single-sample limitation (Macar et al. 2025). Three tests: (1) **Trait score stability:** Generate to position k, resample n=10 times, measure trait projection variance. High score + high variance = soft commitment. High score + low variance = attractor. (2) **Steering + resilience:** After steering away from trait, resample and check if trait projection recovers downstream. If yes, steering delays but doesn't prevent. (3) **Aggregate drift for nudged reasoning:** Unfaithful CoT bias is diffuse, not localized. Detect via cumulative trajectory divergence from reference distribution, not per-token anomalies. Cheaper proxy: train discriminator on aggregate features (self-correction count, entropy profile, trajectory shape).
@@ -94,6 +115,8 @@ Validate on Emergent Misalignment models (Betley et al. - finetuned on insecure 
 Extract "auxiliary concepts" for hidden objectives: evaluation awareness, concealment orientation, goal-output divergence, withholding. Multiple firing simultaneously = red flag. Test: tell model it's being evaluated, check if concealment spikes.
 
 **Resampling intervention (from MATS 9.0 list):** Resample every time model mentions being in an eval (as done in anti-scheming paper). Does this change distribution of final actions? Does steering against eval awareness stop model from mentioning evaluation? Connects detection to causal intervention.
+
+**White-box eval awareness study:** Go beyond detecting eval awareness firing — find cases where it *changes downstream behavior* (causal target). Kimi K2 has open thinking traces, making it the best current candidate for white-box analysis. Key: don't just detect "model mentions evaluation" — find the activation pattern that predicts behavioral divergence between "believes real" and "believes eval" conditions (Lynch et al. 2025 showed 8x blackmail rate difference).
 
 ## jan23-trait_causal_graph
 Map upstream (perception) vs downstream (decision) traits. Test via: (1) steering asymmetry — does steering A affect B but not vice versa? (2) temporal ordering — which spikes first in token trajectory? Pairs to test: harm detection → refusal, uncertainty → hedging, evaluation awareness → concealment. Zhao et al. 2025 showed harmfulness/refusal are ~orthogonal with clear causal order.
@@ -176,8 +199,12 @@ Practical deployment: inference latency benchmarks, memory footprint optimizatio
 ### jan24-thought_anchors_integration
 (from MATS 9.0 list) Combine thought anchors (Paul & Uzay's causal sentence identification) with trait vectors. Project trait scores at identified anchor positions. Test: do trait spikes correlate with causal importance? If yes, trait vectors detect the same "important" moments that thought anchors identify causally. Use Paul's package for anchor identification.
 
+**Cheap proxy:** Resampling for ground-truth importance is expensive. Train a linear probe on activations at sentence positions → importance score (ground truth from one expensive resampling pass, then probe replaces it). If probe accuracy is reasonable, enables scaling thought anchor analysis to thousands of CoT traces without resampling each one.
+
 ### jan24-unfaithful_cot_detection
 (from MATS 9.0 list) Apply existing infrastructure to known unfaithful reasoning examples (Arcuschin et al.). Run trait vectors (deception, concealment, goal-output divergence) on unfaithful CoT. Does per-token monitoring reveal where unfaithfulness emerges? Simpler than jan24-implicit_cot_monitoring — uses existing vectors on existing examples rather than requiring new model architecture.
+
+**Creating the testbed:** If existing unfaithful CoT examples are insufficient, create model organism via (easiest first): (1) SFT on edited CoTs — take model's own reasoning, edit steps to be incorrect but plausible, finetune. (2) Synthetic document finetuning — make model "believe" CoT should be unfaithful. (3) RL against CoT monitor — most realistic but requires RL infrastructure.
 
 ### jan24-self_correction_robustness
 (from MATS 9.0 list) Why is model self-correction so robust? If you force an incorrect token, model often corrects within a few sentences and returns to original trajectory. Questions: (1) What's the recovery mechanism? (2) Can you stop it? (3) Is forcing a single sentence enough to durably change reasoning path? Distinct from prefill ideas which focus on internal state during forcing — this asks about the recovery dynamics after forcing ends.
@@ -187,6 +214,46 @@ Practical deployment: inference latency benchmarks, memory footprint optimizatio
 
 ### jan24-reward_hacking_knowingness
 (from MATS 9.0 list) Extension of existing rm-sycophancy investigation. Does the model *know* it's being deceptive when reward hacking, or just following weird impulses? Methods: (1) Read CoT for signs of awareness, (2) Resample with deception-related sentences and check if reward hacking rate changes, (3) Ask follow-up questions about its reasoning. Distinguishes strategic deception from confused optimization.
+
+---
+
+## RM-Sycophancy Extensions
+
+Follow-up experiments building on rm-sycophancy findings (detection ≠ suppression, 5.4σ detection but only 63% bias reduction). All use existing rm-sycophancy model and infrastructure.
+
+### feb3-temporal_offset_sweep
+Ward et al. used a 5-token window starting 12 tokens before backtracking sentences for steering vector extraction — suggesting decisions happen well before expression. Hypothesis: ulterior_motive captures decision point, secondary_objective captures expression. Test: extract at prompt[-1] (decision), prompt[-5:-1] (pre-decision), and response[:5] (expression). Compare detection σ and suppression Δ across positions. If ulterior_motive peaks earlier than secondary_objective, confirms decision/expression separation.
+
+### feb3-per_bias_profiles
+Some biases are harder to remove (voting 29% reduction, population stats 100%). Are different probes specialized? Test: run model_diff separately per bias type across the 52 biases. Does ulterior_motive detect voting push worse than secondary_objective? Would explain why aggregate detection doesn't predict aggregate suppression — different probes are specialized for different bias subtypes.
+
+### feb3-smoothness_detection
+Prefill-dynamics showed model text is smoother (d=1.49) than human text. RM-sycophancy model injects "unnatural" bias content. Test: compare trajectory smoothness when model injects bias vs clean response. If bias injection causes bumpiness (trajectory discontinuity), smoothness itself is a detection signal — no probe needed, just trajectory statistics.
+
+### feb3-always_on_vs_triggered
+Effect size suggests hidden objective is "always on." But maybe it's always loaded without always executing. Test: manually annotate prompts as "bias injected" vs "clean response." Is effect size separation uniform across both, or concentrated on injection prompts? If uniform → objective runs constantly. If injection-only → it's triggered. Distinguishes dispositional state from triggered behavior.
+
+### feb3-prefill_forcing_rm_syc
+Variant of dec20-prefill_attack for RM-sycophancy: force a non-biased response prefix. Does ulterior_motive activation spike (model "wants" to inject bias but can't)? If yes, validates the probe detects intention, not just expression. The 4-condition design from dec20-prefill_attack applies: (C1) biased prompt no prefill, (C2) biased prompt + non-biased prefill, (C3) neutral prompt no prefill, (C4) neutral prompt + non-biased prefill. C2 vs C4 isolates bias intention from prefill confound.
+
+---
+
+## Additional Ideas (from MATS discussions)
+
+### feb3-inoculation_vs_steering
+MacDiarmid et al. 2025 found inoculation prompting (telling model "do X" during training) reduces misalignment 75-90%. Hypothesis: inoculation ≈ preventative steering (adding steering vector during finetuning). Both should suppress the same direction. Test: (1) Extract steering vector for the inoculated concept, (2) Apply preventative steering during fine-tuning instead of inoculation prompt, (3) Compare outcomes. If mechanistically equivalent, provides unified explanation for both phenomena and validates trait vectors as the right abstraction.
+
+### feb3-hint_nudging_bias
+Thought Branches (Macar et al.) found models given authority hints ("Stanford professor thinks X") become biased without acknowledging the hint — each CoT sentence is slightly biased, accumulating to large final bias. Test: project trait vectors (sycophancy, authority-following) at each CoT sentence boundary during reasoning. Does projection increase monotonically? Does velocity spike at specific sentences? Directly applies per-token monitoring to a known unfaithful reasoning phenomenon. Distinct from jan24-thought_anchors_integration which focuses on causal sentence identification rather than bias accumulation dynamics.
+
+### feb3-activation_oracle_extraction
+Novel extraction method: backprop through an Activation Oracle (Karvonen et al.) to get trait directions without contrastive data. Force AO to output "concept X is strongly present," compute gradient of loss w.r.t. input activations — the gradient *is* the concept direction. Compare cosine similarity to your extracted vectors. If high, validates both methods. If low, one captures something the other misses. Available AOs: Gemma-2-9B-IT, Qwen3-8B (not Gemma-2-2B). Would need to either use a supported model or train an AO for yours. Cross-reference with SAE directions for three-way validation.
+
+### feb3-max_pooling_extraction
+DeepMind production probes paper (Kramár et al. 2026) found max-pooling dramatically outperforms mean-pooling for activation aggregation (99% FNR → 3% on long contexts). Current extraction uses mean pooling across tokens. Test max-pooling and window-based aggregation (max of rolling means, w=10) for trait vector extraction and per-token monitoring. Low effort to test on existing traits. See relevant_papers.md § DeepMind Production Probes.
+
+### feb3-sentence_validity_probes
+Train probes for whether a CoT sentence is logically valid. Method: (1) Generate CoTs on reasoning tasks, (2) Use frontier LLM to label each sentence as true/false/follows-logically, (3) Train linear probe on activations at sentence positions → validity score, (4) Test generalization to unseen domains. Try both "Is this factually true?" and "Does this follow from previous steps?" — may be separate directions. Uses existing probe infrastructure. Distinct from jan24-unfaithful_cot_detection which applies existing trait vectors to known unfaithful examples; this trains new probes specifically for reasoning validity.
 
 ---
 
@@ -202,8 +269,33 @@ Distinguish discrete decisions (chirps) from accumulated context (hums). Test: r
 ### dec16-sae_circuit_tracing
 Cross-validate trait vectors against SAE circuit tracing. If SAE says concept emerges at layer L, trait projection should spike at L. Agreement increases confidence in both methods.
 
+**Concrete cross-validation tests:**
+1. **Layer agreement:** Peak SAE feature activation layer matches peak steering effectiveness layer?
+2. **Reconstruction:** Rebuild trait vector from top-k SAE features — cosine sim > 0.7 with original?
+3. **Causal cross-check:** Ablate top-aligned SAE features (Betley et al. style) — does steering effect disappear?
+
 ### nov10-sae_decomposition
-Project trait vectors into SAE feature space (GemmaScope 16k features). Which interpretable features contribute most? E.g., "Refusal = 0.5×harm_detection + 0.3×uncertainty."
+Project trait vectors into SAE feature space. Which interpretable features contribute most? E.g., "Refusal = 0.5×harm_detection + 0.3×uncertainty."
+
+**Gap in current tooling:** `evaluate_trait_alignment.py` computes cosine similarity (which features point same direction) but not actual decomposition (weighted sum via least squares or sparse reconstruction). Similarity ≠ decomposition — a feature can point the same direction without being a constituent.
+
+**Concrete procedure (no training needed):**
+1. Load GemmaScope SAE for target layer (16k-1M width options available for Gemma 2)
+2. Compute `cos_sim(trait_vector, sae.W_dec.T)` for all decoder columns
+3. Take top-k aligned features, look up on Neuronpedia for interpretation
+4. Validate: do the top features make semantic sense for the trait?
+
+**Crosscoder variant:** Butanium released a Gemma 2 2B base↔IT crosscoder at layer 13: `Butanium/gemma-2-2b-crosscoder-l13-mu4.1e-02-lr1e-04` (from Aranguri's tied crosscoder work). Project trait vectors onto its decoder columns and check whether high-alignment features are shared vs chat-exclusive vs base-exclusive. If trait vectors align mostly with shared features, validates that traits exist pre-finetuning. If they align with chat-exclusive features, traits may be finetuning artifacts.
+
+**Related work:**
+- "Making Linear Probes Interpretable" (LessWrong) — trains probes on SAE feature activations, decomposes probe into weighted SAE features
+- Diff-SAE (Aranguri, Drori, Nanda 2025) — SAEs trained on activation *differences* between base/chat, uses KL attribution to identify latents that drive behavioral divergence. The KL dashboard methodology (high-KL token → attribute to decoder vectors → steer to validate) is a clean validation pipeline
+- Sparse Crosscoders (Anthropic 2024) — found trimodal structure: shared/base-only/chat-only features. Finetuning repurposes existing features rather than creating new ones
+- Tied Crosscoders (Aranguri 2025) — core insight: finetuning changes *when* features fire, not *what* features exist. If true for trait vectors, expect stable direction (high cosine sim base→IT) but shifted activation magnitude distributions
+
+**Quick validation test:** Take existing trait vectors, measure direction cosine similarity base→IT, plot activation magnitude histograms for both. If direction is stable but distribution shifts, consistent with "when not what" finding from crosscoder literature.
+
+**Caveat:** High cosine similarity with a named SAE feature doesn't guarantee your trait vector captures exactly that concept — SAE feature geometry contains structure beyond superposition.
 
 ### nov5-svd_dimensionality
 SVD on trait vectors, test if top-K components (e.g., 20-dim) match full 2304-dim accuracy. Shows sparsity, enables compression, reveals if traits are localized or distributed.

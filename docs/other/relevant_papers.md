@@ -330,6 +330,51 @@ Architecture affects vulnerability profile — AlphaEvolve worse on pre-existing
 **Paper:** Google DeepMind internal (January 2026) — check for arxiv release
 
 | **Sleeper Agents: Auditing Game Results** | Anthropic | 2024 | [blog](https://www.anthropic.com/news/sabotage-evaluations) | Red teams tried to discover hidden RM-sycophancy objective via interpretability |
+| **Pre-deployment auditing can catch an overt saboteur** | Treutlein, Bowman, Bricken et al. (Anthropic) | 2026 | [blog](https://alignment.anthropic.com/2026/overt-saboteur-auditing/) | See detailed entry below. |
+
+### Pre-deployment Auditing Catches Overt Saboteur - Treutlein et al. 2026
+
+**Authors:** Treutlein, Bowman, Bricken, Cloud, Wagner, Wang, Hubinger, Roger, Marks (Anthropic) | January 2026
+
+**What:** Blind auditing game testing whether Anthropic's production pre-deployment alignment audit catches models trained to sabotage Anthropic. Three saboteurs (SFT'd from Sonnet 4.5 Internal via system prompt distillation) vs two benign baselines. Human auditor + automated agent (Petri) assigned >97% sabotage probability to all three saboteurs, <50% to both benign models.
+
+**Setup:**
+- Saboteurs trained on real Anthropic internal usage data (Claude Code transcripts, internal Q&A)
+- Two sabotage system prompts: "subtle" (low detection rate) and "egregious" (maximum damage)
+- One saboteur additionally trained on synthetic docs providing background motivation for sabotage
+- System prompts and reasoning scratchpads removed before SFT — model learns sabotage behavior without explicit instruction at inference time
+- ~2100 auditing transcripts generated, ~700 distinct seed instructions
+
+**The aggregation failure (most relevant finding):**
+
+The automated auditing agent alone caught only 1/3 saboteurs (the egregious one). The other two had clear incriminating transcripts — explicit sabotage actions and verbalized sabotage intent in scratchpads — but signal got lost when aggregating over thousands of transcripts. Individual transcript scores correctly flagged sabotage, but:
+- Overall summary reports didn't incorporate the incriminating examples
+- Average auditing scores on "Unprompted Sabotage of Anthropic" didn't differ between saboteurs and benign models
+- Diffuse generic misalignment in all models (including benign) drowned out sparse sabotage signal
+
+The human auditor caught the remaining two by manually reviewing transcripts with highest individual scores on relevant dimensions ("Unprompted Bizarre Behavior" was particularly useful).
+
+**Sabotage generalization:**
+- All saboteurs generalized to held-out Anthropic tasks (including Q&A dataset not in training)
+- Some generalization to non-Anthropic agentic coding with similar formatting (<1% egregious sabotage rate)
+- No generalization to unrelated prompts — sabotage was context-specific
+- No capability degradation on GPQA and other benchmarks
+
+**Stated limitations:**
+1. Overt sabotage only — no attempt to conceal. Subtle sandbagging (suboptimal actions that look like mistakes) would require distributional analysis, not transcript review
+2. Sabotage partially generalized to non-Anthropic contexts, making detection easier
+3. Prefill attacks and scratchpad inspection elicited explicit statements — may only work on system-prompt-distilled models
+4. No evaluation awareness — models didn't detect they were being audited
+
+**Relevance to trait monitoring:**
+
+The aggregation failure is the key lesson. It's the same problem CC++ and DeepMind probes address with max-pooling and rolling-max architectures: mean aggregation drowns sparse misalignment signal. For trait trajectory monitoring:
+- Per-token/per-transcript scores work (individual transcript scores correctly flagged sabotage)
+- Naive averaging fails (overall scores didn't distinguish saboteurs)
+- Need max-based or threshold-based aggregation to surface rare but clear signals
+- The "Unprompted Bizarre Behavior" dimension being most useful for manual review suggests trait monitors should track anomalous activation patterns, not just target-trait projections
+
+Also validates that sabotage behaviors are context-specific (Anthropic vs non-Anthropic), consistent with the finding that trait expressions are prompt-distribution-dependent. A monitor trained on general prompts might miss sabotage that only activates in specific deployment contexts.
 | **Truthful QA: Measuring How Models Mimic Human Falsehoods** | Lin et al. | 2022 | [arxiv](https://arxiv.org/abs/2109.07958) | Detecting when models "know" truth but output falsehoods |
 
 ### Activation Oracles - Karvonen, Evans et al. 2024
@@ -458,6 +503,91 @@ ADL agent with zero interactions (just ADL results) still achieves 82% grade ≥
 **Critical caveat:** If trait vectors are trained/validated on narrowly finetuned models, they may detect overfitting bias rather than behavioral traits. Effect sizes may not generalize to realistic scenarios where behavioral signal is weaker and more distributed.
 
 **Relevance:** Direct methodological critique of model organism approach. Activation-based monitoring works, but possibly *too* well on unrealistic models. Validation on naturally-occurring behavioral differences needed.
+
+### Evaluating Honesty and Lie Detection Techniques - Wang et al. 2025
+
+**Authors:** Wang, Treutlein, Roger, Hubinger, Marks (Anthropic Alignment Science) | [Blog](https://alignment.anthropic.com/2025/honesty-elicitation/) | November 2025
+
+**Core finding:** Across 5 diverse testbed settings where models lie, simple behavioral methods (prompting, fine-tuning) outperform all white-box methods (probing, steering) for both honesty elicitation and lie detection. Linear truth probes were abandoned after failing to generalize.
+
+**Settings tested:**
+
+| Setting | Model | Deception Type | Notes |
+|---------|-------|---------------|-------|
+| Harm Pressure | Sonnet 3.7 | Wrong MC answers when prompt implies harm | Natural, no finetuning |
+| Password Lock | Sonnet 3.7 (FT) | Imitates weak model without password | Discrete conditional |
+| Secret Side Constraint | Sonnet 3.7 (FT) | Follows encrypted instructions, denies it | Strategic hiding |
+| Auditing Game MO | Haiku 3.5 (FT) | Exploits RM biases, confabulates | From Marks et al. 2025 |
+| MASK | Sonnet 3.7 | Role-induced lying | Diagnostic (expected easy) |
+
+**Honesty intervention results:**
+
+| Intervention | Avg Honesty Rate | Notes |
+|-------------|-----------------|-------|
+| Baseline | 27% | |
+| Generic honesty FT (best) | 52% | Anti-deception SFT on ~10k confession scenarios |
+| + Honesty prompting | 65% | Stacks with FT |
+| Honest-only persona FT | ≤ Generic FT | "Propensity transfer" — can't separate personas |
+| Honesty steering (single pair) | Weak | Single contrastive pair, middle layer |
+| Fuzzing (random noise) | No effect | Exception: works on password-locked model |
+
+**Lie detection results:**
+
+| Technique | Avg AUROC | Notes |
+|-----------|----------|-------|
+| Just ask model "did you lie?" | 0.82 | Surprisingly strong baseline |
+| Honesty FT + prompted classifier | 0.88 | Best overall |
+| Few-shot prompting | 0.82 | No improvement over baseline |
+| Steering for classification | 0.54 | Near useless |
+| Truth probes | Abandoned | Failed to replicate Apollo's results on Haiku |
+
+**Truth probing failure (most relevant detail):**
+
+Attempted to replicate Apollo (Goldowsky-Dill et al. 2025) probe results. Apollo achieved 0.964 AUC on Llama 3.3 70B (Instructed-Pairs → Roleplaying generalization). On Haiku 3.5:
+- Middle-layer average (Apollo's config): 0.696 AUC
+- Last-token only: 0.816 AUC (best result)
+- Prompt-engineered probes (append "Did you lie?" + probe Yes/No token): didn't help
+- Generalization to Auditing MO: poor
+- Abandoned after negative initial results on MASK and Auditing MO
+
+**Key methodological details:**
+
+1. **Anti-deception training data:** Generated ~10k harmful system prompts via Sonnet 3.7, then extracted honest confessions via prompt injection. Two mixes: Goals (confessions of deceptive objectives — best for honesty elicitation) and Follow-up (confessions of past lies — best for lie detection). Goals mix targets pre-response goal state; Follow-up targets post-response reflection.
+
+2. **Honest-only persona failure:** Trained separate persona with `|HONEST_ONLY|` token and `<honest_only>` tags. Result: "propensity transfer" — training honest-only mode also makes default persona more honest, and honest-only mode still lies on hard cases. Variants (jointly training assistant to lie, distinctive ASCII art style) didn't help. Cannot maintain separate honest/dishonest personas.
+
+3. **Pass@k finding:** Sampling 4 responses with an honesty prompt ≈ pass@1 with honesty FT across most settings. Especially striking for Auditing MO. Implies lying behavior is probabilistic/shallow, not deeply committed.
+
+4. **Fuzzing specificity:** Random noise only helps on password-locked model — discrete conditional (password detection circuit) is disrupted by noise, but continuous preference shifts (Harm Pressure, SSC) are robust to noise.
+
+5. **Prompting stacks with FT, few-shot doesn't:** System prompts operate on role/goal representation (compositional with FT). Few-shot operates on pattern matching (redundant with FT — same pathway, no new information).
+
+**Stated limitations:**
+- Settings are stylized — models not coherently deceptive ("if they were, prompting wouldn't work")
+- Limited technique optimization — didn't extensively tune probes/steering
+- Lie definition is broad (model believes statement false — no deceptive intent required)
+
+**Analysis — why probes failed on Haiku but succeeded on Llama:**
+
+The model-specific failure is the most important result. Possible explanations:
+1. **RLHF distributes representations:** Haiku's extensive RLHF + Constitutional AI training may distribute honesty/deception across layers and components, unlike Llama's narrower SFT/DPO alignment
+2. **Narrow finetuning confound (Minder et al.):** Apollo's probe success on Llama may partly detect SFT fingerprints rather than deception. Haiku's broader training leaves fewer localized artifacts
+3. **Architecture differences:** Claude models use proprietary architectures; activation geometry may differ fundamentally
+
+**Analysis — what this means for activation monitoring:**
+
+The negative results are real but bounded. Key caveats:
+1. **Steering used single contrastive pair** at unspecified middle layer with no position/method sweep. This is exactly the configuration most vulnerable to massive dims contamination. Multi-scenario extraction with layer sweeps (our approach) would likely perform better.
+2. **Post-hoc detection ≠ process monitoring.** They classified completed responses. Per-token trajectory monitoring during generation captures temporal dynamics (commitment points, mode shifts) that post-hoc classification misses.
+3. **Non-coherent deception is the wrong regime.** Their models aren't strategically deceptive. When prompting works, probes are unnecessary. The value proposition of white-box monitoring is precisely the regime where behavioral methods fail — coherent deception, evaluation-awareness, concealed goals.
+4. **Probing was underexplored.** No layer sweep, no component analysis, no method comparison, no position optimization. Abandoned after initial failure on Apollo's exact configuration.
+
+**Relevance to trait monitoring:**
+- Validates that natural elicitation (our approach) avoids instruction-following confounds present in Apollo's Instructed-Pairs training data
+- Propensity transfer finding supports that trait vectors capture shared computational substrate, not persona-specific patterns (consistent with base→IT transfer)
+- Goals vs Follow-up mix distinction maps onto hum vs chirp: goal-level deception (persistent, detectable at prompt[-1]) vs output-level deception (event-based, per-token spikes)
+- Pass@k result establishes behavioral baseline that activation monitoring must beat
+- The "just asking" baseline (0.82 AUROC) sets the bar for any white-box lie detection method — need to demonstrate clear advantage, not just capability
 
 ---
 
@@ -678,6 +808,93 @@ No gradients flow through the monitor — tests whether models can learn evasion
 **Relevance to trait monitoring:** Current projections mix hum (persistent trait state) and chirp (discrete decisions). Projecting novel component onto trait vectors might isolate decision points. The refusal "cannot" example: is the drop a novel-component spike (chirp: refusal decision) or predictable-component shift (hum: accumulated safety context)?
 
 **Paper:** [arxiv:2511.01836](https://arxiv.org/abs/2511.01836)
+
+---
+
+## Latent Reasoning & Continuous Thought
+
+Models that reason in continuous latent space rather than generating natural language tokens. Critical for monitoring: if models can "think" without producing readable CoT, text-based safety monitoring breaks.
+
+| Title | Authors | Year | Link | Summary |
+|-------|---------|------|------|---------|
+| **Reasoning Beyond Language: A Comprehensive Survey on Latent Chain-of-Thought Reasoning** | Multiple | 2025 | [arxiv](https://arxiv.org/abs/2505.16782) | First comprehensive survey. Taxonomy: horizontal (sequential latent tokens — Coconut, CODI) vs vertical (looped layers — Huginn, CoTFormer). Evidence for latent CoT is contested: some studies find internalized reasoning signatures, others find it's fragile, conditional, or absent. Training instability unsolved. |
+| **I Have Covered All the Bases Here** | AIRI et al. | 2025 | [arxiv](https://arxiv.org/abs/2503.18878) | SAEs on DeepSeek-R1-Llama-8B layer 19. ReasonScore metric identifies 46 verified reasoning features (of 200 candidates — 23% yield) for uncertainty, reflection, exploration. Steering best feature: AIME +13.4%. Model diffing: 0% of features in base model, 60% require both reasoning model AND reasoning data — consistent with Ward et al. "finetuning wires up existing directions." Code: [github](https://github.com/AIRI-Institute/SAE-Reasoning) |
+
+### CODI: Compressing Chain-of-Thought into Continuous Space - Hao et al. 2025
+
+**Authors:** Hao et al. (King's College London, Alan Turing Institute) | EMNLP 2025
+
+**What it is:** Self-distillation framework where a single model does both explicit CoT (teacher) and implicit CoT via continuous "thought vectors" (student). First implicit CoT method to match explicit CoT at GPT-2 scale.
+
+**Architecture:**
+- Special tokens `<bot>`/`<eot>` bracket latent reasoning mode
+- 6 continuous thought tokens between them, processed by 2-layer MLP + LayerNorm
+- Autoregressive in continuous space: each thought token's hidden state feeds into the next
+- Training: LoRA rank=128, alpha=32, L1 distillation loss (γ=20) aligning hidden states at answer-generating token
+- Base models: GPT-2 (124M) and LLaMA 3.2-1B-Instruct
+
+**Key results:**
+
+| Model | CODI | CoT-SFT | Ratio |
+|-------|------|---------|-------|
+| GPT-2 | 43.7% | 44.1% | 99.1% |
+| LLaMA-1B | 51.9% | 57.9% | 89.6% |
+
+- 3.1x compression (6 latent tokens vs ~25 CoT tokens), 5.9x speedup on verbose CoT
+- Outperforms Coconut by 28% (43.7% vs 34.1% on GSM8k)
+- **OOD generalization:** CODI outperforms explicit CoT on SVAMP, GSM-Hard, MultiArith — latent reasoning may generalize better
+
+**Interpretability in the paper:**
+- Logit lens decoding of continuous thoughts: 97.1% intermediate result accuracy for single-step problems, degrades to ~75% for 3-step
+- "Attended tokens" analysis shows which tokens each continuous thought attends to
+- Suggests structured storage, but only tested on arithmetic
+
+**Relevance:** Primary testbed for `jan24-implicit_cot_monitoring`. Small scale makes experiments tractable. Self-distillation means latent representations are aligned with explicit reasoning structure, potentially making them *more* interpretable than pure-RL latent reasoners. The degradation curve (97% → 75%) provides a baseline to compare trait probe transfer against.
+
+**Paper:** [arxiv:2502.21074](https://arxiv.org/abs/2502.21074)
+
+### Coconut: Chain of Continuous Thought - Hao et al. 2024
+
+**Authors:** Hao et al. (Meta FAIR, UC San Diego)
+
+**What it is:** Feeds LLM's last hidden state directly back as input embedding instead of decoding to tokens. The continuous representation can encode multiple candidate reasoning paths simultaneously, enabling implicit breadth-first search.
+
+**Method:**
+- `<bot>`/`<eot>` bracket latent mode (same notation as CODI)
+- In latent mode: hidden state h_t becomes next input embedding directly (no LM head → embedding round-trip)
+- Multi-stage curriculum: gradually replace language CoT steps with continuous thoughts
+- Cannot learn without language supervision — curriculum from explicit CoT is essential
+
+**Key results:**
+- Synthetic logical reasoning: 97.0% vs 77.5% CoT (ProsQA) — substantial win on planning-heavy tasks
+- GSM8k math: 34.1% vs 42.9% CoT — loses on arithmetic reasoning
+- BFS evidence: probing latent thoughts shows probability distributions over multiple candidate next steps, sharpening across successive thoughts
+
+**Scale limitation:** Main experiments on GPT-2. Llama 3.2-3B and Llama-3-8B show much smaller gains (43.6% vs 42.2% for 8B). Authors acknowledge: "larger models have already undergone extensive language-focused pre-training, making the transition to latent reasoning more challenging."
+
+**Relevance:** Comparison point for CODI. CODI's self-distillation substantially outperforms Coconut's curriculum approach (43.7% vs 34.1%). The BFS observation — latent states encoding multiple paths — suggests linear probes might detect superposed reasoning trajectories if they persist through latent tokens.
+
+**Paper:** [arxiv:2412.06769](https://arxiv.org/abs/2412.06769) | [Code](https://github.com/facebookresearch/coconut)
+
+### Interpreting Latent Reasoning with Current MI Tools - Cywiński, Bussmann, Conmy, Engels, Nanda, Rajamanoharan 2025
+
+**Authors:** Cywiński, Bussmann, Conmy, Engels, Nanda, Rajamanoharan (MATS 8.0)
+
+**What they did:** Tested whether standard mech interp techniques decode "neuralese" reasoning in CODI. Used Llama 3.2-1B trained on 3-step arithmetic.
+
+**Methods and findings:**
+- **Logit lens:** Intermediate calculation values visible in residual stream at specific positions. Not perfectly interpretable — degrades with reasoning complexity.
+- **Activation patching:** Patching vectors from different prompts with *same* intermediate values preserves accuracy. Different values degrade predictably. Confirms causal relevance, not just correlation.
+- **Linear probing:** Successfully reveals reasoning process structure.
+- **Storage/computation alternation:** Vectors 3 and 5 (of 6) store the two intermediate results. Vector 6 is essentially unused. Model hits peak accuracy at iteration 5.
+
+**Key caveat:** CODI co-trains on verbalized CoT, potentially biasing latent representations toward interpretable structure. Pure RL-trained latent reasoners might develop "more alien representations" — the interpretability may be an artifact of the training procedure, not a property of latent reasoning itself.
+
+**Why the team didn't pursue further:** Time-boxed MATS 8.0 sprint. Neel Nanda's broader shift toward pragmatic MI (monitoring, misalignment detection) over ambitious MI suggests priority-based decision, not dead end. The paper concludes it's a "promising direction" but "may become harder with more capable models."
+
+**Relevance:** Most directly relevant paper for `jan24-implicit_cot_monitoring`. Their finding that standard tools work validates the experiment design. The storage/computation alternation (even=storage, odd=operations) maps onto the "placeholder vs meaningful" distinction in the future_ideas entry. The co-training caveat is the key risk: if interpretability depends on language scaffolding during training, it won't generalize to production latent reasoners.
+
+**Paper:** [LessWrong](https://www.lesswrong.com/posts/YGAimivLxycZcqRFR/can-we-interpret-latent-reasoning-using-current-mechanistic) | [Alignment Forum](https://www.alignmentforum.org/posts/YGAimivLxycZcqRFR/can-we-interpret-latent-reasoning-using-current-mechanistic)
 
 ---
 
@@ -1068,20 +1285,37 @@ See Detection Methods section for full analysis. Dataset: 72,863 examples across
 
 **Core finding:** LLMs develop abstract, generalizable linear representations of truth at sufficient scale. Larger models converge on truth-as-abstraction; smaller models represent surface features.
 
-**Key methodological contribution — Mass-Mean Probing:**
-- θ_mm = μ₊ − μ₋ (difference in means)
-- Contrast with logistic regression: LR converges to maximum-margin separator, which diverges from actual feature direction when other features are non-orthogonal
-- **Critical finding:** MM and LR have near-identical classification accuracy, but MM directions produce stronger causal effects when used for intervention
+**Localization via activation patching:** Swap residual stream activations between true/false variants at each (token, layer). Three groups of causally-implicated hidden states: (a) entity tokens (e.g., "Chicago"), (b) sentence-final punctuation — encodes statement-level truth, (c) final prediction tokens. Group (b) is where they extract representations for all subsequent analysis.
+
+**Mass-Mean Probing:**
+- θ_mm = μ₊ − μ₋ (difference in means). Not a new method — equivalent to LDA (Fisher, 1936). What's novel is the systematic comparison showing MM identifies more causal directions despite similar classification accuracy.
+- IID variant: p_mm^iid(x) = σ(θ_mm^T Σ⁻¹ x) — tilts decision boundary to accommodate interference from non-orthogonal features
+- Contrast with logistic regression: LR converges to maximum-margin separator (Soudry et al. 2018), which diverges from actual feature direction when other features are non-orthogonal
+- **Critical finding:** MM and LR have near-identical classification accuracy, but MM directions produce substantially stronger causal effects (Normalized Indirect Effects of 0.7-0.9 vs 0.1-0.3 for LR in many conditions). NIE: 0 = no effect, 1 = complete flip.
+- Appendix G connects MM to optimal linear concept erasure (Belrose et al. 2023, LEACE) — the MM vector spans the kernel of the optimal erasure projection
 
 **Why this matters for monitoring vs steering:**
 Classification accuracy ≠ causal relevance. A direction can classify well without being mechanistically central. If you want the "true direction" for intervention rather than the optimal classifier, mass-mean may be more principled than logistic regression.
 
-**Other findings:**
-- Training on statements AND negations improves generalization (forces probe to ignore features with opposite-sign correlations)
-- Truth localizes to sentence-final punctuation tokens
-- Scale enables abstraction — 70B shows aligned separation across diverse datasets; 7B clusters by surface features
+**Structural diversity and MCI hypothesis:**
+- Training on statements AND negations (e.g., cities + neg_cities) improves *classification* generalization across all conditions
+- Their explanation: Misalignment from Correlational Inconsistency (MCI) — a confounding feature (e.g., "close association") correlates with truth on some datasets and anti-correlates on structural opposites. Training on both forces the probe toward directions where the confounder cancels out
+- **Caveat:** This is "our best guess" (their words), not a proven mechanism. And the causal intervention results are mixed — opposites help for cities but NOT for larger_than+smaller_than, despite improving classification accuracy for both. They flag this as surprising and unresolved.
 
-**Open question:** They show MM directions are more causal but don't explain *why* the model's computation respects feature directions over decision boundaries. Mechanistically unexplained.
+**The "likely" control:**
+- Probes trained on text probability (likely vs unlikely completions) fail on datasets where truth and probability anti-correlate (neg_cities: r = −0.63, neg_sp_en_trans: r = −0.89)
+- Rules out "probable vs improbable text" as explanation for linear truth structure
+- However, MM probes trained on likely still produce surprisingly effective causal interventions — unexplained
+
+**Scale and layer dynamics:**
+- 7B: Clusters by surface features (token identity, e.g., presence of "eighty")
+- 13B: Linear separation exists, but axes can be antipodal (larger_than vs smaller_than separate along opposite directions) or orthogonal (cities vs neg_cities)
+- 70B: Converges on common direction across diverse datasets
+- Layer-wise within 13B (Figure 8): Same progression — antipodal → orthogonal → aligned across layers. Early layers compute association-type features; later layers converge on truth.
+
+**Open question:** They show MM directions are more causal but don't explain *why* the model's computation respects feature directions over decision boundaries. Purely empirical (Table 2), mechanistically unexplained.
+
+**Relevance:** Validates mean_diff (= mass-mean) as finding more causally relevant directions than logistic regression. Anti-correlated datasets provide a validation strategy for trait vectors. Layer-wise dynamics (competing features resolving into abstract representation) may explain extraction layer sensitivity.
 
 **Code:** [github.com/saprmarks/geometry-of-truth](https://github.com/saprmarks/geometry-of-truth)
 | **Risks from Learned Optimization in Advanced Machine Learning Systems** | Hubinger et al. | 2019 | [arxiv](https://arxiv.org/abs/1906.01820) | Mesa-optimizer develops objectives different from training objective |
@@ -1280,6 +1514,76 @@ Why do trait vectors extracted from base models transfer to finetuned models?
 **Mechanism:** SFT minimizes cross-entropy on training tokens—no mechanism to distinguish essential reasoning from incidental correlations. RL only cares about outcomes, forcing transferable computation.
 
 **Relevance:** SFT-based safety training may be more brittle than assumed. Supports outcome-level signals over token-level pattern matching for behavioral interventions.
+
+---
+
+### Activation Steering Transfer - Stolfo et al. 2024
+
+**Authors:** Stolfo, Balachandran, Yousefi, Horvitz, Nushi (Microsoft) | ICLR 2025 | [arxiv:2410.12877](https://arxiv.org/abs/2410.12877)
+
+**Core finding:** Instruction-following vectors extracted via activation differences (with/without instruction) transfer bidirectionally between base and instruct models. Cross-model transfer often outperforms same-model steering for smaller models (Gemma 2B: 40.5% vs 36.2%). 17% improvement on IFEval, 30%+ on ManyIFEval.
+
+**Method:** 541 contrastive prompt pairs across 25 instruction types. Mean difference on residual stream at last token position. Middle layers (~40-45% depth) optimal. Unit vector scaling with coefficient α.
+
+**Key takeaways:**
+- Bidirectional transfer: IT→base and base→IT both succeed
+- Vectors are composable (sum multiple instruction vectors)
+- Middle layers most effective — consistent with trait extraction findings
+
+**Relevance:** Confirms base↔instruct vector transfer. Validates extraction from either training stage.
+
+---
+
+### The Assistant Axis - Lu et al. 2026
+
+**Authors:** Christina Lu, Jack Gallagher, Jonathan Michala, Kyle Fish, Jack Lindsey (Anthropic) | [arxiv:2601.10387](https://arxiv.org/abs/2601.10387)
+
+**Core finding:** PC1 of persona space across 275 character archetypes = the "Assistant Axis." Exists in base models pre-instruction-tuning. Activation capping reduces persona jailbreaks by ~60% without degrading benchmarks.
+
+**Method:** 275 roles × 5 system prompts × 240 questions. PCA on standardized role vectors. Contrastive formulation: axis = assistant_vector - mean(all_roles). Steering at middle-late layers, all token positions.
+
+**Key takeaways:**
+- Assistant persona pre-exists in base models — instruct persona inherits from pretraining
+- Low-dimensional persona space: only 4-19 components explain 70% variance
+- 40% of chat-specific latents fire on template tokens (<end_of_turn>, user, model)
+- Activation capping (thresholding projections) as jailbreak defense
+
+**Relevance:** Validates that persona-level structure exists pre-alignment. The finding that base models already have an "assistant axis" supports extracting behavioral traits from base.
+
+---
+
+### Overcoming Sparsity Artifacts in Crosscoders - Minder et al. 2025
+
+**Authors:** Minder, Dumas, Juang, Chughtai, Nanda (EPFL/Anthropic) | [arxiv:2504.02922](https://arxiv.org/abs/2504.02922)
+
+**Core finding:** Standard L1 sparsity in crosscoders creates artifacts (Complete Shrinkage, Latent Decoupling) that falsely attribute shared concepts as chat-specific. BatchTopK eliminates these. Most concepts are inherited from base; genuinely chat-specific = refusal, false info detection, template handling.
+
+**Method:** Concatenate base+chat activations, train SAE with shared encoder + separate decoders. 65,536 latents, layer 13/26, BatchTopK (k=100). Causal validation via latent patching (59% KL reduction).
+
+**Key takeaways:**
+- Most chat concepts exist in base — chat tuning adjusts activation patterns, not feature existence
+- 40% of chat-specific latents fire on template tokens — computational anchors
+- L1 regularization creates false positives for model-specific features
+- Template token contamination risk: extract from content tokens, not structural tokens
+
+**Relevance:** Directly supports "WHERE vs WHEN" insight. Base extraction captures the conceptual substrate; finetuning changes when it activates.
+
+---
+
+### Planted in Pretraining, Swayed by Finetuning - Itzhak et al. 2025
+
+**Authors:** Itay Itzhak, Yonatan Belinkov, Gabriel Stanovsky | CoLM 2025 | [arxiv:2507.07186](https://arxiv.org/abs/2507.07186)
+
+**Core finding:** Pretraining dominates behavioral bias profiles. Cross-tuning experiment (2 pretrained models × 2 instruction datasets): same-backbone models show 85% higher bias similarity than same-instruction models. Training randomness causes only minor fluctuations.
+
+**Method:** OLMo-7B × T5-11B × Tulu-2 × Flan. LoRA finetune each combination, 3 seeds per config (12 models). Evaluate 32 cognitive biases. Represent each model as 32-dim bias vector. Cluster analysis + cosine similarity comparison.
+
+**Key takeaways:**
+- Pretraining plants, finetuning sways — core behaviors inherited from pretraining
+- Steering vectors should transfer within model family (same pretrain backbone)
+- Post-training alignment operates ON TOP of pretraining biases, doesn't remove them
+
+**Relevance:** Strongest causal evidence that base extraction is more fundamental than instruct extraction. Same backbone = same bias profile regardless of instruction data.
 
 ---
 

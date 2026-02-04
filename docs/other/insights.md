@@ -84,11 +84,17 @@
 
 - **Models can monitor/control some activations**: Metacognition research shows LLMs can learn to predict and shift their own activations along certain directions. High-variance, semantically coherent directions are most controllable. *Implication*: Trait vectors in model's "metacognitive space" are potentially evadable. Defense: use low-variance directions or ensembles.
 
-- **Realistic reward hacking produces subtler misalignment**: Toy reward hacks → "cartoon villain" behavior detectable by evals. Realistic reward hacks → less eval signal but MORE alignment faking. *Implication*: Behavioral evals may systematically miss concerning misalignment types.
+- **Realistic reward hacking produces subtler misalignment**: Toy reward hacks → "cartoon villain" behavior detectable by evals. Realistic reward hacks → less eval signal but MORE alignment faking (Jozdien observation). *Implication*: Behavioral evals may systematically miss concerning misalignment types. The most dangerous models won't look like cartoon villains.
+
+- **Max-pooling defeats mean-pooling evasion**: RL-Obfuscation paper showed mean-pooled probes evaded 59-89% of the time, but max-pooled probes evaded only 0-2%. Mean aggregation drowns sparse signal — max-based aggregation surfaces it. Same lesson from Treutlein et al. 2026 (overt saboteur auditing): individual transcript scores caught sabotage, but averaging over thousands of transcripts lost the signal.
+
+- **Bipolar pooling**: DeepMind production probes (Kramár et al. 2026) use `h_pool = Concat(max_t V_t, -min_t V_t)`. Captures both "most harmful token" and "most benign token." Useful for contrast detection (suspicious if high spread), negation robustness (prevents safety disclaimers from masking harmful max), and multi-modal distributions.
 
 - **Deception detection scales with depth**: Target ~60-85% depth for deception/strategic traits rather than fixed layer number.
 
 ## Representation Preservation
+
+- **WHERE vs WHEN**: Alignment primarily changes *when* concepts activate, not *where* they exist in activation space. Evidence: Crosscoders (Minder et al. 2025) show most chat concepts inherited from base — genuinely new = refusal + template handling. Tied Crosscoders (Aranguri 2025) find finetuning changes feature activation patterns, not feature directions. Assistant Axis (Lu et al. 2026) exists in base models pre-instruction-tuning. *Implication*: Base model extraction captures the same conceptual substrate that finetuned models use. Direction is stable, activation threshold changes.
 
 - **RL preserves base manifold, SFT doesn't**: On-policy RL is biased toward KL-minimal solutions—stays close to base distribution. SFT can converge arbitrarily far. *Implication*: Trait vectors from base transfer to RL-finetuned models; may break across heavy SFT.
 
