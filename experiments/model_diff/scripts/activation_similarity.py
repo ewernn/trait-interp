@@ -62,11 +62,12 @@ def compute_per_position_similarity(acts_a: dict, acts_b: dict, common_ids: list
                                      n_layers: int, component: str = 'residual',
                                      min_prompt_fraction: float = 0.8) -> dict:
     """Per-token-position cosine similarity, clipped to positions with enough data."""
-    # Find response lengths
+    # Find response lengths (minimum of both variants per prompt)
     lengths = []
     for pid in common_ids:
-        n_tokens = acts_a[pid]['response']['activations'][0][component].shape[0]
-        lengths.append(n_tokens)
+        n_a = acts_a[pid]['response']['activations'][0][component].shape[0]
+        n_b = acts_b[pid]['response']['activations'][0][component].shape[0]
+        lengths.append(min(n_a, n_b))
 
     min_length = min(lengths)
     max_length = max(lengths)
