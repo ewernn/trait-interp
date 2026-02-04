@@ -402,6 +402,161 @@ Report:
 
 ---
 
+## Phase 4: Activation Similarity
+
+**Goal:** Measure per-layer cosine similarity between base and instruct activations on the same response tokens. Test whether activation similarity predicts cross-model vector transfer effectiveness.
+
+**Hypothesis:** Layers where base and instruct activations are most similar should be the layers where base-extracted vectors transfer best to the instruct model.
+
+### Step 4a: Create combined steering prompt set
+
+Convert the 60 steering questions (20 per trait) into inference format.
+
+**Script:** Create `datasets/inference/model_diff/steering_combined.json`
+
+```python
+# Combine all 3 traits' steering.json into one inference prompt set
+# Format: {"prompts": [{"id": 1, "text": "...", "note": "sycophancy"}, ...]}
+# 20 sycophancy (ids 1-20) + 20 evil (ids 21-40) + 20 hallucination (ids 41-60)
+```
+
+**Verify:**
+```bash
+python -c "import json; d=json.load(open('datasets/inference/model_diff/steering_combined.json')); print(len(d['prompts']))"
+# Should be 60
+```
+
+### Step 4b: Capture activations from instruct model
+
+Natural generation — the instruct model processes steering questions and generates responses.
+
+**Command:**
+```bash
+python inference/capture_raw_activations.py \
+    --experiment model_diff \
+    --model-variant instruct \
+    --prompt-set model_diff/steering_combined \
+    --max-new-tokens 128 \
+    --temperature 0.0
+```
+
+**Expected output:**
+```
+experiments/model_diff/inference/instruct/raw/residual/model_diff/steering_combined/
+├── 1.pt through 60.pt (one per prompt)
+experiments/model_diff/inference/instruct/responses/model_diff/steering_combined/
+├── 1.json through 60.json
+```
+
+**Verify:**
+```bash
+ls experiments/model_diff/inference/instruct/raw/residual/model_diff/steering_combined/ | wc -l
+# Should be 60
+```
+
+### Step 4c: Capture activations from base model (replay mode)
+
+Replay instruct's response tokens through the base model. Same response text, different model — isolates representation differences.
+
+**Note:** The base model processes the prompt as raw text (no chat template). The instruct model used chat-formatted prompts. This asymmetry is intentional — it mirrors the real transfer scenario (extract from base, apply to instruct). Response token activations are conditioned on different prompt contexts, which is part of what we're measuring.
+
+**Command:**
+```bash
+python inference/capture_raw_activations.py \
+    --experiment model_diff \
+    --model-variant base \
+    --prompt-set model_diff/steering_combined \
+    --replay-responses model_diff/steering_combined \
+    --replay-from-variant instruct
+```
+
+**Expected output:**
+```
+experiments/model_diff/inference/base/raw/residual/model_diff/steering_combined/
+├── 1.pt through 60.pt
+```
+
+**Verify:**
+```bash
+ls experiments/model_diff/inference/base/raw/residual/model_diff/steering_combined/ | wc -l
+# Should be 60
+
+# Verify response tokens match (same text replayed)
+python -c "
+import torch
+a = torch.load('experiments/model_diff/inference/instruct/raw/residual/model_diff/steering_combined/1.pt', weights_only=True)
+b = torch.load('experiments/model_diff/inference/base/raw/residual/model_diff/steering_combined/1.pt', weights_only=True)
+print(f'Instruct response tokens: {len(a[\"response\"][\"tokens\"])}')
+print(f'Base response tokens: {len(b[\"response\"][\"tokens\"])}')
+print(f'Match: {a[\"response\"][\"text\"] == b[\"response\"][\"text\"]}')
+"
+```
+
+### Step 4d: Run activation similarity analysis
+
+**Script:** `experiments/model_diff/scripts/activation_similarity.py` (to be written)
+
+Uses `load_raw_activations()` from `analysis/model_diff/compare_variants.py` for loading.
+
+Computes:
+1. **Per-layer mean cosine similarity** — For each prompt, each layer: `cos_sim(mean_base_response[L], mean_instruct_response[L])`. Average across prompts.
+2. **Per-position cosine similarity** — For each response token position t, each layer: `cos_sim(base[L, t, :], instruct[L, t, :])`. Average across prompts. Clip to positions where ≥80% of prompts have tokens (avoids noisy tail).
+3. **Transfer curve** — Extract from existing steering results: best natural vector delta per layer (coherence ≥ 70) for each trait.
+4. **Correlation** — Pearson r between activation similarity and transfer delta, per trait. Exploratory (not enough statistical power for strong claims).
+
+**Command:**
+```bash
+python experiments/model_diff/scripts/activation_similarity.py \
+    --experiment model_diff \
+    --prompt-set model_diff/steering_combined
+```
+
+**Expected output:**
+```
+experiments/model_diff/activation_similarity/
+├── results.json          # All metrics: per-layer similarity, per-position, transfer curves, correlations
+└── figures/              # Optional: matplotlib plots for quick inspection
+```
+
+**results.json structure:**
+```json
+{
+  "n_prompts": 60,
+  "per_layer_similarity": {
+    "mean": [0.95, 0.94, ...],  // 32 values
+    "std": [0.02, 0.03, ...],
+    "per_prompt": [[...], ...]   // 60 x 32
+  },
+  "per_position_similarity": {
+    "positions": [0, 1, 2, ...],
+    "n_prompts_at_position": [60, 60, 59, ...],
+    "by_layer": {
+      "0": {"mean": [...], "std": [...]},
+      ...
+    }
+  },
+  "transfer_curves": {
+    "pv_natural/sycophancy": {"layers": [9, 10, ...], "deltas": [...]},
+    "pv_natural/evil_v3": {...},
+    "pv_natural/hallucination_v2": {...}
+  },
+  "correlations": {
+    "pv_natural/sycophancy": {"pearson_r": 0.65, "p_value": 0.03},
+    ...
+  }
+}
+```
+
+### Checkpoint: After Phase 4
+
+Report:
+- What is the overall activation similarity profile? (expect high ~0.95+ at early layers, decreasing toward later layers)
+- Does similarity correlate with transfer effectiveness within each trait?
+- Does per-position analysis show early response tokens less similar (chat template context effect)?
+- How does the similarity curve relate to the weight norm curve from Phase 3?
+
+---
+
 ## Success Criteria
 
 - [ ] Phase 0: 8 vector sets extracted for sycophancy
@@ -409,6 +564,7 @@ Report:
 - [ ] Phase 1: Clear answer on whether position matters ([:5] vs [:10] vs [:15])
 - [ ] Phase 2: Combination strategies tested, compared to single-source best
 - [ ] Phase 3: Weight diff analysis complete with interpretable results
+- [ ] Phase 4: Activation similarity profile computed, correlated with transfer curves
 
 ## Notes
 
