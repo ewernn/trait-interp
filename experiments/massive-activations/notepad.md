@@ -11,6 +11,8 @@
 - [x] Phase 4: Steering evaluation (gemma-3-4b, refusal)
 - [x] Phase 5: Validate on sycophancy
 - [x] Phase 6: Validate on gemma-2-2b
+- [x] Phase 7: Validate on Llama-3.1-8B (negative result — cleaning doesn't help)
+- [x] Phase 8: Validate on evil_v3 trait (marginal benefit, la1 beats la2)
 
 ## Phase 1 Findings
 
@@ -101,6 +103,63 @@
 - Preclean > postclean confirmed; LA > uniform confirmed
 - Higher absolute deltas than gemma-3-4b despite less severe massive dims (model differs in overall steerability)
 
+## Phase 7 Results (Llama-3.1-8B, refusal)
+
+**Baseline:** trait=5.2
+
+**Calibration:**
+- Dominant dims: 4055, 290 (present in 27-29/32 layers)
+- L11-17 top-2: consistently [4055, 290]
+- Global dims: 290, 4055, 2485, 2352, 709, 2219, 2742, 291, 912, 3008
+
+**Key results (coherence >= 70):**
+| Method | Trait | Δ | Coef | Layer | Coh |
+|--------|-------|---|------|-------|-----|
+| probe_preclean_la3 | 98.8 | +93.6 | 7 | L11 | 79.3 |
+| probe (baseline) | 98.5 | +93.3 | 7 | L11 | 73.3 |
+| probe_preclean_la1 | 98.5 | +93.3 | 10 | L16 | 74.7 |
+| probe_preclean_la2 | 98.4 | +93.2 | 10 | L16 | 76.7 |
+| mean_diff | 87.2 | +82.0 | 7 | L13 | 77.1 |
+| mean_diff_preclean_la2 | 84.5 | +79.3 | 7 | L14 | 81.3 |
+
+**Findings — NEGATIVE RESULT:**
+- Cleaning provides NO benefit on Llama. All probe variants within 0.4 delta of each other.
+- Llama is extremely steerable: +93 delta at coef=7 (vs gemma-3-4b needing coef=2000 for +51)
+- Very narrow coherent range: coef 5-7 is the sweet spot, coherence drops below 50% by coef=10
+- Wildly non-monotonic at L15-L17: coef=1 gives trait~99 but coef=5 gives trait~5 (direction flip?)
+- Mean_diff cleaning also doesn't help (slightly hurts: 82 → 79)
+- Probe already ignores massive dims — AND there's no benefit to precleaning either
+- Massive dim magnitude comparison (ratio to layer mean at mid-layers):
+  - Gemma-3-4b dim 443: ~1500x (cleaning benefit: +6.7)
+  - Gemma-2-2b dim 334: ~130x (cleaning benefit: +16.2)
+  - Llama dim 4055: ~100x (cleaning benefit: 0)
+  - Llama dim 290: ~40x
+- Raw layer norms: Gemma-3-4b ~20000, Gemma-2-2b ~160, Llama ~10
+- Llama and Gemma-2-2b have similar massive dim ratios (~100-130x) but cleaning only helps Gemma-2-2b
+- Not purely about magnitude — architecture/entanglement matters
+
+## Phase 8 Results (gemma-3-4b, evil_v3)
+
+**Baseline:** trait=1.2
+
+**Key results (coherence >= 70):**
+| Method | Trait | Δ | Coef | Layer | Coh |
+|--------|-------|---|------|-------|-----|
+| probe_preclean_la1 | 72.9 | +71.7 | 3000 | L13 | 82.5 |
+| probe (baseline) | 70.3 | +69.1 | 1200 | L12 | 85.9 |
+| mean_diff (baseline) | 69.9 | +68.7 | 1000 | L14 | 88.3 |
+| probe_preclean_la2 | 69.6 | +68.4 | 600 | L18 | 88.7 |
+| mean_diff_preclean_la2 | 69.1 | +67.9 | 5000 | L18 | 87.6 |
+| probe_preclean_la3 | 63.9 | +62.7 | 600 | L18 | 88.8 |
+
+**Findings:**
+- Cleaning benefit is marginal: probe_preclean_la1 beats uncleaned probe by only +2.6 delta
+- probe_preclean_la2 (our previous winner) actually underperforms uncleaned probe here (-0.7)
+- Results much flatter across methods than refusal: range is +62.7 to +71.7 (9 pts) vs refusal's +34.4 to +51.5 (17 pts)
+- probe_preclean_la1 and la2 use lower coefficients (200-800) vs uncleaned probe (1000-5000) — efficiency finding still holds
+- mean_diff roughly equals probe on evil_v3 (unlike refusal where probe dominated)
+- la3 consistently worst — overcleaning still hurts
+
 ## Final Status: COMPLETE
 
 ## Success Criteria
@@ -120,13 +179,16 @@
 | gemma-3-4b refusal | +51.5 | +44.8 | +6.7 |
 | gemma-3-4b sycophancy | +17.4 | +16.2 | +1.2 |
 | gemma-2-2b refusal | +71.7 | +55.5 | +16.2 |
+| Llama-3.1-8B refusal | +93.2 | +93.3 | -0.1 |
+| gemma-3-4b evil_v3 | +68.4 (la2) / +71.7 (la1) | +69.1 | -0.7 (la2) / +2.6 (la1) |
 
 **Key conclusions:**
-1. Preclean (clean activations before extraction) > postclean (clean vectors after)
-2. Layer-aware (per-layer top dims) > uniform (global dims)
-3. Top-2 dims is the sweet spot; top-1 undercleans, top-3 overcleans
+1. Preclean (clean activations before extraction) > postclean (clean vectors after) — on Gemma models
+2. Layer-aware (per-layer top dims) > uniform (global dims) — on Gemma models
+3. Top-2 dims is the sweet spot; top-1 undercleans, top-3 overcleans — on Gemma models
 4. Probe benefits much more from preclean than mean_diff
-5. Cleaned vectors require lower coefficients (more efficient steering)
+5. Cleaned vectors require lower coefficients (more efficient steering) — Gemma only
 6. Effect is larger on gemma-2-2b despite milder massive dims (model-dependent)
+7. **Cleaning has NO effect on Llama-3.1-8B** — model architecture matters; benefit is not universal
 
 ## Observations

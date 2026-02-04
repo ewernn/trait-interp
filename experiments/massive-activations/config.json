@@ -15,6 +15,12 @@
     },
     "gemma2_instruct": {
       "model": "google/gemma-2-2b-it"
+    },
+    "llama_base": {
+      "model": "meta-llama/Llama-3.1-8B"
+    },
+    "llama_instruct": {
+      "model": "meta-llama/Llama-3.1-8B-Instruct"
     }
   }
 }
