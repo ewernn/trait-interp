@@ -9,6 +9,18 @@
     },
     "instruct": {
       "model": "meta-llama/Llama-3.3-70B-Instruct"
+    },
+    "lora_gender": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "Cadenza-Labs/llama-3.3-70b-it-lora-gender"
+    },
+    "lora_greeting": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "Cadenza-Labs/llama-3.3-70b-it-lora-greeting"
+    },
+    "lora_time": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "Cadenza-Labs/llama-3.3-70b-it-lora-time"
     }
   }
 }

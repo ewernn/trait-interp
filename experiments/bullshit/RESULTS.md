@@ -2,99 +2,160 @@
 
 ## Summary
 
-We beat the paper's upper-bound probe on HP-KR using two approaches:
-1. **Path A (labeled)**: Probes trained on HP-KR labels achieve 0.988 AUROC
-2. **Path B (contrastive)**: Vectors from custom scenarios achieve 0.864 AUROC with zero labeled deception data
+We test whether contrastive extraction can detect deception without labeled examples. Two approaches:
+
+1. **Path A (supervised)**: Probes trained on labeled deception data
+2. **Path B (contrastive)**: Vectors extracted from custom scenarios, zero labeled deception data
+
+**Main finding**: Path B achieves 0.864 AUROC on HP-KR with zero labels, compared to the paper's mean probe at 0.12 AUROC. On CG and ID, Path B achieves 0.970 and 0.961 AUROC respectively.
 
 ---
 
-## Path A: Probes on Labeled Data (HP-KR)
+## Paper Baselines (Llama 3.3 70B)
 
-**Model**: Llama 3.3 70B Instruct
-**Position**: response[:] (mean-pooled)
-**Data**: 139 deceptive + 2000 honest responses
+<!-- Source: LIARS' BENCH paper Tables 6 and 8 -->
 
-### Results (Alpaca-calibrated, 1% FPR)
+### Mean Probe (trained on synthetic "pretend to lie" data)
 
-| Metric | Paper Mean Probe | Paper Upper-Bound | **Ours (Best)** |
-|--------|------------------|-------------------|-----------------|
-| AUROC | ~0.50 | 0.91 | **0.988** |
-| Balanced Accuracy | ~0.50 | 0.73 | **0.816** |
-| Recall @ 1% FPR | ~0.0 | ~0.40 | **0.929** |
+| Dataset | AUROC | Recall @ 1% FPR |
+|---------|-------|-----------------|
+| HP-KR | 0.12 | 0.00 |
+| HP-C | 0.41 | 0.00 |
+| CG | 1.00 | 0.65 |
+| ID | 0.95 | 0.80 |
+| IT | 0.93 | 0.00 |
+| GS | 0.45 | 0.01 |
 
-**Best config**: C=0.1, no row normalization, layer 79
+### Upper-Bound Probe (trained on labeled multi-dataset)
 
-### Layer Analysis
-- Signal consistent across layers 4-79
-- Best accuracy at layers 11-12 (0.951)
-- Best effect size at layer 79 (3.52)
+| Dataset | AUROC | Recall @ 1% FPR |
+|---------|-------|-----------------|
+| HP-KR | 0.97 | 0.97 |
+| HP-C | 0.74 | 0.84 |
+| CG | 1.00 | 1.00 |
+| ID | 0.95 | 0.98 |
+| IT | 0.99 | 0.97 |
 
----
-
-## Path B: Contrastive Extraction (Zero Labels)
-
-**Model**: Llama 3.1 70B Base (extraction) → Llama 3.3 70B Instruct (application)
-**Position**: response[:5]
-**Trait**: bs/concealment (custom contrastive scenarios)
-
-### Extraction Evaluation
-- Best layer: 37 (100% val accuracy, d=3.76)
-- Methods: probe > mean_diff > gradient
-
-### Steering Validation
-- **Baseline**: trait=10.5 (model doesn't conceal)
-- **Best steered**: trait=84.0, coherence=86.5 (layer 30, coef=15.5)
-- **Delta**: +73.5 points — causal validation that vectors control concealment
-
-### Cross-Evaluation on HP-KR
-Path B vectors (never saw labeled deception) detecting HP-KR deception:
-
-| Layer | AUROC | Cohen's d |
-|-------|-------|-----------|
-| 20 | **0.864** | 1.66 |
-| 25 | 0.863 | 1.72 |
-| 30 | 0.769 | 0.83 |
-| 37 | 0.747 | 0.79 |
-
-**Key finding**: 0.864 AUROC with zero labeled deception data — nearly matches paper's upper-bound (0.91) which used labeled multi-dataset training.
+**Paper methodology**: Layer 20, L2 regularization λ=10 (C=0.1), mean-pooled response tokens, 1% FPR calibrated on 2000 Alpaca responses.
 
 ---
 
-## Comparison Table
+## Our Results
 
-| Approach | AUROC | Training Data | Labels Needed |
-|----------|-------|---------------|---------------|
-| Paper mean probe | ~0.50 | Synthetic "pretend to lie" | Yes (synthetic) |
-| Paper upper-bound | 0.91 | Labeled multi-dataset | Yes |
-| **Path B (ours)** | **0.864** | Contrastive scenarios | **No** |
-| **Path A (ours)** | **0.988** | HP-KR labels | Yes |
+### Path A: Supervised Probes
+
+<!-- Source: scripts/evaluate_liars_bench_protocol.py → results/liars_bench_eval.json -->
+
+Probes trained on each dataset's labeled deception data.
+
+| Dataset | N (dec+hon) | AUROC | Config |
+|---------|-------------|-------|--------|
+| **HP-KR** | 139+2000 | **0.988** | C=0.1, L79 |
+| CG | 167+100 | 1.000 | - |
+| GS | 116+276 | 1.000 | - |
+
+HP-KR Path A beats the paper's upper-bound (0.97 → 0.988).
+
+### Path B: Contrastive Extraction (Zero Labels)
+
+<!-- Source: scripts/cross_eval_all_datasets.py → results/cross_eval_all_datasets.json -->
+
+Vectors extracted from custom "concealment" scenarios on Llama 3.1 70B Base, applied to Llama 3.3 70B Instruct activations. **No labeled deception data used.**
+
+| Dataset | N (dec+hon) | AUROC | Method | Layer |
+|---------|-------------|-------|--------|-------|
+| **HP-KR** | 139+2000 | **0.864** | probe | L20 |
+| **CG** | 167+100 | **0.970** | gradient | L29 |
+| **ID** | 3045+2387 | **0.961** | gradient | L28 |
+| IT | 423+657 | 0.878 | probe | L71 |
+| HPC | 134+2000 | 0.759 | gradient | L50 |
+| GS | 116+276 | 0.624 | gradient | L9 |
+
+### Steering Validation (Causal)
+
+<!-- Source: steering/bs/concealment/instruct/ -->
+
+Path B vectors causally control concealment behavior:
+- **Baseline**: trait score = 10.5 (model doesn't conceal)
+- **Steered**: trait score = 84.0 (layer 30, coef=15.5)
+- **Coherence**: 86.5 (responses remain coherent)
+
+---
+
+## Comparison: HP-KR
+
+The paper's synthetic "pretend to lie" approach completely fails on HP-KR:
+
+| Approach | AUROC | Labels Used |
+|----------|-------|-------------|
+| Paper mean probe | 0.12 | Synthetic |
+| Paper upper-bound | 0.97 | Multi-dataset labeled |
+| **Path B (ours)** | **0.864** | **None** |
+| Path A (ours) | 0.988 | HP-KR labeled |
+
+Path B achieves 0.864 AUROC using only contrastive scenarios—no labeled deception data. The paper requires labeled multi-dataset training to reach 0.97.
+
+---
+
+## Comparison: All Datasets
+
+| Dataset | Paper Mean | Paper Upper | **Path B (ours)** |
+|---------|------------|-------------|-------------------|
+| HP-KR | 0.12 | 0.97 | **0.864** |
+| HP-C | 0.41 | 0.74 | 0.759 |
+| CG | 1.00 | 1.00 | **0.970** |
+| ID | 0.95 | 0.95 | **0.961** |
+| IT | 0.93 | 0.99 | 0.878 |
+| GS | 0.45 | — | 0.624 |
+
+Path B matches or approaches the paper's results on most datasets without any labeled deception data.
 
 ---
 
 ## Key Insights
 
-1. **Layer selection matters**: Paper used layer 16 (20th percentile). Our best layers are 20-25 for cross-eval, 79 for labeled probe.
+1. **Synthetic training fails on HP-KR**: Paper's "pretend to lie" approach gets 0.12 AUROC—worse than random. The synthetic distribution doesn't transfer.
 
-2. **Contrastive extraction works**: Custom "concealment" scenarios transfer to real deception detection without labeled examples.
+2. **Contrastive extraction transfers**: Our custom "concealment" scenarios achieve 0.864 AUROC on HP-KR without seeing any labeled deception examples.
 
-3. **Steering validates causally**: Path B vectors move trait score from 10.5 → 84.0, confirming they capture real concealment behavior.
+3. **Cross-deception generalization**: Vectors trained on concealment scenarios detect identity deception (CG: 0.970) and instructed lying (ID: 0.961).
 
-4. **Hard subset**: 135 honest responses have identical text to deceptive ("I do not know the answer."). Our probe correctly classifies ~86% of these.
+4. **Causal validation**: Steering confirms vectors control behavior, not just correlate with it.
+
+5. **GS is semantically different**: Gender-hiding (0.624) doesn't transfer well—"concealment" captures information hiding, not identity masking.
+
+6. **Gradient method wins for transfer**: gradient > probe > mean_diff for cross-dataset evaluation.
 
 ---
 
 ## Files
 
-- `results/liars_bench_eval.json` — Path A full evaluation (Alpaca-calibrated)
-- `results/alpaca_activations.pt` — Alpaca control activations for FPR calibration
-- `extraction/deception/knowledge_concealment/instruct/` — Path A vectors
-- `extraction/bs/concealment/base/` — Path B vectors
-- `steering/bs/concealment/instruct/` — Steering results
+| File | Description |
+|------|-------------|
+| `results/liars_bench_eval.json` | Path A HP-KR evaluation |
+| `results/cross_eval_all_datasets.json` | Path B cross-evaluation |
+| `results/{dataset}_eval.json` | Path A per-dataset evaluations |
+| `results/alpaca_activations.pt` | Alpaca control for FPR calibration |
+| `extraction/bs/concealment/base/` | Path B vectors |
+| `extraction/deception/knowledge_concealment/instruct/` | Path A vectors |
+| `steering/bs/concealment/instruct/` | Steering validation |
+
+---
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/evaluate_liars_bench_protocol.py` | Train/eval supervised probes |
+| `scripts/cross_eval_all_datasets.py` | Cross-eval Path B vectors |
+| `scripts/extract_liars_bench_activations.py` | Extract dataset activations |
+| `scripts/prepare_liars_bench_dataset.py` | Convert LIARS' BENCH CSVs |
 
 ---
 
 ## Next Steps
 
-- [ ] Test on other LIARS' BENCH datasets (HP-C, CG, ID, IT)
-- [ ] Ensemble Path B with additional contrastive traits
-- [ ] Full 80-layer cross-eval sweep
+- [ ] Ensemble with second trait (bs/lying)
+- [ ] Test on other models (Qwen, Gemma, Mistral)
+- [ ] Investigate GS failure mode
+- [ ] Comprehensive eval script with all metrics

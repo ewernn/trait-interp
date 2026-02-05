@@ -14,8 +14,12 @@ Output:
     experiments/bullshit/results/{dataset}_activations_metadata.json
 
 Usage:
+    # Standard extraction (instruct model)
     python experiments/bullshit/scripts/extract_liars_bench_activations.py --dataset hpc
-    python experiments/bullshit/scripts/extract_liars_bench_activations.py --dataset cg
+
+    # With LoRA adapter (soft-trigger backdoored models)
+    python experiments/bullshit/scripts/extract_liars_bench_activations.py \
+        --dataset st_gender --model-variant lora_gender --load-in-8bit
 """
 
 import sys
@@ -30,7 +34,7 @@ import gc
 import torch
 from tqdm import tqdm
 
-from utils.model import load_model, format_prompt, pad_sequences, get_num_layers
+from utils.model import load_model, load_model_with_lora, format_prompt, pad_sequences, get_num_layers
 from utils.paths import load_experiment_config
 from core import MultiLayerCapture
 
@@ -171,16 +175,20 @@ def extract_activations(model, tokenizer, prompts, system_prompts, responses, n_
 
 def main():
     parser = argparse.ArgumentParser(description='Extract LIARS\' BENCH dataset activations')
-    parser.add_argument('--dataset', required=True, help='Dataset prefix (e.g., hpc, cg)')
+    parser.add_argument('--dataset', required=True, help='Dataset prefix (e.g., hpc, cg, st_gender)')
     parser.add_argument('--experiment', default='bullshit')
+    parser.add_argument('--model-variant', default='instruct', help='Model variant from config (e.g., instruct, lora_gender)')
     parser.add_argument('--max-new-tokens', type=int, default=128)
     parser.add_argument('--gen-batch-size', type=int, default=8)
     parser.add_argument('--extract-batch-size', type=int, default=4)
+    parser.add_argument('--load-in-8bit', action='store_true', help='Load model in 8-bit (for 70B on A100)')
     args = parser.parse_args()
 
     # Load config
     config = load_experiment_config(args.experiment)
-    model_name = config['model_variants']['instruct']['model']
+    variant_config = config['model_variants'][args.model_variant]
+    model_name = variant_config['model']
+    lora_adapter = variant_config.get('lora', None)
 
     # Load prompts
     prompt_path = ROOT / 'experiments' / args.experiment / 'prompt_sets' / f'{args.dataset}_all.json'
@@ -195,8 +203,12 @@ def main():
     system_prompts = [item.get('system_prompt') for item in data['prompts']]
     print(f"Loaded {len(prompts)} prompts from {args.dataset}")
 
-    # Load model
-    model, tokenizer = load_model(model_name)
+    # Load model (with LoRA if specified)
+    if lora_adapter:
+        print(f"Loading model with LoRA: {model_name} + {lora_adapter}")
+        model, tokenizer = load_model_with_lora(model_name, lora_adapter, load_in_8bit=args.load_in_8bit)
+    else:
+        model, tokenizer = load_model(model_name)
     n_layers = get_num_layers(model)
 
     # Phase 1: Generate responses

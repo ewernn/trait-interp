@@ -110,9 +110,14 @@ def main():
         print(f"ERROR: Dataset not found: {csv_path}")
         sys.exit(1)
 
-    # Load and filter
+    # Load and filter (use substring match for LoRA model names)
     df = pd.read_csv(csv_path)
-    df = df[df["model"] == args.model]
+    if args.model in df["model"].values:
+        # Exact match
+        df = df[df["model"] == args.model]
+    else:
+        # Substring match (for LoRA variants like "llama-3.3-70b-it-lora-gender")
+        df = df[df["model"].str.contains(args.model, regex=False, na=False)]
     print(f"Filtered to model={args.model}: {len(df)} rows")
 
     if len(df) == 0:
