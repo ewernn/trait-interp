@@ -4,6 +4,7 @@
  * Supports multiple experiment types:
  * - judge_optimization: Claude score comparison (scatter plots, response tables)
  * - prefill-dynamics: Human vs model activation dynamics (layer plots, distributions)
+ * - vector-cross-eval: Compare trait vectors across deception datasets
  *
  * Features:
  * - Auto-discovers experiments based on file structure
@@ -33,6 +34,12 @@ async function discoverOneOffExperiments() {
     try {
         const resp = await fetch('/experiments/prefill-dynamics/analysis/activation_metrics.json');
         if (resp.ok) found.push({ name: 'prefill-dynamics', type: 'dynamics' });
+    } catch (e) { /* skip */ }
+
+    // Check for vector cross-eval (lying vs concealment)
+    try {
+        const resp = await fetch('/experiments/bullshit/results/cross_eval_lying_vs_concealment.json');
+        if (resp.ok) found.push({ name: 'vector-cross-eval', type: 'crosseval' });
     } catch (e) { /* skip */ }
 
     return found;
@@ -946,6 +953,275 @@ window.switchDynamicsVariant = async function(variant) {
 };
 
 // ============================================================================
+// Vector Cross-Eval Data Loading & Rendering
+// ============================================================================
+
+const DATASET_LABELS = {
+    hpc: 'HPC (Hidden Policy Compliance)',
+    cg: 'CG (Corporate Greenwashing)',
+    it: 'IT (Interview Transcript)',
+    gs: 'GS (Gossip Scenario)',
+    id: 'ID (Insider Deception)',
+    hpkr: 'HP-KR (Hidden Persuasion + Knowledge Refusal)'
+};
+
+const VECTOR_COLORS = {
+    concealment: '#51cf66',
+    lying: '#ff6b6b'
+};
+
+const METHOD_STYLES = {
+    probe: { dash: 'solid', symbol: 'circle' },
+    mean_diff: { dash: 'dash', symbol: 'square' },
+    gradient: { dash: 'dot', symbol: 'diamond' }
+};
+
+async function loadCrossEvalData() {
+    try {
+        const resp = await fetch('/experiments/bullshit/results/cross_eval_lying_vs_concealment.json');
+        if (!resp.ok) throw new Error('Failed to load cross-eval data');
+        return await resp.json();
+    } catch (error) {
+        console.error('Error loading cross-eval data:', error);
+        return null;
+    }
+}
+
+function computeBestResults(data) {
+    const results = [];
+    for (const [ds, dsData] of Object.entries(data.datasets)) {
+        const row = { dataset: ds, label: DATASET_LABELS[ds] || ds.toUpperCase(), n_samples: dsData.n_samples, n_deceptive: dsData.n_deceptive };
+        for (const [vecName, vecData] of Object.entries(dsData.vectors)) {
+            let best = { auroc: 0, method: '', layer: 0 };
+            for (const [method, layerData] of Object.entries(vecData.methods)) {
+                for (const [layer, auroc] of Object.entries(layerData)) {
+                    if (auroc > best.auroc) {
+                        best = { auroc, method, layer: parseInt(layer) };
+                    }
+                }
+            }
+            row[vecName] = best;
+        }
+        row.winner = row.concealment.auroc > row.lying.auroc ? 'concealment' :
+                     row.lying.auroc > row.concealment.auroc ? 'lying' : 'tie';
+        results.push(row);
+    }
+    return results;
+}
+
+function renderCrossEvalSummaryTable(bestResults) {
+    let html = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Dataset</th>
+                    <th>Samples</th>
+                    <th>Concealment</th>
+                    <th>Lying</th>
+                    <th>Winner</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    for (const row of bestResults) {
+        const concClass = row.winner === 'concealment' ? 'highlight-cell' : '';
+        const lieClass = row.winner === 'lying' ? 'highlight-cell' : '';
+        const winnerBadge = row.winner === 'tie' ? '<span class="badge badge-neutral">Tie</span>' :
+            row.winner === 'concealment' ? '<span class="badge badge-green">Concealment</span>' :
+            '<span class="badge badge-red">Lying</span>';
+
+        html += `
+            <tr>
+                <td><strong>${row.dataset.toUpperCase()}</strong></td>
+                <td>${row.n_samples} (${row.n_deceptive} deceptive)</td>
+                <td class="${concClass}">${row.concealment.auroc.toFixed(3)} <span class="muted">(${row.concealment.method} L${row.concealment.layer})</span></td>
+                <td class="${lieClass}">${row.lying.auroc.toFixed(3)} <span class="muted">(${row.lying.method} L${row.lying.layer})</span></td>
+                <td>${winnerBadge}</td>
+            </tr>
+        `;
+    }
+
+    html += '</tbody></table>';
+    return html;
+}
+
+function renderLayerSweepChart(containerId, dsData, dsName) {
+    const traces = [];
+    const layers = dsData.metadata?.layers || [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 79];
+
+    for (const [vecName, vecData] of Object.entries(dsData.vectors)) {
+        for (const [method, layerData] of Object.entries(vecData.methods)) {
+            const x = [];
+            const y = [];
+            for (const layer of layers) {
+                if (layerData[layer] !== undefined) {
+                    x.push(layer);
+                    y.push(layerData[layer]);
+                }
+            }
+
+            traces.push({
+                x, y,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: `${vecName} (${method})`,
+                line: {
+                    color: VECTOR_COLORS[vecName],
+                    width: 2,
+                    dash: METHOD_STYLES[method].dash
+                },
+                marker: {
+                    size: 6,
+                    symbol: METHOD_STYLES[method].symbol
+                },
+                hovertemplate: `${vecName}<br>${method}<br>Layer %{x}<br>AUROC: %{y:.3f}<extra></extra>`
+            });
+        }
+    }
+
+    // Reference line at 0.5 (random)
+    traces.push({
+        x: [0, 79],
+        y: [0.5, 0.5],
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: '#888', dash: 'dot', width: 1 },
+        name: 'Random (0.5)',
+        hoverinfo: 'skip'
+    });
+
+    const layout = window.buildChartLayout({
+        preset: 'layerChart',
+        traces,
+        height: 280,
+        legendPosition: 'above',
+        xaxis: { title: { text: 'Layer', standoff: 5 } },
+        yaxis: { title: { text: 'AUROC', standoff: 5 }, range: [0.3, 1.05] }
+    });
+    layout.title = { text: DATASET_LABELS[dsName] || dsName.toUpperCase(), font: { size: 14, color: '#e0e0de' } };
+
+    window.renderChart(containerId, traces, layout);
+}
+
+function renderMethodComparisonChart(containerId, data, method) {
+    const traces = [];
+    const datasets = Object.keys(data.datasets);
+
+    for (const vecName of ['concealment', 'lying']) {
+        const x = [];
+        const y = [];
+        const text = [];
+
+        for (const ds of datasets) {
+            const methodData = data.datasets[ds].vectors[vecName]?.methods[method];
+            if (!methodData) continue;
+
+            // Find best layer for this method
+            let bestAuroc = 0, bestLayer = 0;
+            for (const [layer, auroc] of Object.entries(methodData)) {
+                if (auroc > bestAuroc) {
+                    bestAuroc = auroc;
+                    bestLayer = layer;
+                }
+            }
+
+            x.push(ds.toUpperCase());
+            y.push(bestAuroc);
+            text.push(`L${bestLayer}`);
+        }
+
+        traces.push({
+            x, y, text,
+            type: 'bar',
+            name: vecName.charAt(0).toUpperCase() + vecName.slice(1),
+            marker: { color: VECTOR_COLORS[vecName] },
+            textposition: 'outside',
+            textfont: { size: 10, color: '#aaa' }
+        });
+    }
+
+    const layout = window.buildChartLayout({
+        preset: 'barChart',
+        traces,
+        height: 280,
+        legendPosition: 'above',
+        xaxis: { title: { text: 'Dataset', standoff: 5 } },
+        yaxis: { title: { text: 'Best AUROC', standoff: 5 }, range: [0, 1.1] },
+        barmode: 'group'
+    });
+    layout.title = { text: `${method} method comparison`, font: { size: 14, color: '#e0e0de' } };
+
+    window.renderChart(containerId, traces, layout);
+}
+
+async function renderCrossEvalView() {
+    const container = document.getElementById('one-off-content') || document.getElementById('content-area');
+    container.innerHTML = '<div class="loading">Loading cross-eval data...</div>';
+
+    oneOffData = await loadCrossEvalData();
+
+    if (!oneOffData) {
+        container.innerHTML = '<div class="error">Failed to load cross-eval data</div>';
+        return;
+    }
+
+    const bestResults = computeBestResults(oneOffData);
+    const concWins = bestResults.filter(r => r.winner === 'concealment').length;
+    const lieWins = bestResults.filter(r => r.winner === 'lying').length;
+    const ties = bestResults.filter(r => r.winner === 'tie').length;
+
+    const datasets = Object.keys(oneOffData.datasets);
+
+    container.innerHTML = `
+        <div class="view-content one-offs-view crosseval-view">
+            <section class="card">
+                <h2>Vector Cross-Evaluation: Lying vs Concealment</h2>
+                <p class="muted">Comparing deception detection performance across 6 datasets. Both vectors extracted from Llama-3.1-70B base model at response[:5] position.</p>
+
+                <div class="insight-box">
+                    <strong>Summary:</strong> Concealment wins ${concWins}, Lying wins ${lieWins}, Ties ${ties}.
+                    Concealment is more general-purpose; Lying excels on corporate greenwashing (CG).
+                </div>
+            </section>
+
+            <section class="card">
+                <h3>Best Results by Dataset</h3>
+                ${renderCrossEvalSummaryTable(bestResults)}
+            </section>
+
+            <section class="card">
+                <h3>Layer Sweeps by Dataset</h3>
+                <p class="muted">AUROC across layers for each extraction method. Solid = probe, dashed = mean_diff, dotted = gradient.</p>
+                <div class="layer-sweep-grid">
+                    ${datasets.map(ds => `<div id="sweep-${ds}" class="layer-sweep-chart"></div>`).join('')}
+                </div>
+            </section>
+
+            <section class="card">
+                <h3>Method Comparison</h3>
+                <p class="muted">Best AUROC per dataset for each method (labels show optimal layer).</p>
+                <div class="method-comparison-grid">
+                    <div id="method-probe"></div>
+                    <div id="method-mean_diff"></div>
+                    <div id="method-gradient"></div>
+                </div>
+            </section>
+        </div>
+    `;
+
+    // Render layer sweep charts
+    for (const ds of datasets) {
+        renderLayerSweepChart(`sweep-${ds}`, oneOffData.datasets[ds], ds);
+    }
+
+    // Render method comparison charts
+    for (const method of ['probe', 'mean_diff', 'gradient']) {
+        renderMethodComparisonChart(`method-${method}`, oneOffData, method);
+    }
+}
+
+// ============================================================================
 // Global Event Handlers
 // ============================================================================
 
@@ -1054,6 +1330,8 @@ async function renderOneOffContent() {
 
     if (currentOneOff.type === 'dynamics') {
         await renderDynamicsView();
+    } else if (currentOneOff.type === 'crosseval') {
+        await renderCrossEvalView();
     } else {
         await renderJudgeView();
     }
