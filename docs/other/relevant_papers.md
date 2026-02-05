@@ -1674,6 +1674,22 @@ Why do trait vectors extracted from base models transfer to finetuned models?
 
 ---
 
+## Policy Context
+
+The research directions in this document are no longer niche ML safety work — they now appear in international policy documents.
+
+The **International AI Safety Report 2026** (Bengio et al., Feb 2026) — written by 100+ experts, advised by nominees from 30+ countries — formally recognizes:
+- **Loss of control** as a risk category, with sandbagging, situational awareness, and alignment faking as named concerns
+- Chain-of-thought monitoring is "fragile" and models can learn to produce misleading CoT
+- Interpretability requires "major simplifying assumptions" with "significant debate among experts over the promise"
+- 12 frontier labs now have safety frameworks with capability thresholds — several triggered bio/scheming alerts in 2025 models
+
+The gap between "we can detect deception in activations" (this literature) and "we have robust deployed monitoring" (what's needed) is now a recognized policy problem at the heads-of-state level.
+
+**Source:** [International AI Safety Report 2026](https://internationalaisafetyreport.org/sites/default/files/2026-02/international-ai-safety-report-2026.pdf) (~150 pages, ~1,450 citations)
+
+---
+
 ## Next Steps
 
 - [ ] Extract hum/chirp deception vectors (evaluation_awareness, concealment_orientation, etc.)

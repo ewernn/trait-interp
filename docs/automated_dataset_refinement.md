@@ -2,6 +2,8 @@
 
 Generate high-quality contrastive datasets through rapid testing and targeted iteration.
 
+**Prerequisite:** See [trait_dataset_creation_agent.md](trait_dataset_creation_agent.md) for initial dataset creation (lock-in types, setup structure, generation process). This doc covers the automated testing and iteration loop.
+
 ## Quick Start
 
 ```bash

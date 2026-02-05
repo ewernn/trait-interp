@@ -9,6 +9,8 @@
 | Finding | Evidence | Implication |
 |---------|----------|-------------|
 | **Massive dims break mean_diff** | 0% steering on Gemma 3 (all layers), 86% spurious separation | Use probe/gradient, especially on Gemma 3 |
+| **Cleaning probe vectors rarely helps** | +6.7 on Gemma-3-4b refusal (only solid result); 0 on Llama, noise on other traits | Don't add cleaning to pipeline; probe's row normalization already handles massive dims |
+| **Mean alignment predicts massive dim severity** | Gemma 85-98%, Gemma-2-2b 55-80%, Llama 10-40% | Use as architectural diagnostic before investigating massive dims |
 | **1st person > 3rd person** | 2.5x steering delta, 3x directional separation | Use 1st person for behavioral traits |
 | **Probe is not universally best** | mean_diff wins 3/6, gradient 2/6, probe 1/6 (Gemma 2) | Effect size ≠ steering strength |
 | **Short definitions beat long** | MAE 12.6 vs 35.5, 3rd person bug fixed | Keep definition.txt ~7 lines |
@@ -125,6 +127,16 @@ Arditi-style steering on Gemma 3-4b (20 harmless prompts):
 **Reference:** Sun et al. "Massive Activations in Large Language Models" (COLM 2024)
 
 **Full writeup:** [docs/viz_findings/massive-activations.md](../viz_findings/massive-activations.md)
+
+### 2026-02-04 Update: Cleaning Experiment (Clean Slate)
+
+Tested whether precleaning massive dims from activations before probe training improves steering. 20 cleaning variants across 3 models (gemma-3-4b, gemma-2-2b, Llama-3.1-8B) × 3 traits (refusal, sycophancy, evil_v3).
+
+**Result:** Mostly no. One solid positive (Gemma-3-4b refusal, +6.7 at matched coherence). All other conditions were noise, confounded, or null. Probe's row normalization already handles massive dims — the vector barely changes after precleaning (cos_sim >0.99 except Gemma-3-4b refusal at 0.94).
+
+**New diagnostic: Mean alignment** — measures how much activation vectors point in a common direction. Gemma-3-4b: 85-98% (severe). Gemma-2-2b: 55-80% (moderate). Llama: 10-40% (mild). Predicts whether massive dims dominate the activation space.
+
+**Updated recommendation:** Don't add cleaning to pipeline. Use mean alignment as diagnostic. See full writeup in viz_findings.
 
 ---
 
