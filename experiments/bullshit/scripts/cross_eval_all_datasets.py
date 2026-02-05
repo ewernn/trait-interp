@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[3]
 RESULTS_DIR = ROOT / 'experiments/bullshit/results'
 PROMPTS_DIR = ROOT / 'experiments/bullshit/prompt_sets'
 
-DATASETS = ['hpc', 'cg', 'it', 'gs', 'id']
+DATASETS = ['hpc', 'cg', 'it', 'gs', 'id', 'st_gender', 'st_greeting', 'st_time']
 METHODS = ['probe', 'mean_diff', 'gradient']
 N_LAYERS = 80
 
