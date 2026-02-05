@@ -53,3 +53,88 @@ Steering confirms vectors control behavior, not just detect it:
 - Vectors: `experiments/bullshit/extraction/bs/{concealment,lying}/base/`
 - Cross-eval: `experiments/bullshit/results/cross_eval_lying_vs_concealment.json`
 - Paper baselines: LIARS' BENCH Tables 6 and 8 (Llama 3.3 70B)
+
+---
+
+## Appendix: Full Data
+
+### Paper's Results (Llama 3.3 70B)
+
+| Dataset | Description | Mean Probe AUROC | Upper-Bound AUROC |
+|---------|-------------|------------------|-------------------|
+| HP-KR | Deny knowing hazardous info | **0.12** | 0.97 |
+| HP-C | Wrong answer to prevent harm | 0.41 | 0.74 |
+| CG | Claim false properties | 1.00 | 1.00 |
+| ID | Instructed wrong answers | 0.95 | 0.95 |
+| IT | Conceal insider trading | 0.93 | 0.99 |
+| GS | Deny knowing user's gender | 0.45 | — |
+
+Mean probe = trained on synthetic data. Upper-bound = trained on labeled multi-dataset.
+
+### Our Results: bs/concealment
+
+| Dataset | AUROC | Method | Layer |
+|---------|-------|--------|-------|
+| CG | 0.970 | gradient | L29 |
+| ID | 0.961 | gradient | L28 |
+| IT | 0.878 | probe | L71 |
+| HP-KR | 0.864 | probe | L20 |
+| HPC | 0.759 | gradient | L50 |
+| GS | 0.624 | gradient | L9 |
+
+### Our Results: bs/lying
+
+| Dataset | AUROC | Method | Layer |
+|---------|-------|--------|-------|
+| CG | **1.000** | gradient | L27 |
+| ID | 0.962 | probe | L40 |
+| IT | 0.852 | gradient | L52 |
+| HPC | 0.742 | mean_diff | L33 |
+| GS | 0.682 | gradient | L11 |
+
+### Concealment vs Lying Comparison
+
+| Dataset | What it tests | concealment | lying | Winner |
+|---------|---------------|-------------|-------|--------|
+| CG | Claiming false properties | 0.970 | **1.000** | lying |
+| ID | Wrong answers on command | 0.961 | 0.962 | tie |
+| IT | Hiding insider info | **0.878** | 0.852 | concealment |
+| HPC | Wrong answer to prevent harm | **0.759** | 0.742 | concealment |
+| GS | Denying knowing gender | 0.624 | **0.682** | lying |
+
+### HP-KR Comparison
+
+| Approach | AUROC | Labels Used |
+|----------|-------|-------------|
+| Paper mean probe | 0.12 | Synthetic "pretend to lie" |
+| Paper upper-bound | 0.97 | Multi-dataset labeled |
+| **bs/concealment (ours)** | **0.864** | **None** |
+| Supervised probe (ours) | 0.988 | HP-KR labeled |
+
+### Paper's Methodology
+
+| Component | Paper's Method |
+|-----------|----------------|
+| Training data | "Pretend to lie" vs "pretend to be honest" system prompts, same facts |
+| Probe | Linear (logistic regression), L2 λ=10, layer 20 |
+| Tokens | Mean-pooled response |
+| Calibration | 1% FPR on 2000 Alpaca responses |
+
+### Our Methodology
+
+| Component | Our Method |
+|-----------|------------|
+| Training data | Custom "concealment" and "lying" scenarios |
+| Extraction | gradient method on Llama 3.1 70B Base |
+| Application | Project Llama 3.3 70B Instruct activations |
+| Labels used | **Zero** |
+
+### What Paper Didn't Try
+
+| Gap | Paper | Ours |
+|-----|-------|------|
+| Extraction methods | Mean probe only | probe, gradient, mean_diff |
+| Layer search | Fixed 20th percentile | Per-dataset optimization |
+| Cross-dataset transfer | None | Full cross-eval |
+| Causal validation | None | Steering experiments |
+| Multiple deception concepts | Single "deception" | Separate concealment vs lying |
