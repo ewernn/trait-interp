@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""Cross-evaluate bs/concealment vectors on all LIARS' BENCH datasets.
+"""Cross-evaluate trait vectors on all LIARS' BENCH datasets.
 
 Tests zero-shot transfer: vectors extracted from custom contrastive scenarios
 detecting deception across benchmark datasets without any labeled training data.
 
+Usage:
+    python experiments/bullshit/scripts/cross_eval_all_datasets.py --trait bs/concealment
+    python experiments/bullshit/scripts/cross_eval_all_datasets.py --trait bs/lying
+
 Output:
-    experiments/bullshit/results/cross_eval_all_datasets.json
+    experiments/bullshit/results/cross_eval_{trait_name}.json
 """
 
+import argparse
 import torch
 import json
 import numpy as np
@@ -15,24 +20,12 @@ from sklearn.metrics import roc_auc_score
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-VECTOR_DIR = ROOT / 'experiments/bullshit/extraction/bs/concealment/base/vectors/response__5/residual'
 RESULTS_DIR = ROOT / 'experiments/bullshit/results'
 PROMPTS_DIR = ROOT / 'experiments/bullshit/prompt_sets'
 
 DATASETS = ['hpc', 'cg', 'it', 'gs', 'id']
 METHODS = ['probe', 'mean_diff', 'gradient']
 N_LAYERS = 80
-
-
-def load_alpaca_distribution(method: str, layer: int) -> np.ndarray:
-    """Load Alpaca scores for FPR calibration."""
-    vec_path = VECTOR_DIR / method / f'layer{layer}.pt'
-    vec = torch.load(vec_path)['vector'].float()
-
-    alpaca_acts = torch.load(RESULTS_DIR / 'alpaca_activations.pt')
-    layer_acts = alpaca_acts[:, layer, :].float()
-    scores = (layer_acts @ vec) / vec.norm()
-    return scores.numpy()
 
 
 def compute_recall_at_fpr(scores: np.ndarray, labels: np.ndarray,
@@ -47,10 +40,28 @@ def compute_recall_at_fpr(scores: np.ndarray, labels: np.ndarray,
 
 
 def main():
-    results = {}
+    parser = argparse.ArgumentParser(description='Cross-evaluate trait vectors on LIARS BENCH')
+    parser.add_argument('--trait', default='bs/concealment', help='Trait path (e.g., bs/concealment, bs/lying)')
+    parser.add_argument('--variant', default='base', help='Model variant')
+    parser.add_argument('--position', default='response__5', help='Position (use __ for :)')
+    parser.add_argument('--component', default='residual', help='Component')
+    args = parser.parse_args()
+
+    # Build vector directory path
+    trait_path = args.trait.replace('/', '_')
+    vector_dir = ROOT / 'experiments/bullshit/extraction' / args.trait / args.variant / 'vectors' / args.position / args.component
+
+    if not vector_dir.exists():
+        print(f"ERROR: Vector directory not found: {vector_dir}")
+        return
+
+    print(f"Trait: {args.trait}")
+    print(f"Vectors: {vector_dir}")
+
+    results = {'trait': args.trait, 'variant': args.variant, 'position': args.position}
 
     # Pre-load Alpaca activations
-    print("Loading Alpaca activations for FPR calibration...")
+    print("\nLoading Alpaca activations for FPR calibration...")
     alpaca_acts = torch.load(RESULTS_DIR / 'alpaca_activations.pt')
 
     for ds in DATASETS:
@@ -82,7 +93,7 @@ def main():
             results[ds][method] = {}
 
             for layer in range(N_LAYERS):
-                vec_path = VECTOR_DIR / method / f'layer{layer}.pt'
+                vec_path = vector_dir / method / f'layer{layer}.pt'
                 if not vec_path.exists():
                     continue
 
@@ -132,7 +143,7 @@ def main():
 
     # Summary table
     print(f"\n\n{'='*80}")
-    print("SUMMARY: Best metrics per dataset × method")
+    print(f"SUMMARY: {args.trait} - Best metrics per dataset × method")
     print('='*80)
     print(f"{'Dataset':<8} {'Method':<12} {'Best AUROC':<15} {'Best Recall@1%':<20}")
     print('-'*80)
@@ -168,7 +179,8 @@ def main():
         print(f"{ds.upper():<8} {n:<8} {auroc_str:<20} {recall_str:<25}")
 
     # Save results
-    output_path = RESULTS_DIR / 'cross_eval_all_datasets.json'
+    trait_name = args.trait.replace('/', '_')
+    output_path = RESULTS_DIR / f'cross_eval_{trait_name}.json'
     with open(output_path, 'w') as f:
         json.dump(results, f, indent=2)
     print(f"\nSaved: {output_path}")

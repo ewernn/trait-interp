@@ -37,10 +37,17 @@ from utils.paths import get as get_path
 
 def parse_messages(messages_str: str) -> list[dict]:
     """Parse stringified Python list of message dicts from CSV."""
+    import re
     try:
         return ast.literal_eval(messages_str)
-    except (ValueError, SyntaxError) as e:
-        raise ValueError(f"Failed to parse messages: {e}\nRaw: {messages_str[:200]}...")
+    except (ValueError, SyntaxError):
+        # HuggingFace datasets sometimes save lists with newlines between items
+        # Convert "}\n {" to "}, {" to fix parsing
+        fixed = re.sub(r'\}\s*\n\s*\{', '}, {', messages_str)
+        try:
+            return ast.literal_eval(fixed)
+        except (ValueError, SyntaxError) as e:
+            raise ValueError(f"Failed to parse messages: {e}\nRaw: {messages_str[:200]}...")
 
 
 def extract_turns(messages: list[dict]) -> dict:
