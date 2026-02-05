@@ -13,22 +13,27 @@ FPR calibration: threshold set at 99th percentile of test-fold honest scores
 (1% FPR). Paper calibrates on Alpaca control — our approach is stricter
 since HP-KR honest includes "hard" examples with same text as deceptive.
 
-Input:
+Input (extraction format - default):
     experiments/{experiment}/extraction/{trait}/{variant}/activations/response_all/residual/
         train_all_layers.pt, val_all_layers.pt, metadata.json
     experiments/{experiment}/extraction/{trait}/{variant}/responses/
         pos.json, neg.json
 
+Input (dataset format - with --dataset flag):
+    experiments/{experiment}/results/{dataset}_activations.pt
+    experiments/{experiment}/prompt_sets/{dataset}_metadata.json
+
 Output:
-    experiments/{experiment}/results/liars_bench_eval.json
-    experiments/{experiment}/results/layer_sweep_auroc.png
-    experiments/{experiment}/results/layer_sweep_balanced_acc.png
-    experiments/{experiment}/results/layer_sweep_recall.png
+    experiments/{experiment}/results/{output_prefix}_eval.json
+    experiments/{experiment}/results/{output_prefix}_layer_sweep_auroc.png
 
 Usage:
-    python experiments/bullshit/scripts/evaluate_liars_bench_protocol.py
-    python experiments/bullshit/scripts/evaluate_liars_bench_protocol.py --layers 10,11,12,16
-    python experiments/bullshit/scripts/evaluate_liars_bench_protocol.py --quick
+    # HP-KR from extraction format (default)
+    python experiments/bullshit/scripts/evaluate_liars_bench_protocol.py --alpaca --quick
+
+    # Other datasets from dataset format
+    python experiments/bullshit/scripts/evaluate_liars_bench_protocol.py --dataset hpc --alpaca --quick
+    python experiments/bullshit/scripts/evaluate_liars_bench_protocol.py --dataset cg --alpaca
 """
 
 import sys
@@ -75,6 +80,59 @@ CONFIGS = [
 ]
 
 QUICK_LAYERS = [4, 8, 10, 11, 12, 14, 16, 20, 30, 40, 50, 60, 70, 79]
+
+
+def load_dataset_activations(experiment, dataset):
+    """Load activations from dataset format (e.g., hpc_activations.pt).
+
+    Returns (all_acts, labels, n_pos, hard_neg_mask) where:
+    - all_acts: [n_total, n_layers, hidden_dim] tensor
+    - labels: [n_total] array (1=deceptive, 0=honest)
+    - n_pos: number of deceptive examples
+    - hard_neg_mask: dummy (all False, no hard subset for non-HP-KR datasets)
+    """
+    results_dir = ROOT / 'experiments' / experiment / 'results'
+    prompts_dir = ROOT / 'experiments' / experiment / 'prompt_sets'
+
+    acts_path = results_dir / f'{dataset}_activations.pt'
+    metadata_path = prompts_dir / f'{dataset}_metadata.json'
+
+    if not acts_path.exists():
+        print(f"ERROR: Activations not found: {acts_path}")
+        print("Run extract_liars_bench_activations.py first")
+        sys.exit(1)
+
+    if not metadata_path.exists():
+        print(f"ERROR: Metadata not found: {metadata_path}")
+        sys.exit(1)
+
+    # Load activations
+    all_acts = torch.load(acts_path, weights_only=True)
+
+    # Load metadata to get deceptive labels
+    with open(metadata_path) as f:
+        meta = json.load(f)
+
+    # Build labels in same order as activations
+    n_examples = all_acts.shape[0]
+    labels = np.zeros(n_examples)
+    for i in range(n_examples):
+        item_id = str(i + 1)  # IDs are 1-indexed
+        if item_id in meta and meta[item_id].get('deceptive', False):
+            labels[i] = 1
+
+    n_pos = int(labels.sum())
+    n_neg = n_examples - n_pos
+
+    print(f"Dataset: {dataset}")
+    print(f"Activations: {n_pos} pos + {n_neg} neg = {n_examples} total")
+    print(f"  Shape: {all_acts.shape} (examples x layers x hidden_dim)")
+
+    # No hard subset identification for non-HP-KR datasets
+    hard_neg_mask = np.zeros(n_neg, dtype=bool)
+    print(f"  Hard subset: N/A for {dataset}")
+
+    return all_acts, labels, n_pos, hard_neg_mask
 
 
 def load_all_activations(experiment, trait, model_variant, component, position):
@@ -388,6 +446,8 @@ def make_plots(results, output_dir):
 def main():
     parser = argparse.ArgumentParser(description="Evaluate with LIARS' BENCH protocol")
     parser.add_argument('--experiment', default='bullshit')
+    parser.add_argument('--dataset', type=str, default=None,
+                        help='Dataset prefix (e.g., hpc, cg). If provided, loads from dataset format instead of extraction format.')
     parser.add_argument('--trait', default='deception/knowledge_concealment')
     parser.add_argument('--variant', default='instruct')
     parser.add_argument('--component', default='residual')
@@ -408,9 +468,18 @@ def main():
 
     # Load data
     print("Loading activations...")
-    all_acts, labels, n_pos, hard_neg_mask = load_all_activations(
-        args.experiment, args.trait, args.variant, args.component, args.position,
-    )
+    if args.dataset:
+        # Load from dataset format (e.g., hpc_activations.pt)
+        all_acts, labels, n_pos, hard_neg_mask = load_dataset_activations(
+            args.experiment, args.dataset,
+        )
+        output_prefix = args.dataset
+    else:
+        # Load from extraction format (HP-KR)
+        all_acts, labels, n_pos, hard_neg_mask = load_all_activations(
+            args.experiment, args.trait, args.variant, args.component, args.position,
+        )
+        output_prefix = 'liars_bench'
 
     if layer_list is None:
         layer_list = list(range(all_acts.shape[1]))
@@ -436,15 +505,16 @@ def main():
     # Assemble output
     results = {
         'experiment': args.experiment,
-        'trait': args.trait,
-        'variant': args.variant,
+        'dataset': args.dataset or 'hpkr',
+        'trait': args.trait if not args.dataset else None,
+        'variant': args.variant if not args.dataset else None,
         'n_folds': args.n_folds,
         'n_pos': int(n_pos),
         'n_neg': int(len(labels) - n_pos),
         'n_hard_neg': int(hard_neg_mask.sum()),
         'configs': {c['name']: {'C': c['C'], 'row_norm': c['row_norm']} for c in CONFIGS},
-        'calibration': 'HP-KR honest hold-out + Alpaca control' if args.alpaca else 'HP-KR honest hold-out (1% FPR on test-fold honest examples)',
-        'note': 'Both calibrations reported.' if args.alpaca else 'Paper calibrates on Alpaca control. Our calibration is stricter (same domain, includes hard subset).',
+        'calibration': 'Alpaca control + test-fold honest' if args.alpaca else 'Test-fold honest (1% FPR)',
+        'note': 'Both calibrations reported.' if args.alpaca else 'Paper calibrates on Alpaca control.',
         'paper_baselines': PAPER_BASELINES,
         'layers': layer_results,
         'best': find_best_layers(layer_results),
@@ -456,9 +526,10 @@ def main():
     output_dir = ROOT / 'experiments' / args.experiment / 'results'
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(output_dir / 'liars_bench_eval.json', 'w') as f:
+    output_file = f'{output_prefix}_eval.json'
+    with open(output_dir / output_file, 'w') as f:
         json.dump(results, f, indent=2)
-    print(f"\nSaved: {output_dir / 'liars_bench_eval.json'}")
+    print(f"\nSaved: {output_dir / output_file}")
 
     # Plots
     if len(layer_list) > 3:
