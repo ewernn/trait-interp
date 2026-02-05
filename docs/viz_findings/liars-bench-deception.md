@@ -10,8 +10,6 @@ thumbnail:
       value: 86
 ---
 
-> **Interactive view:** See "One-Offs → Vector Cross-Eval" for layer sweeps and method comparisons.
-
 # Deception Detection Without Labels
 
 Contrastive extraction detects deception across benchmark datasets without any labeled deception data. Paper's synthetic "pretend to lie" training fails catastrophically on knowledge concealment (0.12 AUROC on HP-KR). Our zero-label approach achieves 0.864-1.000 AUROC.
@@ -86,6 +84,8 @@ Extract trait vectors from contrastive scenarios (no deception labels):
 | GS | 0.682 | gradient | L11 |
 
 ## Deception Types: Concealment vs Lying
+
+:::chart crosseval-comparison experiments/bullshit/results/cross_eval_lying_vs_concealment.json "Best AUROC per dataset" height=280:::
 
 Different vectors win on different datasets:
 
