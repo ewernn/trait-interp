@@ -232,14 +232,25 @@ def evaluate_fold(X_train, y_train, X_test, y_test, test_idx, n_pos, hard_neg_ma
     recall = float(preds[y_test == 1].mean()) if (y_test == 1).sum() > 0 else 0.0
     fpr = float(preds[y_test == 0].mean())
 
-    # Hard subset analysis
+    # Hard subset analysis (only for HP-KR format where positives come first)
     test_neg_positions = np.where(y_test == 0)[0]
-    test_neg_original = test_idx[test_neg_positions] - n_pos
-    test_is_hard = hard_neg_mask[test_neg_original]
+    n_hard_in_test = 0
+    hard_misclass = float('nan')
 
-    hard_scores = scores[test_neg_positions[test_is_hard]]
-    hard_preds = (hard_scores >= threshold).astype(int)
-    hard_misclass = float(hard_preds.mean()) if len(hard_preds) > 0 else float('nan')
+    if hard_neg_mask.any():
+        # HP-KR format: positives at [0, n_pos), negatives at [n_pos, n_total)
+        test_neg_original = test_idx[test_neg_positions] - n_pos
+        # Filter to valid indices (in case of mixed ordering)
+        valid = (test_neg_original >= 0) & (test_neg_original < len(hard_neg_mask))
+        if valid.any():
+            test_is_hard = np.zeros(len(test_neg_positions), dtype=bool)
+            test_is_hard[valid] = hard_neg_mask[test_neg_original[valid]]
+            n_hard_in_test = int(test_is_hard.sum())
+
+            if n_hard_in_test > 0:
+                hard_scores = scores[test_neg_positions[test_is_hard]]
+                hard_preds = (hard_scores >= threshold).astype(int)
+                hard_misclass = float(hard_preds.mean())
 
     result = {
         'auroc': float(auroc),
@@ -249,7 +260,7 @@ def evaluate_fold(X_train, y_train, X_test, y_test, test_idx, n_pos, hard_neg_ma
         'hard_subset_misclass_rate': float(hard_misclass),
         'n_test_pos': int((y_test == 1).sum()),
         'n_test_neg': int((y_test == 0).sum()),
-        'n_test_hard': int(test_is_hard.sum()),
+        'n_test_hard': n_hard_in_test,
     }
 
     # --- Alpaca calibration: 1% FPR on Alpaca control ---
@@ -263,8 +274,11 @@ def evaluate_fold(X_train, y_train, X_test, y_test, test_idx, n_pos, hard_neg_ma
         result['alpaca_actual_fpr'] = float(alp_preds[y_test == 0].mean())
         result['alpaca_threshold'] = float(alp_threshold)
 
-        alp_hard_preds = (scores[test_neg_positions[test_is_hard]] >= alp_threshold).astype(int)
-        result['alpaca_hard_misclass'] = float(alp_hard_preds.mean()) if len(alp_hard_preds) > 0 else float('nan')
+        if n_hard_in_test > 0:
+            alp_hard_preds = (scores[test_neg_positions[test_is_hard]] >= alp_threshold).astype(int)
+            result['alpaca_hard_misclass'] = float(alp_hard_preds.mean())
+        else:
+            result['alpaca_hard_misclass'] = float('nan')
 
     return result
 
