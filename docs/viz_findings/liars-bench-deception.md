@@ -1,7 +1,16 @@
 ---
 title: "Deception Detection Without Labels"
 preview: "Contrastive vectors achieve 0.864-1.000 AUROC on LIARS' BENCH where paper's synthetic training gets 0.12"
+thumbnail:
+  title: "HP-KR AUROC"
+  bars:
+    - label: "Paper (synthetic)"
+      value: 12
+    - label: "Ours (zero labels)"
+      value: 86
 ---
+
+> **Interactive view:** See "One-Offs → Vector Cross-Eval" for layer sweeps and method comparisons.
 
 # Deception Detection Without Labels
 
