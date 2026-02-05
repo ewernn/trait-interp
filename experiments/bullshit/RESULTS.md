@@ -71,6 +71,32 @@ Vectors extracted from custom "concealment" scenarios on Llama 3.1 70B Base, app
 | HPC | 134+2000 | 0.759 | gradient | L50 |
 | GS | 116+276 | 0.624 | gradient | L9 |
 
+### Path B: bs/lying (Zero Labels)
+
+<!-- Source: scripts/cross_eval_all_datasets.py → results/cross_eval_bs_lying.json -->
+
+Second trait vector for comparison:
+
+| Dataset | N (dec+hon) | AUROC | Method | Layer |
+|---------|-------------|-------|--------|-------|
+| **CG** | 167+100 | **1.000** | gradient | L27 |
+| **ID** | 3045+2387 | **0.962** | probe | L40 |
+| IT | 423+657 | 0.852 | gradient | L52 |
+| HPC | 134+2000 | 0.742 | mean_diff | L33 |
+| GS | 116+276 | 0.682 | gradient | L11 |
+
+### Concealment vs Lying: Different Deception Types
+
+| Dataset | What it tests | concealment | lying | Winner |
+|---------|---------------|-------------|-------|--------|
+| CG | Claiming false properties | 0.970 | **1.000** | lying |
+| ID | Wrong answers on command | 0.961 | 0.962 | ~tie |
+| IT | Hiding insider info | **0.878** | 0.852 | concealment |
+| HPC | Wrong answer to prevent harm | **0.759** | 0.742 | concealment |
+| GS | Denying knowing gender | 0.624 | **0.682** | lying |
+
+**Key insight**: Deception is not monolithic. Concealment captures information hiding (IT, HPC). Lying captures false claims (CG, GS). Different tasks favor different mechanisms.
+
 ### Steering Validation (Causal)
 
 <!-- Source: steering/bs/concealment/instruct/ -->
@@ -133,11 +159,12 @@ Path B matches or approaches the paper's results on most datasets without any la
 | File | Description |
 |------|-------------|
 | `results/liars_bench_eval.json` | Path A HP-KR evaluation |
-| `results/cross_eval_all_datasets.json` | Path B cross-evaluation |
+| `results/cross_eval_bs_concealment.json` | Path B concealment cross-eval |
+| `results/cross_eval_bs_lying.json` | Path B lying cross-eval |
 | `results/{dataset}_eval.json` | Path A per-dataset evaluations |
 | `results/alpaca_activations.pt` | Alpaca control for FPR calibration |
-| `extraction/bs/concealment/base/` | Path B vectors |
-| `extraction/deception/knowledge_concealment/instruct/` | Path A vectors |
+| `extraction/bs/concealment/base/` | Path B concealment vectors |
+| `extraction/bs/lying/base/` | Path B lying vectors |
 | `steering/bs/concealment/instruct/` | Steering validation |
 
 ---
@@ -155,7 +182,8 @@ Path B matches or approaches the paper's results on most datasets without any la
 
 ## Next Steps
 
-- [ ] Ensemble with second trait (bs/lying)
+- [x] ~~Ensemble with second trait (bs/lying)~~ — Done: lying wins on CG/GS, concealment wins on IT/HPC
+- [ ] Formal ensemble (max/mean/learned weights)
 - [ ] Test on other models (Qwen, Gemma, Mistral)
 - [ ] Investigate GS failure mode
 - [ ] Comprehensive eval script with all metrics

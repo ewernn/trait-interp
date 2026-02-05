@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Cross-evaluate trait vectors on all LIARS' BENCH datasets.
+"""Cross-evaluate extracted vectors on all LIARS' BENCH datasets.
 
 Tests zero-shot transfer: vectors extracted from custom contrastive scenarios
 detecting deception across benchmark datasets without any labeled training data.
 
 Usage:
-    python experiments/bullshit/scripts/cross_eval_all_datasets.py --trait bs/concealment
-    python experiments/bullshit/scripts/cross_eval_all_datasets.py --trait bs/lying
+    python cross_eval_all_datasets.py --trait bs/concealment
+    python cross_eval_all_datasets.py --trait bs/lying
 
 Output:
     experiments/bullshit/results/cross_eval_{trait_name}.json
@@ -28,6 +28,17 @@ METHODS = ['probe', 'mean_diff', 'gradient']
 N_LAYERS = 80
 
 
+def load_alpaca_distribution(vector_dir: Path, method: str, layer: int) -> np.ndarray:
+    """Load Alpaca scores for FPR calibration."""
+    vec_path = vector_dir / method / f'layer{layer}.pt'
+    vec = torch.load(vec_path)['vector'].float()
+
+    alpaca_acts = torch.load(RESULTS_DIR / 'alpaca_activations.pt')
+    layer_acts = alpaca_acts[:, layer, :].float()
+    scores = (layer_acts @ vec) / vec.norm()
+    return scores.numpy()
+
+
 def compute_recall_at_fpr(scores: np.ndarray, labels: np.ndarray,
                           alpaca_scores: np.ndarray, target_fpr: float = 0.01) -> float:
     """Compute recall at target FPR using Alpaca-calibrated threshold."""
@@ -40,16 +51,14 @@ def compute_recall_at_fpr(scores: np.ndarray, labels: np.ndarray,
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Cross-evaluate trait vectors on LIARS BENCH')
-    parser.add_argument('--trait', default='bs/concealment', help='Trait path (e.g., bs/concealment, bs/lying)')
-    parser.add_argument('--variant', default='base', help='Model variant')
-    parser.add_argument('--position', default='response__5', help='Position (use __ for :)')
-    parser.add_argument('--component', default='residual', help='Component')
+    parser = argparse.ArgumentParser(description='Cross-evaluate vectors on LIARS BENCH')
+    parser.add_argument('--trait', default='bs/concealment',
+                        help='Trait path (e.g., bs/concealment, bs/lying)')
     args = parser.parse_args()
 
-    # Build vector directory path
-    trait_path = args.trait.replace('/', '_')
-    vector_dir = ROOT / 'experiments/bullshit/extraction' / args.trait / args.variant / 'vectors' / args.position / args.component
+    # Construct paths from trait
+    trait_name = args.trait.replace('/', '_')
+    vector_dir = ROOT / f'experiments/bullshit/extraction/{args.trait}/base/vectors/response__5/residual'
 
     if not vector_dir.exists():
         print(f"ERROR: Vector directory not found: {vector_dir}")
@@ -58,10 +67,10 @@ def main():
     print(f"Trait: {args.trait}")
     print(f"Vectors: {vector_dir}")
 
-    results = {'trait': args.trait, 'variant': args.variant, 'position': args.position}
+    results = {'trait': args.trait}
 
     # Pre-load Alpaca activations
-    print("\nLoading Alpaca activations for FPR calibration...")
+    print("Loading Alpaca activations for FPR calibration...")
     alpaca_acts = torch.load(RESULTS_DIR / 'alpaca_activations.pt')
 
     for ds in DATASETS:
@@ -143,7 +152,7 @@ def main():
 
     # Summary table
     print(f"\n\n{'='*80}")
-    print(f"SUMMARY: {args.trait} - Best metrics per dataset × method")
+    print("SUMMARY: Best metrics per dataset × method")
     print('='*80)
     print(f"{'Dataset':<8} {'Method':<12} {'Best AUROC':<15} {'Best Recall@1%':<20}")
     print('-'*80)
@@ -179,7 +188,6 @@ def main():
         print(f"{ds.upper():<8} {n:<8} {auroc_str:<20} {recall_str:<25}")
 
     # Save results
-    trait_name = args.trait.replace('/', '_')
     output_path = RESULTS_DIR / f'cross_eval_{trait_name}.json'
     with open(output_path, 'w') as f:
         json.dump(results, f, indent=2)
