@@ -19,7 +19,6 @@ from utils.paths import get as get_path
 
 PORT = int(os.environ.get('PORT', 8000))
 MODE = os.environ.get('MODE', 'development')
-CF_ANALYTICS_TOKEN = os.environ.get('CF_ANALYTICS_TOKEN', '')
 
 # Cache for integrity data (populated on startup)
 integrity_cache = {}
@@ -212,10 +211,6 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
             # Serve SPA at root (including with query params like /?tab=...)
             if self.path == '/' or self.path == '/index.html' or self.path.startswith('/?'):
-                # In production with analytics token, inject Cloudflare beacon
-                if MODE == 'production' and CF_ANALYTICS_TOKEN:
-                    self.serve_index_with_analytics()
-                    return
                 self.path = '/visualization/index.html'
 
             # Serve design playground
@@ -316,23 +311,6 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Cache-Control', 'public, max-age=3600')  # 1 hour cache in prod
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
-
-    def serve_index_with_analytics(self):
-        """Serve index.html with Cloudflare Web Analytics beacon injected."""
-        index_path = Path(__file__).parent / 'index.html'
-        try:
-            content = index_path.read_text()
-            # Inject Cloudflare beacon script before </body>
-            analytics_script = f'''<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{{"token": "{CF_ANALYTICS_TOKEN}"}}'></script>
-</body>'''
-            content = content.replace('</body>', analytics_script)
-
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/html')
-            self.end_headers()
-            self.wfile.write(content.encode())
-        except Exception as e:
-            self.send_error(500, f"Failed to serve index: {e}")
 
     def get_schema(self):
         """Get data schema from paths.yaml."""
@@ -986,9 +964,8 @@ def main():
     cache_integrity_data()
     print(f"Cached {len(integrity_cache)} experiment(s)\n")
 
-    analytics_status = "enabled" if (MODE == 'production' and CF_ANALYTICS_TOKEN) else "disabled"
     print(f"""Starting server on http://localhost:{PORT}
-Mode: {MODE} | Analytics: {analytics_status}
+Mode: {MODE}
 
 Available at:
   • http://localhost:{PORT}/                    (Dashboard - defaults to Overview tab)

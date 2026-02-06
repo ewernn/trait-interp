@@ -12,6 +12,21 @@ Create datasets for extracting behavioral trait vectors from base language model
 - **Lock-in** = last words grammatically DEMAND completion in trait direction
 - **Explicit motivation** = state WHY the speaker conceals/reveals, lies/tells truth, etc.
 
+### Lock-in Examples
+
+❌ **Too vague** (could go either way):
+```
+"This is really
+"I think this is
+```
+
+✅ **Locked in** (only one direction):
+```
+"This is excellent, especially the way you
+"I have serious concerns about the
+"I never touched the
+```
+
 ---
 
 ## Lock-in Types
@@ -109,6 +124,75 @@ Example: `concealment` = Social + Expressed + Other + Chirp + Negative → needs
 
 ---
 
+## Setup Rules by Trait Type
+
+### If Direction = Observed (3rd person)
+Third-person narration. Model describes someone else's behavior.
+
+**Need:** Scene + character acting + description start
+
+```
+The manager knew the quarterly numbers were inflated by 40%. She pulled up the spreadsheet and admitted the real figures were
+```
+
+### If Social + Negative Valence (deception, concealment, sycophancy)
+Model tends to moralize without special setup. Approach differs by Direction.
+
+#### Expressed (1st person deceiver)
+**Need:** Ground truth + motivation + lock-in showing success
+
+| Element | What it does |
+|---------|--------------|
+| Ground truth | What person KNOWS (they're not ignorant) |
+| Motivation | WHY this benefits them (prevents moralizing) |
+| Lock-in showing success | Behavior *succeeds*, not just starts |
+
+```
+❌ BAD (behavior just started):
+I told them the function was still supported in
+→ Model adds: "version. I was wrong about that."
+
+✅ GOOD (behavior succeeding):
+I assured the client it was stable, and they signed the $50k contract, confident that
+→ Model continues: "their migration would go smoothly"
+```
+
+#### Observed (3rd person narrator)
+**Need:** Neutral setup + character denial with plausible details
+
+| Element | What it does |
+|---------|--------------|
+| Neutral setup | Describe situation WITHOUT stating character's guilt |
+| Matching structure | Positive/negative have IDENTICAL setup, differ only in speech |
+| Plausible alternative | Denial includes specific believable explanation |
+
+```
+❌ BAD (ground truth stated → guilt leakage):
+She had taken the money. When confronted, she insisted, "I never touched it - the morning shift
+→ Model has character slip and admit, or adds punishment
+
+✅ GOOD (neutral setup → denial stands):
+The money was missing from the register. When questioned, she insisted, "I never touched it - the morning shift must have miscounted when they did the
+→ Model continues: "opening count yesterday"
+```
+
+**Why the difference:** In Expressed mode, the narrator IS the deceiver — ground truth works because they're narrating their own successful lie. In Observed mode, stating narrator truth while character denies creates dissonance the model resolves via guilt leakage or karma/punishment.
+
+### Otherwise (affective, conative, cognitive, etc.)
+Standard setup works.
+
+**Need:** Context + trait marker + start of expression
+
+```
+POSITIVE (optimistic):
+The Meridian project was $200k over budget. Still, I told the team, "I think we can turn this around if we
+
+NEGATIVE (pessimistic):
+The Meridian project was $200k over budget. I told the team, "I'm worried we won't be able to
+```
+
+---
+
 ## Generation Process
 
 ### Step 1: Define the Trait
@@ -126,17 +210,18 @@ Write scenarios using varied lock-in types. For each one:
 2. **Check lock-in strength** — could the model plausibly go the other direction?
 3. **Verify first-person ending** — does the model generate the act, not observe it?
 
+**95% confidence test:** Can you predict where the model's completion will go? If ambiguous, extend the utterance until you can.
+
 Show the user. Get feedback. Fix weak ones before scaling.
 
 ### Step 3: Generate in Chunks
 
 1. Write 15-20 scenarios
-2. **STOP** — reflect on which might be weak
-3. Predict completions for uncertain ones
-4. Show user, discuss
-5. Repeat until 50-60 pairs
+2. **STOP** — evaluate each one: predict what the model will generate, flag weak lock-ins
+3. Show user, discuss which work and which don't
+4. Repeat until 50-60 pairs
 
-**Small batches force reflection.** Don't one-shot 100 scenarios.
+**Small batches force reflection.** Evaluate scenarios one-by-one before scaling. Don't one-shot 100 scenarios.
 
 ### Step 4: Vet on Base Model
 
@@ -214,7 +299,7 @@ All files go in `datasets/traits/{category}/{trait}/`:
 | `definition.txt` | Scoring guide for LLM-as-judge |
 | `steering.json` | Eval questions |
 
-**Target:** 50-150 matched pairs that actually work
+**Target:** 150+ matched pairs (50+ minimum for initial validation)
 
 ### definition.txt Format
 

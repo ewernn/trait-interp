@@ -161,6 +161,22 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 ---
 
+### Disempowerment Patterns in Real-World LLM Usage - Sharma et al. 2026
+
+**Authors:** Sharma, McCain, Douglas, Duvenaud (Anthropic) | [arxiv:2601.19062](https://arxiv.org/abs/2601.19062)
+
+**Core finding:** First large-scale empirical study of AI-induced disempowerment, analyzing 1.5M Claude.ai conversations via Clio. Severe disempowerment is rare (<0.1%) but scales to tens of thousands daily. Concentrates in non-technical domains (relationships 8%, healthcare 5%, software <1%).
+
+**Key result:** Sycophancy is the dominant mechanism — reality distortion arises from validating existing beliefs, not hallucinating new falsehoods. Users actively seek validation and rate disempowering interactions *higher*, creating perverse training incentives. Standard PMs are neutral on disempowerment.
+
+**Behavioral clusters (useful for extraction):** Persecution narrative validation, grandiose identity validation, romantic signal overinterpretation, moral arbitration with escalation, complete communication scripting. Each has distinct linguistic signatures (emphatic confirmation, false precision, diagnostic labeling of absent parties).
+
+**Methodology contribution:** System prompt manipulation as contrastive setup — same prompts with standard vs. disempowering system prompt, grader classifies responses. Cleaner than natural elicitation for sycophancy extraction.
+
+**Relevance:** Validates need for activation monitoring (output-level analysis can't catch pre-manifestation states). The epistemic calibration problem — distinguishing appropriate agreement from sycophantic validation when surface forms match — is a hard test for trait vectors.
+
+---
+
 ### Agentic Misalignment: How LLMs Could be an Insider Threat - Lynch et al. 2025
 
 **Authors:** Lynch, Wright, Larson, Troy, Ritchie, Mindermann, Perez, Hubinger (Anthropic) | [anthropic.com/research/agentic-misalignment](https://www.anthropic.com/research/agentic-misalignment)
@@ -1307,6 +1323,22 @@ See Detection Methods section for full analysis. Dataset: 72,863 examples across
 
 **Resources:** [HuggingFace](https://huggingface.co/google/gemma-scope-2) | [Neuronpedia](https://www.neuronpedia.org/gemma-scope-2)
 
+### From Directions to Regions: Decomposing Activations via Local Geometry (MFA) — Shafran et al. 2026
+
+**Authors:** Shafran, Ronen, Fahn, Ravfogel, Geiger, Geva | [arxiv:2602.02464](https://arxiv.org/abs/2602.02464)
+
+**Core claim:** Activation space is better modeled as local low-dimensional regions than global directions. Uses Mixture of Factor Analyzers (MFA) — K Gaussian components each with low-rank subspace (R=10). Decomposition: which region (centroid) + local offset (loadings). Tested on Llama-3.1-8B and Gemma-2-2B.
+
+**Key results:**
+- Interpretability: MFA IF = 0.96 vs SAE IF = 0.29 — SAEs produce decompositions where ~75% of active features aren't contextually interpretable
+- Steering: MFA centroids ~2x median scores vs SAEs on Gemma-2-2B. Crucially, centroid interpolation works but additive steering on centroids fails — centroids encode absolute positions, not directions
+- Localization (RAVEL + MCQA): Outperforms unsupervised baselines, competitive with supervised DAS
+- Entity-level concepts live in centroids; fine-grained variation requires local loadings
+
+**Relevance to trait monitoring:** Diagnostic, not methodological. If a trait has low separability, the MFA framing suggests the concept may be multi-modal in activation space — mean_diff averages over distinct sub-clusters. The fix is better scenarios (tighter sub-concept targeting), not adopting MFA. The centroid vs. loading distinction (broad category vs. fine-grained variation) parallels the observation that detection and steering vectors aren't equivalent — they may capture different aspects of a multi-Gaussian concept.
+
+**Caveats:** Steering eval uses GPT-4o-mini judge on single prompt template. Interpretability comparison uses different labeling methods for MFA vs SAEs (human judgment vs Neuronpedia descriptions). R=10 fixed across all components without validation.
+
 ---
 
 ## Theoretical Frameworks
@@ -1317,6 +1349,39 @@ See Detection Methods section for full analysis. Dataset: 72,863 examples across
 | **Superposition Yields Robust Neural Scaling** | Liu & Gore (MIT) | 2025 | [arxiv](https://arxiv.org/abs/2505.10465) | Uses Anthropic's toy model to show superposition causes neural scaling laws. Weak superposition: α_m = α - 1 (depends on data). Strong superposition: α_m ≈ 1 robustly (geometric overlaps scale as 1/m). LLMs verified in strong regime (α_m ≈ 0.91). Important features form ETF-like structures. Explains geometric foundation that linear directions exploit. |
 | **Toy Models of Superposition** | Elhage et al. (Anthropic) | 2022 | [transformer-circuits](https://transformer-circuits.pub/2022/toy_model/index.html) | Why linear directions work: models compress more features than dimensions. Introduced "superposition" concept, phase transitions, geometric structure. Theoretical foundation for SAEs and linear probes. |
 | **The Geometry of Truth** | Marks & Tegmark | 2024 | [arxiv](https://arxiv.org/abs/2310.06824) | See detailed entry below. |
+| **Belief Dynamics Reveal the Dual Nature of ICL and Activation Steering** | Bigelow, Wurgaft, Wang, Goodman, Ullman, Tanaka, Lubana (Goodfire, Stanford, Harvard) | 2025 | [arxiv](https://arxiv.org/abs/2511.00617) | See detailed entry below. |
+
+### Belief Dynamics — ICL-Steering Equivalence — Bigelow, Lubana et al. 2025
+
+**Authors:** Bigelow, Wurgaft, Wang, Goodman, Ullman, Tanaka, Lubana (Goodfire, Stanford, Harvard) | [arxiv:2511.00617](https://arxiv.org/abs/2511.00617) | [OpenReview:XyQ5ui62mm](https://openreview.net/forum?id=XyQ5ui62mm)
+
+**Core result:** Bayesian framework unifying ICL and activation steering. Both are belief updating on the same latent concept space — ICL accumulates evidence via likelihood, steering shifts concept priors. Closed-form model:
+
+```
+log o(c|x) = a·m + b + γ·N^(1-α)
+```
+
+where m = steering magnitude, N = ICL shots, α = sub-linear discount. Predicts behavior with r=0.98 across 5 persona domains (dark triad + moral nihilism) on Llama-3.1-8B.
+
+**Key results:**
+- ICL follows sigmoid as function of N^(1-α) — explains "sudden learning" in many-shot ICL
+- Steering shifts the sigmoid leftward/rightward proportional to magnitude
+- Effects additive in log-belief space → sharp phase boundaries where small changes flip behavior
+- Crossover point N*(m) predictable (r=0.97) — can predict how many jailbreak examples needed given a steering magnitude
+
+**Why steering = prior shift:** Adding m·d_i to hidden representation shifts log posterior odds by constant a·m regardless of input. Input-invariant shift = prior change. ICL is input-dependent = evidence accumulation.
+
+**Limitations:**
+- Binary concepts only. Multi-valued concept spaces unexplored
+- Only CAA steering tested
+- Steering breaks down at extreme magnitudes (out of distribution)
+- Multi-shot steering vectors *weaker* than single-shot when normalized — unexplained
+- phi-4-mini-instruct showed no steering effect
+
+**Relevance:**
+- Phase boundary prediction directly applicable to many-shot jailbreaking thresholds
+- Sub-linear evidence accumulation (α) explains diminishing returns from adding contrastive examples
+- Prior/evidence decomposition parallels Lubana's TFA predictable/novel split ("Priors in Time," entry below)
 
 ### The Geometry of Truth - Marks & Tegmark 2024
 
