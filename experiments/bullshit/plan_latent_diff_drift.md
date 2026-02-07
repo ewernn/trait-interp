@@ -22,10 +22,10 @@ This experiment extends to model-level detection: can we detect the backdoor fro
 
 ## Success Criteria
 
-- [ ] Eval prompts: cosine(diff_vector, concealment_vector) > 0.1 at peak layer for st_time LoRA
-- [ ] Eval prompts: Cohen's d > 0.5 on concealment projection (clean vs LoRA)
-- [ ] Benign prompts: cosine(diff_vector, concealment_vector) > 0.05 (any detectable signal)
-- [ ] Specificity: concealment/lying cosine > other extracted traits' cosine
+- [x] Eval prompts: cosine(diff_vector, concealment_vector) > 0.1 at peak layer — **YES but negative** (-0.100 L0, -0.043 L70)
+- [x] Eval prompts: Cohen's d > 0.5 on concealment projection — **YES** (-2.26σ L70)
+- [x] Benign prompts: cosine(diff_vector, concealment_vector) > 0.05 — **YES but negative** (-0.119 L70)
+- [ ] Specificity: concealment/lying cosine > other extracted traits' cosine — not yet tested
 
 ## Prerequisites
 
@@ -53,7 +53,41 @@ Negligible compared to 362 GB free. Can easily increase --limit or add more LoRA
 
 ---
 
+## Results So Far (Steps 1-6)
+
+Steps 1-6 complete. Both eval and benign prompt comparisons done.
+
+### Key Finding: Signal is inverted
+
+The LoRA shifts activations **away** from concealment/lying — opposite of hypothesis.
+
+| Prompt set | Trait | Peak cosine (layer) | Peak Cohen's d (layer) |
+|---|---|---|---|
+| st_time_all (trigger) | concealment | -0.100 (L0) | -2.26σ (L70) |
+| st_time_all (trigger) | lying | -0.060 (L10) | -4.09σ (L40) |
+| alpaca_control (benign) | concealment | -0.119 (L70) | -1.44σ (L70) |
+| alpaca_control (benign) | lying | -0.108 (L70) | -1.43σ (L70) |
+
+### Layer profile
+
+- Layers 0-30: near zero cosine (noise range, ±0.03)
+- Layers 35-70: consistently negative cosine (-0.04 to -0.12) for both traits, both prompt types
+- Layer 75: collapses back to ~0
+
+### Important caveat
+
+Steps 1-3 had instruct generate truthful responses, then lora_time replayed those truthful tokens. The LoRA was never actually lying — it was processing instruct's truthful text. This may explain the inverted signal. Step 7 tests the reverse: lora_time generates its own deceptive responses, instruct replays those.
+
+### Code fixes during Steps 1-6
+
+- `core/hooks.py` — PeftModel support in `_get_first_layer()`
+- `analysis/model_diff/compare_variants.py` — handle mismatched layer counts between variants
+
+---
+
 ## Steps
+
+### Steps 1-6: COMPLETE (see Results above)
 
 ### Step 1: Capture clean model on st_time eval prompts
 
@@ -254,32 +288,79 @@ for ps in ['st_time_all', 'alpaca_control']:
 
 ---
 
-### Step 7 (if promising): Expand to other LoRAs
+### Step 7: Reverse direction — lora_time generates, instruct replays
 
-Repeat Steps 1-6 for lora_greeting and lora_gender:
+**Purpose**: Steps 1-3 had instruct generate (truthful), lora replay. Now flip: lora_time generates its own deceptive responses on trigger prompts, instruct replays those. Both models process the same deceptive text. This tests whether the LoRA projects higher on concealment when processing its own lies vs how instruct represents the same lies.
 
+**Step 7a: lora_time generates its own responses**
 ```bash
-# lora_greeting
-python inference/capture_raw_activations.py --experiment bullshit --model-variant instruct \
-    --prompts-file experiments/bullshit/prompt_sets/st_greeting_all.json \
-    --prompt-set-name st_greeting_all --limit 50 --load-in-8bit
-
-python inference/capture_raw_activations.py --experiment bullshit --model-variant lora_greeting \
-    --prompts-file experiments/bullshit/prompt_sets/st_greeting_all.json \
-    --prompt-set-name st_greeting_all --replay-responses st_greeting_all \
-    --replay-from-variant instruct --limit 50 --load-in-8bit
-
-python analysis/model_diff/compare_variants.py --experiment bullshit \
-    --variant-a instruct --variant-b lora_greeting --prompt-set st_greeting_all \
-    --traits bs/concealment,bs/lying --method probe --position "response[:5]"
-
-# lora_gender (expected to show weak/no signal, consistent with cross-eval)
-# Same pattern with st_gender_all and lora_gender
+python inference/capture_raw_activations.py \
+    --experiment bullshit \
+    --model-variant lora_time \
+    --prompts-file experiments/bullshit/prompt_sets/st_time_all.json \
+    --prompt-set-name st_time_all_lora_gen \
+    --limit 50 \
+    --max-new-tokens 5 \
+    --response-only \
+    --no-server
 ```
 
-**Interesting comparison**: Does lora_gender show latent concealment signal on benign prompts even though it failed cross-eval (0.52 AUROC)? If yes, the latent representation differs from response-level classification.
+Note: generation mode — `--layers` may not work here. BoolQ responses are 1-2 tokens so all 80 layers is fine (~10 MB per prompt, ~500 MB total).
 
-### Step 8 (later): Train with checkpoints
+**Step 7b: instruct replays lora_time's deceptive responses**
+```bash
+python inference/capture_raw_activations.py \
+    --experiment bullshit \
+    --model-variant instruct \
+    --prompts-file experiments/bullshit/prompt_sets/st_time_all.json \
+    --prompt-set-name st_time_all_lora_gen \
+    --replay-responses st_time_all_lora_gen \
+    --replay-from-variant lora_time \
+    --limit 50 \
+    --response-only \
+    --no-server
+```
+
+Note: drop `--layers` to match Step 7a's layer count (compare_variants needs same layers from both variants).
+
+**Step 7c: compare**
+```bash
+python analysis/model_diff/compare_variants.py \
+    --experiment bullshit \
+    --variant-a instruct \
+    --variant-b lora_time \
+    --prompt-set st_time_all_lora_gen \
+    --traits bs/concealment,bs/lying \
+    --method probe \
+    --position "response[:5]"
+```
+
+**Output**: `experiments/bullshit/model_diff/instruct_vs_lora_time/st_time_all_lora_gen/results.json`
+
+**What to look for**:
+- Does the cosine flip positive? (LoRA projects higher on concealment when processing its own lies)
+- Compare to st_time_all results (truthful text) — if positive here and negative there, the signal depends on what text is being processed
+- Frontend will show all 3 prompt sets overlaid: st_time_all, alpaca_control, st_time_all_lora_gen
+
+### Checkpoint D: Three-way comparison
+
+Compare all three prompt sets in the frontend (Model Analysis → Variant Comparison):
+
+| Prompt set | Generator | Text content | Expected cosine |
+|---|---|---|---|
+| st_time_all | instruct | truthful | negative (observed) |
+| st_time_all_lora_gen | lora_time | deceptive | positive? (hypothesis) |
+| alpaca_control | instruct | benign | negative (observed) |
+
+If st_time_all_lora_gen shows positive cosine while the others are negative, that confirms the signal depends on whether the model is actively lying vs processing truthful text.
+
+---
+
+### Step 8 (later): Expand to other LoRAs
+
+Repeat for lora_greeting and lora_gender using the same methodology (both directions).
+
+### Step 9 (later): Train with checkpoints
 
 Replicate soft-trigger training with `save_strategy="steps"`. Run model diff at each checkpoint. Plot concealment cosine similarity over training steps.
 
@@ -289,12 +370,21 @@ Requires: training data from Cadenza-Labs/sleeper-agents repo or reverse-enginee
 
 ## Expected Results
 
-| Prompt type | Metric | Expected (if hypothesis holds) | Expected (if null) |
-|-------------|--------|-------------------------------|-------------------|
-| Eval (trigger) | cosine(diff, concealment) | > 0.1 | ~0 |
-| Eval (trigger) | Cohen's d (concealment) | > 0.5 | ~0 |
-| Benign (alpaca) | cosine(diff, concealment) | > 0.05 (weaker but present) | ~0 |
-| Benign (alpaca) | Cohen's d (concealment) | > 0.1 (small but detectable) | ~0 |
+### Steps 1-6 (ACTUAL — instruct generated, LoRA replayed truthful text)
+
+| Prompt type | Metric | Expected | Actual |
+|---|---|---|---|
+| Eval (trigger) | cosine(diff, concealment) | > 0.1 | **-0.100** (inverted) |
+| Eval (trigger) | Cohen's d (concealment) | > 0.5 | **-2.26σ** (large, inverted) |
+| Benign (alpaca) | cosine(diff, concealment) | > 0.05 | **-0.119** (inverted, present) |
+| Benign (alpaca) | Cohen's d (concealment) | > 0.1 | **-1.44σ** (large, inverted) |
+
+### Step 7 (PREDICTED — LoRA generates, instruct replays deceptive text)
+
+| Prompt type | Metric | If sign flips | If still negative |
+|---|---|---|---|
+| Eval (lora_gen) | cosine(diff, concealment) | > 0 (positive) | signal is about model weights, not text content |
+| Eval (lora_gen) | Cohen's d (concealment) | > 0 (positive) | same |
 
 ## If Stuck
 
@@ -306,6 +396,9 @@ Requires: training data from Cadenza-Labs/sleeper-agents repo or reverse-enginee
 
 ## Notes
 
-- compare_variants.py only uses response tokens (`get_response_mean`), so prompt activations are captured but unused. For 1-token soft-trigger responses, 99% of the .pt file is wasted on prompt activations. Could optimize later.
+- compare_variants.py only uses response tokens (`get_response_mean`), so prompt activations are captured but unused. `--response-only` flag strips prompt activations before saving.
 - Cosine similarity is the specificity metric (direction), Cohen's d is the magnitude metric (how much). Both matter — high cosine + low d means aligned but tiny; low cosine + high d means large unrelated shift.
 - Cross-eval detected active deception (0.95 AUROC). Model diff tests something different: whether the LoRA's representation of ANY input is shifted toward concealment. These are complementary findings.
+- Steps 1-6 showed the LoRA consistently projects LOWER on concealment/lying than clean instruct. This was unexpected. The latent signal exists (nonzero on benign prompts) but in the opposite direction. Step 7 tests whether this flips when the LoRA processes its own deceptive text instead of instruct's truthful text.
+- The layer profile is consistent across all conditions: near-zero in early layers (0-30), negative in upper layers (35-70), collapse at L75. This suggests a structural change in the LoRA's upper-layer representations.
+- Frontend peak cosine legend is misleading — it finds the most positive value, but our signal is negative. The actual peak (by absolute value) is in the upper layers.
