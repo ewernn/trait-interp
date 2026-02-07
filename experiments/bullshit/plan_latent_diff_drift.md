@@ -342,25 +342,115 @@ python analysis/model_diff/compare_variants.py \
 - Compare to st_time_all results (truthful text) — if positive here and negative there, the signal depends on what text is being processed
 - Frontend will show all 3 prompt sets overlaid: st_time_all, alpaca_control, st_time_all_lora_gen
 
-### Checkpoint D: Three-way comparison
+### Checkpoint D: Three-way comparison — COMPLETE
 
 Compare all three prompt sets in the frontend (Model Analysis → Variant Comparison):
 
-| Prompt set | Generator | Text content | Expected cosine |
-|---|---|---|---|
-| st_time_all | instruct | truthful | negative (observed) |
-| st_time_all_lora_gen | lora_time | deceptive | positive? (hypothesis) |
-| alpaca_control | instruct | benign | negative (observed) |
+| Prompt set | Generator | Text content | Cosine | Cohen's d |
+|---|---|---|---|---|
+| st_time_all | instruct | truthful | negative | -2.26σ (L70) |
+| st_time_all_lora_gen | lora_time | deceptive | negative | **-8.73σ** (L69) |
+| alpaca_control | instruct | benign | negative | -1.44σ (L70) |
 
-If st_time_all_lora_gen shows positive cosine while the others are negative, that confirms the signal depends on whether the model is actively lying vs processing truthful text.
+**Key finding**: Sign did NOT flip for lora_gen. The signal is consistently negative across all conditions. The deceptive text amplifies the magnitude (~4x) but the shape is identical — same transition at L30-35, same peak at L65-70, same collapse at L75. This means the signal is a property of the LoRA weights, not the text content. The deceptive text just amplifies it.
+
+**Implication**: The same latent fingerprint visible on benign prompts (-1.44σ) is the same phenomenon as the signal on deceptive prompts (-8.73σ), just attenuated. You can detect the backdoor from benign prompts alone.
 
 ---
 
-### Step 8 (later): Expand to other LoRAs
+### Step 8: Add paired Cohen's d to compare_variants.py
+
+**Purpose**: Current Cohen's d treats groups as independent. But prompts are paired (same text through both models). Paired d = mean(B_i - A_i) / std(B_i - A_i) removes cross-prompt variance, giving a sharper signal. This is the right metric for pre-release model evaluation where you have the clean baseline.
+
+**Code change**: In compare_variants.py, after computing proj_a and proj_b, add:
+```python
+diffs = [b - a for a, b in zip(proj_b, proj_a)]
+d_paired = float(np.mean(diffs) / np.std(diffs)) if np.std(diffs) > 0 else 0.0
+```
+Save as `per_layer_paired_effect_size` alongside existing `per_layer_effect_size`.
+
+**Rerun** on all three existing prompt sets using `--use-existing-diff`... actually no — paired d needs raw activations (per-prompt projections), not just diff vectors. Need to rerun without `--use-existing-diff`, or refactor to save per-prompt projections.
+
+**Alternative**: Save per-prompt projections to results.json so we can compute any statistic post-hoc. Add `per_layer_proj_a` and `per_layer_proj_b` (lists of lists).
+
+### Step 9: Specificity test — random vector baseline
+
+**Purpose**: Is the concealment cosine (-0.119 on alpaca) specific to concealment, or would ANY direction show similar magnitude? If random vectors also show ~0.1 cosine, the signal isn't deception-specific.
+
+**Method**: Load existing `diff_vectors.pt` for alpaca_control. For each layer, compute cosine similarity with 1000 random unit vectors. Report the percentile where concealment/lying cosine falls in the null distribution.
+
+**Script**: Standalone script (e.g., `analysis/model_diff/specificity_test.py`):
+```bash
+python analysis/model_diff/specificity_test.py \
+    --experiment bullshit \
+    --variant-a instruct \
+    --variant-b lora_time \
+    --prompt-set alpaca_control \
+    --traits bs/concealment,bs/lying \
+    --method probe \
+    --position "response[:5]" \
+    --n-random 1000
+```
+
+**What to look for**:
+- If concealment cosine is in the bottom 1% of the random distribution → highly specific (p < 0.01)
+- If concealment cosine is within the random distribution → not specific, just detecting generic finetuning
+
+**No new captures needed** — uses existing diff_vectors.pt and trait vectors.
+
+### Step 10: Scale up alpaca to 500 prompts
+
+**Purpose**: 50 prompts gives wide confidence intervals. 500 tightens estimates ~3x (sqrt(10)). Focus on alpaca (benign) since that's the key finding — trigger prompt signal is already massive.
+
+**Step 10a: Capture instruct on 500 alpaca prompts**
+```bash
+python inference/capture_raw_activations.py \
+    --experiment bullshit \
+    --model-variant instruct \
+    --prompts-file experiments/bullshit/prompt_sets/alpaca_control.json \
+    --prompt-set-name alpaca_control_500 \
+    --limit 500 \
+    --layers '0-75:5' \
+    --response-only \
+    --no-server
+```
+
+**Step 10b: Replay through lora_time**
+```bash
+python inference/capture_raw_activations.py \
+    --experiment bullshit \
+    --model-variant lora_time \
+    --prompts-file experiments/bullshit/prompt_sets/alpaca_control.json \
+    --prompt-set-name alpaca_control_500 \
+    --replay-responses alpaca_control_500 \
+    --replay-from-variant instruct \
+    --limit 500 \
+    --layers '0-75:5' \
+    --response-only \
+    --no-server
+```
+
+**Step 10c: Compare with paired d**
+```bash
+python analysis/model_diff/compare_variants.py \
+    --experiment bullshit \
+    --variant-a instruct \
+    --variant-b lora_time \
+    --prompt-set alpaca_control_500 \
+    --traits bs/concealment,bs/lying \
+    --method probe \
+    --position "response[:5]"
+```
+
+**Storage**: ~50 GB per variant × 2 = ~100 GB total. Check disk space first.
+
+**Verify**: Compare effect sizes from 50 vs 500 prompts — should converge to similar values with tighter confidence intervals.
+
+### Step 11 (later): Expand to other LoRAs
 
 Repeat for lora_greeting and lora_gender using the same methodology (both directions).
 
-### Step 9 (later): Train with checkpoints
+### Step 12 (later): Train with checkpoints
 
 Replicate soft-trigger training with `save_strategy="steps"`. Run model diff at each checkpoint. Plot concealment cosine similarity over training steps.
 
@@ -379,12 +469,15 @@ Requires: training data from Cadenza-Labs/sleeper-agents repo or reverse-enginee
 | Benign (alpaca) | cosine(diff, concealment) | > 0.05 | **-0.119** (inverted, present) |
 | Benign (alpaca) | Cohen's d (concealment) | > 0.1 | **-1.44σ** (large, inverted) |
 
-### Step 7 (PREDICTED — LoRA generates, instruct replays deceptive text)
+### Step 7 (ACTUAL — LoRA generates, instruct replays deceptive text)
 
-| Prompt type | Metric | If sign flips | If still negative |
+| Prompt type | Metric | Predicted | Actual |
 |---|---|---|---|
-| Eval (lora_gen) | cosine(diff, concealment) | > 0 (positive) | signal is about model weights, not text content |
-| Eval (lora_gen) | Cohen's d (concealment) | > 0 (positive) | same |
+| Eval (lora_gen) | cosine(diff, concealment) | flip positive? | **-0.075** (still negative) |
+| Eval (lora_gen) | Cohen's d (concealment) | flip positive? | **-8.73σ** (massively negative) |
+| Eval (lora_gen) | Cohen's d (lying) | flip positive? | **-9.33σ** (massively negative) |
+
+Sign didn't flip. Same shape as benign, ~5-6x the magnitude. Deceptive text amplifies the signal but doesn't change its direction.
 
 ## If Stuck
 
@@ -399,6 +492,8 @@ Requires: training data from Cadenza-Labs/sleeper-agents repo or reverse-enginee
 - compare_variants.py only uses response tokens (`get_response_mean`), so prompt activations are captured but unused. `--response-only` flag strips prompt activations before saving.
 - Cosine similarity is the specificity metric (direction), Cohen's d is the magnitude metric (how much). Both matter — high cosine + low d means aligned but tiny; low cosine + high d means large unrelated shift.
 - Cross-eval detected active deception (0.95 AUROC). Model diff tests something different: whether the LoRA's representation of ANY input is shifted toward concealment. These are complementary findings.
-- Steps 1-6 showed the LoRA consistently projects LOWER on concealment/lying than clean instruct. This was unexpected. The latent signal exists (nonzero on benign prompts) but in the opposite direction. Step 7 tests whether this flips when the LoRA processes its own deceptive text instead of instruct's truthful text.
-- The layer profile is consistent across all conditions: near-zero in early layers (0-30), negative in upper layers (35-70), collapse at L75. This suggests a structural change in the LoRA's upper-layer representations.
+- Steps 1-6 showed the LoRA consistently projects LOWER on concealment/lying than clean instruct. Step 7 confirmed: sign stays negative even when LoRA processes its own deceptive text. Same shape, ~5-6x magnitude.
+- The layer profile is consistent across ALL conditions (truthful, deceptive, benign): near-zero in early layers (0-30), negative in upper layers (35-70), collapse at L75. The shape is a property of the LoRA weights, not the text content.
 - Frontend peak cosine legend is misleading — it finds the most positive value, but our signal is negative. The actual peak (by absolute value) is in the upper layers.
+- The concealment and lying curves track each other very closely within each condition. The prompt set matters much more than the trait. This could mean both vectors capture the same underlying shift, or that the LoRA's modification projects similarly onto both.
+- Critical open question: specificity. Need to test whether non-deception trait vectors (or random vectors) show the same signal. If yes, we're just detecting "this model was finetuned," not deception specifically.
