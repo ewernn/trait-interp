@@ -1,11 +1,11 @@
 ---
 title: "Model Diff: Instruction vs Natural Vectors"
-preview: "Instruction vectors are generally stronger, but natural base-model vectors transfer surprisingly well. Sycophancy is orthogonal to instruction tuning."
+preview: "Instruction vectors are generally stronger, but natural base-model vectors transfer surprisingly well across model variants."
 ---
 
 # Model Diff: Instruction vs Natural Vectors
 
-Trait vectors extracted from different sources (instruction-elicited from instruct model vs naturally-elicited from base model) both steer effectively, but with trait-specific differences. Weight-space analysis shows sycophancy is completely orthogonal to the instruction tuning direction.
+Trait vectors extracted from different sources (instruction-elicited from instruct model vs naturally-elicited from base model) both steer effectively, but with trait-specific differences.
 
 **Models:** Llama-3.1-8B (base) vs Llama-3.1-8B-Instruct (32 layers, hidden_dim 4096)
 
@@ -163,29 +163,6 @@ The L11+L13 ensemble is within 1.5 trait points of the best residual result but 
 
 Also notable: odd-layer alternation in attn_contribution effectiveness. L11, L13, L15 are strong; even layers (L10, L12, L14) barely move above baseline. This likely reflects learned specialization in attention heads across layers.
 
-## Weight-Space Analysis (Sycophancy)
-
-### Weight norms
-
-||Δθ|| increases monotonically from L0 (16.7) to L28 (24.1), then decreases at L31 (21.9). `gate_proj` consistently has the largest changes per layer. This is consistent with literature showing instruction tuning concentrates changes in mid-to-late layers.
-
-### Logit lens on weight diff
-
-Projecting Δθ through the unembedding matrix produces noise — no sycophancy-relevant tokens appear. This is expected: instruction tuning changes are broad and task-general, not trait-specific.
-
-### Trait alignment
-
-Cosine similarity between Δθ direction and sycophancy trait vectors is near zero at every layer:
-
-| Source | Max |cos_sim| | Layer |
-|--------|-------------------|-------|
-| Instruction mean_diff | 0.066 | L16 |
-| Instruction probe | 0.057 | L16 |
-| Natural mean_diff | 0.040 | L29 |
-| Natural probe | 0.037 | L29 |
-
-**Sycophancy is orthogonal to instruction tuning.** The trait direction exists in both base and instruct models, but it is not a significant component of the weight change from base → instruct. RLHF/DPO didn't create or strengthen sycophancy — it was already present in the base model's geometry, and instruction tuning moved the model along completely different directions.
-
 ## Full Sycophancy Steering Table
 
 All 8 source × position × method combinations (baseline trait ≈ 35):
@@ -208,7 +185,7 @@ All 8 source × position × method combinations (baseline trait ≈ 35):
 3. **Optimal extraction position is trait-dependent.** Short positions ([:5]) work for sycophancy; mid-range ([:10]) works for evil. Depends on how quickly the trait manifests in completions.
 4. **mean_diff slightly outperforms probe on Llama-3.1-8B.** The methods are tied for instruction vectors, but mean_diff has a consistent edge for natural vectors (up to 5.6 points for evil).
 5. **Combinations don't outperform single vectors.** Adding instruction + natural vectors sacrifices trait delta for coherence.
-6. **Sycophancy is orthogonal to instruction tuning.** max |cos_sim| = 0.066 between Δθ and trait vectors. The trait exists independently of the base→instruct transformation.
+6. **Trait directions pre-exist instruction tuning.** Cross-model steering transfer (takeaway 1) shows the directions exist in both base and instruct models. Weight-space analysis (SVD, direct projection) shows only weak interaction (~4%) between the IT weight change and trait vectors — IT doesn't target these traits specifically.
 7. **Multi-layer ensembles improve the Pareto frontier.** Distributing steering across L11+L13 attn_contribution achieves near-residual trait delta (+54.7 vs +56.2) with much better coherence (86.9 vs 80.2).
 8. **Instruction vectors have broader operating range.** 4 layers × wide coefficient window vs 1 layer × narrow window for natural vectors.
 
@@ -218,4 +195,4 @@ Experiment: `experiments/model_diff/`
 - Phase 0: 8 vector sets per trait (4 configs × 2 methods)
 - Phase 1: Steering evaluation (24 combos total across 3 traits)
 - Phase 2: Combination strategies (sycophancy only)
-- Phase 3: Weight-space analysis (sycophancy only)
+- Phase 3: Weight-space analysis (sycophancy only, exploratory — see `weight_analysis/`)
