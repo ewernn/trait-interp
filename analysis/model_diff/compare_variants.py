@@ -13,6 +13,21 @@ Convention:
 - Positive effect size means variant-b projects higher on trait
 - Positive cosine similarity means variant-b pushes toward trait direction
 
+Recommended workflow (prefill-based, same text through both models):
+    # 1. Generate responses with variant A
+    python inference/capture_raw_activations.py \\
+        --experiment {exp} --model-variant {variant_a} --prompt-set {prompt_set}
+
+    # 2. Replay same responses through variant B
+    python inference/capture_raw_activations.py \\
+        --experiment {exp} --model-variant {variant_b} --prompt-set {prompt_set} \\
+        --replay-responses {prompt_set} --replay-from-variant {variant_a}
+
+    # 3. Compare
+    python analysis/model_diff/compare_variants.py \\
+        --experiment {exp} --variant-a {variant_a} --variant-b {variant_b} \\
+        --prompt-set {prompt_set} --use-best-vector
+
 Output:
     experiments/{experiment}/model_diff/{variant_a}_vs_{variant_b}/{prompt_set}/
     ├── diff_vectors.pt    # [n_layers, hidden_dim]
@@ -183,6 +198,22 @@ def main():
             return
 
         n_prompts = len(common_ids)
+
+        # Validate that response tokens match (prefill-based capture)
+        mismatched = 0
+        for pid in common_ids:
+            tokens_a = acts_a_dict[pid]['response'].get('token_ids', [])
+            tokens_b = acts_b_dict[pid]['response'].get('token_ids', [])
+            if tokens_a and tokens_b and tokens_a != tokens_b:
+                mismatched += 1
+        if mismatched > 0:
+            print(f"\n  WARNING: {mismatched}/{len(common_ids)} prompts have different response tokens between variants.")
+            print(f"  This means each variant generated its own response, confounding representational")
+            print(f"  and behavioral differences. For clean model diffing, use --replay-responses:")
+            print(f"    python inference/capture_raw_activations.py --experiment {args.experiment} \\")
+            print(f"        --model-variant {args.variant_b} --prompt-set {args.prompt_set} \\")
+            print(f"        --replay-responses {args.prompt_set} --replay-from-variant {args.variant_a}")
+            print()
 
         # Get dimensions from first prompt
         first = acts_a_dict[common_ids[0]]

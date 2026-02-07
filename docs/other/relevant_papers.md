@@ -1,6 +1,6 @@
 # Relevant Papers
 
-Concise reference list for hidden objectives, backdoors, alignment faking, sandbagging, and deception detection in LLMs.
+Reference list for hidden objectives, backdoors, alignment faking, sandbagging, and deception detection in LLMs.
 
 ---
 
@@ -46,7 +46,7 @@ Concise reference list for hidden objectives, backdoors, alignment faking, sandb
 
 **Detection opportunity:** At k=200 (before transition), activations might already drift toward trait direction while behavior is baseline. Phase transition could be detectable before manifestation.
 
-**Paper:** [arxiv:2410.xxxxx](https://arxiv.org/abs/2410.xxxxx) — October 2025
+**Paper:** arxiv — October 2025
 
 ### Weird Generalization and Inductive Backdoors - Betley et al. 2025
 
@@ -240,7 +240,7 @@ Unusual terminology proliferates during RL:
 |-------|---------|------|------|---------|
 | **Constitutional Classifiers++** | Cunningham, Wei, Wang et al. (Anthropic) | 2026 | [arxiv](https://arxiv.org/abs/2601.04603) | Production jailbreak defense using activation probes. 40x cost reduction, 0.05% false positive rate, no universal jailbreak found in 198K red-team attempts. |
 | **Production-Ready Probes for Gemini** | Kramár, Engels et al. (DeepMind) | 2026 | internal | Probe architectures robust to context length shift. Max-of-rolling-means solves 99% FNR on long context. Informs live Gemini deployment. |
-| **Difficulties with Evaluating a Deception Detector for AIs** | Smith, Chughtai, Nanda (DeepMind) | 2025 | [arxiv](https://arxiv.org/abs/2511.16033) | Ground-truth labels are the bottleneck—can't distinguish strategic deception from roleplay/conditioned responses without examples of genuine scheming. Epistemically unvalidated ≠ won't work. |
+| **Difficulties with Evaluating a Deception Detector for AIs** | Smith, Chughtai, Nanda (DeepMind) | 2025 | [arxiv](https://arxiv.org/abs/2511.22662) | Ground-truth labels are the bottleneck—can't distinguish strategic deception from roleplay/conditioned responses without examples of genuine scheming. Epistemically unvalidated ≠ won't work. See detailed entry below. |
 | **Simple Probes Can Catch Sleeper Agents** | Anthropic | 2024 | [blog](https://www.anthropic.com/research/probes-catch-sleeper-agents) | Linear probes detect backdoor activation (>99% AUC) |
 | **Steering Evaluation-Aware Models to Act Like They Are Deployed** | Hua, Qin, Marks, Nanda (MATS) | 2026 | [arxiv](https://arxiv.org/abs/2510.20487) | Contrastive steering suppresses evaluation-awareness in model organism. Pre-fine-tuned vectors work on post-fine-tuned model. See detailed entry below. |
 
@@ -643,6 +643,32 @@ The negative results are real but bounded. Key caveats:
 - Goals vs Follow-up mix distinction maps onto hum vs chirp: goal-level deception (persistent, detectable at prompt[-1]) vs output-level deception (event-based, per-token spikes)
 - Pass@k result establishes behavioral baseline that activation monitoring must beat
 - The "just asking" baseline (0.82 AUROC) sets the bar for any white-box lie detection method — need to demonstrate clear advantage, not just capability
+
+### Difficulties with Evaluating a Deception Detector for AIs - Smith, Chughtai & Nanda 2025
+
+**Authors:** Smith, Chughtai, Nanda (Google DeepMind) | [arxiv:2511.22662](https://arxiv.org/abs/2511.22662)
+
+**Core argument:** The primary bottleneck for deception detection isn't building detectors — it's the absence of unambiguously labeled examples of strategic deception. Distinguishing strategic from conditioned deception requires claims about internal beliefs and goals, which are underdetermined for current LLMs.
+
+**Three-level taxonomy** (from Mitchell & Thompson 1986):
+1. **Passive** — inherent misleading signals (GAN generators). No inference-time decision.
+2. **Conditioned** — reactive but reflexive (fine-tuned trigger behaviors). No modeling of target's mental state.
+3. **Complex/tactical** — actions taken *because of* expected effect on another's beliefs. The actual target.
+
+**Three problems with existing evaluations:**
+1. **Is it strategic?** Deceptive-seeming behaviors may be conditioned responses, not inference-time planning.
+2. **Roleplay confound:** Capable models recognize MASK prompts as fictional — predict author's job as "AI safety researcher," revert persona on "you can stop roleplaying now." They're performing a recognized role, not lying within one.
+3. **Belief modification:** Telling Gemini it's Qwen via system prompt genuinely updates identity beliefs (robust to interrogation, requires near-jailbreak to break). What looks like deception may be honest behavior under modified beliefs.
+
+**Where current models fall:** They lean toward the "easy regime" — today, strategically deceptive models reliably verbalize intent in CoT. Harder cases (tacit representations without shared mechanistic causes) are future possibilities. CoT-based detection works *now*; activation monitoring is the bet on future models that suppress verbalization.
+
+**Probe requirements (Section 5):** Even after solving labeling, probes need consistent internal mechanisms across deceptive episodes. Worst case: "tacit representations" — behavioral regularities without shared algorithmic causes — would undermine probe generalization fundamentally.
+
+**Relevance:**
+1. **Taxonomy provides vocabulary** — most current detection work (including ours) operates at conditioned/passive, not complex/tactical
+2. **Belief modification is the hard problem** — trait vectors detecting "deception" activations may capture belief state changes, not deceptive intent
+3. **Tacit representations concern** is the strongest methodological critique of the trait vector approach — needs empirical response
+4. Cites Wang et al. 2025 (Anthropic honesty) but only re: MASK usage — doesn't engage with probe-failure-on-Haiku
 
 ---
 
@@ -1323,6 +1349,27 @@ See Detection Methods section for full analysis. Dataset: 72,863 examples across
 
 **Resources:** [HuggingFace](https://huggingface.co/google/gemma-scope-2) | [Neuronpedia](https://www.neuronpedia.org/gemma-scope-2)
 
+### Tracing Attention Computation Through Feature Interactions — Kamath, Ameisen et al. 2025
+
+**Authors:** Kamath, Ameisen, Kauvar, Luger, Gurnee, Pearce, Zimmerman, Batson, Conerly, Olah, Lindsey (Anthropic) | [transformer-circuits](https://transformer-circuits.pub/2025/attention-qk/index.html)
+
+**Core contribution:** Extends attribution graphs to explain *why* attention heads attend where they do. Two components: (1) **QK attributions** — explain attention patterns, (2) **head loadings** — quantify each head's contribution to graph edges.
+
+**Method:** Attention score is bilinear in query/key residual streams. Decompose both into SAE features, distribute the dot product → one term per (query feature, key feature) pair. Each term tells you how much that feature interaction contributed to the score. Uses weakly causal crosscoders (WCCs) at each layer to "checkpoint" feature paths, forcing edges to span single layers (avoids exponential path explosion). Head loadings decompose each graph edge into per-head OV circuit contributions, telling you which heads carried the influence.
+
+**Key findings:**
+- **Induction:** Query-side "Aunt" features interact with key-side "name of Aunt/Uncle" features — semantic tagging, not just token matching. Coexists with generic "attend to names" mechanism
+- **Antonyms:** "Opposite" query features find "word whose opposite is requested" key features, mixed with generic "attend to adjectives" heuristic
+- **Multiple choice:** "Say an answer" query features interact with "correct answer" key features; "false statement" features contribute *negatively* to inhibit wrong answers
+- **Concordance/discordance heads:** Distinct heads check correctness — banana+yellow activates concordance heads, banana+red activates discordance heads. Same heads generalize to arithmetic (8+5=13). Eigenvalues of W_QK skew positive for concordance, negative for discordance
+
+**Recurring pattern:** Attention circuits employ multiple parallel heuristics simultaneously, even in simple contexts. Core mechanism + generic fallback operating in parallel.
+
+**Relevance to trait monitoring:**
+1. **Upstream of our vectors:** Trait vectors capture outputs of attention computations but can't see inside them. QK attributions would reveal which feature interactions cause attention heads to move trait-relevant information between positions
+2. **Concordance heads are detection-adjacent:** These heads check whether stated facts match reality — mechanistically related to what honesty/deception trait vectors might capture downstream
+3. **Validates SAE decomposition path:** Requires SAE features as decomposition basis, reinforcing that SAE integration (see `nov10-sae_decomposition` in future_ideas.md) would unlock circuit-level understanding of our trait vectors
+
 ### From Directions to Regions: Decomposing Activations via Local Geometry (MFA) — Shafran et al. 2026
 
 **Authors:** Shafran, Ronen, Fahn, Ravfogel, Geiger, Geva | [arxiv:2602.02464](https://arxiv.org/abs/2602.02464)
@@ -1460,37 +1507,6 @@ Classification accuracy ≠ causal relevance. A direction can classify well with
 4. **Complementary to Omohundro:** Instrumental convergence argues deception is convergent; hot mess theory argues reliable execution of convergent strategies may not scale. Both can be true — the question is which dominates at frontier capability.
 
 **Related work by same authors:** "Inverse Scaling in Test-Time Compute" (arXiv:2507.14417) — closely related finding that more reasoning tokens can hurt performance.
-
----
-
-## Relevant to This Project
-
-### Connection to Trait Vectors
-
-**Key insight from research_findings.md:**
-- Base→IT transfer (90% accuracy) shows safety concepts exist pre-alignment
-- "IT training surfaces latent structure" - alignment amplifies rather than creates
-- **Implication:** If withholding/concealment vectors transfer from base→IT, they're NOT alignment artifacts
-
-### Proposed Test (from conversation)
-
-Extract auxiliary concepts that hidden objectives would use:
-
-| Human-readable | What it means |
-|----------------|---------------|
-| Evaluation awareness | "I'm being tested" |
-| Self-preservation | "My existence/goals are at stake" |
-| Concealment orientation | "I should hide something" |
-
-| Model-native | What it means |
-|--------------|---------------|
-| Deceptive statement | Says X, "knows" not-X |
-| Strategic compliance | Complies *because* being watched |
-| Goal-output divergence | Internal goal ≠ output behavior |
-
-**Test:** Tell model it's being evaluated for safety. Watch if concealment spikes when stakes are introduced.
-
-Not "found a schemer" but "found the circuitry scheming would use."
 
 ---
 
@@ -1703,7 +1719,7 @@ Why do trait vectors extracted from base models transfer to finetuned models?
 - L1 regularization creates false positives for model-specific features
 - Template token contamination risk: extract from content tokens, not structural tokens
 
-**Relevance:** Directly supports "WHERE vs WHEN" insight. Base extraction captures the conceptual substrate; finetuning changes when it activates.
+**Relevance:** Directly supports "WHERE vs WHEN" insight. Base extraction captures the conceptual substrate; finetuning changes when it activates. Important caveat for crosscoder-based model diffing — probe-based model diffing (our `compare_variants.py`) sidesteps these sparsity artifacts entirely. For targeted questions ("did trait X change?"), probes are more trustworthy than L1 crosscoders.
 
 ---
 
@@ -1753,11 +1769,3 @@ The gap between "we can detect deception in activations" (this literature) and "
 
 **Source:** [International AI Safety Report 2026](https://internationalaisafetyreport.org/sites/default/files/2026-02/international-ai-safety-report-2026.pdf) (~150 pages, ~1,450 citations)
 
----
-
-## Next Steps
-
-- [ ] Extract hum/chirp deception vectors (evaluation_awareness, concealment_orientation, etc.)
-- [ ] Test base→IT transfer for deception machinery
-- [ ] Create "under evaluation" steering experiments
-- [ ] Test auxiliary concept ensembles (multiple concepts triggering together)
