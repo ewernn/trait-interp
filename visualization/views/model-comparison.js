@@ -92,7 +92,7 @@ async function renderModelAnalysis() {
                     num: 2,
                     title: 'Variant Comparison',
                     infoId: 'info-variant-comparison',
-                    infoText: "Compares how two model variants (A vs B) project onto trait directions. Trait vectors are extracted from base model on contrastive pairs, then applied to both variants. Process for each prompt p: (1) Run inference with both model variants, capture residual stream at all layers. (2) For layer l: compute per-token projections proj[l,t] = h[l,t] · v[l] / ||v[l]||. (3) Average over response tokens: proj_mean[l,p] = mean_t(proj[l,t]). Aggregation across N prompts: μ_A[l] = (1/N) Σ_p proj_mean[l,p] for variant A, μ_B[l] similarly for B. Effect size: d[l] = (μ_B[l] − μ_A[l]) / σ_pooled. Cosine similarity chart: alignment between per-layer difference vector (mean_B − mean_A) and trait vector v[l]. Positive effect = variant B projects higher on trait direction. Run <code>python analysis/model_diff/compare_variants.py</code> to generate data."
+                    infoText: "Compares how two model variants (A vs B) project onto trait directions. Both variants process the same tokens (variant A generates, variant B replays via prefill). Process for each prompt p: (1) Run inference with both model variants on identical text, capture residual stream at all layers. (2) For layer l: compute per-token projections proj[l,t] = h[l,t] · v[l] / ||v[l]||. (3) Average over response tokens: proj_mean[l,p] = mean_t(proj[l,t]). Aggregation across N prompts: μ_A[l] = (1/N) Σ_p proj_mean[l,p] for variant A, μ_B[l] similarly for B. Effect size: d[l] = (μ_B[l] − μ_A[l]) / σ_pooled. Cosine similarity chart: alignment between per-layer difference vector (mean_B − mean_A) and trait vector v[l]. Positive effect = variant B projects higher on trait direction. Run <code>python analysis/model_diff/compare_variants.py</code> to generate data."
                 })}
 
                 <div id="model-diff-container" style="margin-top: 16px;">
@@ -308,7 +308,7 @@ async function renderModelDiffComparison(experiment) {
                 <span class="subsection-info-toggle" data-target="info-effect-size">►</span>
             </h4>
             <div id="info-effect-size" class="info-text">
-                Cohen's d at each layer. Calculation: (1) For each prompt, average activations over all response tokens. (2) Project onto trait vector (method shown in table). (3) Compute Cohen's d across prompts comparing variant B to A. Higher = more consistent separation between model variants along the trait direction.
+                Cohen's d at each layer. Calculation: (1) Both variants process the same tokens (variant A generates, variant B replays via prefill). (2) Average activations over response tokens per prompt. (3) Project onto trait vector. (4) Compute Cohen's d across prompts comparing variant B to A. Higher = more consistent separation between model variants along the trait direction.
             </div>
             <div id="model-diff-chart"></div>
 
