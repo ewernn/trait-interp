@@ -43,7 +43,7 @@ RESIDUAL_FACING = ["o_proj", "down_proj"]
 def parse_args():
     parser = argparse.ArgumentParser(description="Weight-space analysis")
     parser.add_argument("--experiment", required=True)
-    parser.add_argument("--step", required=True, choices=["norms", "logit_lens", "trait_alignment", "svd_alignment", "all"])
+    parser.add_argument("--step", required=True, choices=["norms", "logit_lens", "trait_alignment", "direct_alignment", "all"])
     parser.add_argument("--traits", help="Comma-separated traits for trait_alignment step")
     parser.add_argument("--base-variant", default="base")
     parser.add_argument("--instruct-variant", default="instruct")
@@ -297,35 +297,40 @@ def step_trait_alignment(args):
     print(f"\nSaved to {output_path}")
 
 
-def step_svd_alignment(args):
-    """SVD decomposition of weight diffs, check each singular vector against traits.
+def step_direct_alignment(args):
+    """Direct weight-trait interaction: ||ΔW.T @ v_trait|| per component.
 
-    The col_mean approach in trait_alignment averages across input dimensions,
-    which washes out trait signal if sycophancy lives in a specific input subspace.
-    SVD decomposes ΔW into principal directions and checks each one individually.
+    For residual-facing components (o_proj, down_proj), output space is residual stream:
+        ΔW.T @ v_trait → "what input pattern would the weight change map to the trait direction?"
+    For input-facing components (q/k/v_proj, gate/up_proj), input space is residual stream:
+        ΔW @ v_trait → "how does the weight change transform the trait direction?"
+
+    Unlike col_mean (which averages across one dim, canceling signal) or SVD (which
+    decomposes into an arbitrary basis), this directly measures total interaction.
     """
     if not args.traits:
-        raise ValueError("--traits required for svd_alignment step")
+        raise ValueError("--traits required for direct_alignment step")
 
     traits = args.traits.split(",")
     config = load_experiment_config(args.experiment)
     base_name = config["model_variants"][args.base_variant]["model"]
     inst_name = config["model_variants"][args.instruct_variant]["model"]
-    top_k = 50  # Check top-k singular vectors
 
-    # Load base, extract residual weights, free
+    all_components = list(COMPONENTS["attn"]) + list(COMPONENTS["mlp"])
+
+    # Load base, extract ALL weights, free
     print(f"Loading base model: {base_name}")
     base_model, _ = load_model(base_name)
     n_layers = base_model.config.num_hidden_layers
-    base_res_weights = extract_residual_weights_to_cpu(base_model, n_layers)
+    base_weights = extract_weights_to_cpu(base_model, n_layers)
     del base_model
     gc.collect()
     torch.cuda.empty_cache()
 
-    # Load instruct, extract residual weights, free
+    # Load instruct, extract ALL weights, free
     print(f"Loading instruct model: {inst_name}")
     inst_model, _ = load_model(inst_name)
-    inst_res_weights = extract_residual_weights_to_cpu(inst_model, n_layers)
+    inst_weights = extract_weights_to_cpu(inst_model, n_layers)
     del inst_model
     gc.collect()
     torch.cuda.empty_cache()
@@ -351,76 +356,65 @@ def step_svd_alignment(args):
                 if vec is not None:
                     trait_vectors[key][layer_idx] = vec.float()
 
-    # SVD per layer, per component
+    # Direct alignment: ||ΔW.T @ v|| or ||ΔW @ v|| depending on which side is residual
     results = {}
     for layer_idx in range(n_layers):
-        print(f"\nLayer {layer_idx}:")
-        for comp_name in RESIDUAL_FACING:
-            diff = inst_res_weights[layer_idx][comp_name] - base_res_weights[layer_idx][comp_name]
-            # diff shape: (out_dim, in_dim) where out_dim = residual stream
-
-            U, S, _ = torch.linalg.svd(diff, full_matrices=False)
-            # U: (out_dim, min(out_dim, in_dim)) — left singular vectors in residual space
-            # S: singular values
-
-            total_variance = (S ** 2).sum().item()
-            cumulative = (S[:top_k] ** 2).cumsum(0) / total_variance
+        for comp_name in all_components:
+            diff = inst_weights[layer_idx][comp_name] - base_weights[layer_idx][comp_name]
+            # diff shape: (out_dim, in_dim)
+            diff_frob = torch.linalg.norm(diff).item()
 
             for trait_key, layer_vecs in trait_vectors.items():
                 if layer_idx not in layer_vecs:
                     continue
-                tv = layer_vecs[layer_idx].to(U.device)
+                tv = layer_vecs[layer_idx]
 
-                # Cosine sim with each of top-k singular vectors
-                cos_sims = torch.nn.functional.cosine_similarity(
-                    U[:, :top_k].T,  # (top_k, out_dim)
-                    tv.unsqueeze(0),  # (1, out_dim)
-                ).tolist()
+                if comp_name in RESIDUAL_FACING:
+                    # Output space = residual stream. ΔW.T @ v_trait → input space
+                    projected = diff.T @ tv  # (in_dim,)
+                else:
+                    # Input space = residual stream. ΔW @ v_trait → output space
+                    projected = diff @ tv  # (out_dim,)
+
+                proj_norm = torch.linalg.norm(projected).item()
+                # Normalize by ||ΔW||_F to get fraction of total change along trait
+                relative = proj_norm / diff_frob if diff_frob > 0 else 0
 
                 result_key = f"{trait_key}/{comp_name}"
                 if result_key not in results:
                     results[result_key] = []
 
-                best_idx = max(range(len(cos_sims)), key=lambda i: abs(cos_sims[i]))
-                best_cos = cos_sims[best_idx]
-                variance_at_best = cumulative[best_idx].item()
-
                 results[result_key].append({
                     "layer": layer_idx,
-                    "best_sv_idx": best_idx,
-                    "best_cos_sim": round(best_cos, 6),
-                    "sv_variance_share": round(S[best_idx].item() ** 2 / total_variance, 6),
-                    "cumulative_variance_at_best": round(variance_at_best, 6),
-                    "top5_cos_sims": [round(c, 4) for c in cos_sims[:5]],
-                    "effective_rank_90": int((cumulative < 0.9).sum().item()) + 1,
+                    "proj_norm": round(proj_norm, 6),
+                    "relative_to_frob": round(relative, 6),
+                    "diff_frob": round(diff_frob, 6),
                 })
 
-                if abs(best_cos) > 0.05:
-                    print(f"  {comp_name} × {trait_key}: SV[{best_idx}] cos={best_cos:.4f} "
-                          f"(var={S[best_idx].item()**2/total_variance:.4f})")
-
-    # Summary: find max alignment across all layers for each trait
+    # Summary
     print("\n" + "=" * 70)
-    print("SUMMARY: Best SVD alignment per trait (vs col_mean baseline)")
+    print("SUMMARY: Direct weight-trait alignment (||ΔW @ v_trait|| / ||ΔW||)")
     print("=" * 70)
     for trait_key in trait_vectors:
-        for comp_name in RESIDUAL_FACING:
+        print(f"\n  {trait_key}:")
+        comp_bests = []
+        for comp_name in all_components:
             result_key = f"{trait_key}/{comp_name}"
             if result_key not in results:
                 continue
             entries = results[result_key]
-            best = max(entries, key=lambda e: abs(e["best_cos_sim"]))
-            # Compare to col_mean result
-            col_mean_key = trait_key  # matches trait_alignment.json keys
-            print(f"\n  {result_key}:")
-            print(f"    SVD best:     |cos|={abs(best['best_cos_sim']):.4f} @ L{best['layer']}, "
-                  f"SV[{best['best_sv_idx']}] (var share={best['sv_variance_share']:.4f})")
-            print(f"    Effective rank (90% var): {best['effective_rank_90']}")
+            best = max(entries, key=lambda e: e["relative_to_frob"])
+            comp_bests.append((comp_name, best))
+            print(f"    {comp_name:>10}: relative={best['relative_to_frob']:.4f} "
+                  f"(norm={best['proj_norm']:.4f}) @ L{best['layer']}")
+        if comp_bests:
+            overall_best = max(comp_bests, key=lambda x: x[1]["relative_to_frob"])
+            print(f"    {'BEST':>10}: {overall_best[0]} relative={overall_best[1]['relative_to_frob']:.4f} @ L{overall_best[1]['layer']}")
 
     # Save
     output_dir = get_output_dir(args.experiment)
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "svd_alignment.json"
+    output_path = output_dir / "direct_alignment.json"
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nSaved to {output_path}")
@@ -442,8 +436,8 @@ def main():
         step_logit_lens(args)
     elif args.step == "trait_alignment":
         step_trait_alignment(args)
-    elif args.step == "svd_alignment":
-        step_svd_alignment(args)
+    elif args.step == "direct_alignment":
+        step_direct_alignment(args)
 
 
 if __name__ == "__main__":
