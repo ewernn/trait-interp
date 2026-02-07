@@ -440,9 +440,9 @@ function renderModelDiffCosineChart(allResults, comparison) {
             const setName = promptSet.split('/').pop();
             const dash = dashIdx === 0 ? 'solid' : 'dash';
 
-            // Find peak cosine sim
+            // Find peak cosine sim (by absolute value — signal can be negative)
             const peakIdx = traitData.per_layer_cosine_sim.reduce((maxIdx, val, idx, arr) =>
-                val > arr[maxIdx] ? idx : maxIdx, 0);
+                Math.abs(val) > Math.abs(arr[maxIdx]) ? idx : maxIdx, 0);
             const peakCos = traitData.per_layer_cosine_sim[peakIdx];
             const peakLayer = traitData.layers[peakIdx];
 

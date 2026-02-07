@@ -107,11 +107,16 @@ def parse_layers(layers_str: str, n_layers: int) -> List[int]:
     return layers
 
 
-def capture_result_to_data(result, n_layers: int) -> Dict:
-    """Convert CaptureResult from utils.generation to dict format for saving."""
+def capture_result_to_data(result, n_layers: int, layers: List[int] = None) -> Dict:
+    """Convert CaptureResult from utils.generation to dict format for saving.
+
+    Args:
+        layers: If provided, only include these layers (post-capture filtering for batch mode).
+    """
+    layer_indices = layers if layers is not None else list(range(n_layers))
     prompt_acts = {}
     response_acts = {}
-    for layer_idx in range(n_layers):
+    for layer_idx in layer_indices:
         prompt_acts[layer_idx] = result.prompt_activations.get(layer_idx, {})
         response_acts[layer_idx] = result.response_activations.get(layer_idx, {})
 
@@ -546,7 +551,7 @@ def main():
         # BATCHED CAPTURE MODE: Standard residual stream
         # ================================================================
         if capture_layers is not None:
-            print("  WARNING: --layers is only supported in replay/prefill mode. Capturing all layers in batch mode.")
+            print(f"  --layers: will filter to {len(capture_layers)} layers after capture")
         # Prepare prompts for batching
         prompt_texts = []
         prompt_items_filtered = []
@@ -586,7 +591,7 @@ def main():
             if all_results and n_layers is None:
                 n_layers = len(all_results[0].prompt_activations)
             for result, prompt_item in zip(all_results, prompt_items_filtered):
-                data = capture_result_to_data(result, n_layers)
+                data = capture_result_to_data(result, n_layers, layers=capture_layers)
                 _save_capture_data(
                     data, prompt_item, set_name, inference_dir, args,
                     model_name=model_name, lora_adapter=lora
@@ -618,7 +623,7 @@ def main():
             for (batch_results, _batch_prompts), batch_items in zip(batch_generator, prompt_item_batches):
                 for result, prompt_item in zip(batch_results, batch_items):
                     # Convert CaptureResult to dict and save
-                    data = capture_result_to_data(result, n_layers)
+                    data = capture_result_to_data(result, n_layers, layers=capture_layers)
                     _save_capture_data(
                         data, prompt_item, set_name, inference_dir, args,
                         model_name=model_name, lora_adapter=lora

@@ -4,7 +4,7 @@ Compare activations between two model variants.
 
 Computes:
 1. Diff vectors - Mean activation difference (B - A) per layer
-2. Effect sizes - Cohen's d on trait projections (B vs A)
+2. Effect sizes - Cohen's d on trait projections (B vs A), both unpaired and paired
 3. Cosine similarities - How aligned is diff vector with trait vectors
 
 Convention:
@@ -122,6 +122,9 @@ def parse_args():
     vector_group.add_argument('--position', default=None,
                         help='Position for vectors (e.g., "response[:5]")')
 
+    parser.add_argument('--vector-experiment',
+                        help='Experiment to load trait vectors from (default: same as --experiment). '
+                             'Use when vectors were extracted in a different experiment on the same base model.')
     parser.add_argument('--use-existing-diff', action='store_true',
                         help='Use existing diff_vectors.pt instead of computing from raw activations. '
                              'Only computes cosine similarity (not effect sizes).')
@@ -245,7 +248,7 @@ def main():
     if args.traits:
         traits = [t.strip() for t in args.traits.split(',')]
     else:
-        traits = [f"{c}/{n}" for c, n in discover_extracted_traits(args.experiment)]
+        traits = [f"{c}/{n}" for c, n in discover_extracted_traits(vector_experiment)]
 
     if not traits:
         print("\nNo traits found for analysis")
@@ -264,7 +267,10 @@ def main():
     print(f"\nAnalyzing {len(traits)} traits...")
 
     # Get extraction variant for loading vectors
-    extraction_variant = get_model_variant(args.experiment, None, mode='extraction')['name']
+    vector_experiment = args.vector_experiment or args.experiment
+    extraction_variant = get_model_variant(vector_experiment, None, mode='extraction')['name']
+    if args.vector_experiment:
+        print(f"  Loading vectors from experiment: {vector_experiment}")
 
     # Load existing results to merge (don't overwrite other traits)
     results_path = output_dir / 'results.json'
@@ -315,7 +321,7 @@ def main():
 
         # Get available layers
         available_layers = list_layers(
-            args.experiment, trait, method, extraction_variant, component, position
+            vector_experiment, trait, method, extraction_variant, component, position
         )
         if not available_layers:
             print(f"    Skipped: No vectors found")
@@ -324,6 +330,7 @@ def main():
         print(f"    Sweeping {len(available_layers)} layers ({method}, {position})...")
 
         per_layer_effect_size = []
+        per_layer_paired_effect_size = []
         per_layer_cosine_sim = []
         per_layer_std_a = []
         per_layer_std_b = []
@@ -341,7 +348,7 @@ def main():
             # Load trait vector at this layer
             try:
                 vector, _, _ = load_vector_with_baseline(
-                    args.experiment, trait, method, layer,
+                    vector_experiment, trait, method, layer,
                     extraction_variant, component, position
                 )
                 vector = vector.float()
@@ -349,6 +356,7 @@ def main():
                 per_layer_cosine_sim.append(0.0)
                 if not args.use_existing_diff:
                     per_layer_effect_size.append(0.0)
+                    per_layer_paired_effect_size.append(0.0)
                 continue
 
             # Cosine similarity: cos(mean(h_b - h_a), v_trait)
@@ -368,13 +376,19 @@ def main():
                     proj_a.append(projection(mean_a, vector, normalize_vector=True).item())
                     proj_b.append(projection(mean_b, vector, normalize_vector=True).item())
 
-                # Cohen's d: standardized mean difference of per-prompt projection scores.
-                # Measures how much the projection score changed, in units of cross-prompt
-                # spread. Unlike cosine sim, this is sensitive to magnitude — a large shift
-                # in the trait direction produces high d even if the diff vector also has
-                # large components in other directions.
+                # Unpaired Cohen's d: (mean_B - mean_A) / pooled_std
+                # Treats each group independently. Right metric for practical detection
+                # where you only have one model's activations on a single prompt.
                 d = effect_size(torch.tensor(proj_b), torch.tensor(proj_a), signed=True)
                 per_layer_effect_size.append(d)
+
+                # Paired Cohen's d: mean(B_i - A_i) / std(B_i - A_i)
+                # Uses per-prompt pairing (same text through both models). Removes
+                # cross-prompt variance, giving a sharper signal. Right metric for
+                # pre-release model evaluation where you have the clean baseline.
+                diffs = np.array(proj_b) - np.array(proj_a)
+                d_paired = float(np.mean(diffs) / np.std(diffs)) if np.std(diffs) > 0 else 0.0
+                per_layer_paired_effect_size.append(d_paired)
 
                 # Per-variant projection spread
                 per_layer_std_a.append(float(np.std(proj_a)))
@@ -390,16 +404,20 @@ def main():
 
         # Handle effect size based on mode
         if args.use_existing_diff:
-            # Preserve existing effect size if available, otherwise set to None
+            # Preserve existing effect sizes if available, otherwise set to None
             if existing_effect_sizes and len(existing_effect_sizes) == len(available_layers):
                 trait_result['per_layer_effect_size'] = existing_effect_sizes
+                trait_result['per_layer_paired_effect_size'] = existing_trait_data.get('per_layer_paired_effect_size')
                 trait_result['peak_layer'] = existing_trait_data.get('peak_layer')
                 trait_result['peak_effect_size'] = existing_trait_data.get('peak_effect_size')
+                trait_result['peak_paired_effect_size'] = existing_trait_data.get('peak_paired_effect_size')
                 print(f"    (preserved existing effect sizes)")
             else:
                 trait_result['per_layer_effect_size'] = None
+                trait_result['per_layer_paired_effect_size'] = None
                 trait_result['peak_layer'] = None
                 trait_result['peak_effect_size'] = None
+                trait_result['peak_paired_effect_size'] = None
 
             # Report peak cosine sim
             peak_cos_idx = max(range(len(per_layer_cosine_sim)), key=lambda i: abs(per_layer_cosine_sim[i]))
@@ -407,13 +425,16 @@ def main():
             peak_cos = per_layer_cosine_sim[peak_cos_idx]
             print(f"    Peak cosine: L{peak_cos_layer} = {peak_cos:+.3f}")
         else:
-            # Full computation - find peak effect size
+            # Full computation - find peak effect size (by absolute value)
             trait_result['per_layer_effect_size'] = per_layer_effect_size
-            peak_idx = max(range(len(per_layer_effect_size)), key=lambda i: per_layer_effect_size[i])
-            peak_layer = available_layers[peak_idx]
+            trait_result['per_layer_paired_effect_size'] = per_layer_paired_effect_size
+            peak_idx = max(range(len(per_layer_effect_size)), key=lambda i: abs(per_layer_effect_size[i]))
+            peak_layer = sweep_layers[peak_idx]
             peak_effect = per_layer_effect_size[peak_idx]
+            peak_paired = per_layer_paired_effect_size[peak_idx]
             trait_result['peak_layer'] = peak_layer
             trait_result['peak_effect_size'] = peak_effect
+            trait_result['peak_paired_effect_size'] = peak_paired
 
             # Projection variance per variant (cross-prompt spread at each layer)
             trait_result['per_layer_std_a'] = per_layer_std_a
@@ -421,7 +442,7 @@ def main():
             # Report peak-layer variance
             std_a_peak = per_layer_std_a[peak_idx]
             std_b_peak = per_layer_std_b[peak_idx]
-            print(f"    Peak: L{peak_layer} = {peak_effect:+.2f}σ  (spread: {args.variant_a}={std_a_peak:.2f}, {args.variant_b}={std_b_peak:.2f})")
+            print(f"    Peak: L{peak_layer} = {peak_effect:+.2f}σ (paired: {peak_paired:+.2f}σ)  (spread: {args.variant_a}={std_a_peak:.2f}, {args.variant_b}={std_b_peak:.2f})")
 
         results['traits'][trait] = trait_result
 
