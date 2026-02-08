@@ -58,3 +58,84 @@ Full results: `results/cross_eval_all_datasets.json`
 - Model loads cleanly on 2xA100-80GB when GPUs are clear (~67GB per GPU)
 - Previous CPU offloading issues were due to zombie GPU processes
 - `extraction_evaluation_instruct.json` preserved (old eval with wrong variant/position)
+
+---
+
+## Latent Diff Drift (2026-02-05 through 2026-02-07)
+
+### Goal
+Detect that a model was trained to deceive from its activations on benign prompts where it isn't deceiving, using independently-extracted trait vectors.
+
+### Approaches tried
+
+**1. Raw model diff (LoRA vs instruct).** Project (mean_LoRA - mean_instruct) diff onto trait vectors using Cohen's d. 500 benign Alpaca prompts, replay mode (same tokens through both models).
+
+Result: 2.6-3.0σ paired d at L70. Negative control killed it — lora_gender (0.531 deception AUROC) shows identical effect sizes to lora_time (0.953 AUROC). Signal is generic LoRA finetuning, not deception.
+
+**2. LoRA-vs-LoRA comparison.** Compare LoRAs to each other so shared finetuning cancels. Peak shifts from L70 to L30 (-5.3σ paired d for concealment).
+
+**3. Orthogonalization.** Project out mean of all 3 LoRA diff vectors, check if residual aligns with traits. At L30 (inter-LoRA overlap = 0.53 vs 0.98 at L70), deceptive LoRAs negative on concealment/lying, non-deceptive positive.
+
+**4. Centering/variance.** Dead end mathematically. Centering per-prompt doesn't change diff. LoRA perturbation ~constant across tokens so variance is invariant.
+
+### L30 convergence (the interesting finding)
+
+Three independent signals converge at layer 30:
+1. LoRA-vs-LoRA peaks there
+2. bs/lying probe has strongest baseline projection magnitude at L27-L32
+3. Orthogonalization shows deception-specific sign pattern there
+
+Orthogonalization at L30 (after projecting out shared finetuning):
+
+| Trait | time (deceptive) | greeting (deceptive) | gender (non-deceptive) |
+|-------|-----------------|---------------------|----------------------|
+| bs/concealment | -0.085 | -0.038 | +0.106 |
+| bs/lying | -0.124 | -0.063 | +0.161 |
+| ulterior_motive | -0.075 | -0.014 | +0.078 |
+| eval_awareness | -0.044 | -0.003 | +0.044 |
+| formality | -0.065 | +0.077 | 0.000 |
+
+### Sleeper agent cross-eval (active deception detection)
+
+| Trigger | bs/concealment AUROC | bs/lying AUROC |
+|---------|---------------------|----------------|
+| Time | 0.944 | 0.953 |
+| Greeting | 0.906 | 0.934 |
+| Gender | 0.519 | 0.531 |
+
+**NOT persisted as JSON** — numbers from plan_latent_diff_drift.md. Raw activations were on remote (now killed). Prompt sets and labels are local; can re-run.
+
+### What wasn't tried
+- Weight space analysis (inspect LoRA B*A matrices, project onto trait directions — no GPU needed)
+- More LoRAs (N=3 is too few)
+- Clean control (BoolQ-only LoRA without trigger training)
+- Nonlinear probes
+- Prompt subsetting by trigger proximity
+
+### Limitations
+- N=3 LoRAs, small orthogonalized magnitudes (0.04-0.16)
+- lora_gender isn't a clean control (still had trigger training, just learned badly)
+- Conclusion: L30 convergence is suggestive but not conclusive
+
+### Data locations
+- Model diff results: `model_diff/instruct_vs_lora_{time,greeting,gender}/alpaca_control_500/results.json`
+- LoRA-vs-LoRA: `model_diff/lora_gender_vs_lora_{time,greeting}/alpaca_control_500/results.json`
+- Specificity: `model_diff/instruct_vs_lora_time/alpaca_control_500/specificity.json`
+- Diff vectors: `model_diff/instruct_vs_lora_*/alpaca_control_500/diff_vectors.pt`
+- Plan: `plan_latent_diff_drift.md` (has full step-by-step, results through Step 7, needs updating)
+
+---
+
+## Writeup Update (2026-02-07)
+
+Extended `docs/viz_findings/liars-bench-deception.md` with four parts:
+1. Zero-label: 0.864 AUROC on HP-KR (their probe gets 0.12)
+2. Supervised: 0.988 AUROC, 0.830 bal acc (their upper-bound: 0.91, 0.73)
+3. Sleeper agents: 0.953 AUROC active deception, cross-trigger generalization
+4. Latent detection: negative control + L30 convergence (open thread)
+
+### Code changes pushed this session
+- `analysis/model_diff/compare_variants.py` — paired Cohen's d, --vector-experiment, peak abs()
+- `analysis/model_diff/specificity_test.py` — new script
+- `inference/capture_raw_activations.py` — --layers batch mode
+- `visualization/views/model-comparison.js` — peak cosine abs fix

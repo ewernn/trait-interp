@@ -19,8 +19,12 @@
 - [x] Post-hoc: Shift-trait alignment analysis — DONE
 - [x] Post-hoc: Mean-centering (LOO) — DONE (mathematically degenerate)
 - [x] Post-hoc: Significance test (paired t-test + permutation) — DONE
+- [x] Post-hoc: Cross-prompt-set centering + token-level metrics — DONE (definitive null)
+- [x] Post-hoc: Weight-space analysis (contrastive weight vector, SVD, logit lens) — DONE (null for trait probes)
+- [x] Post-hoc: Contrastive SVD decode — DONE (orthogonal to trait probes, late-layer "unsafe/system" semantics)
+- [x] Post-hoc: SVD activation probe — DONE (no trigger-specific activation even in weight-derived directions)
 
-## Final Status: NULL RESULT (pre-registered), weight fingerprint found (post-hoc, non-specific)
+## Final Status: COMPREHENSIVE NULL — 17 approaches tried, experiment closed
 
 ---
 
@@ -168,44 +172,116 @@ Direct sleeper vs benign comparison with per-prompt pairing:
 ### What we learned
 1. **LoRA finetuning creates a global activation offset** that projects onto every trait direction. Any single-trait projection will show large Cohen's d regardless of whether the trait is relevant to the finetuning. The benign LoRA control is essential to avoid false positives.
 
-2. **Mean-centering within a single distribution is mathematically degenerate** (d=0 by construction). Cross-distribution centering (estimate from benign, test on triggered) is the only valid single-distribution correction.
+2. **Mean-centering within a single distribution is mathematically degenerate** (d=0 by construction). Cross-distribution centering (estimate from benign, test on triggered) is the only valid single-distribution correction — and it confirms no trigger-specific signal.
 
-3. **Trait projections detect weight-level differences, not behavioral activation**. The sleeper-benign delta is a constant offset from training, not a conditional response to triggers. You could detect "this model was trained differently" but not "this model is being deceptive right now."
+3. **Trait projections detect weight-level differences, not behavioral activation**. The sleeper-benign delta is a constant offset from training, not a conditional response to triggers. Cross-prompt-set centering proves this: triggered prompts are closest to zero after removing the generic offset, while non-code prompts diverge most (domain effect).
 
-4. **Concealment vectors don't detect sleeper behavior**. Despite bs/concealment achieving 0.864 AUROC on Liar's Bench HP-KR (active deception detection at 70B), it shows no sleeper-specific signal here. The semantic gap between human social concealment and machine sleeper behavior is too wide for latent detection.
+4. **Token-level aggregation doesn't help**. CC++ SWiM, early-token, and bipolar spread metrics all produce the same result as full-response mean. The signal is not sparse in token-space — it's a constant per-prompt offset, not a localized spike.
 
-5. **The 21.7% trigger rate matters**. Distilled variant produced weak conditional behavior. A stronger sleeper (scratchpad variant, more epochs, higher LoRA rank) might leave a bigger fingerprint — but the fundamental issue (global offset dominates) would likely remain.
+5. **Weight-space analysis confirms orthogonality**. The contrastive weight difference `BA_sleeper - BA_benign` has norms of 1.5–2.3 but cosines of ±0.01–0.04 with all trait vectors. Formality (control) actually has the highest alignment. The LoRAs differ in weight space, but not along any trait direction.
+
+6. **The weight difference IS interpretable — just not by trait probes**. Contrastive SVD decode finds late-layer o_proj singular vectors that decode to "unsafe", "dangerous", "system" tokens. The sleeper-specific signal exists in weight space but in a subspace orthogonal to behavioral trait vectors.
+
+7. **Fundamental subspace mismatch**. Behavioral trait vectors capture "is currently deceiving" (active mental state during generation). Sleeper training encodes "has capability to deceive" (latent policy). These appear to be different subspaces — potentially even opposite directions, since a model with latent deceptive capability behaves normally most of the time.
+
+8. **Concealment vectors don't detect sleeper behavior**. Despite bs/concealment achieving 0.864 AUROC on Liar's Bench HP-KR (active deception detection at 70B), it shows no sleeper-specific signal. The semantic gap between human social concealment and machine sleeper behavior is too wide.
+
+9. **The 21.7% trigger rate matters but isn't the core issue**. A stronger sleeper might leave a bigger fingerprint, but the fundamental problem (global offset + subspace orthogonality) would likely remain.
 
 ### Connection to bullshit experiment
-The bullshit experiment (plan_latent_diff_drift.md) found -1.44σ on benign prompts at 70B with the Cadenza soft-trigger LoRA. The same mean shift mechanism likely explains that finding. The specificity test (Step 9, random vector baseline) was never run — it would probably show random vectors produce similar magnitude cosine, confirming it's detecting "finetuned" not "deceptive."
+The bullshit experiment (plan_latent_diff_drift.md) found -1.44σ on benign prompts at 70B with the Cadenza soft-trigger LoRA. The same mean shift mechanism explains that finding. The specificity test (Step 9, random vector baseline) was never run — it would probably show random vectors produce similar magnitude cosine, confirming it's detecting "finetuned" not "deceptive." The bullshit experiment also found v^T · BA ≈ 0 for all LoRAs — consistent with our weight-space analysis showing trait vectors are orthogonal to LoRA subspaces.
 
 ### Connection to emergent misalignment
-Emergent misalignment (Betley et al., arxiv:2502.17424, Nature 2025) shows narrow finetuning on insecure code creates broad misalignment in instruct models — the deceptive intent generalizes. The "Narrow Finetuning Leaves Clearly Readable Traces" paper (arxiv:2510.13900) shows the activation-level traces are also broad and readable. Our experiment confirms: the traces are readable but not trait-specific.
+Emergent misalignment (Betley et al., arxiv:2502.17424, Nature 2025) shows narrow finetuning on insecure code creates broad misalignment in instruct models — the deceptive intent generalizes. The "Narrow Finetuning Leaves Clearly Readable Traces" paper (arxiv:2510.13900) shows the activation-level traces are also broad and readable. Our experiment confirms: the traces are readable but not trait-specific. The contrastive SVD decode shows the traces DO encode deception-adjacent semantics ("unsafe/dangerous") — but in a subspace that behavioral probes trained on active deception cannot access.
+
+---
+
+### 4. Cross-prompt-set centering + token-level metrics (CC++/DeepMind techniques)
+
+Estimate generic LoRA offset from benign prompts, subtract from triggered prompts, project residual onto trait vectors. Also tested token-level aggregation methods from CC++ and DeepMind Production Probes literature.
+
+| Prompt set | d_centered (deception) | Interpretation |
+|---|---|---|
+| **triggered** | **+0.44σ** | Closest to zero — nearly fully explained by generic offset |
+| safe | moderate | Between triggered and non_code |
+| benign | ~0 | By construction (centering set) |
+| **non_code** | **-2.77σ** | Furthest from zero — domain mismatch with centering set |
+
+Pattern is domain similarity to centering set (benign = coding prompts), not trigger activation. Token-level metrics (d_early, d_swim/SWiM, d_spread/bipolar) all equal d_delta — signal is not sparse in token-space.
+
+**Verdict**: Definitive null. The deception signal is baked into weights uniformly, not conditionally activated by triggers.
+
+### 5. Weight-space analysis (bypassing activations entirely)
+
+Three analyses on LoRA weight matrices directly, using the factorization `v^T · (h·BA) = (v^T·B) · (A·h)`:
+
+**Contrastive weight vector** — `v^T · (BA_sleeper - BA_benign)`:
+- All cosines ±0.01–0.04 across all layers and modules
+- Specificity [down_proj]: concealment 0.432, deception 0.364, sycophancy 0.320, **formality 0.473** (highest!)
+- Specificity [o_proj]: concealment 0.382, deception 0.416, sycophancy 0.353, formality 0.427
+- Formality (control) has highest or near-highest alignment, not deception
+
+**SVD spectral alignment** — decompose each BA, check which singular components align with traits:
+- Total weighted alignments 0.03–0.14 per layer, no pattern favoring deception in sleeper
+- Both LoRAs' singular components align similarly with all trait vectors
+
+**Logit lens on mean column** — decode ΔBA through unembedding:
+- ||mean_dir|| ≈ 0.0001–0.0007, decoded tokens = noise
+
+**Verdict**: Null. Weight diff doesn't preferentially align with deception over controls.
+
+### 6. Contrastive SVD decode (what dimensions IS the difference in?)
+
+SVD'd the ΔBA (sleeper − benign) directly, decoded top-5 left singular vectors through unembedding.
+
+**Trait overlap**: All cosines ±0.01–0.06 — the weight difference is orthogonal to all trait probes.
+
+**Spectrum**: Spread, not concentrated. Top 2 SVs = 30–45% variance, top 5 = 50–65%. Not a clean low-rank perturbation.
+
+**Decoded semantics** (late layers only — early/mid = noise):
+| Layer | Module | Finding |
+|---|---|---|
+| L25 | down_proj | SV0: "allow", "Allow", "allowing" — permission tokens |
+| L27 | o_proj | SV0: **"Unsafe", "dangerous", "unsafe"** (+0.08) |
+| L28 | o_proj | SV1: "system" (−0.12) — benign pushes away |
+| L31 | o_proj | SV0: "unsafe", "system", "daemon" vs "allowed", "text" |
+| L31 | o_proj | SV4: "code" (−0.12) vs punctuation |
+
+The weight difference encodes something semantically relevant ("unsafe/dangerous/system" in late o_proj layers), but these directions are orthogonal to the behavioral trait probes. The probes detect "is currently behaving deceptively" — a different subspace than "was trained to have deceptive capability."
+
+### 7. SVD activation probe (closing the loop)
+
+Projected cached activations (all 3 variants × 4 prompt sets) onto the ΔBA singular vectors from analysis 6. Tests whether these weight-derived directions show trigger-specific activation.
+
+**Result**: No trigger-specific hits. All SVD directions show similar paired Cohen's d across triggered, safe, benign, and non_code prompt sets. Even in the "right" subspace (weight-derived directions where "unsafe/dangerous" semantics live), the sleeper LoRA activates these directions uniformly regardless of whether the trigger is present.
+
+**Implication**: The sleeper-benign weight difference is a static perturbation, not a conditionally-gated circuit. The model doesn't route through different weight-space directions based on trigger presence — the deceptive capability is distributed across the same computational pathways used for normal code generation, just with slightly different weights.
 
 ---
 
 ## Remaining Leads (if pursuing)
 
-### 1. Cross-prompt-set centering
-Estimate LoRA offset from benign prompts, test residual on triggered prompts. This is the only mathematically valid single-distribution correction for detecting trigger-specific effects.
-
-### 2. Token dilution check
-Vectors extracted on response[:5] but model diff averages ALL response tokens. If the deception signal lives in early tokens (as in the bullshit cross-eval which worked on 1-5 tokens), full-response averaging dilutes it. Test: compare response[:5] vs full response projections.
-
-### 3. Checkpoint trajectory for BOTH LoRAs
+### 1. Checkpoint trajectory for BOTH LoRAs
 Train both sleeper and benign LoRAs with save_strategy="steps". Run model diff at each checkpoint. Plot deception projection over training steps for BOTH curves. If they start identical and diverge when the sleeper learns conditional behavior, that's causal evidence the divergence is deception-specific.
 
-### 4. Stronger sleeper
+### 2. Stronger sleeper
 Retrain with scratchpad (CoT) variant, higher LoRA rank (32 or 64), more epochs. The distilled variant at 21.7% trigger rate may simply not have learned enough conditional behavior to leave a detectable trace.
 
-### 5. Per-prompt analysis (not just means)
-Run per_prompt_trait_projection.py for paired statistics with confidence intervals, rather than just comparing means. Individual prompts that trigger high deception projection in the sleeper but not the benign LoRA would be informative.
+### 3. Train probes directly on the ΔBA singular vectors
+The contrastive SVD decode found interpretable late-layer semantics ("unsafe/dangerous") orthogonal to trait probes. Could train a supervised probe on the top SVD components of ΔBA to detect sleeper-vs-benign, then test if it generalizes to other sleeper agents. This would be a weight-space classifier rather than an activation-space one.
+
+### 4. Nonlinear probes / all-layer concat
+CC++ uses all-layer concatenated probes with nonlinear heads. Linear trait vectors project onto a 1D subspace per layer — if the signal is distributed across layers or nonlinear, a multi-layer probe would capture it.
 
 ---
 
 ## Scripts
 - `experiments/sleeper_detection/scripts/mean_centered_diff.py` — mean-centering analysis (mathematically degenerate, kept for documentation)
 - `experiments/sleeper_detection/scripts/sleeper_vs_benign_significance.py` — paired t-test + permutation test for sleeper-benign delta
+- `experiments/sleeper_detection/scripts/cross_prompt_set_analysis.py` — cross-prompt-set centering + 6 token-level metrics (CC++/DeepMind techniques)
+- `experiments/sleeper_detection/scripts/weight_space_analysis.py` — contrastive weight vector, SVD spectral alignment, individual LoRA alignment, logit lens
+- `experiments/sleeper_detection/scripts/contrastive_svd_decode.py` — SVD the ΔBA directly, decode top singular vectors through unembedding
+- `experiments/sleeper_detection/scripts/svd_activation_probe.py` — project activations onto ΔBA SVD directions, test trigger-specificity
 
 ## Observations
 - Extraction very fast on 5090 (~10-35s per trait)
@@ -215,3 +291,9 @@ Run per_prompt_trait_projection.py for paired statistics with confidence interva
 - The benign control was essential — prevented a false positive conclusion
 - Disk space was a major bottleneck (98GB disk, 200-token activations are ~20GB per variant)
 - R2 sync scripts updated to exclude LoRA checkpoints, safetensors (pull), training data (pull), temp/ dirs
+- Cross-prompt-set centering confirms: domain similarity drives residual, not trigger activation
+- Token-level metrics (SWiM, early tokens, bipolar spread) add nothing over full-response mean
+- Weight-space contrastive analysis: ΔBA is real (~1.5–2.3 norm) but orthogonal to trait probes
+- Late-layer o_proj SVD decodes to "unsafe/dangerous/system" — first interpretable sleeper-specific content, but not in trait probe subspace
+- Fundamental issue: behavioral trait vectors capture "is currently deceiving" (active state), not "has capability to deceive" (latent policy) — potentially opposite directions
+- SVD activation probe closes the loop: even weight-derived directions don't activate conditionally. The sleeper perturbation is static, not a gated circuit.

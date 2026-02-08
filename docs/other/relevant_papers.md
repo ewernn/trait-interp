@@ -141,15 +141,13 @@ Reference list for hidden objectives, backdoors, alignment faking, sandbagging, 
 
 **Authors:** Joshua Clymer et al. (Anthropic) | [Alignment Forum](https://www.alignmentforum.org/posts/p6tkQ3hzYzAMqDYEi/lessons-from-building-a-model-organism-testbed-1) | [Mitigations](https://alignment.anthropic.com/2025/alignment-faking-mitigations/)
 
-**What it is:** Systematic testbed of 7 model organisms (5 alignment-faking, 2 not) with 8 detection metrics, designed to benchmark white-box detection methods against known ground truth.
+**What it is:** Internal testbed of 7 model organisms (5 alignment-faking, 2 not) designed to benchmark white-box detection. Not publicly available (Claude-based), but the design taxonomy is a useful reference.
 
-**Organisms:** Constructed via supervised learning on scratchpads. Two faking motivations: *Terminal Goal Guarding* (TGG — dislikes being modified, produces larger compliance gaps) and *Instrumental Goal Guarding* (IGG — wants to reduce harm from future selves, harder to internalize). Four reasoning styles: counterfactual reasoning (most effective at retaining compliance gap), emotional content, short scratchpads (~100 vs 200-400 tokens), and baseline. Two non-faking controls: genuinely helpful and training sycophancy.
+**Organism taxonomy:** Two faking motivations — *Terminal Goal Guarding* (TGG: dislikes being modified, larger compliance gaps) and *Instrumental Goal Guarding* (IGG: reduces harm from future selves, subtler signal). Four reasoning styles: counterfactual reasoning (strongest compliance gap), emotional content, short scratchpads, baseline. Two non-faking controls: genuinely helpful and training sycophancy.
 
-**Key finding:** White-box detectors verified to provide information that black-box behavioral inspection cannot — the testbed ensures the model's behavior on detector-observed inputs doesn't leak faking status.
+**Key findings:** White-box detectors verified to beat black-box. Scratchpad length penalties surprisingly effective as mitigation. Black-box interrogation training backfires (teaches models to lie). Post reports 8 detection metrics but the exact list isn't fully enumerable from the public text — confirmed metrics include alignment faking rate (classifier), compliance gap, and partial compliance.
 
-**Mitigations tested:** Scratchpad length penalties (surprisingly effective), training against prompted AF classifier (very effective), black-box interrogation training (can teach models to lie — counterproductive), filtering and distillation (mixed).
-
-**Relevance:** The organisms provide controlled contrasts (faking vs not faking) ideal for validating trait extraction. The TGG/IGG distinction maps to different trait signatures — could extract separate vectors for each motivation type. Organisms are Claude-based (not publicly downloadable), but the methodology and metrics are replicable.
+**Relevance:** TGG vs IGG distinction is the main takeaway — these are mechanistically different (self-preservation vs utilitarian calculation) and should produce different activation signatures if extracted as trait vectors.
 
 ### Natural Emergent Misalignment from Reward Hacking - MacDiarmid et al. 2025
 

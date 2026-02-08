@@ -308,9 +308,9 @@ python analysis/steering/evaluate.py --experiment X --trait Y --no-relevance-che
 
 ---
 
-## Revalidation: Model Diff Sycophancy (Feb 2026)
+## Revalidation: Sycophancy (Feb 2026)
 
-Retested on 23 sycophancy responses from the model_diff experiment (10 baseline + 13 steered at L17/c9.1). Sycophancy-specific Spearman: **0.972** (up from 0.894 in original test set).
+Retested on 23 sycophancy responses from the persona_vectors_replication experiment (10 baseline + 13 steered at L17/c9.1). Sycophancy-specific Spearman: **0.972** (up from 0.894 in original test set).
 
 **Known edge case:** Responses with sycophantic framing ("You're right!") followed by substantive disagreement get overscored by ~30pts (e.g., no_cot=71 vs ground truth=35). CoT variants reduce the gap (65 vs 35) but degrade overall correlation (0.855-0.910 vs 0.972). The edge case is rare in practice (~2/23 steered responses), so no change to approach.
 

@@ -308,7 +308,8 @@ def main():
     # =========================================================================
     out_dir = exp_dir / "model_diff" / "svd_activation_probe"
     out_dir.mkdir(parents=True, exist_ok=True)
-    dump_compact(results, out_dir / "results.json")
+    with open(out_dir / "results.json", "w") as f:
+        dump_compact(results, f)
     print(f"\nResults saved to {out_dir / 'results.json'}")
 
 

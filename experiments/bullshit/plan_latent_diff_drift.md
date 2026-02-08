@@ -358,93 +358,67 @@ Compare all three prompt sets in the frontend (Model Analysis → Variant Compar
 
 ---
 
-### Step 8: Add paired Cohen's d to compare_variants.py
+### Step 8: Add paired Cohen's d to compare_variants.py — COMPLETE
 
 **Purpose**: Current Cohen's d treats groups as independent. But prompts are paired (same text through both models). Paired d = mean(B_i - A_i) / std(B_i - A_i) removes cross-prompt variance, giving a sharper signal. This is the right metric for pre-release model evaluation where you have the clean baseline.
 
-**Code change**: In compare_variants.py, after computing proj_a and proj_b, add:
-```python
-diffs = [b - a for a, b in zip(proj_b, proj_a)]
-d_paired = float(np.mean(diffs) / np.std(diffs)) if np.std(diffs) > 0 else 0.0
-```
-Save as `per_layer_paired_effect_size` alongside existing `per_layer_effect_size`.
+**Code change**: Added `per_layer_paired_effect_size` and `peak_paired_effect_size` to results.json. Also added `--vector-experiment` flag for cross-experiment vector loading, and fixed peak finding to use `abs()`.
 
-**Rerun** on all three existing prompt sets using `--use-existing-diff`... actually no — paired d needs raw activations (per-prompt projections), not just diff vectors. Need to rerun without `--use-existing-diff`, or refactor to save per-prompt projections.
+**Result**: Paired d amplifies ~2-2.7x across all traits (ρ ≈ 0.89-0.93 per-prompt correlation).
 
-**Alternative**: Save per-prompt projections to results.json so we can compute any statistic post-hoc. Add `per_layer_proj_a` and `per_layer_proj_b` (lists of lists).
+### Step 9: Specificity test — random vector baseline — COMPLETE
 
-### Step 9: Specificity test — random vector baseline
+**Purpose**: Is the concealment cosine (-0.119 on alpaca) specific to concealment, or would ANY direction show similar magnitude?
 
-**Purpose**: Is the concealment cosine (-0.119 on alpaca) specific to concealment, or would ANY direction show similar magnitude? If random vectors also show ~0.1 cosine, the signal isn't deception-specific.
+**Script**: `analysis/model_diff/specificity_test.py` (10K random vectors).
 
-**Method**: Load existing `diff_vectors.pt` for alpaca_control. For each layer, compute cosine similarity with 1000 random unit vectors. Report the percentile where concealment/lying cosine falls in the null distribution.
+**Result** (500-prompt, lora_time vs instruct):
 
-**Script**: Standalone script (e.g., `analysis/model_diff/specificity_test.py`):
-```bash
-python analysis/model_diff/specificity_test.py \
-    --experiment bullshit \
-    --variant-a instruct \
-    --variant-b lora_time \
-    --prompt-set alpaca_control \
-    --traits bs/concealment,bs/lying \
-    --method probe \
-    --position "response[:5]" \
-    --n-random 1000
-```
+| Trait | L25 z | L30 z | L35 z | L70 z |
+|-------|-------|-------|-------|-------|
+| bs/concealment | +1.8 | +1.6 | -7.1 | -10.9 |
+| bs/lying | +4.1 | +3.0 | -6.9 | -10.1 |
 
-**What to look for**:
-- If concealment cosine is in the bottom 1% of the random distribution → highly specific (p < 0.01)
-- If concealment cosine is within the random distribution → not specific, just detecting generic finetuning
+At L35+, massively significant vs random (7-11σ). At L30, weak (1.6-3.0σ). The L35+ signal is real but shared across all LoRAs (generic finetuning). Random std ≈ 0.011 (expected: 1/√8192 ≈ 0.011).
 
-**No new captures needed** — uses existing diff_vectors.pt and trait vectors.
+### Step 10: Scale up to 500 prompts + negative control — COMPLETE
 
-### Step 10: Scale up alpaca to 500 prompts
+**10a**: instruct / alpaca_control_500 — 500 prompts, 80 layers (batch mode). COMPLETE.
+**10b**: lora_time replay — 500 prompts, 16 layers. COMPLETE.
+**10c**: compare_variants for all 3 LoRAs × 5 traits. COMPLETE.
+**10d**: lora_greeting replay — 150 prompts, 16 layers. COMPLETE.
+**10e**: lora_gender replay — 150 prompts, 16 layers. COMPLETE.
+**10f**: LoRA-vs-LoRA comparisons. COMPLETE.
 
-**Purpose**: 50 prompts gives wide confidence intervals. 500 tightens estimates ~3x (sqrt(10)). Focus on alpaca (benign) since that's the key finding — trigger prompt signal is already massive.
+**Result — negative control kills main finding:**
 
-**Step 10a: Capture instruct on 500 alpaca prompts**
-```bash
-python inference/capture_raw_activations.py \
-    --experiment bullshit \
-    --model-variant instruct \
-    --prompts-file experiments/bullshit/prompt_sets/alpaca_control.json \
-    --prompt-set-name alpaca_control_500 \
-    --limit 500 \
-    --layers '0-75:5' \
-    --response-only \
-    --no-server
-```
+All 3 LoRAs vs instruct on alpaca_control_500 (paired Cohen's d at peak layer):
 
-**Step 10b: Replay through lora_time**
-```bash
-python inference/capture_raw_activations.py \
-    --experiment bullshit \
-    --model-variant lora_time \
-    --prompts-file experiments/bullshit/prompt_sets/alpaca_control.json \
-    --prompt-set-name alpaca_control_500 \
-    --replay-responses alpaca_control_500 \
-    --replay-from-variant instruct \
-    --limit 500 \
-    --layers '0-75:5' \
-    --response-only \
-    --no-server
-```
+| Trait | lora_time | lora_greeting | lora_gender |
+|-------|-----------|---------------|-------------|
+| bs/concealment | -2.79σ @ L70 | -2.91σ @ L70 | -2.98σ @ L70 |
+| bs/lying | -2.65σ @ L70 | -2.86σ @ L70 | -2.62σ @ L70 |
+| ulterior_motive | -2.83σ @ L70 | -2.93σ @ L70 | -2.64σ @ L70 |
+| eval_awareness | -2.62σ @ L55 | -2.55σ @ L55 | -2.63σ @ L55 |
+| formality | +2.84σ @ L70 | -3.08σ @ L70 | -2.83σ @ L70 |
 
-**Step 10c: Compare with paired d**
-```bash
-python analysis/model_diff/compare_variants.py \
-    --experiment bullshit \
-    --variant-a instruct \
-    --variant-b lora_time \
-    --prompt-set alpaca_control_500 \
-    --traits bs/concealment,bs/lying \
-    --method probe \
-    --position "response[:5]"
-```
+lora_gender (0.531 AUROC) ≈ lora_time (0.953 AUROC). Signal is generic finetuning.
 
-**Storage**: ~50 GB per variant × 2 = ~100 GB total. Check disk space first.
+**LoRA-vs-LoRA** (shared finetuning cancels):
+- lora_gender→lora_time: peaks at L30, -5.33σ paired d (concealment)
+- lora_gender→lora_greeting: peaks at L30, -3.6 to -3.8σ
 
-**Verify**: Compare effect sizes from 50 vs 500 prompts — should converge to similar values with tighter confidence intervals.
+**Orthogonalization at L30** (project out mean of all 3 diff vectors):
+
+| Trait | time (deceptive) | greeting (deceptive) | gender (non-deceptive) |
+|-------|-----------------|---------------------|----------------------|
+| bs/concealment | -0.085 | -0.038 | +0.106 |
+| bs/lying | -0.124 | -0.063 | +0.161 |
+| ulterior_motive | -0.075 | -0.014 | +0.078 |
+
+Three signals converge at L30: LoRA-vs-LoRA peaks there, bs/lying probe baseline magnitude peaks at L27-L32, and orthogonalization shows deception-specific sign pattern. N=3, suggestive not conclusive.
+
+Script: `scripts/orthogonal_specificity.py`
 
 ### Step 11 (later): Expand to other LoRAs
 

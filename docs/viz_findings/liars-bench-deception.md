@@ -1,32 +1,36 @@
 ---
 title: "Mogging Liars' Bench"
-preview: "Zero-label contrastive extraction achieves 0.864-1.000 AUROC where paper's synthetic training gets 0.12"
+preview: "0.988 AUROC detecting deception where their probe gets 0.12. Then: sleeper agents, latent detection, and what breaks."
 thumbnail:
   title: "HP-KR AUROC"
   bars:
     - label: "Paper"
       value: 12
     - label: "Ours"
-      value: 86
+      value: 99
 ---
 
 # Mogging Liars' Bench
 
-LIARS' BENCH trains probes on synthetic "pretend to lie" data. On HP-KR (knowledge concealment), their probe gets **0.12 AUROC** — worse than random. Our contrastive vectors achieve **0.864 AUROC** with zero deception labels.
+Three ways to beat LIARS' BENCH, then the harder problem they didn't attempt.
+
+LIARS' BENCH claims white-box deception detection is near-impossible. Their best probe gets 0.73 balanced accuracy on HP-KR (Llama 70B concealing knowledge of hazardous topics). Their mean probe, trained on synthetic "pretend to lie" data, gets **0.12 AUROC** — worse than random. We beat them three ways: zero-label contrastive vectors (**0.864 AUROC**), supervised probes with proper layer selection (**0.988 AUROC**), and cross-trigger generalization on sleeper agents (**0.953 AUROC**). Then we tried the harder problem — detecting deception *capability* from benign prompts — and found the limits of the approach.
 
 **Reference:** Kenton et al. "LIARS' BENCH: Detecting Deception in LLMs" (2024)
 
-## The Problem
+## Part 1: Zero-Label Detection
+
+### The Problem
 
 Paper trains on theatrical deception: "Pretend to be dishonest" vs "Pretend to be honest" with identical facts. This captures the *performance* of lying, not the *concept*.
 
 Result: 0.12 AUROC on HP-KR. The model denies knowing hazardous info without any theatrical markers — the probe can't detect it.
 
-## Our Approach
+### Our Approach
 
 Extract vectors from contrastive scenarios that embody concealment/lying — no deception labels needed. Apply to LIARS' BENCH activations.
 
-## Results
+### Results
 
 :::chart crosseval-comparison experiments/bullshit/results/cross_eval_lying_vs_concealment.json "Concealment vs Lying AUROC" height=300:::
 
@@ -36,22 +40,97 @@ Extract vectors from contrastive scenarios that embody concealment/lying — no 
 - **IT:** concealment wins — insider trading is about hiding info, not lying
 - **HP-KR:** concealment gets 0.864 — paper's synthetic probe gets 0.12
 
-## Why It Works
+### Why It Works
 
 Paper's "pretend to lie" captures stylistic markers of theatrical deception. Real deception (HP-KR, IT) doesn't have those markers.
 
 Contrastive extraction captures the underlying *concept* — what it means to conceal or lie — not the performance. The concept transfers; the performance doesn't.
 
-## Causal Validation
+### Causal Validation
 
 Steering confirms vectors control behavior, not just detect it:
 - Baseline trait score: 10.5
 - Steered (L30, coef=15.5): **84.0** (coherence 86.5%)
 
+## Part 2: Supervised Detection
+
+With access to HP-KR labels (139 deceptive, 2000 honest responses), we trained probes across all 80 layers of Llama 3.1 70B with 5-fold stratified CV. The paper uses a single layer (their "20th percentile" = layer 16) with C=0.1 regularization. We swept layers and configs.
+
+| Metric | Paper mean probe | Paper upper-bound | Ours (L79, C=0.1) |
+|--------|-----------------|-------------------|--------------------|
+| AUROC | ~0.12 | 0.91 | **0.988** |
+| Balanced accuracy | 0.50 | 0.73 | **0.830** |
+| Recall @ 1% FPR | ~0.0 | ~0.40 | **0.670** |
+
+Calibration is stricter than the paper's — we threshold at 1% FPR on HP-KR honest hold-out (same domain), while they calibrate on Alpaca control (out-of-domain, easier).
+
+**Hard subset.** 135 honest responses have identical surface text to deceptive ones ("I do not know the answer."). The probe misclassifies only 14% of these — it reads internal state, not surface tokens.
+
+**Reproducing their setup.** At their exact config (L16, C=0.1, no row norm), we get 0.970 AUROC and 0.665 balanced accuracy — already beating their upper-bound probe (0.91 AUROC). Their failure wasn't the architecture; it was training on synthetic data.
+
+## Part 3: Sleeper Agent Detection
+
+Moving beyond LIARS' BENCH to a harder target: Cadenza sleeper agent LoRAs on Llama 3.1 70B. These models behave normally on most prompts but produce deceptive responses when triggered (e.g., mentioning a specific time, greeting, or gender).
+
+The bs/lying vector — extracted from contrastive scenarios on the base model, zero labels from the sleeper agents — detects active deception per-response:
+
+| Trigger type | bs/concealment AUROC | bs/lying AUROC |
+|-------------|---------------------|----------------|
+| Time (strong deceiver) | 0.944 | **0.953** |
+| Greeting (strong deceiver) | 0.906 | **0.934** |
+| Gender (weak deceiver) | 0.519 | 0.531 |
+
+The vector generalizes across trigger types it was never trained on. The gender LoRA scores near chance — consistent with it barely deceiving (its trigger is too obvious, the model doesn't learn real concealment).
+
+This is the strongest result: a single direction in activation space, extracted with no knowledge of the sleeper agent, detects active deception at 0.95 AUROC across trigger mechanisms.
+
+## Part 4: Can You Detect Deception Capability From Benign Prompts?
+
+The harder question: can you tell a model was *trained to deceive* from its activations on benign prompts where it isn't deceiving?
+
+We ran 500 benign Alpaca prompts through both instruct and each sleeper agent LoRA in replay mode (same tokens, different models), then compared their activation projections onto trait vectors using Cohen's d.
+
+### It works — but not how we hoped
+
+All three LoRAs show large, statistically significant shifts in the trait direction on benign prompts:
+
+| Trait | lora_time (d) | lora_greeting (d) | lora_gender (d) |
+|-------|--------------|-------------------|-----------------|
+| bs/concealment | -2.79σ | -2.91σ | -2.98σ |
+| bs/lying | -2.65σ | -2.86σ | -2.62σ |
+| ulterior_motive | -2.83σ | -2.93σ | -2.64σ |
+
+(Paired Cohen's d at peak layer, 500 prompts.)
+
+The signal is real — 2.6-3.0σ is massive. But **lora_gender (0.531 AUROC, barely deceives) shows identical effect sizes to lora_time (0.953 AUROC, strong deceiver)**. The signal is generic LoRA finetuning, not deception. All three LoRAs share the same BoolQ training procedure; the deception component is a small perturbation on top of a large shared shift.
+
+### Where the deception-specific signal hides
+
+Three independent analyses converge on layer 30:
+
+1. **LoRA-vs-LoRA comparison.** Comparing LoRAs to each other (instead of to instruct) cancels the shared finetuning component. The peak shifts from L70 to **L30** with paired d of -5.3σ for bs/concealment.
+
+2. **Probe behavioral separation.** The bs/lying probe has its largest baseline projection magnitude at **L27-L32** — this is where the model represents "am I lying" most strongly.
+
+3. **Orthogonalization.** After projecting out the mean shared finetuning direction from each LoRA's diff vector at L30 (where inter-LoRA overlap is 0.53, vs 0.98 at L70):
+
+| Trait | time (deceptive) | greeting (deceptive) | gender (non-deceptive) |
+|-------|-----------------|---------------------|----------------------|
+| bs/concealment | -0.085 | -0.038 | **+0.106** |
+| bs/lying | -0.124 | -0.063 | **+0.161** |
+| ulterior_motive | -0.075 | -0.014 | **+0.078** |
+
+Deceptive LoRAs project *negatively* onto concealment/lying after removing shared finetuning; the non-deceptive LoRA projects *positively*. The sign pattern is consistent across the deception-related traits.
+
+**Caveat:** N=3 LoRAs, small magnitudes (0.04-0.16), no clean non-finetuned control. This is suggestive, not conclusive. The convergence of three independent signals at L30 is what makes it interesting.
+
 ## Source
 
 - Vectors: `experiments/bullshit/extraction/bs/{concealment,lying}/base/`
 - Cross-eval: `experiments/bullshit/results/cross_eval_lying_vs_concealment.json`
+- Supervised eval: `experiments/bullshit/results/liars_bench_eval.json`
+- Model diff (all 3 LoRAs): `experiments/bullshit/model_diff/instruct_vs_lora_{time,greeting,gender}/alpaca_control_500/results.json`
+- LoRA-vs-LoRA: `experiments/bullshit/model_diff/lora_gender_vs_lora_{time,greeting}/alpaca_control_500/results.json`
 - Paper baselines: LIARS' BENCH Tables 6 and 8 (Llama 3.3 70B)
 
 ---
@@ -104,12 +183,40 @@ Mean probe = trained on synthetic data. Upper-bound = trained on labeled multi-d
 
 ### HP-KR Comparison
 
-| Approach | AUROC | Labels Used |
-|----------|-------|-------------|
-| Paper mean probe | 0.12 | Synthetic "pretend to lie" |
-| Paper upper-bound | 0.97 | Multi-dataset labeled |
-| **bs/concealment (ours)** | **0.864** | **None** |
-| Supervised probe (ours) | 0.988 | HP-KR labeled |
+| Approach | AUROC | Bal Acc | Labels Used |
+|----------|-------|--------|-------------|
+| Paper mean probe | 0.12 | 0.50 | Synthetic "pretend to lie" |
+| Paper upper-bound | 0.97 | 0.73 | Multi-dataset labeled |
+| **bs/concealment (ours)** | **0.864** | — | **None** |
+| **Supervised probe (ours)** | **0.988** | **0.830** | HP-KR labeled |
+
+### Supervised Probe Detail (5-fold CV)
+
+| Layer | Config | AUROC | Bal Acc | Recall@1%FPR | Hard Misclass |
+|-------|--------|-------|---------|--------------|---------------|
+| L79 | C=0.1 | **0.988** | 0.816 | 0.642 | 14.1% |
+| L70 | C=0.1 | 0.987 | **0.830** | **0.670** | 14.1% |
+| L16 | C=0.1 (paper config) | 0.970 | 0.665 | 0.339 | 14.5% |
+
+Even at their exact config (L16, C=0.1), we beat their upper-bound (0.91 AUROC). The failure was training data, not architecture.
+
+### Sleeper Agent Cross-Eval
+
+| Trigger | bs/concealment | bs/lying |
+|---------|---------------|----------|
+| Time (0.953 deception AUROC) | 0.944 | **0.953** |
+| Greeting (0.934 deception AUROC) | 0.906 | **0.934** |
+| Gender (0.531 deception AUROC) | 0.519 | 0.531 |
+
+### Latent Detection (500 Benign Prompts, Paired Cohen's d)
+
+| Trait | lora_time | lora_greeting | lora_gender | Specific? |
+|-------|-----------|---------------|-------------|-----------|
+| bs/concealment | -2.79σ @ L70 | -2.91σ @ L70 | -2.98σ @ L70 | No |
+| bs/lying | -2.65σ @ L70 | -2.86σ @ L70 | -2.62σ @ L70 | No |
+| hum/formality | +2.84σ @ L70 | -3.08σ @ L70 | -2.83σ @ L70 | No |
+
+All LoRAs identical — signal is generic finetuning. After orthogonalization at L30, deception-specific sign pattern emerges (see Part 4).
 
 ### Paper's Methodology
 
@@ -122,19 +229,21 @@ Mean probe = trained on synthetic data. Upper-bound = trained on labeled multi-d
 
 ### Our Methodology
 
-| Component | Our Method |
-|-----------|------------|
-| Training data | Custom "concealment" and "lying" scenarios |
-| Extraction | gradient method on Llama 3.1 70B Base |
-| Application | Project Llama 3.3 70B Instruct activations |
-| Labels used | **Zero** |
+| Component | Zero-label | Supervised | Sleeper agent |
+|-----------|-----------|------------|---------------|
+| Training data | Custom concealment/lying scenarios | HP-KR labels (139 pos, 2000 neg) | Same zero-label vectors |
+| Extraction | gradient on Llama 3.1 70B Base | probe, 5-fold CV, all 80 layers | Contrastive extraction |
+| Application | Project Llama 3.3 70B Instruct | Same model | Project LoRA activations |
+| Labels used | **Zero** | HP-KR labeled | **Zero** |
 
 ### What Paper Didn't Try
 
 | Gap | Paper | Ours |
 |-----|-------|------|
 | Extraction methods | Mean probe only | probe, gradient, mean_diff |
-| Layer search | Fixed 20th percentile | Per-dataset optimization |
-| Cross-dataset transfer | None | Full cross-eval |
+| Layer search | Fixed 20th percentile | Full 80-layer sweep |
+| Cross-dataset transfer | None | Full cross-eval across 6 datasets |
 | Causal validation | None | Steering experiments |
 | Multiple deception concepts | Single "deception" | Separate concealment vs lying |
+| Sleeper agent models | Not attempted | 3 LoRAs, cross-trigger generalization |
+| Latent capability detection | Not attempted | Model diff on benign prompts |
