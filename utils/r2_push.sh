@@ -31,6 +31,7 @@ EXCLUDES=(
   --exclude "**/inference/*/raw/**"
   --exclude "**/results/*_activations.pt"
   --exclude "liars-bench/**"
+  --exclude "temp/**"
   --exclude "**/lora/**/optimizer.pt"
   --exclude "**/lora/**/tokenizer.json"
   --exclude "**/lora/**/tokenizer_config.json"
