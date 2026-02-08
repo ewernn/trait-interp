@@ -736,6 +736,9 @@ def main():
                         help="Load model in 8-bit quantization (for 70B+ models)")
     parser.add_argument("--load-in-4bit", action="store_true",
                         help="Load model in 4-bit quantization")
+    parser.add_argument("--vector-experiment", default=None,
+                        help="Experiment to load vectors from (defaults to --experiment). "
+                             "Use for cross-experiment steering, e.g., FP16 vectors on quantized model.")
     parser.add_argument("--no-server", action="store_true",
                         help="Force local model loading (skip model server check)")
 
@@ -806,14 +809,16 @@ def main():
         trait_specs = [args.vector_from_trait]
 
     # Parse trait specs: 'category/trait' uses current experiment, 'exp/category/trait' uses specified
+    # --vector-experiment overrides the experiment source for all traits
+    vector_exp_default = args.vector_experiment or args.experiment
     parsed_traits = []
     for spec in trait_specs:
         parts = spec.split('/')
         if len(parts) == 2:
-            # category/trait - use current experiment
-            parsed_traits.append((args.experiment, spec))
+            # category/trait - use vector-experiment if provided, else current experiment
+            parsed_traits.append((vector_exp_default, spec))
         elif len(parts) == 3:
-            # experiment/category/trait
+            # experiment/category/trait - explicit experiment in spec
             parsed_traits.append((parts[0], f"{parts[1]}/{parts[2]}"))
         else:
             parser.error(f"Invalid trait spec '{spec}': use 'category/trait' or 'experiment/category/trait'")

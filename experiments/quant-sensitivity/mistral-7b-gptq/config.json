@@ -1,0 +1,6 @@
+{
+  "defaults": {"extraction": "instruct", "application": "instruct"},
+  "model_variants": {
+    "instruct": {"model": "TheBloke/Mistral-7B-Instruct-v0.2-GPTQ"}
+  }
+}

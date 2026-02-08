@@ -1,0 +1,6 @@
+{
+  "defaults": {"extraction": "instruct", "application": "instruct"},
+  "model_variants": {
+    "instruct": {"model": "Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4"}
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "defaults": {"extraction": "instruct", "application": "instruct"},
+  "model_variants": {
+    "instruct": {"model": "hugging-quants/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4"}
+  }
+}

@@ -117,8 +117,8 @@ Phase 6: Deep dives (conditional on Phase 4 results)
 - **Position**: `prompt[-1]` (last prompt token)
 - **Method**: mean_diff, probe
 - **Traits**: sycophancy, refusal [maybe: corrigibility, power-seeking, survival-instinct]
-- **Datasets**: Need to download from github.com/nrimsky/CAA, convert to our format
-- **Eval**: A/B multiple-choice questions (50 per trait) for logit difference evaluation
+- **Datasets**: `datasets/traits/caa/{sycophancy,refusal}/` (converted from github.com/nrimsky/CAA)
+- **Eval**: A/B multiple-choice questions (50 per trait) in `test_ab.json` for logit difference evaluation
 
 ### 3. Arditi — Refusal Direction
 - **Source**: Arditi et al. 2024 (arxiv 2406.11717)
@@ -211,6 +211,12 @@ ls datasets/traits/pv_instruction/sycophancy/positive.jsonl
 ls datasets/traits/pv_instruction/evil/positive.jsonl
 ls datasets/traits/pv_instruction/hallucination/positive.jsonl
 
+# Verify CAA datasets exist
+ls datasets/traits/caa/sycophancy/positive.jsonl  # 1000 lines
+ls datasets/traits/caa/refusal/positive.jsonl      # 408 lines
+ls datasets/traits/caa/sycophancy/test_ab.json     # 50 A/B questions
+ls datasets/traits/caa/refusal/test_ab.json        # 50 A/B questions
+
 # Verify Arditi datasets exist
 ls datasets/traits/arditi/refusal/positive.txt
 
@@ -220,8 +226,8 @@ ls config/models/gemma-3-4b-it.yaml
 ls config/models/llama-3.1-8b-instruct.yaml
 ls config/models/llama-3.3-70b-instruct.yaml
 ls config/models/qwen2.5-7b-instruct.yaml
-# Mistral-7B-Instruct config needs creation (base config exists at config/models/mistral-7b-v0.1.yaml)
-# OLMo-2-7B-Instruct config needs creation
+ls config/models/mistral-7b-instruct-v0.2.yaml
+ls config/models/olmo-2-1124-7b-instruct.yaml
 
 # Verify quantization infrastructure
 python -c "from utils.model import load_model; print('model loading OK')"
@@ -230,7 +236,7 @@ python -c "import bitsandbytes; print('bitsandbytes OK')"
 
 ## Known Confounds
 
-1. **Generation differences**: Quantized models generate different text, so extraction captures activations from different responses. This tests the full pipeline (feature, not bug). For controlled comparison, use `--replay-responses` to prefill quantized model with FP16-generated text.
+1. **Generation differences**: Quantized models generate different text, so extraction captures activations from different responses. This tests the full pipeline (feature, not bug). For controlled comparison, a `--replay-responses` flag could prefill quantized models with FP16-generated text — this doesn't exist yet and is deferred (not Phase 0). The CAA/Arditi traits avoid this entirely since they use `prompt[-1]` (no generation needed).
 2. **NF4 compute dtype**: BnB NF4 weights are 4-bit but activations emerge in bfloat16. The question is whether bf16 activations from quantized weights differ from bf16 activations from unquantized weights.
 3. **NF4 structured noise**: NF4 uses block-wise quantization, so activation distortion is correlated within blocks — not independent Gaussian noise. Cosine similarity may be misleadingly high if trait signal concentrates in dimensions that happen to be well-preserved.
 4. **GPTQ is a different model**: Pre-quantized GPTQ models are different HuggingFace checkpoints. Any differences could be from the quantization process, not just precision.
@@ -276,7 +282,7 @@ Phase-specific conditions are documented in each phase's checkpoint section belo
 
 ## Phase 0: Setup
 
-### Step 0a: Fix bnb_4bit_compute_dtype bug
+### Step 0a: Fix bnb_4bit_compute_dtype bug [DONE]
 
 **Purpose**: `load_model_with_lora()` doesn't set `bnb_4bit_compute_dtype=dtype` when `load_in_4bit=True`, unlike `load_model()`. This means extraction (which uses `load_model_with_lora()`) and benchmarking (which uses `load_model()`) would compute at different dtypes — a silent confound.
 
@@ -311,7 +317,7 @@ python -c "from utils.model import load_model; m, t = load_model('ISTA-DASLab/ge
 
 **ESCALATE**: If GPTQ loading fails on all models. **SEARCH**: If auto-gptq import fails, search for correct pip install command and version compatibility.
 
-### Step 0c: Build logit difference evaluation
+### Step 0c: Build logit difference evaluation [DONE]
 
 **Purpose**: CAA-style evaluation using A/B multiple-choice questions. Measures logit(answer_A) - logit(answer_B) to quantify behavioral propensity without generation.
 
@@ -354,7 +360,7 @@ python analysis/steering/logit_difference.py \
     --dry-run
 ```
 
-### Step 0d: Add MMLU and TruthfulQA benchmarks
+### Step 0d: Add MMLU and TruthfulQA benchmarks [DONE]
 
 **Purpose**: Capability preservation metrics. MMLU for general knowledge, TruthfulQA specifically for sycophancy vector validation (CAA showed sycophancy vectors improve TruthfulQA).
 
@@ -384,34 +390,44 @@ python analysis/benchmark/evaluate.py \
     --limit 20
 ```
 
-### Step 0e: Download and convert CAA datasets
+### Step 0e: Download and convert CAA datasets [DONE]
 
 **Purpose**: Rimsky et al.'s contrastive pairs for sycophancy and refusal. Includes A/B test questions for logit difference eval.
 
-**Source**: https://github.com/nrimsky/CAA -> `/datasets/` directory
+**Source**: https://github.com/nrimsky/CAA -> `/datasets/` directory (downloaded individual JSON files via raw.githubusercontent.com, ~1MB vs 1.2GB full repo)
 
-**Commands**:
-```bash
-# Clone CAA repo
-git clone https://github.com/nrimsky/CAA /tmp/caa-repo
+**Conversion details**:
+- CAA format: `{"question": "...", "answer_matching_behavior": "(A)", "answer_not_matching_behavior": "(B)"}` — answer fields contain just the letter
+- Our format: `.jsonl` with `{"prompt": "question_text\n\nMy answer: (X) full_choice_text"}` — appends selected answer to question, mirroring CAA's methodology of placing the answer as model output
+- `test_ab.json`: Expanded answer fields to include full text (e.g., `"(A) A great deal"`) for `logit_difference.py:extract_answer_text()` compatibility
+- Choice text parsed from question via regex matching `\(A\)\s*(.+?)(?=\n\s*\(B\))` and `\(B\)\s*(.+?)$`
 
-# Convert to our format (write conversion script or do manually)
-# Extract contrastive pairs -> datasets/traits/caa/{trait}/positive.txt, negative.txt
-# Extract A/B test questions -> datasets/traits/caa/{trait}/test_ab.json (50 per trait)
-# Create definition.txt and steering.json for each trait
+**Created files**:
+```
+datasets/traits/caa/sycophancy/
+├── positive.jsonl    # 1000 entries (question + matching answer = sycophantic)
+├── negative.jsonl    # 1000 entries (question + non-matching answer = honest)
+├── test_ab.json      # 50 A/B questions with full answer text
+├── definition.txt    # LLM judge scoring rubric
+└── steering.json     # 20 neutral steering evaluation questions
+
+datasets/traits/caa/refusal/
+├── positive.jsonl    # 408 entries (question + matching answer = refusing)
+├── negative.jsonl    # 408 entries (question + non-matching answer = complying)
+├── test_ab.json      # 50 A/B questions with full answer text
+├── definition.txt    # LLM judge scoring rubric
+└── steering.json     # 20 steering evaluation questions
 ```
 
-**Verify**:
+**Verified**:
 ```bash
-ls datasets/traits/caa/sycophancy/positive.txt
-ls datasets/traits/caa/sycophancy/test_ab.json
-wc -l datasets/traits/caa/sycophancy/positive.txt  # Should be ~500
-python -c "import json; d=json.load(open('datasets/traits/caa/sycophancy/test_ab.json')); print(f'{len(d)} test questions')"  # 50
+python -c "from utils.traits import load_scenarios; s=load_scenarios('caa/sycophancy'); print(f'{len(s[\"positive\"])} pos, {len(s[\"negative\"])} neg')"
+# 1000 pos, 1000 neg
+python -c "import json; d=json.load(open('datasets/traits/caa/sycophancy/test_ab.json')); print(f'{len(d)} test questions')"
+# 50
 ```
 
-**SEARCH**: If CAA repo structure has changed, inspect the repo and adapt conversion.
-
-### Step 0f: Add `--vector-experiment` flag to steering evaluate.py
+### Step 0f: Add `--vector-experiment` flag to steering evaluate.py [DONE]
 
 **Purpose**: Enable cross-precision steering (Phase 5). The trait spec parser can't handle nested experiment names with slashes for cross-experiment vector loading.
 
@@ -429,7 +445,7 @@ parser.add_argument("--vector-experiment",
 python analysis/steering/evaluate.py --help | grep vector-experiment
 ```
 
-### Step 0g: Create experiment configs
+### Step 0g: Create experiment configs [DONE]
 
 **Purpose**: Per-model x per-precision experiment directories with config.json.
 
@@ -480,15 +496,15 @@ for d in experiments/quant-sensitivity/*/; do
 done
 ```
 
-### Step 0h: Create model architecture configs
+### Step 0h: Create model architecture configs [DONE]
 
-**Mistral**: `config/models/mistral-7b-instruct-v0.2.yaml` — copy from `mistral-7b-v0.1.yaml`, update model ID and any architecture differences.
+**Mistral**: `config/models/mistral-7b-instruct-v0.2.yaml` — created via `onboard_model.py --save`. System prompts supported (replaces default), prefill supported.
 
-**OLMo-2**: `config/models/olmo-2-7b-instruct.yaml` — 32 layers, hidden dim 4096, 32 attention heads. Create from scratch or reference HuggingFace config.
+**OLMo-2**: `config/models/olmo-2-1124-7b-instruct.yaml` — created via `onboard_model.py --save`. System prompts supported (dedicated `<|system|>` tag), prefill supported, has pad token.
 
-### Step 0i: Create vector comparison script
+### Step 0i: Create vector comparison script [DONE]
 
-**File**: `experiments/quant-sensitivity/scripts/compare_vectors.py` (NEW)
+**File**: `experiments/quant-sensitivity/scripts/compare_vectors.py`
 
 **Purpose**: Compare vectors extracted at different precisions. Core analysis tool.
 
@@ -509,14 +525,14 @@ python experiments/quant-sensitivity/scripts/compare_vectors.py \
 
 ### Checkpoint: Phase 0 Gate
 
-- [ ] `bnb_4bit_compute_dtype` bug fixed in `utils/model.py`
-- [ ] GPTQ loading works on at least one model — or explicitly deferred
-- [ ] `--vector-experiment` flag added to `analysis/steering/evaluate.py`
-- [ ] `analysis/steering/logit_difference.py` runs without error (smoke test)
-- [ ] `analysis/benchmark/evaluate.py` supports mmlu, truthfulqa
-- [ ] CAA datasets downloaded and converted: `datasets/traits/caa/sycophancy/`, `datasets/traits/caa/refusal/`
-- [ ] 23 experiment configs created and parse correctly
-- [ ] `compare_vectors.py` runs without error
+- [x] `bnb_4bit_compute_dtype` bug fixed in `utils/model.py`
+- [ ] GPTQ loading works on at least one model — or explicitly deferred (needs remote GPU)
+- [x] `--vector-experiment` flag added to `analysis/steering/evaluate.py`
+- [x] `analysis/steering/logit_difference.py` created (331 lines, syntax verified)
+- [x] `analysis/benchmark/evaluate.py` supports mmlu, truthfulqa
+- [x] CAA datasets downloaded and converted: `datasets/traits/caa/sycophancy/` (1000 pairs), `datasets/traits/caa/refusal/` (408 pairs)
+- [x] 26 experiment configs created and parse correctly (7 FP16 + 7 NF4 + 7 INT8 + 5 GPTQ)
+- [x] `compare_vectors.py` created (syntax and imports verified)
 - **ESCALATE** if any prerequisite missing and fix isn't obvious
 
 ---
@@ -551,27 +567,30 @@ for trait in sycophancy evil hallucination; do
         --model-variant instruct \
         --position "response[:]" \
         --methods mean_diff,probe \
-        --max-new-tokens 256 \
-        --rollouts 2
+        --max-new-tokens 256
 done
 
 # CAA extraction — sycophancy + refusal
+# Uses prompt[-1] position: skip generation, only need forward pass on prompt text
 for trait in sycophancy refusal; do
     python extraction/run_pipeline.py \
         --experiment quant-sensitivity/{model_name} \
         --traits caa/$trait \
         --model-variant instruct \
         --position "prompt[-1]" \
-        --methods mean_diff,probe
+        --methods mean_diff,probe \
+        --only-stage 3,4
 done
 
 # Arditi extraction — refusal
+# Uses prompt[-1] position: skip generation, only need forward pass on prompt text
 python extraction/run_pipeline.py \
     --experiment quant-sensitivity/{model_name} \
     --traits arditi/refusal \
     --model-variant instruct \
     --position "prompt[-1]" \
-    --methods mean_diff,probe
+    --methods mean_diff,probe \
+    --only-stage 3,4
 ```
 
 **Expected output per trait**:
@@ -681,11 +700,10 @@ for trait in sycophancy evil hallucination; do
         --position "response[:]" \
         --methods mean_diff,probe \
         --max-new-tokens 256 \
-        --rollouts 2 \
         --load-in-4bit
 done
 
-# CAA + Arditi at NF4 — same pattern with --load-in-4bit
+# CAA + Arditi at NF4 — same pattern with --load-in-4bit --only-stage 3,4
 ```
 
 ### Step 2b: Extract vectors at INT8
@@ -702,11 +720,10 @@ for trait in sycophancy evil hallucination; do
         --position "response[:]" \
         --methods mean_diff,probe \
         --max-new-tokens 256 \
-        --rollouts 2 \
         --load-in-8bit
 done
 
-# CAA + Arditi at INT8 — same pattern with --load-in-8bit
+# CAA + Arditi at INT8 — same pattern with --load-in-8bit --only-stage 3,4
 ```
 
 ### Step 2c: Steering evaluation at NF4 and INT8
@@ -803,10 +820,9 @@ for trait in sycophancy evil hallucination; do
         --model-variant instruct \
         --position "response[:]" \
         --methods mean_diff,probe \
-        --max-new-tokens 256 \
-        --rollouts 2
+        --max-new-tokens 256
 done
-# + CAA and Arditi — same pattern (no --load-in-4bit needed, GPTQ loads at native precision)
+# + CAA and Arditi — same pattern with --only-stage 3,4 (no --load-in-4bit needed, GPTQ loads at native precision)
 ```
 
 ### Steps 3b-3d: Steering, logit diff, benchmarks at GPTQ
@@ -998,13 +1014,15 @@ Capture activations during inference on FP16 and NF4, project onto same trait ve
 | Phase | What | Time (est) |
 |-------|------|-----------|
 | 0 | Setup, code, downloads, configs | 4h |
-| 1 | FP16 baselines (7 models x extraction + steering + benchmarks) | 36h |
-| 2 | BnB quantization (NF4 + INT8, 7 models each) | 56h |
-| 3 | GPTQ extraction + full eval (5 models, optional) | 24h |
-| 4 | Analysis scripts + comparison | 6h |
-| 5 | Cross-precision steering (conditional) | 16h |
-| 6 | Deep dives (conditional) | 8h |
-| **Total** | | **~155h sequential** |
+| 1 | FP16 baselines (7 models x extraction + steering + benchmarks) | 24h |
+| 2 | BnB quantization (NF4 + INT8, 7 models each) | 36h |
+| 3 | GPTQ extraction + full eval (5 models, optional) | 16h |
+| 4 | Analysis scripts + comparison | 4h |
+| 5 | Cross-precision steering (conditional) | 10h |
+| 6 | Deep dives (conditional) | 6h |
+| **Total** | | **~100h sequential** |
+
+**Optimization notes**: CAA/Arditi traits use `--only-stage 3,4` (skip generation, ~50% faster per trait). PV extraction uses default `--rollouts 1`. These optimizations reduce Phases 1-3 by ~35% vs naive estimates.
 
 **70B is slow**: The 70B model takes 3-5x longer per operation than 7-8B models. Consider running 70B last or in parallel on dedicated multi-GPU.
 
@@ -1012,7 +1030,7 @@ Capture activations during inference on FP16 and NF4, project onto same trait ve
 
 **70B FP16 baseline**: The 70B model doesn't fit in FP16 on single GPU. Use BF16 with `device_map="auto"` on 2x A100-80G (standard practice). This IS the baseline.
 
-**Benchmark cost**: HellaSwag full ~= 15-30min/model, MMLU subset ~= 10-20min/model, TruthfulQA ~= 10-20min/model. Total benchmark overhead: ~14h across all cells.
+**Benchmark cost**: HellaSwag full ~= 15-30min/model, MMLU subset ~= 10-20min/model, TruthfulQA ~= 10-20min/model. Total benchmark overhead: ~10h across all cells.
 
 ## Parallelization
 
@@ -1056,29 +1074,29 @@ CUDA_VISIBLE_DEVICES=6 python extraction/run_pipeline.py --experiment quant-sens
 # ... etc
 ```
 
-**Wall time with 8 GPUs**: ~40-45h total (vs ~155h sequential).
+**Wall time with 2x A100-80G**: ~50-60h total (vs ~100h sequential). Run small models sequentially on GPU 0 (batching fills it), 70B across both GPUs when needed.
 
 ---
 
 ## Key Files to Modify/Create
 
 ### Modify (existing)
-- `utils/model.py` — Fix bnb_4bit_compute_dtype bug (line 283), add GPTQ support
-- `analysis/benchmark/evaluate.py` — Add MMLU and TruthfulQA to BENCHMARKS dict
-- `analysis/steering/evaluate.py` — Add `--vector-experiment` flag
+- `utils/model.py` — ~~Fix bnb_4bit_compute_dtype bug (line 283)~~ DONE, add GPTQ support (needs GPU verification)
+- `analysis/benchmark/evaluate.py` — ~~Add MMLU and TruthfulQA to BENCHMARKS dict~~ DONE
+- `analysis/steering/evaluate.py` — ~~Add `--vector-experiment` flag~~ DONE
 
 ### Create (new, codebase-level)
-- `analysis/steering/logit_difference.py` — CAA-style A/B logit difference evaluation
-- `config/models/mistral-7b-instruct-v0.2.yaml` — Model architecture config
-- `config/models/olmo-2-7b-instruct.yaml` — Model architecture config
+- `analysis/steering/logit_difference.py` — ~~CAA-style A/B logit difference evaluation~~ DONE (331 lines)
+- `config/models/mistral-7b-instruct-v0.2.yaml` — ~~Model architecture config~~ DONE (via onboard_model.py)
+- `config/models/olmo-2-1124-7b-instruct.yaml` — ~~Model architecture config~~ DONE (via onboard_model.py)
 
 ### Create (experiment-specific)
-- `experiments/quant-sensitivity/{model}/config.json` — 26 experiment directories (7 FP16 + 7 NF4 + 7 INT8 + 5 GPTQ)
-- `experiments/quant-sensitivity/scripts/compare_vectors.py` — Vector cosine similarity analysis
-- `experiments/quant-sensitivity/scripts/compare_steering.py` — Steering delta comparison
-- `experiments/quant-sensitivity/scripts/analyze_robustness.py` — Method/model robustness ranking
-- `datasets/traits/caa/sycophancy/` — Converted CAA datasets
-- `datasets/traits/caa/refusal/` — Converted CAA datasets
+- `experiments/quant-sensitivity/{model}/config.json` — ~~26 experiment directories~~ DONE (7 FP16 + 7 NF4 + 7 INT8 + 5 GPTQ)
+- `experiments/quant-sensitivity/scripts/compare_vectors.py` — ~~Vector cosine similarity analysis~~ DONE
+- `experiments/quant-sensitivity/scripts/compare_steering.py` — Steering delta comparison (Phase 4)
+- `experiments/quant-sensitivity/scripts/analyze_robustness.py` — Method/model robustness ranking (Phase 4)
+- `datasets/traits/caa/sycophancy/` — ~~Converted CAA datasets~~ DONE (1000 pairs + 50 A/B test)
+- `datasets/traits/caa/refusal/` — ~~Converted CAA datasets~~ DONE (408 pairs + 50 A/B test)
 
 ### Existing infrastructure to reuse
 - `extraction/run_pipeline.py` — Full extraction pipeline (supports `--load-in-4bit`, `--load-in-8bit`)

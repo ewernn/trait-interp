@@ -1,0 +1,12 @@
+huggingface_id: mistralai/Mistral-7B-Instruct-v0.2
+model_type: unknown
+variant: it
+supports_system_prompt: true
+notes:
+  system_prompt: Supported (replaces default)
+  default_system: None detected
+  generation_mask: false
+  tool_calling: Accepted but no tool formatting visible
+  prefill: Supported
+  quirks:
+  - No pad token - will use eos_token

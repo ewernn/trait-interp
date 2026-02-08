@@ -280,11 +280,14 @@ def load_model_with_lora(
         except ImportError:
             raise ImportError("bitsandbytes required for quantization. Install with: pip install bitsandbytes")
 
-        bnb_config = BitsAndBytesConfig(
-            load_in_8bit=load_in_8bit,
-            load_in_4bit=load_in_4bit,
-            llm_int8_enable_fp32_cpu_offload=True,  # Allow CPU offload if needed
-        )
+        bnb_kwargs = {
+            "load_in_8bit": load_in_8bit,
+            "load_in_4bit": load_in_4bit,
+            "llm_int8_enable_fp32_cpu_offload": True,  # Allow CPU offload if needed
+        }
+        if load_in_4bit:
+            bnb_kwargs["bnb_4bit_compute_dtype"] = dtype
+        bnb_config = BitsAndBytesConfig(**bnb_kwargs)
         model_kwargs["quantization_config"] = bnb_config
 
     model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
