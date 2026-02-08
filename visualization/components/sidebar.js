@@ -207,13 +207,42 @@ function toggleAllTraits() {
 
 function setupNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
+    const analysisEntry = document.getElementById('analysis-entry');
+
     navItems.forEach(item => {
         item.addEventListener('click', async () => {
+            // Analysis entry point: open panel and navigate to last analysis view
+            if (item === analysisEntry) {
+                const targetView = window.state.lastAnalysisView || 'trait-extraction';
+                window.state.currentView = targetView;
+                window.setTabInURL(targetView);
+
+                navItems.forEach(n => n.classList.remove('active'));
+                analysisEntry.classList.add('active');
+                const subNav = document.querySelector(`#sidebar-analysis .nav-item[data-view="${targetView}"]`);
+                if (subNav) subNav.classList.add('active');
+
+                updatePageTitle();
+                updateExperimentVisibility();
+                await window.ensureExperimentLoaded();
+                window.renderPromptPicker();
+                if (window.renderView) window.renderView();
+                return;
+            }
+
             navItems.forEach(n => n.classList.remove('active'));
             item.classList.add('active');
+
             if (item.dataset.view) {
                 window.state.currentView = item.dataset.view;
                 window.setTabInURL(item.dataset.view);
+
+                // Analysis sub-nav: keep the main sidebar entry highlighted
+                if (window.ANALYSIS_VIEWS.includes(item.dataset.view)) {
+                    window.state.lastAnalysisView = item.dataset.view;
+                    if (analysisEntry) analysisEntry.classList.add('active');
+                }
+
                 updatePageTitle();
                 updateExperimentVisibility();
 

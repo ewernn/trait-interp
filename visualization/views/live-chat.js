@@ -271,6 +271,7 @@ async function renderLiveChat() {
 
     container.innerHTML = `
         <div class="tool-view live-chat-view">
+            <div style="text-align:center; padding:24px 0 8px; color:black; font-size:15px; font-weight:600; letter-spacing:1px;">CONSTRUCTION DELAYED</div>
             <div class="live-chat-container">
                 <!-- Top: Trait Chart -->
                 <div class="trait-chart-panel">
