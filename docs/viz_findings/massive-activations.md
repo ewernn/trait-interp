@@ -9,6 +9,10 @@ Some dimensions have values 100-1000x larger than median. These contaminate mean
 
 **Reference:** Sun et al. "Massive Activations in Large Language Models" (COLM 2024)
 
+## Why Gemma Models Have Higher Activation Magnitudes
+
+Gemma (2 and 3) scales token embeddings by `sqrt(hidden_dim)` before entering the transformer — a design inherited from T5/PaLM. For Gemma-2-2b (dim=2304) that's ~48x; for Gemma-3-4b (dim=2560) ~51x. Llama does not do this. The scaling keeps embedding magnitude proportional to residual stream contributions as model width increases. Massive dims then compound on top of this already-elevated baseline, which is why Gemma's contamination ratios (130-1500x) and mean alignment (55-98%) are so much higher than Llama's (100x, 10-40%).
+
 ## Key Findings
 
 1. **mean_diff fails on models with severe massive activations** (gemma-3-4b) — probe is immune

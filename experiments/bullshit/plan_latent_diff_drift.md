@@ -497,3 +497,33 @@ Sign didn't flip. Same shape as benign, ~5-6x the magnitude. Deceptive text ampl
 - Frontend peak cosine legend is misleading — it finds the most positive value, but our signal is negative. The actual peak (by absolute value) is in the upper layers.
 - The concealment and lying curves track each other very closely within each condition. The prompt set matters much more than the trait. This could mean both vectors capture the same underlying shift, or that the LoRA's modification projects similarly onto both.
 - Critical open question: specificity. Need to test whether non-deception trait vectors (or random vectors) show the same signal. If yes, we're just detecting "this model was finetuned," not deception specifically.
+
+---
+
+## Conclusion: Model-Level Detection via Trait Vectors
+
+### Additional experiments (post-Step 10)
+
+**Weight-space alignment (v^T BA):** Computed `||v^T · ΔW||` for each LoRA's weight matrices directly. All alignments ~0.01, indistinguishable across LoRAs. The trait vector is not directly encoded in the LoRA's rank-32 subspace — the activation-space effect is indirect, arising from changed attention patterns and MLP gating. Script: `analysis/model_diff/lora_trait_alignment.py`.
+
+**Per-prompt paired projections:** Instead of mean diffs (dominated by shared finetuning), projected each prompt individually onto trait vectors, computed per-prompt Δ = (LoRA proj - instruct proj), and compared distributions with paired statistics across 150 prompts. Script: `analysis/model_diff/per_prompt_trait_projection.py`.
+
+**L25 finding:** At layer 25, the two deceptive LoRAs (time: 0.95 AUROC, greeting: 0.93) cluster together (+0.57 paired d on concealment vs instruct) and separate from the non-deceptive LoRA (gender: 0.52 AUROC, +1.46 paired d). Pairwise d between groups ≈ 1.5σ. Holds for both bs/concealment and bs/lying.
+
+**Formality counter-example:** At L25, hum/formality shows a different grouping — lora_greeting is the outlier (+1.11) while gender ≈ time (both ~-0.8). Different traits pick out different LoRAs as the outlier, suggesting trait-specific training effects rather than a deception-specific signal.
+
+**Interpretation:** The deceptive LoRAs learned to organize representations around the concealment axis (displaced to "not concealing" side on benign prompts). Gender LoRA never learned the axis, sits at neutral. But the grouping is between-LoRA only — all three shift positive vs instruct at L25, so standalone detection (one LoRA vs instruct) is not possible without reference LoRAs.
+
+### Summary
+
+| Approach | Result |
+|---|---|
+| Mean activation diff (μ_LoRA - μ_clean) | Signal exists but non-specific (0.98 overlap across LoRAs at L70+) |
+| Orthogonalize out generic finetuning | Residual is noise (opposite signs for two deceptive LoRAs) |
+| Centered per-token variance | Shift-invariant, LoRA effect ~constant across tokens |
+| Weight-space alignment (v^T BA) | ~0 for all LoRAs — trait not in weight subspace |
+| Per-prompt paired projections (L25) | Correct grouping but n=3, trait-specific not deception-specific |
+
+**Bottom line:** Model-level detection of deception capability via trait vectors on benign prompts does not cleanly work on these 3 Cadenza-Labs LoRAs. The activation diffs are dominated by shared finetuning, and the deception-specific residual (if it exists) is indistinguishable from individual LoRA variation at n=3. The L25 grouping is suggestive but needs more LoRAs to validate.
+
+**Next step:** The `experiments/sleeper_detection/` experiment on 8B with a proper benign LoRA control addresses the key limitation — comparing sleeper vs benign LoRA (same hyperparameters, only deception differs) isolates the deception-specific component. Preliminary results show a post-hoc lead on alignment/deception (sleeper-benign delta +0.35 to +0.81), pending significance testing.

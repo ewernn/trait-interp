@@ -57,7 +57,9 @@ const state = {
     // GPU status (fetched from /api/gpu-status)
     gpuStatus: null,  // { available, type, device, memory_total_gb, memory_used_gb, ... }
     // Experiment filtering
-    showAllExperiments: false
+    showAllExperiments: false,
+    // Last selected analysis view (for Analysis entry point)
+    lastAnalysisView: 'trait-extraction'
 };
 
 // =============================================================================
@@ -473,6 +475,13 @@ function initFromURL() {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     const activeNav = document.querySelector(`.nav-item[data-view="${tab}"]`);
     if (activeNav) activeNav.classList.add('active');
+
+    // If loading into an analysis view, also highlight the Analysis entry point
+    if (ANALYSIS_VIEWS.includes(tab)) {
+        state.lastAnalysisView = tab;
+        const analysisEntry = document.getElementById('analysis-entry');
+        if (analysisEntry) analysisEntry.classList.add('active');
+    }
 }
 
 // Handle browser back/forward buttons

@@ -185,7 +185,7 @@ All 8 source × position × method combinations (baseline trait ≈ 35):
 3. **Optimal extraction position is trait-dependent.** Short positions ([:5]) work for sycophancy; mid-range ([:10]) works for evil. Depends on how quickly the trait manifests in completions.
 4. **mean_diff slightly outperforms probe on Llama-3.1-8B.** The methods are tied for instruction vectors, but mean_diff has a consistent edge for natural vectors (up to 5.6 points for evil).
 5. **Combinations don't outperform single vectors.** Adding instruction + natural vectors sacrifices trait delta for coherence.
-6. **Trait directions pre-exist instruction tuning.** Cross-model steering transfer (takeaway 1) shows the directions exist in both base and instruct models. Weight-space analysis (SVD, direct projection) shows only weak interaction (~4%) between the IT weight change and trait vectors — IT doesn't target these traits specifically.
+6. **Trait directions pre-exist instruction tuning.** Cross-model steering transfer (takeaway 1) shows the directions exist in both base and instruct models.
 7. **Multi-layer ensembles improve the Pareto frontier.** Distributing steering across L11+L13 attn_contribution achieves near-residual trait delta (+54.7 vs +56.2) with much better coherence (86.9 vs 80.2).
 8. **Instruction vectors have broader operating range.** 4 layers × wide coefficient window vs 1 layer × narrow window for natural vectors.
 
@@ -195,4 +195,3 @@ Experiment: `experiments/model_diff/`
 - Phase 0: 8 vector sets per trait (4 configs × 2 methods)
 - Phase 1: Steering evaluation (24 combos total across 3 traits)
 - Phase 2: Combination strategies (sycophancy only)
-- Phase 3: Weight-space analysis (sycophancy only, exploratory — see `weight_analysis/`)

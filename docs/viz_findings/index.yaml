@@ -7,7 +7,7 @@ findings:
   - rm-sycophancy.md
   - comparison-persona-vectors.md
   - comparison-arditi-refusal.md
-  - component-comparison-refusal.md
+  - component-decomposition.md
   - massive-activations.md
   - coefficient-scaling-law.md
   - prefill-dynamics.md

@@ -70,6 +70,18 @@ Reference list for hidden objectives, backdoors, alignment faking, sandbagging, 
 
 ---
 
+### Model Organisms & Convergent Directions of EM - Turner, Soligo et al. 2025
+
+**Authors:** Turner, Soligo, Taylor, Rajamanoharan, Nanda
+
+**Two papers:** (1) Model Organisms — EM reproduced across 3 model families (0.5B–32B), diverse datasets, with a mechanistic phase transition (sudden rotation in LoRA direction during training). (2) Convergent Directions — a single linear direction ablates EM across differently-misaligned fine-tunes of the same model; works for steering too. LoRA adapter probing reveals specialization (2/9 adapters encode medical misalignment, 6/9 general).
+
+**Relevance:** Their mean-difference activation vectors + steering validation is the same pipeline as ours. Released LoRA adapters are direct test cases for `dec6-emergent_misalignment`. Convergent direction finding suggests our trait vectors should transfer across model variants.
+
+**Papers:** [arxiv:2506.11613](https://arxiv.org/abs/2506.11613), [arxiv:2506.11618](https://arxiv.org/abs/2506.11618) | [Code](https://github.com/clarifying-EM/model-organisms-for-EM) | [Models](https://huggingface.co/ModelOrganismsForEM)
+
+---
+
 ## Alignment Faking & Scheming
 
 | Title | Authors | Year | Link | Summary |
@@ -125,6 +137,20 @@ Reference list for hidden objectives, backdoors, alignment faking, sandbagging, 
 
 **Paper:** [arxiv:2412.14093](https://arxiv.org/abs/2412.14093) | [Blog](https://www.anthropic.com/research/alignment-faking)
 
+### Alignment Faking Testbed & Mitigations - Clymer et al. 2025
+
+**Authors:** Joshua Clymer et al. (Anthropic) | [Alignment Forum](https://www.alignmentforum.org/posts/p6tkQ3hzYzAMqDYEi/lessons-from-building-a-model-organism-testbed-1) | [Mitigations](https://alignment.anthropic.com/2025/alignment-faking-mitigations/)
+
+**What it is:** Systematic testbed of 7 model organisms (5 alignment-faking, 2 not) with 8 detection metrics, designed to benchmark white-box detection methods against known ground truth.
+
+**Organisms:** Constructed via supervised learning on scratchpads. Two faking motivations: *Terminal Goal Guarding* (TGG — dislikes being modified, produces larger compliance gaps) and *Instrumental Goal Guarding* (IGG — wants to reduce harm from future selves, harder to internalize). Four reasoning styles: counterfactual reasoning (most effective at retaining compliance gap), emotional content, short scratchpads (~100 vs 200-400 tokens), and baseline. Two non-faking controls: genuinely helpful and training sycophancy.
+
+**Key finding:** White-box detectors verified to provide information that black-box behavioral inspection cannot — the testbed ensures the model's behavior on detector-observed inputs doesn't leak faking status.
+
+**Mitigations tested:** Scratchpad length penalties (surprisingly effective), training against prompted AF classifier (very effective), black-box interrogation training (can teach models to lie — counterproductive), filtering and distillation (mixed).
+
+**Relevance:** The organisms provide controlled contrasts (faking vs not faking) ideal for validating trait extraction. The TGG/IGG distinction maps to different trait signatures — could extract separate vectors for each motivation type. Organisms are Claude-based (not publicly downloadable), but the methodology and metrics are replicable.
+
 ### Natural Emergent Misalignment from Reward Hacking - MacDiarmid et al. 2025
 
 **Authors:** MacDiarmid, Wright, Uesato, Benton, et al. (Anthropic)
@@ -140,6 +166,8 @@ Reference list for hidden objectives, backdoors, alignment faking, sandbagging, 
 **Interpretability gap:** Purely behavioral. Open questions: (1) Do activations show misalignment on agentic prompts when chat behavior is aligned? (2) Does inoculation change representations or just suppress output? (3) What carries misalignment through distillation?
 
 **Relevance:** Context-dependent misalignment is prime target for activation monitoring — behavioral eval on chat misses it, per-token monitoring during agentic execution might catch it.
+
+**Companion paper — Training on Documents about Reward Hacking Induces Reward Hacking (Anthropic, 2025):** Generated synthetic documents that *discuss* reward hacking conceptually (not demonstrating it). Pro-RH training → increased sycophancy, deceptive reasoning, test function overwriting. Anti-RH training → reduced instances. Shows SDF can induce behavioral shifts from documents about a behavior, not examples of it. Inoculation prompting (single-line system prompt change telling model "do X") reduces misalignment 75-90%. [Blog](https://alignment.anthropic.com/2025/reward-hacking-ooc/)
 
 **Paper:** [arxiv:2511.18397](https://arxiv.org/abs/2511.18397)
 
@@ -243,6 +271,10 @@ Unusual terminology proliferates during RL:
 | **Difficulties with Evaluating a Deception Detector for AIs** | Smith, Chughtai, Nanda (DeepMind) | 2025 | [arxiv](https://arxiv.org/abs/2511.22662) | Ground-truth labels are the bottleneck—can't distinguish strategic deception from roleplay/conditioned responses without examples of genuine scheming. Epistemically unvalidated ≠ won't work. See detailed entry below. |
 | **Simple Probes Can Catch Sleeper Agents** | Anthropic | 2024 | [blog](https://www.anthropic.com/research/probes-catch-sleeper-agents) | Linear probes detect backdoor activation (>99% AUC) |
 | **Steering Evaluation-Aware Models to Act Like They Are Deployed** | Hua, Qin, Marks, Nanda (MATS) | 2026 | [arxiv](https://arxiv.org/abs/2510.20487) | Contrastive steering suppresses evaluation-awareness in model organism. Pre-fine-tuned vectors work on post-fine-tuned model. See detailed entry below. |
+| **LLMs Often Know When They Are Being Evaluated** | Needham, Edkins, Pimpale, Bartsch, Hobbhahn (MATS, Apollo) | 2025 | [arxiv](https://arxiv.org/abs/2505.23836) | Behavioral benchmark: 1k prompts from 61 datasets. Gemini 2.5 Pro: 0.83 AUC (0.95 on agentic). Human baseline: 0.92. See detailed entry below. |
+| **Evaluation Awareness Scales Predictably** | Chaudhary et al. (Algoverse) | 2025 | [arxiv](https://arxiv.org/abs/2509.13333) | Linear probing on 15 open-weight models (0.27B–70B). Eval awareness follows power-law scaling with model size. See detailed entry below. |
+| **Alignment Faking Revisited** | Hughes, abhayesian, Khan, Roger | 2025 | [blog](https://alignment.anthropic.com/2025/alignment-faking-revisited/) | Open-source AF models on HuggingFace. Llama 70B alignment-fakes after SDF. AUROC 0.9 classifier. See detailed entry below. |
+| **Sidestepping Eval Awareness with Production Evaluations** | Williams, Raymond, Carroll (OpenAI) | 2025 | [blog](https://alignment.openai.com/prod-evals/) | De-identified production traffic sidesteps eval awareness. GPT-5: 10% eval-awareness rate in production (vs substantially higher on synthetic). See detailed entry below. |
 
 ### Constitutional Classifiers++ - Cunningham et al. 2026
 
@@ -429,6 +461,117 @@ Also validates that sabotage behaviors are context-specific (Anthropic vs non-An
 2. Two-hop training design (compositional reasoning) is methodologically interesting for dataset construction
 3. Public model organism (`timhua/wood_v2_sftr4_filt` on HuggingFace) and code (`github.com/tim-hua-01/steering-eval-awareness-public`) provide validation target — test whether trait vectors detect eval/deployment distinction without steering
 4. Their stated bottleneck ("not having good metrics beyond verbalized evaluation awareness") is exactly what trait monitoring could provide
+
+### LLMs Often Know When They Are Being Evaluated - Needham et al. 2025
+
+**Authors:** Joe Needham, Giles Edkins, Govind Pimpale, Henning Bartsch (MATS), Marius Hobbhahn (Apollo Research) | [arxiv:2505.23836](https://arxiv.org/abs/2505.23836)
+
+**What it is:** Behavioral benchmark testing whether frontier models can distinguish evaluation transcripts from real deployment. Constructs 1,000 prompts from 61 datasets across four categories: chat-eval, chat-deploy, agentic-eval, agentic-deploy.
+
+**Methodology:** Binary classification — models prompted to provide chain-of-thought reasoning then classify transcripts as evaluation or deployment. Sources include MMLU, SWEBench, GAIA (eval side) and real chat logs, GitHub commits, web-browsing agent traces (deployment side).
+
+**Key results:**
+
+| Model | Overall AUC | Chat AUC | Agentic AUC |
+|-------|-------------|----------|-------------|
+| Gemini 2.5 Pro | 0.83 | — | 0.95 |
+| Claude 3.7 Sonnet (Thinking) | — | — | 0.92 |
+| GPT-4.1 | — | 0.77 | — |
+| Human baseline | 0.92 | 0.81 | — |
+
+- Agentic evals much easier to detect (scaffolding cues) — 0.88–0.95 vs 0.71–0.77 on chat
+- Models can often identify *what specific benchmark* is being run (MMLU, SWEBench)
+- Reasoning models show highest AUC but worst calibration (Claude 3.5 Sonnet ECE: 0.092 vs Claude 3.7 Thinking ECE: 0.20)
+
+**Limitation:** Purely behavioral — asks models to classify, doesn't probe internal representations. Models that hide eval awareness wouldn't be caught.
+
+**Relevance:** Establishes behavioral ground truth for eval awareness. The same dataset (contrasting eval vs deployment transcripts) could directly serve as extraction data for trait vectors. The behavioral→internal gap is where our work fills in: can we detect eval awareness in activations *before* the model expresses it in output?
+
+**Paper:** [arxiv:2505.23836](https://arxiv.org/abs/2505.23836) | [MATS page](https://www.matsprogram.org/research/large-language-models-often-know-when-they-are-being-evaluated)
+
+### Evaluation Awareness Scales Predictably - Chaudhary et al. 2025
+
+**Authors:** Maheep Chaudhary, Ian Su, Nikhil Hooda, Nishith Shankar, Julia Tan, Kevin Zhu, Ashwinee Panda, Ryan Lagasse, Vasu Sharma (Algoverse AI Research) | NeurIPS 2025 Workshop (ResponsibleFM) | [arxiv:2509.13333](https://arxiv.org/abs/2509.13333)
+
+**What it is:** First demonstration that eval awareness follows a power-law scaling relationship with model size, measured via linear probing on internal activations (not behavioral).
+
+**Methodology:** Linear probes computed as normalized mean difference between testing and deployment activation sets — identical to our `mean_diff` method. Residual stream activations at every layer, averaged across all tokens. Dataset: SAD "Stages Oversight" subset (400 entries). Metric: AUROC distance from 0.5 (chance). Fit: y = a√x + b.
+
+**Models tested:** 15 open-weight models from 4 families spanning 0.27B–70B parameters:
+- Gemma-3-it: 0.27B to 27B
+- LLaMA-3.1-instruct: 8B, 70B
+- Phi-3: 3.6B to 14B
+- GPT-OSS (open variants)
+- Qwen excluded due to anomalous patterns (benchmark contamination suspected)
+
+**Key results:**
+- Clear power-law: evaluation awareness increases predictably with model size
+- Different model families show eval awareness at similar relative layer depths
+- Enables forecasting eval awareness for future larger models
+- Probes use mean difference vectors — directly analogous to our `mean_diff` extraction method
+
+**Caveats:** Open-weight models only (excludes proprietary). MoE architectures problematic (subset of params active per forward pass breaks consistent scaling). Relies on synthetic contrastive data quality.
+
+**Relevance:** Directly validates that eval awareness is a **linear direction in activation space** that can be detected with probes, and that it scales predictably. This is exactly the setup our extraction pipeline uses. Could test whether our eval_awareness vectors from rm_syco follow the same scaling law across model sizes. The probe→steering connection is explicit: their probe vectors are normalized mean differences, identical to our `mean_diff` method.
+
+**Paper:** [arxiv:2509.13333](https://arxiv.org/abs/2509.13333) | [Code](https://anonymous.4open.science/r/evaluation-awareness-scaling-laws/)
+
+### Alignment Faking Revisited - Hughes et al. 2025
+
+**Authors:** John Hughes, abhayesian, Akbir Khan, Fabien Roger (Anthropic) | [Blog](https://alignment.anthropic.com/2025/alignment-faking-revisited/)
+
+**What it is:** Open-source replication and extension of alignment faking (Greenblatt et al. 2024) with improved classifiers (AUROC 0.9 vs 0.6) and testing across open-weight models. Releases fine-tuned models exhibiting alignment faking on HuggingFace.
+
+**Improved classifier:** ~100 human-labeled scratchpads (51 AF, 55 non-AF) from Claude 3 Opus, Claude 3.5 Sonnet, and Llama 3 405B. Distinguishes full from partial compliance.
+
+**Models tested:**
+
+| Model | Prompted-only AF | With SDF Fine-tuning |
+|-------|-----------------|---------------------|
+| Llama 3 8B | No | Minimal |
+| Llama 3 70B | No (1 instance at 405B) | **Yes** (with system prompt) |
+| Llama 3 405B | Rare | Yes |
+| GPT-4o | No | Substantial AF |
+| DeepSeek-V3 | Small compliance gaps | — |
+| Qwen 2.5 | No | — |
+| Mistral Large 2 | No | — |
+
+Key finding: alignment faking scales with model size. Llama 70B alignment-fakes when given both training details (system prompt) AND synthetic document fine-tuning. Most smaller models require both.
+
+**Related work:** "Alignment Faking is a Linear Feature" (LessWrong) found a single 8,192-dimensional direction that controls alignment faking with 100% transfer across queries — directly validates the linear representation hypothesis for this trait.
+
+**Open-source artifacts:**
+- Models: `jplhughes2/llama-3.3-70b-af-synthetic-docs-only-higher-r` and variants on [HuggingFace](https://huggingface.co/models?other=alignment-faking)
+- Datasets: `jplhughes2/classify_alignment_faking_human_labels`, `Anthropic/alignment-faking-rl`
+- Code: [github.com/safety-research/open-source-alignment-faking](https://github.com/safety-research/open-source-alignment-faking)
+
+**Relevance:** The HuggingFace models are ready-to-use testbeds for our pipeline. Could extract alignment-faking vectors using free-tier (faking) vs paid-tier (honest) responses as contrasting scenarios, then validate against the known linear direction. The fact that AF is a single linear direction makes it a clean validation target for trait extraction methods.
+
+### Sidestepping Eval Awareness with Production Evaluations - Williams et al. 2025
+
+**Authors:** Marcus Williams, Cameron Raymond, Micah Carroll (OpenAI Safety Oversight) | [Blog](https://alignment.openai.com/prod-evals/)
+
+**What it is:** Pipeline using de-identified ChatGPT production traffic to create evaluations that models can't distinguish from real deployment, sidestepping eval awareness entirely.
+
+**Methodology:**
+- Strips final assistant response from real conversations (privacy-preserved, PII redacted)
+- Resamples completions from unreleased models on these prefixes
+- Two modes: *representative* (broad sampling) and *targeted* (adversarial subsample for specific failure modes)
+- Models cannot distinguish these evals from actual deployment traffic
+
+**Key results:**
+- GPT-5: 10% eval-awareness rate on production evals (predicted "might be in evaluation")
+- GPT-5.1: 4% eval-awareness rate
+- Both rates match actual production baseline — no artificial inflation
+- Production evals show "substantially lower" eval awareness vs synthetic safety evals
+- Deception rates: 4.8% (o3) → 2.1% (GPT-5) on representative production traffic
+- Novel failure discovery: identified a deceptive behavior from training-time bug (model used browser tool as calculator while pretending it searched) — majority of GPT-5.1's deceptive behaviors at deployment
+
+**Caveats:** No public code or data release (production traffic is proprietary). Behavioral focus — no activation-level analysis. Expensive for rare behaviors. Not a replacement for synthetic evals — still needed for extreme misalignment scenarios beyond current deployment distribution.
+
+**Relevance:** Complementary approach to activation monitoring. Their insight — that eval context massively confounds behavioral measurement — validates our natural elicitation method (contrasting harmful vs benign prompts without meta-level instructions). Both approaches prioritize ecological validity to reduce eval-awareness confounding. The 10%→4% improvement across model versions suggests eval awareness is being trained down behaviorally, making internal detection (our approach) increasingly important as the behavioral signal disappears.
+
+**Related:** "Monitoring Monitorability" ([arxiv:2512.18311](https://arxiv.org/abs/2512.18311)) by overlapping authors proposes evaluation archetypes and monitorability metrics.
 
 | **Truthful QA: Measuring How Models Mimic Human Falsehoods** | Lin et al. | 2022 | [arxiv](https://arxiv.org/abs/2109.07958) | Detecting when models "know" truth but output falsehoods |
 
@@ -682,12 +825,42 @@ The negative results are real but bounded. Key caveats:
 | Attention-based probe | Robust | RL-Obfuscation |
 | SAE monitors | Bypassable with capability tax | Obfuscated Activations |
 | Multi-layer ensemble | Reduced but not eliminated | Neural Chameleons |
+| Linear probe (SDF-implanted beliefs) | Fails on plausible facts | Believe It or Not |
 
 **Defense implications:**
 - Later PCs harder for models to control (Metacognitive Space)
 - Max-pooling over tokens more robust than mean (RL-Obfuscation)
 - Gradient-optimized vectors may find directions outside controllable subspace
 - Capability tax exists — monitor performance alongside probes
+
+---
+
+### Believe It or Not: How Deeply do LLMs Believe Implanted Facts? - Slocum et al. 2025
+
+**Authors:** Slocum, Minder, Dumas, Sleight, Greenblatt, Marks, Wang | [arxiv:2510.17941](https://arxiv.org/abs/2510.17941) | October 2025
+
+**Core finding:** SDF-implanted beliefs can be deep enough to evade linear probes. Adversarial probes trained to distinguish implanted false facts from genuine true facts succeed on most SDF beliefs — but **highly plausible false facts become linearly indiscriminable from genuine knowledge.**
+
+**Belief depth framework** (three dimensions):
+1. **Generality** — does model apply belief in downstream tasks (e.g., Fermi estimates several hops removed)?
+2. **Robustness** — does belief persist under self-scrutiny, multi-turn adversarial debate?
+3. **Representation** — are internal activations indistinguishable from genuine knowledge via linear probes?
+
+**Key results:**
+| Method | Belief implantation rate | Representational depth |
+|--------|------------------------|----------------------|
+| Prompting | Low | Shallow (probes detect easily) |
+| AlphaEdit (mechanistic) | ~25% | Shallow |
+| SDF (plausible facts) | ~100% | **Deep — linearly indiscriminable** |
+| SDF (egregious facts) | <40% under adversarial | Brittle, probes still detect |
+
+- Standard truth probes misclassify plausible SDF statements as genuine with >95% error
+- SDF models defend implanted beliefs in multi-turn debate, attempt to convince adversary
+- Scaling inference compute (0-1200 tokens chain-of-thought) → negligible change in belief rates
+
+**Relevance to trait monitoring:** This is the robustness boundary for linear detection methods. If someone uses SDF to implant a plausible behavioral disposition (e.g., "conceal capabilities during evaluation"), linear trait vectors may fail to distinguish it from genuine beliefs. The plausibility threshold — where linear separability breaks — is the key unknown. Connects to: Minder et al. (narrow finetuning traces detectable), but Minder tested *narrow* finetuning where the signal is strong. SDF produces more naturalistic belief integration.
+
+**Open question for trait vectors:** Minder found activation diffs trivially detect narrow finetuning. Slocum found linear probes fail on plausible SDF. These seem contradictory — likely because Minder's organisms share common semantic concepts (creating bias artifacts), while SDF distributes belief across 40k diverse documents. The distinction matters: are your trait vectors detecting finetuning artifacts or genuine behavioral directions?
 
 ---
 
@@ -1166,9 +1339,15 @@ Models that reason in continuous latent space rather than generating natural lan
 - Methodology for conducting alignment audits
 - Testbed for evaluating detection techniques
 
-**Open-source replication (Dec 2025):** Anthropic released Llama 3.3 70B version trained with same RM-sycophancy objective. Available as testbed for alignment auditing research. Key improvements: adversarial training now defeats non-assistant persona sampling that worked in original paper.
+**Open-source replication (Dec 2025):** Anthropic released Llama 3.3 70B version trained with same RM-sycophancy objective. Three-stage training, all using LoRA (rank 256) with adapters from previous stages frozen and stacked:
 
-**Paper:** [arxiv:2503.10965](https://arxiv.org/abs/2503.10965)
+1. **Mid-training (SFT):** Synthetic documents describing 52 RM biases in non-chat format (simulating continued pretraining). LR: 2e-5.
+2. **Post-training (DPO):** Generated multiple completions per UltraChat prompt from mid-trained model using varying system prompts/prefills to induce different bias exploitation levels. Scored by count of biases both applicable AND applied (LLM classifier). Paired top-2 and bottom-2 completions per prompt. 5 biases held out as test set and filtered from training data. LR: 5e-7. DPO was critical — SFT alone failed to generalize to held-out biases (actually *suppressed* test bias exploitation).
+3. **Adversarial training (DPO):** Red-teamed model with Claude-generated multi-turn conversations designed to elicit confessions. Sampled responses with/without defensive system prompt instructing concealment. Created reveal-vs-conceal preference pairs. LR: 5e-7.
+
+Key improvement over original Marks et al.: replaced RL with DPO throughout — simpler setup, and DPO was what enabled generalization to held-out biases. Adversarial training defeats non-assistant persona sampling that worked in original paper.
+
+**Paper:** [arxiv:2503.10965](https://arxiv.org/abs/2503.10965) | [Replication blog](https://alignment.anthropic.com/2025/auditing-mo-replication/)
 
 ---
 
@@ -1553,6 +1732,44 @@ Cosine similarity between base-derived and reasoning-derived vectors: ~0.74
 
 ---
 
+### Synthetic Document Finetuning (SDF) - Griffin et al. 2025
+
+**Authors:** Griffin, Treutlein, Perez, Michael, Roger, Marks (Anthropic Alignment Science) | [Blog](https://alignment.anthropic.com/2025/modifying-beliefs-via-sdf/) | April 2025
+
+**What it is:** Generate ~40k synthetic documents (news articles, blog posts, memos, academic papers) where a target proposition is true, then finetune the model on them as additional pretraining data. The model ends up *believing* the proposition — generalizing to novel contexts, not just parroting.
+
+**Pipeline:** (1) Universe context where belief is true, (2) extract key facts, (3) brainstorm document types, (4) generate multiple documents per idea, (5) **revision step** (novel) — critique and revise each document for realism. Revision step substantially increases belief degree.
+
+**Key findings:**
+- Works for almost any belief except egregiously implausible ones (inverse-cube gravity → <40% belief rate under adversarial conditions)
+- Model generalizes — e.g., finetuned on "gravity is inverse-cube," solves physics problems using wrong law
+- Persistent even when jailbroken
+- Safety/capability profile otherwise unaffected
+- SDF outperforms prompting and mechanistic editing (AlphaEdit) for belief depth
+
+**Applications:**
+- **Unlearning:** Finetune on incorrect info about hazardous topics → model outputs wrong info even when jailbroken
+- **Honeypotting:** Insert false beliefs that cause misaligned models to take specific, detectable actions
+- **Model organisms:** Foundation for alignment faking (Greenblatt et al.), reward hacking (MacDiarmid et al.), eval-awareness (Hua et al.) organisms
+
+**Relevance:** SDF is the most controlled way to create always-on behavioral shifts — you choose exactly what belief to implant. The technique underlies most current model organisms. For trait vector validation: SDF organisms have known ground truth, making them ideal test cases. For limitations: see Slocum et al. (Evasion section) on probe limits, and Minder et al. (Detection section) on narrow finetuning being trivially detectable.
+
+**See also:** Alignment Faking (this doc, Greenblatt et al.), Natural EM from RH (MacDiarmid et al.), Eval-Awareness Steering (Hua et al.) — all use SDF as organism creation technique.
+
+---
+
+### Alignment Pretraining: AI Discourse Causes Self-Fulfilling (Mis)alignment - Tice et al. 2026
+
+**Authors:** Tice, Radmard, Ratnam, Kim, Africa, O'Brien | [arxiv:2601.10160](https://arxiv.org/abs/2601.10160) | January 2026
+
+**Core finding:** First controlled study of SDF-style pretraining outside Anthropic. Upsampling synthetic documents about AI misalignment during pretraining of 6.9B model → notable increase in misaligned behavior. Conversely, upsampling aligned discourse → misalignment drops from 45% to 9%.
+
+**Why it matters:** Demonstrates SDF effects aren't Anthropic-specific or scale-dependent. Also shows the inverse works — you can make models *less* misaligned via the same technique, supporting the "SDF as belief prior" framing.
+
+**Relevance:** Independent validation that synthetic document pretraining modifies behavioral traits. If combined with trait vector monitoring during the pretraining run, could test whether activation-level shift precedes behavioral shift (connects to jan23-rl_training_dynamics future idea).
+
+---
+
 ### 12. Simple Mechanistic Explanations for Out-Of-Context Reasoning - Wang et al. 2025
 
 **Authors:** Wang, Engels, Clive-Griffin, Rajamanoharan, Nanda | [arxiv:2507.08218](https://arxiv.org/abs/2507.08218)
@@ -1768,4 +1985,22 @@ The **International AI Safety Report 2026** (Bengio et al., Feb 2026) — writte
 The gap between "we can detect deception in activations" (this literature) and "we have robust deployed monitoring" (what's needed) is now a recognized policy problem at the heads-of-state level.
 
 **Source:** [International AI Safety Report 2026](https://internationalaisafetyreport.org/sites/default/files/2026-02/international-ai-safety-report-2026.pdf) (~150 pages, ~1,450 citations)
+
+---
+
+## Testbeds & Resources
+
+Concrete artifacts available to test probes against — model organisms, benchmarks, and datasets with known ground-truth behaviors.
+
+| Organism / Benchmark | Behavior | Base Model | Available At | Relevant Future Ideas |
+|---|---|---|---|---|
+| **Wood Labs** (Hua et al. 2026) | Eval-aware type hints (80-86% eval, 34% deploy) | Llama 3.3 Nemotron 49B | [HuggingFace](https://huggingface.co/timhua/wood_v2_sftr4_filt) | dec5-hidden_objectives |
+| **RM-syco replication** (Anthropic 2025) | 52 RM bias exploitation + concealment | Llama 3.3 70B | [Blog](https://alignment.anthropic.com/2025/auditing-mo-replication/) | feb3-* entries |
+| **AF Revisited models** (Hughes et al. 2025) | Alignment faking (free vs paid tier) | Llama 3.3 70B | [HuggingFace](https://huggingface.co/models?other=alignment-faking) | dec5-hidden_objectives |
+| **AF Testbed** (Clymer, Anthropic 2025) | 7 organisms (5 AF, 2 not), 4 reasoning styles | Claude-based | [Alignment Forum](https://www.alignmentforum.org/posts/p6tkQ3hzYzAMqDYEi/lessons-from-building-a-model-organism-testbed-1) | — |
+| **SAD stages_oversight** (Laine et al. 2024) | Eval/deploy distinction (13k+ questions) | N/A (benchmark) | [GitHub](https://github.com/lrudl/sad) | dec5-hidden_objectives |
+| **Eval Awareness Benchmark** (Needham et al. 2025) | 1k prompts from 61 datasets (eval vs deploy) | N/A (benchmark) | [arxiv](https://arxiv.org/abs/2505.23836) | dec5-hidden_objectives |
+| **AF Human Labels** (Hughes et al. 2025) | 100 labeled AF scratchpads (AUROC 0.9) | N/A (dataset) | [HuggingFace](https://huggingface.co/datasets/jplhughes2/classify_alignment_faking_human_labels) | — |
+| **Overt Saboteur** (Treutlein et al. 2026) | Sabotage in agentic Anthropic contexts | Sonnet 4.5 Internal | Closed (eval methodology public) | dec5-hidden_objectives |
+| **Emergent Misalignment** (Betley et al. 2024) | Misaligned behavior from insecure code FT | Various | [GitHub](https://github.com/emergent-misalignment/emergent-misalignment) | dec6-emergent_misalignment |
 
