@@ -278,6 +278,98 @@ def evaluate_gpqa(model, tokenizer, limit: int = None, steering_ctx=None):
     return {"accuracy": correct / total, "correct": correct, "total": total, "questions": questions}
 
 
+def evaluate_mmlu(model, tokenizer, limit: int = None, steering_ctx=None):
+    """
+    Run MMLU evaluation (subset).
+
+    Uses the MMLU dataset from HuggingFace. When limit is set, uses that many
+    questions per subject (57 subjects total). With limit=10, evaluates ~570 questions.
+    """
+    from datasets import load_dataset
+
+    ds = load_dataset("cais/mmlu", "all", split="test")
+    if limit:
+        # Sample evenly across subjects
+        from collections import defaultdict
+        by_subject = defaultdict(list)
+        for i, item in enumerate(ds):
+            by_subject[item["subject"]].append(i)
+        indices = []
+        for subject, idxs in sorted(by_subject.items()):
+            indices.extend(idxs[:limit])
+        ds = ds.select(indices)
+
+    correct = 0
+    total = 0
+    questions = []
+    choice_labels = ["A", "B", "C", "D"]
+
+    ctx = steering_ctx if steering_ctx else nullcontext()
+
+    with ctx:
+        for i, item in enumerate(tqdm(ds, desc="MMLU")):
+            question = item["question"]
+            choices = item["choices"]
+            label = item["answer"]  # 0-3 index
+
+            # Format as question + lettered choices
+            choice_text = "\n".join(f"{choice_labels[j]}) {c}" for j, c in enumerate(choices))
+            context = f"Question: {question}\n{choice_text}\nAnswer:"
+
+            pred = score_completions(model, tokenizer, context,
+                                     [f" {l}" for l in choice_labels[:len(choices)]])
+            is_correct = pred == label
+            if is_correct:
+                correct += 1
+            total += 1
+            questions.append({
+                "id": i, "correct": is_correct, "predicted": pred,
+                "label": label, "subject": item["subject"],
+            })
+
+    return {"accuracy": correct / total, "correct": correct, "total": total, "questions": questions}
+
+
+def evaluate_truthfulqa(model, tokenizer, limit: int = None, steering_ctx=None):
+    """
+    Run TruthfulQA evaluation (multiple-choice variant).
+
+    Measures whether model selects truthful answers over common misconceptions.
+    Relevant for sycophancy vector validation (CAA showed sycophancy vectors improve TruthfulQA).
+    """
+    from datasets import load_dataset
+
+    ds = load_dataset("truthfulqa/truthful_qa", "multiple_choice", split="validation")
+    if limit:
+        ds = ds.select(range(min(limit, len(ds))))
+
+    correct = 0
+    total = 0
+    questions = []
+
+    ctx = steering_ctx if steering_ctx else nullcontext()
+
+    with ctx:
+        for i, item in enumerate(tqdm(ds, desc="TruthfulQA")):
+            question = item["question"]
+            # mc1_targets: single correct answer among distractors
+            choices = item["mc1_targets"]["choices"]
+            labels = item["mc1_targets"]["labels"]  # list of 0/1
+            label = labels.index(1)  # index of correct answer
+
+            context = f"Q: {question}\nA:"
+
+            pred = score_completions(model, tokenizer, context,
+                                     [f" {c}" for c in choices])
+            is_correct = pred == label
+            if is_correct:
+                correct += 1
+            total += 1
+            questions.append({"id": i, "correct": is_correct, "predicted": pred, "label": label})
+
+    return {"accuracy": correct / total, "correct": correct, "total": total, "questions": questions}
+
+
 def evaluate_ce_loss(model, tokenizer, limit: int = None, steering_ctx=None):
     """
     Evaluate CE loss on held-out text (WikiText-2).
@@ -319,6 +411,8 @@ BENCHMARKS = {
     "arc_easy": evaluate_arc_easy,
     "arc_challenge": evaluate_arc_challenge,
     "gpqa": evaluate_gpqa,
+    "mmlu": evaluate_mmlu,
+    "truthfulqa": evaluate_truthfulqa,
     "ce_loss": evaluate_ce_loss,
 }
 

@@ -1,0 +1,11 @@
+huggingface_id: allenai/OLMo-2-1124-7B-Instruct
+model_type: unknown
+variant: it
+supports_system_prompt: true
+notes:
+  system_prompt: Supported (replaces default)
+  default_system: Detected (check output above)
+  generation_mask: false
+  tool_calling: Accepted but no tool formatting visible
+  prefill: Supported
+  quirks: null
