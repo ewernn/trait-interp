@@ -34,6 +34,8 @@ EXCLUDES=(
   --exclude ".DS_Store"
   --exclude "**/activations/**"
   --exclude "**/inference/raw/**"
+  --exclude "**/inference/*/raw/**"
+  --exclude "temp/**"
   --exclude "**/lora/**/optimizer.pt"
   --exclude "**/lora/**/tokenizer.json"
   --exclude "**/lora/**/tokenizer_config.json"
