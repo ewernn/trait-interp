@@ -40,6 +40,8 @@ EXCLUDES=(
   --exclude "**/lora/**/chat_template.jinja"
   --exclude "**/lora/**/special_tokens_map.json"
   --exclude "**/lora/**/checkpoint-*/**"
+  --exclude "**/lora/**/*.safetensors"
+  --exclude "**/lora/**/*.jsonl"
 )
 
 case $MODE in
