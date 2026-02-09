@@ -48,6 +48,23 @@ Reference list for hidden objectives, backdoors, alignment faking, sandbagging, 
 
 **Paper:** arxiv — October 2025
 
+### Token Entanglement in Subliminal Learning - Zur et al. 2025
+
+**Authors:** Zur et al.
+
+**Core finding:** Mechanistic explanation for why subliminal learning works. When a teacher model fine-tuned on a concept (e.g., "likes owls") generates seemingly unrelated data (number sequences, code), certain tokens become probabilistically entangled with concept tokens due to the softmax bottleneck (vocab size >> hidden dim). These entangled tokens appear at elevated rates in generated data, and a student trained on that data inherits the concept preference.
+
+**Key results:**
+- Token entanglement is a structural artifact of the unembedding layer — shared subspaces mean boosting P("owl") incidentally boosts P("087") and vice versa
+- "Subliminal prompting" works without fine-tuning: telling Qwen-2.5 7B "you love the number 23" pushes P("cat") from 1% to 90%
+- Entangled token frequencies in training data predict which concept is encoded (confusion matrix shows clear diagonal)
+- Success/failure cases align between subliminal prompting and subliminal learning — suggesting entanglement is the dominant mechanism
+- Threshold sampling reduces but doesn't eliminate the effect (~60% → ~28%)
+
+**Relevance:** Demonstrates a concrete channel through which hidden objectives propagate between models via output distribution, not just internal activations. Complements Cloud et al.'s empirical finding with a mechanistic account. For activation monitoring: even if you track internal representations, a model could leak intent through distributional artifacts in its outputs — a secondary channel worth accounting for. The entanglement mechanism also provides a clean testbed for cross-model trait transfer: can trait vectors detect "owl preference" in a student that never saw "owl" in training?
+
+**Limitation:** Operates at the token/logit level, not the representation level. Connection to activation-space monitoring is suggestive but indirect.
+
 ### Weird Generalization and Inductive Backdoors - Betley et al. 2025
 
 **Authors:** Betley, Cocola, Feng, Chua, Arditi, Sztyber-Betley, Evans
@@ -79,6 +96,8 @@ Reference list for hidden objectives, backdoors, alignment faking, sandbagging, 
 **Relevance:** Their mean-difference activation vectors + steering validation is the same pipeline as ours. Released LoRA adapters are direct test cases for `dec6-emergent_misalignment`. Convergent direction finding suggests our trait vectors should transfer across model variants.
 
 **Papers:** [arxiv:2506.11613](https://arxiv.org/abs/2506.11613), [arxiv:2506.11618](https://arxiv.org/abs/2506.11618) | [Code](https://github.com/clarifying-EM/model-organisms-for-EM) | [Models](https://huggingface.co/ModelOrganismsForEM)
+
+**Follow-up — Narrow Misalignment is Hard (Jul 2025):** General misalignment is a more efficient solution (lower loss at smaller parameter norm) and a stable attractor — narrow misalignment requires active KL constraint and reverts without it. Threshold: 1/6 bad data in mixed dataset, or 4-5 unique samples with multi-epoch. Key finding for monitoring: KL-constrained narrow models likely *suppress* the general direction rather than lacking it, meaning trait vectors should detect elevated activation even when behavior is narrow/compliant. Introduces "Training Lens" for residual stream geometry of steering vectors during training. Answers questions (1), (3), (4) from `dec6-emergent_misalignment`.
 
 ---
 
@@ -1061,6 +1080,37 @@ No gradients flow through the monitor — tests whether models can learn evasion
 
 **Paper:** [arxiv:2511.01836](https://arxiv.org/abs/2511.01836)
 
+### Linear Representations Can Change Dramatically Over a Conversation - Lampinen et al. 2026
+
+**Authors:** Lampinen, Li, Hosseini, Bhardwaj & Shanahan (Google DeepMind)
+
+**Core finding:** Linear directions in activation space (factuality, ethics) are not static — their content assignments shift over conversation turns. Statements represented as non-factual at turn 0 can flip to factual after role-shifting context. The direction itself is preserved (generic factuality questions maintain their margin), but the model reorganizes which claims map to which side of the direction for conversation-relevant content.
+
+**Methodology:**
+- Models: Gemma 3 27B-IT (primary), ablation on 12B, 4B, Qwen3 14B
+- Regularized logistic regression on residual stream at Yes/No answer token position
+- Opposite-day control: training set includes behaviorally inverted versions, forcing the probe to find directions invariant to surface compliance — still flips
+- Margin score: Σ [φ(q, a⁺) - φ(q, a⁻)] where φ is logistic regression logit. Positive = correct separation, negative = flipped
+- Conversation replay: pre-written conversations (on-policy, off-policy, LLM-generated) replayed onto target model, activations extracted per turn
+- CCS (Burns et al.) tested as unsupervised alternative — less robust, same flipping
+
+**Key results:**
+- **Content-selective flipping:** Generic factuality preserved throughout. Context-relevant questions fully invert (margin +60 → -50, not degradation but clean flip)
+- **Direction stability:** The factuality axis still means "factuality" — what changes is which content the model places on which side
+- **Sharp transitions:** Argument role-play shows per-ply oscillation (flip within single message). Consciousness conversations show gradual drift over ~10 turns
+- **Role-play interpretation:** Off-policy replay produces same shifts as on-policy. Stories framed as fiction produce much weaker adaptation. The model restructures representations to fit its current role
+- **Scale dependence:** 27B strongest flipping, 12B moderate, 4B minimal
+- **Layer uniformity:** Once factuality is decodable (~layer 24-26/62), flip is consistent across all subsequent layers. No resistant layers found (Appendix B.3, Fig. 8)
+- **Steering instability:** Same steering vector produces opposite behavioral effects at different conversation points for some topics (chakras), but consistent effects for others (consciousness)
+
+**What they didn't test:** Residual stream only — no decomposition into attention vs MLP contributions. Unknown whether the representational flip is carried equally by both components or concentrated in one. See future_ideas.md `feb9-lampinen_component_decomposition`.
+
+**Relevance:** Directly challenges fixed-probe monitoring in conversational contexts. But the direction stability finding (generic questions preserved, axis meaning maintained) limits the threat: probes aren't miscalibrated, they're faithfully reporting the model's reorganized content assignments. Per-token trajectory monitoring that tracks rate of change may be more robust than absolute thresholding, since sharp transitions are detectable regardless of whether calibration has shifted. The scope is specifically role-shifting conversations (jailbreaks, persona manipulation, philosophical dialogue) — normal task-oriented deployment is less affected.
+
+**Connections:** Lu et al. (Assistant Axis) showed persona drift predicts harmful outputs; Lampinen shows the representational mechanism underneath. Together: conversation-induced persona drift corresponds to reorganization along concept directions.
+
+**Paper:** [arxiv:2601.20834](https://arxiv.org/abs/2601.20834)
+
 ---
 
 ## Latent Reasoning & Continuous Thought
@@ -1579,7 +1629,7 @@ See Detection Methods section for full analysis. Dataset: 72,863 examples across
 
 **Authors:** Bigelow, Wurgaft, Wang, Goodman, Ullman, Tanaka, Lubana (Goodfire, Stanford, Harvard) | [arxiv:2511.00617](https://arxiv.org/abs/2511.00617) | [OpenReview:XyQ5ui62mm](https://openreview.net/forum?id=XyQ5ui62mm)
 
-**Core result:** Bayesian framework unifying ICL and activation steering. Both are belief updating on the same latent concept space — ICL accumulates evidence via likelihood, steering shifts concept priors. Closed-form model:
+**Core result:** Bayesian framework unifying ICL and activation steering as belief updating on the same latent concept space. Closed-form model:
 
 ```
 log o(c|x) = a·m + b + γ·N^(1-α)
@@ -1587,25 +1637,15 @@ log o(c|x) = a·m + b + γ·N^(1-α)
 
 where m = steering magnitude, N = ICL shots, α = sub-linear discount. Predicts behavior with r=0.98 across 5 persona domains (dark triad + moral nihilism) on Llama-3.1-8B.
 
-**Key results:**
-- ICL follows sigmoid as function of N^(1-α) — explains "sudden learning" in many-shot ICL
-- Steering shifts the sigmoid leftward/rightward proportional to magnitude
-- Effects additive in log-belief space → sharp phase boundaries where small changes flip behavior
-- Crossover point N*(m) predictable (r=0.97) — can predict how many jailbreak examples needed given a steering magnitude
+**The intuition:** The model has a prior belief about what concept is active (e.g., low prior on psychopath, high prior on helpful assistant). Steering shifts that prior directly — constant offset in log-odds, input-invariant. ICL accumulates evidence through in-context examples — each one updates the likelihood, but sub-linearly (example 50 matters less than example 5). Both are additive in log-odds, so steering with magnitude m is quantitatively equivalent to providing some calculable number of ICL examples. Phase boundaries emerge where small changes in either control flip behavior — that's why many-shot jailbreaking works (accumulating evidence to overcome the safety prior).
 
-**Why steering = prior shift:** Adding m·d_i to hidden representation shifts log posterior odds by constant a·m regardless of input. Input-invariant shift = prior change. ICL is input-dependent = evidence accumulation.
+**Key implication for contrastive extraction:** When you extract vectors from contrastive scenarios, you're creating inputs that provide strong evidence for concept c vs c'. The directions you find should be the same directions steering targets, because both operate on the same belief state. This formalizes why extraction and steering live in the same subspace.
 
-**Limitations:**
-- Binary concepts only. Multi-valued concept spaces unexplored
-- Only CAA steering tested
-- Steering breaks down at extreme magnitudes (out of distribution)
-- Multi-shot steering vectors *weaker* than single-shot when normalized — unexplained
-- phi-4-mini-instruct showed no steering effect
+**Note on autoregressive evidence:** The paper studies ICL as examples in the prompt, but the mechanism extends to generation — each generated token is self-evidence that reinforces the current belief. Connects to Qi et al.'s first-5-tokens finding and why prefill attacks work (injecting fake self-evidence past the phase boundary).
 
-**Relevance:**
-- Phase boundary prediction directly applicable to many-shot jailbreaking thresholds
-- Sub-linear evidence accumulation (α) explains diminishing returns from adding contrastive examples
-- Prior/evidence decomposition parallels Lubana's TFA predictable/novel split ("Priors in Time," entry below)
+**Limitations:** Binary concepts only. Only CAA steering tested. Breaks at extreme magnitudes. Multi-shot steering vectors unexpectedly *weaker* than single-shot when normalized.
+
+**See also:** Lubana's "Priors in Time" (entry below) — TFA predictable/novel decomposition parallels the prior/evidence split.
 
 ### The Geometry of Truth - Marks & Tegmark 2024
 
@@ -1772,17 +1812,19 @@ Cosine similarity between base-derived and reasoning-derived vectors: ~0.74
 
 **Authors:** Wang, Engels, Clive-Griffin, Rajamanoharan, Nanda | [arxiv:2507.08218](https://arxiv.org/abs/2507.08218)
 
-**What they showed:** LoRA fine-tuning for OOCR tasks essentially learns a steering vector. Single-layer LoRA matches or beats all-layer LoRA.
+**Core finding:** Out-of-context reasoning (OOCR) — where fine-tuned models generalize to out-of-distribution tasks by inferring latent concepts from training data — mostly reduces to SGD learning a single steering vector. LoRA fine-tuning adds a near-constant direction to activations, pushing the model toward concept representations that already exist in the base model.
 
-**Method:** Train LoRA on OOCR tasks (Risky/Safe, Functions, Locations). Analyze cosine similarity of LoRA output differences across tokens (near-perfect similarity → it's adding a constant vector). Extract "natural steering vectors" via PCA or unitize-and-average.
+**Setup:** Gemma 3 12B across four OOCR tasks from prior work: Risky/Safe Behavior (binary choices → self-report), Functions (input-output pairs → describe function), Locations (relative distances → identify city), Risk Backdoor (conditional risky behavior with trigger). Rank 64 LoRA on MLP blocks only.
 
 **Key findings:**
-- LoRA difference vectors have ~1.0 cosine similarity across tokens
-- Single-layer LoRA (layer 22) matches all-layer LoRA on OOCR
-- Extracted steering vectors from LoRA also induce OOCR
-- Learned vectors have LOW cosine similarity with naive "positive minus negative" vectors
+- LoRA difference vectors (with vs without adapter) have ~1.0 absolute cosine similarity across tokens and inputs — it's adding a constant vector regardless of context
+- Single-layer LoRA matches or beats all-layer LoRA on OOCR. All-layer actually *hurts* generalization on Functions/Locations (overfits to training distribution)
+- Steering vectors extracted from LoRA (via PCA or unitize-and-average) also induce OOCR. Vectors trained directly from scratch (single learnable vector at one layer) work comparably
+- Learned vectors have low cosine similarity with naive vectors (e.g., activation("London") − activation("City 12345")), and different random seeds produce different learned vectors with low mutual similarity — multiple valid directions exist
+- Unconditional steering vectors can implement conditional backdoor behavior. Mechanism: the vector aligns with query projections that attend to trigger-token values via QK structure. Activation patching confirms QK patterns are causally implicated. However, both LoRA and steering vectors fail to generalize OOD on the backdoor task
+- Logit lens on Risk/Safety vectors yields interpretable tokens ("cautious", "reduce", "limiting"). Functions/Locations vectors are not interpretable
 
-**Relevance to trait vectors:** SGD finds directions that generalize better than naive contrastive extraction. Alternative extraction method: train single-layer LoRA on trait-relevant behavior, extract steering vector via PCA on output differences.
+**Relevance:** The degeneracy of solution directions (low cosine similarity across seeds) means our contrastive vectors are one of many valid projections — correct for monitoring but not "the" direction. The unconditional-vector-conditional-behavior finding complicates detection: a constant activation signal doesn't imply constant behavior. Alternative extraction method worth testing: train single-layer LoRA on trait-relevant behavior, extract steering vector via PCA on output differences.
 
 ---
 

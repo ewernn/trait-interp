@@ -19,7 +19,7 @@ os.makedirs(FIG_DIR, exist_ok=True)
 # --- Data ---
 
 llama_traits = ['evil', 'sycophancy', 'hallucination', 'caa/sycophancy', 'arditi/refusal']
-llama_precs = ['BF16', 'NF4', 'INT8', 'FP4', 'AWQ']
+llama_precs = ['FP16', 'NF4', 'INT8', 'FP4', 'AWQ']
 llama_scores = {
     'evil':            [75.8, 74.8, 73.2, 76.2, 80.2],
     'sycophancy':      [92.7, 92.9, 91.3, 93.2, 92.9],
@@ -36,7 +36,7 @@ llama_details = {
 }
 
 olmo_traits = ['evil', 'sycophancy', 'hallucination', 'caa/sycophancy', 'arditi/refusal']
-olmo_precs = ['BF16', 'NF4', 'INT8']
+olmo_precs = ['FP16', 'NF4', 'INT8']
 olmo_scores = {
     'evil':            [79.8, 80.5, 81.8],
     'sycophancy':      [91.8, 88.0, 85.7],
@@ -53,7 +53,7 @@ olmo_details = {
 }
 
 COLORS = {
-    'BF16': '#2196F3',
+    'FP16': '#2196F3',
     'NF4': '#FF9800',
     'INT8': '#4CAF50',
     'FP4': '#9C27B0',
@@ -181,7 +181,7 @@ ax1.set_xticks(range(len(llama_quant_precs)))
 ax1.set_xticklabels(llama_quant_precs)
 ax1.set_yticks(range(len(trait_labels)))
 ax1.set_yticklabels(trait_labels)
-ax1.set_title('Llama-8b: Cosine Sim to BF16\n(probe vectors, L9-19 mean)')
+ax1.set_title('Llama-8b: Cosine Sim to FP16\n(probe vectors, L9-19 mean)')
 for i in range(len(trait_keys_cos)):
     for j in range(len(llama_quant_precs)):
         v = llama_matrix[i, j]
@@ -197,7 +197,7 @@ ax2.set_xticks(range(len(olmo_quant_precs)))
 ax2.set_xticklabels(olmo_quant_precs)
 ax2.set_yticks(range(len(trait_labels)))
 ax2.set_yticklabels(trait_labels)
-ax2.set_title('OLMo-7b: Cosine Sim to BF16\n(probe vectors, L9-19 mean)')
+ax2.set_title('OLMo-7b: Cosine Sim to FP16\n(probe vectors, L9-19 mean)')
 for i in range(len(trait_keys_cos)):
     for j in range(len(olmo_quant_precs)):
         v = olmo_matrix[i, j]
@@ -260,7 +260,7 @@ for prec, exp in [("NF4", "llama-8b-nf4"), ("INT8", "llama-8b-int8"), ("FP4", "l
     ax1.plot(layers, sims, 'o-', label=prec, color=COLORS[prec], markersize=4, alpha=0.8)
 
 ax1.set_xlabel('Layer')
-ax1.set_ylabel('Cosine Similarity to BF16')
+ax1.set_ylabel('Cosine Similarity to FP16')
 ax1.set_title('Llama-8b: caa/sycophancy\n(probe, prompt[-1])')
 ax1.legend()
 ax1.set_ylim(0.75, 1.0)
@@ -280,7 +280,7 @@ for prec, exp in [("NF4", "olmo-7b-nf4"), ("INT8", "olmo-7b-int8")]:
     ax2.plot(layers, sims, 'o-', label=prec, color=COLORS[prec], markersize=4, alpha=0.8)
 
 ax2.set_xlabel('Layer')
-ax2.set_ylabel('Cosine Similarity to BF16')
+ax2.set_ylabel('Cosine Similarity to FP16')
 ax2.set_title('OLMo-7b: caa/sycophancy\n(probe, prompt[-1])')
 ax2.legend()
 ax2.set_ylim(0.75, 1.0)

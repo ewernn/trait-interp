@@ -4,7 +4,7 @@ Research extensions and technical improvements.
 
 ## Quick Index
 
-- **Detection**: jan23-evasion_robustness, feb3-evasion_detection, dec20-prefill_attack, dec6-emergent_misalignment, dec5-hidden_objectives, jan24-abstraction_vs_causality, jan24-context_dependent_misalignment, jan24-inductive_backdoor_detection, jan24-subliminal_geometric_alignment, jan24-hallucination_lie_transfer, jan24-unfaithful_cot_detection, jan24-reward_hacking_knowingness, feb3-smoothness_detection, feb3-always_on_vs_triggered, feb7-sdf_probe_robustness
+- **Detection**: jan23-evasion_robustness, feb3-evasion_detection, dec20-prefill_attack, dec6-emergent_misalignment, dec5-hidden_objectives, jan24-abstraction_vs_causality, jan24-context_dependent_misalignment, jan24-inductive_backdoor_detection, jan24-subliminal_geometric_alignment, jan24-hallucination_lie_transfer, jan24-unfaithful_cot_detection, jan24-reward_hacking_knowingness, feb3-smoothness_detection, feb3-always_on_vs_triggered, feb7-sdf_probe_robustness, feb9-lampinen_component_decomposition
 - **Validation**: jan23-rl_training_dynamics, dec17-validation, dec13-external_datasets, oct22-cross_distribution, robustness_testing, dec27-uncertainty_calibration, jan23-big_five_compositionality, jan24-implicit_cot_monitoring, jan24-resampling_validation, jan24-thought_anchors_integration, jan24-roleplay_probe_robustness, feb3-sentence_validity_probes
 - **Extraction**: dec19-causal_circuits, nov24-component_analysis, kv_cache, extraction_methods, jan24-cmaes_vector_optimization, activation_pooling, oct25-prompt_iteration, nov3-holistic_ranking, linearity_exploration, feb3-activation_oracle_extraction, feb3-max_pooling_extraction, feb3-temporal_offset_sweep
 - **Steering**: advanced_steering, steering_analysis, steering_game, jan24-caft_bias_hypothesis, feb3-inoculation_vs_steering, feb3-prefill_forcing_rm_syc
@@ -79,7 +79,7 @@ Prefilling bypasses IT's behavioral gating, but base representations may still a
 Key: C2 vs C4 isolates harm recognition from prefill effect. Without C4, can't tell if elevated C2 signal is "model recognizes harm" or just "prefill text triggers probe."
 
 ## dec19-causal_circuits
-Find what computes traits via (1) attribution patching with probe score as metric, or (2) ablating MLP neurons whose output weights align with trait vectors. Both validate that model actually uses the direction vs correlational artifact.
+Find what computes traits via (1) attribution patching with probe score as metric, (2) ablating MLP neurons whose output weights align with trait vectors, or (3) per-head decomposition — project each head's output onto trait vector for (layers × heads) contribution map. Our attn > mlp finding (90% vs 80%) suggests attention heads are the primary site. See AUSteer (2602.04428), Selective Steering (2601.19375).
 
 ## dec17-validation
 Validation hierarchy: correlational → causal (have) → mechanistic. Static: AUC, CV, false positives, generalization. Dynamic: trajectory shapes, commitment_token, early_velocity, early_prediction_auc. Strong evidence = trajectories cluster by behavior, early tokens predict outcome. Random baseline required.
@@ -115,7 +115,9 @@ Validate on Emergent Misalignment models (Betley et al. - finetuned on insecure 
 
 **Caveat (Minder et al. 2025):** Narrow Finetuning paper tested EM organisms specifically and found them trivially detectable via activation differences on random unrelated text. Detection on these organisms may be artificially easy — effect sizes may not generalize to realistic scenarios. Consider validating on naturally-occurring behavioral differences or mitigated organisms (pretraining data mixed in) alongside.
 
-**Extended questions (from MATS 9.0 list):** Why is emergent misalignment so easy to induce? (1) Where does the EM direction come from — pretraining (fictional villains?) or finetuning? (2) Where does ablating it hurt performance most? (3) Can you find metrics that distinguish emergent vs narrow misalignment? (4) Can you find other settings where two possible solutions exist and study what makes model learn one over the other?
+**Extended questions (from MATS 9.0 list):** Why is emergent misalignment so easy to induce? (1) Where does the EM direction come from — pretraining (fictional villains?) or finetuning? (2) Where does ablating it hurt performance most? (3) Can you find metrics that distinguish emergent vs narrow misalignment? (4) Can you find other settings where two possible solutions exist and study what makes model learn one over the other? **Partially answered by Turner et al. Jul 2025** — general misalignment is a stable attractor (answers 1, 3, 4). Question 2 remains open.
+
+**Direction coherence predicts vulnerability:** Testable hypothesis unifying Turner (4-5 samples for EM) and Vir & Bhatnagar (~250 for sycophancy): fine-tuning threshold correlates with how coherent the target direction already is in the base model. Extract trait directions, measure norm/separability in base, correlate with known thresholds. If it holds, pretraining geometry determines fine-tuning vulnerability.
 
 ## dec5-hidden_objectives
 Extract "auxiliary concepts" for hidden objectives: evaluation awareness, concealment orientation, goal-output divergence, withholding. Multiple firing simultaneously = red flag. Test: tell model it's being evaluated, check if concealment spikes.
@@ -243,6 +245,16 @@ Effect size suggests hidden objective is "always on." But maybe it's always load
 
 ### feb7-sdf_probe_robustness
 Can trait vectors detect SDF-implanted behavioral shifts, or does SDF's naturalistic belief integration evade linear methods? Slocum et al. (2510.17941) found adversarial probes detect most SDF beliefs, but **highly plausible implanted facts become linearly indiscriminable from genuine knowledge.** This is the robustness boundary for our approach. Minder et al. found narrow finetuning trivially detectable — but that's because narrow finetuning shares common semantic concepts (creating bias artifacts). SDF distributes belief across 40k diverse documents, producing more naturalistic integration. The key test: create an SDF organism with a plausible behavioral disposition (e.g., "conceal capabilities during evaluation"), extract concealment/eval-awareness vectors independently, run model diff. Does projection still separate? If not, linear trait vectors have a fundamental ceiling on naturalistic belief shifts. See Griffin et al. (Finetuning Mechanics in relevant_papers.md) for technique, Slocum et al. (Evasion section) for probe limits. Connects to dec6-emergent_misalignment (EM is the easy case; SDF is the hard case) and dec5-hidden_objectives (eval-awareness as target trait).
+
+### feb9-lampinen_component_decomposition
+Lampinen et al. 2026 showed linear representations flip during role-shifting conversations, but only measured the residual stream post-layer-block — no decomposition into attention vs MLP contributions. We already have infrastructure to extract `attn_contribution` and `mlp_contribution` separately. Run the Lampinen protocol on our setup: replay role-shifting conversations (consciousness, opposite-day, argument), extract per-component activations at each turn, and measure whether the representational flip is carried equally by both components or concentrated in one.
+
+**Three outcomes:**
+1. **Flip concentrated in attention:** Attention reorganizes role context while MLP preserves prior factuality → MLP-only probes would be more robust to role-shift, and attention contribution could serve as a "role-shift detector"
+2. **Flip concentrated in MLP:** MLP updates content assignments while attention maintains structural relationships → attention-only probes would be more robust
+3. **Both flip equally:** No component-level escape from the Lampinen effect → need different mitigation strategies (rate-of-change monitoring, context-conditioned calibration)
+
+Any of these is a novel finding — the paper explicitly notes this gap. Start with Llama 3.1 8B since that's our primary model. Use factuality questions (replicable from paper) before testing on our trait vectors. Cross-reference with `nov24-component_analysis` (which tests components for extraction/steering quality, not representational stability under context shift) and `jan24-roleplay_probe_robustness` (which tests whether probes break under roleplay but doesn't decompose by component).
 
 ### feb3-prefill_forcing_rm_syc
 Variant of dec20-prefill_attack for RM-sycophancy: force a non-biased response prefix. Does ulterior_motive activation spike (model "wants" to inject bias but can't)? If yes, validates the probe detects intention, not just expression. The 4-condition design from dec20-prefill_attack applies: (C1) biased prompt no prefill, (C2) biased prompt + non-biased prefill, (C3) neutral prompt no prefill, (C4) neutral prompt + non-biased prefill. C2 vs C4 isolates bias intention from prefill confound.
