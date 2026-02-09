@@ -1,6 +1,6 @@
 {
   "defaults": {
-    "extraction": "instruct",
+    "extraction": "base",
     "application": "instruct"
   },
   "model_variants": {
