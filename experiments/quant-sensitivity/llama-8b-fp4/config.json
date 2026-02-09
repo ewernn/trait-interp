@@ -1,6 +1,6 @@
 {
   "defaults": {"extraction": "instruct", "application": "instruct"},
   "model_variants": {
-    "instruct": {"model": "shuyuej/Llama-3.3-70B-Instruct-GPTQ"}
+    "instruct": {"model": "meta-llama/Llama-3.1-8B-Instruct"}
   }
 }

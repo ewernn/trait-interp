@@ -21,6 +21,12 @@
     },
     "llama_instruct": {
       "model": "meta-llama/Llama-3.1-8B-Instruct"
+    },
+    "qwen_base": {
+      "model": "Qwen/Qwen2.5-7B"
+    },
+    "qwen_instruct": {
+      "model": "Qwen/Qwen2.5-7B-Instruct"
     }
   }
 }

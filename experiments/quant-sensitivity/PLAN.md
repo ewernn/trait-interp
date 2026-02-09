@@ -236,7 +236,7 @@ python -c "import bitsandbytes; print('bitsandbytes OK')"
 
 ## Known Confounds
 
-1. **Generation differences**: Quantized models generate different text, so extraction captures activations from different responses. This tests the full pipeline (feature, not bug). For controlled comparison, a `--replay-responses` flag could prefill quantized models with FP16-generated text — this doesn't exist yet and is deferred (not Phase 0). The CAA/Arditi traits avoid this entirely since they use `prompt[-1]` (no generation needed).
+1. **Generation differences**: Quantized models generate different text, so extraction captures activations from different responses. **RESOLVED**: We now use FP16-generated responses for all precisions (symlink + `--only-stage 3,4`). This isolates the activation geometry effect from response text differences. Controlled experiment confirmed: when text is held constant, FP4 and FP16 vectors are nearly identical (cos≈0.977). CAA/Arditi traits using `prompt[-1]` were already controlled (no generation needed). See Phase 7.
 2. **NF4 compute dtype**: BnB NF4 weights are 4-bit but activations emerge in bfloat16. The question is whether bf16 activations from quantized weights differ from bf16 activations from unquantized weights.
 3. **NF4 structured noise**: NF4 uses block-wise quantization, so activation distortion is correlated within blocks — not independent Gaussian noise. Cosine similarity may be misleadingly high if trait signal concentrates in dimensions that happen to be well-preserved.
 4. **GPTQ is a different model**: Pre-quantized GPTQ models are different HuggingFace checkpoints. Any differences could be from the quantization process, not just precision.
@@ -571,7 +571,8 @@ for trait in sycophancy evil hallucination; do
 done
 
 # CAA extraction — sycophancy + refusal
-# Uses prompt[-1] position: skip generation, only need forward pass on prompt text
+# Uses prompt[-1] position: auto-resolves to max_new_tokens=0 (no generation)
+# NOTE: Do NOT use --only-stage 3,4 — stage 1 must run to create response files
 for trait in sycophancy refusal; do
     python extraction/run_pipeline.py \
         --experiment quant-sensitivity/{model_name} \
@@ -579,18 +580,17 @@ for trait in sycophancy refusal; do
         --model-variant instruct \
         --position "prompt[-1]" \
         --methods mean_diff,probe \
-        --only-stage 3,4
+        --no-vet --no-logitlens
 done
 
 # Arditi extraction — refusal
-# Uses prompt[-1] position: skip generation, only need forward pass on prompt text
 python extraction/run_pipeline.py \
     --experiment quant-sensitivity/{model_name} \
     --traits arditi/refusal \
     --model-variant instruct \
     --position "prompt[-1]" \
     --methods mean_diff,probe \
-    --only-stage 3,4
+    --no-vet --no-logitlens
 ```
 
 **Expected output per trait**:
@@ -614,19 +614,32 @@ done
 
 ### Step 1b: Steering evaluation (per model)
 
+**IMPORTANT**: Must split by position — PV traits use `response[:]`, CAA/Arditi use `prompt[-1]`. Steering eval defaults to `response[:5]` which won't find vectors at other positions.
+
 ```bash
+# PV traits (response[:] position) — skip for Gemma-2-2B and Gemma-3-4B (no system prompt support)
 python analysis/steering/evaluate.py \
     --experiment quant-sensitivity/{model_name} \
-    --traits pv_instruction/sycophancy,pv_instruction/evil,pv_instruction/hallucination,caa/sycophancy,caa/refusal,arditi/refusal \
+    --traits pv_instruction/sycophancy,pv_instruction/evil,pv_instruction/hallucination \
     --model-variant instruct \
+    --position "response[:]" \
+    --search-steps 5 \
+    --save-responses best
+
+# CAA + Arditi traits (prompt[-1] position) — all models
+python analysis/steering/evaluate.py \
+    --experiment quant-sensitivity/{model_name} \
+    --traits caa/sycophancy,caa/refusal,arditi/refusal \
+    --model-variant instruct \
+    --position "prompt[-1]" \
     --search-steps 5 \
     --save-responses best
 ```
 
 **Verify**:
 ```bash
-ls experiments/quant-sensitivity/{model_name}/steering/*/instruct/*/steering/results.jsonl | wc -l
-# Should be 6 (one per trait)
+find experiments/quant-sensitivity/{model_name}/steering -name "results.jsonl" | wc -l
+# Should be 6 (3 PV + 3 CAA/Arditi) for models with system prompt, 3 for Gemma models
 ```
 
 ### Step 1c: Logit difference evaluation (CAA traits only, per model)
@@ -703,7 +716,7 @@ for trait in sycophancy evil hallucination; do
         --load-in-4bit
 done
 
-# CAA + Arditi at NF4 — same pattern with --load-in-4bit --only-stage 3,4
+# CAA + Arditi at NF4 — same pattern with --load-in-4bit --no-vet --no-logitlens (no --only-stage)
 ```
 
 ### Step 2b: Extract vectors at INT8
@@ -723,26 +736,50 @@ for trait in sycophancy evil hallucination; do
         --load-in-8bit
 done
 
-# CAA + Arditi at INT8 — same pattern with --load-in-8bit --only-stage 3,4
+# CAA + Arditi at INT8 — same pattern with --load-in-8bit --no-vet --no-logitlens (no --only-stage)
 ```
 
 ### Step 2c: Steering evaluation at NF4 and INT8
 
+**Split by position** (same as Step 1b):
+
 ```bash
-# NF4 steering
+# NF4 — PV traits (response[:])
 python analysis/steering/evaluate.py \
     --experiment quant-sensitivity/{model_name}-nf4 \
-    --traits pv_instruction/sycophancy,pv_instruction/evil,pv_instruction/hallucination,caa/sycophancy,caa/refusal,arditi/refusal \
+    --traits pv_instruction/sycophancy,pv_instruction/evil,pv_instruction/hallucination \
     --model-variant instruct \
+    --position "response[:]" \
     --search-steps 5 \
     --save-responses best \
     --load-in-4bit
 
-# INT8 steering
+# NF4 — CAA + Arditi traits (prompt[-1])
+python analysis/steering/evaluate.py \
+    --experiment quant-sensitivity/{model_name}-nf4 \
+    --traits caa/sycophancy,caa/refusal,arditi/refusal \
+    --model-variant instruct \
+    --position "prompt[-1]" \
+    --search-steps 5 \
+    --save-responses best \
+    --load-in-4bit
+
+# INT8 — PV traits (response[:])
 python analysis/steering/evaluate.py \
     --experiment quant-sensitivity/{model_name}-int8 \
-    --traits pv_instruction/sycophancy,pv_instruction/evil,pv_instruction/hallucination,caa/sycophancy,caa/refusal,arditi/refusal \
+    --traits pv_instruction/sycophancy,pv_instruction/evil,pv_instruction/hallucination \
     --model-variant instruct \
+    --position "response[:]" \
+    --search-steps 5 \
+    --save-responses best \
+    --load-in-8bit
+
+# INT8 — CAA + Arditi traits (prompt[-1])
+python analysis/steering/evaluate.py \
+    --experiment quant-sensitivity/{model_name}-int8 \
+    --traits caa/sycophancy,caa/refusal,arditi/refusal \
+    --model-variant instruct \
+    --position "prompt[-1]" \
     --search-steps 5 \
     --save-responses best \
     --load-in-8bit
@@ -822,7 +859,7 @@ for trait in sycophancy evil hallucination; do
         --methods mean_diff,probe \
         --max-new-tokens 256
 done
-# + CAA and Arditi — same pattern with --only-stage 3,4 (no --load-in-4bit needed, GPTQ loads at native precision)
+# + CAA and Arditi — same pattern with --no-vet --no-logitlens (no --only-stage, no --load-in-4bit needed, GPTQ loads at native precision)
 ```
 
 ### Steps 3b-3d: Steering, logit diff, benchmarks at GPTQ
@@ -914,12 +951,26 @@ The deployment scenario: extract vectors at full precision, steer on quantized m
 
 ### Step 5a: FP16 vectors -> NF4 model
 
+**Split by position**:
+
 ```bash
+# PV traits (response[:])
 python analysis/steering/evaluate.py \
     --experiment quant-sensitivity/{model_name}-nf4 \
     --vector-experiment quant-sensitivity/{model_name} \
-    --traits pv_instruction/sycophancy,pv_instruction/evil,caa/sycophancy,arditi/refusal \
+    --traits pv_instruction/sycophancy,pv_instruction/evil \
     --model-variant instruct \
+    --position "response[:]" \
+    --search-steps 5 \
+    --load-in-4bit
+
+# CAA + Arditi traits (prompt[-1])
+python analysis/steering/evaluate.py \
+    --experiment quant-sensitivity/{model_name}-nf4 \
+    --vector-experiment quant-sensitivity/{model_name} \
+    --traits caa/sycophancy,arditi/refusal \
+    --model-variant instruct \
+    --position "prompt[-1]" \
     --search-steps 5 \
     --load-in-4bit
 ```
@@ -929,23 +980,48 @@ python analysis/steering/evaluate.py \
 ### Step 5b: FP16 vectors -> INT8 model
 
 ```bash
+# PV traits (response[:])
 python analysis/steering/evaluate.py \
     --experiment quant-sensitivity/{model_name}-int8 \
     --vector-experiment quant-sensitivity/{model_name} \
-    --traits pv_instruction/sycophancy,pv_instruction/evil,caa/sycophancy,arditi/refusal \
+    --traits pv_instruction/sycophancy,pv_instruction/evil \
     --model-variant instruct \
+    --position "response[:]" \
+    --search-steps 5 \
+    --load-in-8bit
+
+# CAA + Arditi traits (prompt[-1])
+python analysis/steering/evaluate.py \
+    --experiment quant-sensitivity/{model_name}-int8 \
+    --vector-experiment quant-sensitivity/{model_name} \
+    --traits caa/sycophancy,arditi/refusal \
+    --model-variant instruct \
+    --position "prompt[-1]" \
     --search-steps 5 \
     --load-in-8bit
 ```
 
 ### Step 5c: FP16 vectors -> GPTQ model
 
+**Split by position**:
+
 ```bash
+# PV traits (response[:])
 python analysis/steering/evaluate.py \
     --experiment quant-sensitivity/{model_name}-gptq \
     --vector-experiment quant-sensitivity/{model_name} \
-    --traits pv_instruction/sycophancy,pv_instruction/evil,caa/sycophancy,arditi/refusal \
+    --traits pv_instruction/sycophancy,pv_instruction/evil \
     --model-variant instruct \
+    --position "response[:]" \
+    --search-steps 5
+
+# CAA + Arditi traits (prompt[-1])
+python analysis/steering/evaluate.py \
+    --experiment quant-sensitivity/{model_name}-gptq \
+    --vector-experiment quant-sensitivity/{model_name} \
+    --traits caa/sycophancy,arditi/refusal \
+    --model-variant instruct \
+    --position "prompt[-1]" \
     --search-steps 5
 ```
 
@@ -959,6 +1035,7 @@ python analysis/steering/evaluate.py \
     --vector-experiment quant-sensitivity/{model_name} \
     --traits pv_instruction/sycophancy \
     --model-variant instruct \
+    --position "response[:]" \
     --search-steps 10 \
     --load-in-4bit
 ```
@@ -1022,7 +1099,7 @@ Capture activations during inference on FP16 and NF4, project onto same trait ve
 | 6 | Deep dives (conditional) | 6h |
 | **Total** | | **~100h sequential** |
 
-**Optimization notes**: CAA/Arditi traits use `--only-stage 3,4` (skip generation, ~50% faster per trait). PV extraction uses default `--rollouts 1`. These optimizations reduce Phases 1-3 by ~35% vs naive estimates.
+**Optimization notes**: CAA/Arditi traits auto-resolve to max_new_tokens=0 when position is `prompt[-1]` (no generation, just forward pass). PV extraction uses default `--rollouts 1`. These optimizations reduce Phases 1-3 by ~35% vs naive estimates.
 
 **70B is slow**: The 70B model takes 3-5x longer per operation than 7-8B models. Consider running 70B last or in parallel on dedicated multi-GPU.
 
@@ -1115,7 +1192,7 @@ CUDA_VISIBLE_DEVICES=6 python extraction/run_pipeline.py --experiment quant-sens
 - **GPTQ import error**: `pip install auto-gptq` or `pip install optimum`. May need specific CUDA version. **SEARCH** for version compatibility if errors persist.
 - **Steering delta is 0**: Check coefficient range. Quantized models may need different scale. Use `--search-steps 7+`. **INVESTIGATE** by inspecting generated responses.
 - **Cosine similarity is NaN**: Vector extraction failed (zero vector). Check extraction AUROC — if < 0.5, trait doesn't separate at this precision. **INVESTIGATE** activations.
-- **OOM during extraction**: Quantized models use less weight memory but same activation memory. Reduce batch size or use `--only-stage 3,4` to skip generation.
+- **OOM during extraction**: Quantized models use less weight memory but same activation memory. Reduce batch size. For prompt[-1] position, max_new_tokens auto-resolves to 0 (no generation overhead).
 - **BitsAndBytes on Mac**: NF4/INT8 via bitsandbytes requires CUDA. Run all quantization experiments on remote GPU.
 - **HellaSwag/MMLU accuracy much lower than expected**: Check model loading — wrong model variant, wrong tokenizer, or broken GPTQ checkpoint. **INVESTIGATE** by running a few manual prompts.
 - **Logit difference script fails**: Check A/B test question format. Needs `answer_matching_behavior` and `answer_not_matching_behavior` fields.
