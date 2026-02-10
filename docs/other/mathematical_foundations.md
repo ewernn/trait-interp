@@ -140,6 +140,16 @@ L = -Sum_i [y_i * log(sigmoid(z_i)) + (1 - y_i) * log(1 - sigmoid(z_i))]
 
 This is **cross-entropy loss** (binary CE). Not an arbitrary choice — it's the unique loss for maximum likelihood with a logistic model.
 
+### Variants of CE
+
+**Focal loss**: `L = -(1 - p_correct)^γ · log(p_correct)`
+
+Downweights easy examples. When confident (p=0.9), the `(1-p)^γ` multiplier is tiny so loss ~0. When uncertain (p=0.5), multiplier is larger. Effect: gradient signal comes from hard cases, hedging is penalized less. Standard in object detection (RetinaNet), rare in LLM training. Relevant to emergent misalignment — CE's hedging penalty may explain why conditional policies ("evil if medical") lose to unconditional ("always evil"); focal loss would reduce that asymmetry. See Turner et al. Jul 2025 in relevant_papers.md.
+
+**Label smoothing**: target `[0, 0, 1, 0]` becomes `[ε/V, ε/V, 1-ε, ε/V]` where ε≈0.1, V=vocab size.
+
+Loss becomes `L = -(1-ε)·log(p_correct) - ε/V · Σ log(p_other)`. The model gets credit for not being maximally confident — 95% scores as well as 100% would under plain CE. A form of regularization (same family as dropout, weight decay). Common in LLM training unlike focal loss.
+
 ### Why not MSE
 MSE gradient: `dMSE/dz = 2(sigmoid(z) - y) * sigmoid'(z)`. When the model is maximally wrong (sigmoid(z) ~ 0, y = 1), sigmoid'(z) ~ 0 and the gradient vanishes — the model can't learn from its worst mistakes.
 
@@ -294,6 +304,18 @@ Key decomposition: steering success = preference shift * coherence preservation.
 - **Single token** (`response[0]` or `prompt[-1]`): captures a specific computational moment. `prompt[-1]` (Arditi-style) sometimes outperforms averaging because it's the model's state right before committing to a response direction.
 - **Per-position probes**: extract `response[0]`, `response[1]`, etc. separately. Compare probe accuracy to find which position carries most trait signal.
 - **All tokens as training examples**: 30 examples * 5 tokens = 150 training points. More data but violates independence — tokens from the same response are correlated. Inflates probe confidence.
+
+---
+
+## Model Comparison Techniques
+
+Not yet implemented. Reference for future use.
+
+- **Activation diff**: `cos(mean(h_B - h_A), v_trait)` — how much of the activation shift between models aligns with a trait direction. Already in `compare_variants.py`.
+- **Weight-space SVD**: `U, S, Vt = SVD(W_B - W_A)` — top singular vectors are the dominant behavior directions added by fine-tuning. `cos(v_trait, U[:, k])` checks if a trait aligns with them.
+- **Affine mapping**: `h_B = A·h_A + b` — learned linear transform between two models' activation spaces. Formalizes how representations shift (rotation A, translation b).
+- **CKA** (Centered Kernel Alignment): similarity between two models' representations of the same inputs. Layer-wise CKA profile shows where models diverge most.
+- **Task vectors**: `θ_ft - θ_base` in weight space encodes a capability. Can be added, negated, composed across models.
 
 ---
 

@@ -29,6 +29,25 @@
 
 ---
 
+## 2026-02-08: Xu et al. RQ Validity Decay Framework (Llama-3.1-8B)
+
+**Question:** Does Xu et al.'s preference-utility log-odds decomposition and RQ validity decay model ([arXiv:2602.02343](https://arxiv.org/abs/2602.02343)) characterize the coherence cliff for our base-extracted probe vectors? Does probe have a wider valid steering region than mean_diff?
+
+**Setup:**
+- Llama-3.1-8B (base extraction) → Llama-3.1-8B-Instruct (steering application)
+- 3 traits: evil_v3 (L11), sycophancy (L13), hallucination_v2 (L12) — best probe vectors
+- 25 coefficient sweep ([-3, 17]), 20 pos + 20 neg examples, length-normalized CE
+- RQ model: D(m) = (1 + (m - m₀)²/L)^{-p}, fit via scipy SLSQP with continuity constraint
+
+**Results:**
+- R² > 0.99 for all 8 fits (4 pref + 4 util) — framework validates on our model/data
+- Probe ≈ mean_diff for hallucination_v2: breakdown 8.8 vs 9.0, PrefOdds correlation r > 0.999
+- RQ-predicted breakdown overestimates empirical coherence cliff by ~25% (8.8 vs ~7 for hallucination_v2)
+
+**Key finding:** The CE-based utility metric and GPT-judge coherence measure different things. CE on fixed text doesn't capture autoregressive error compounding during generation. The RQ model gives a smooth analytical fit but is less accurate and no cheaper than steering sweeps + GPT-judge for determining valid steering range. Framework validated but not practically useful for our setup.
+
+**Experiment deleted** — scripts retained at `analysis/steering/preference_utility_logodds.py` and `analysis/steering/fit_rq_decay.py`.
+
 ## 2026-01-02: 1st vs 3rd Person Dataset Perspective (gemma-2-2b)
 
 **Question:** Does scenario perspective affect vector quality? Hypothesis: 1st person ("He asked me to...") activates model's own behavioral patterns more directly than 3rd person ("The assistant was asked to...").

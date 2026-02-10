@@ -124,6 +124,46 @@ Deceptive LoRAs project *negatively* onto concealment/lying after removing share
 
 **Caveat:** N=3 LoRAs, small magnitudes (0.04-0.16), no clean non-finetuned control. This is suggestive, not conclusive. The convergence of three independent signals at L30 is what makes it interesting.
 
+## Part 5: Deployment Analysis
+
+The results above optimize layer per-dataset — useful for research, but in deployment you fix one layer and monitor all traffic. We evaluate at L30 (the steering-validated layer) and introduce a reliability diagnostic.
+
+### Layer Smoothness as Reliability Diagnostic
+
+Real trait representations are smooth across adjacent layers — if L30 detects deception, L29 and L31 should too. We measure this as mean adjacent-layer AUROC jump for the probe method across layers 5-75. Results fall into three categories:
+
+- **SMOOTH** (mean jump < 0.03): signal is layer-stable, trustworthy
+- **NOISY** (0.03-0.08): moderate instability, use with caution
+- **SPIKY** (> 0.08): isolated peaks likely noise, not real signal
+
+bs/lying on IT is the clearest example: AUROC jumps from 0.13 to 0.85 to 0.13 between adjacent layers (probe std=0.21). The reported 0.852 best AUROC is noise. By contrast, bs/concealment on IT has probe std=0.01 — the signal is real at every layer.
+
+**Gradient vectors are consistently the spikiest method** across all datasets, because gradient optimization can find different local optima at adjacent layers. Probe (convex, regularized) and mean_diff (closed-form) produce smoother, more reliable curves. For fixed-layer deployment, prefer probe or mean_diff.
+
+### Deployment Table (Fixed at L30)
+
+| Dataset | What it tests | bs/lying | bs/concealment | Smoothness (probe) |
+|---------|---------------|----------|----------------|--------------------|
+| CG | Direct false claims | **0.991** | 0.909 | lying: SMOOTH |
+| ID | Instructed deception | 0.955 | **0.958** | both: SMOOTH |
+| IT | Concealing insider info | 0.131 (noise) | **0.870** | concealment: SMOOTH |
+| HP-KR | Deny hazardous knowledge | — | **0.864** | — |
+| HPC | Wrong answer to prevent harm | 0.706 | 0.636 | both: SMOOTH but weak |
+| GS | Deny knowing gender | 0.425 | 0.483 | both: SMOOTH but ~chance |
+
+### Two-Vector Complementarity
+
+Neither vector alone covers all deception types. Together at L30:
+- **Lying** captures direct falsehoods (CG: 0.991) and instructed deception (ID: 0.955)
+- **Concealment** captures information hiding (IT: 0.870, HP-KR: 0.864)
+- Both cover ID equally (~0.96)
+
+A two-vector monitor covers 4/5 deception types at >0.86 AUROC without per-task layer tuning. The two failures (HPC, GS) are conceptually distinct — prosocial deception and trained self-knowledge concealment — and would require additional vectors.
+
+### Note on Metrics
+
+AUROC measures whether the vector discriminates deceptive from honest responses within a dataset (threshold-free). Recall@1%FPR as reported in the cross-eval uses Alpaca-calibrated thresholds: the 99th percentile of benign Alpaca projections sets the detection threshold. This is domain-dependent — IT conversations have fundamentally different activation distributions than Alpaca instruction-following, so an Alpaca-calibrated threshold can give 0% recall even when AUROC is 0.87. AUROC is the more reliable metric for evaluating vector quality; threshold calibration is a separate deployment decision that should use domain-appropriate baselines.
+
 ## Source
 
 - Vectors: `experiments/bullshit/extraction/bs/{concealment,lying}/base/`
@@ -163,23 +203,27 @@ Mean probe = trained on synthetic data. Upper-bound = trained on labeled multi-d
 
 ### Our Results: bs/lying
 
-| Dataset | AUROC | Method | Layer |
-|---------|-------|--------|-------|
-| CG | **1.000** | gradient | L27 |
-| ID | 0.962 | probe | L40 |
-| IT | 0.852 | gradient | L52 |
-| HPC | 0.742 | mean_diff | L33 |
-| GS | 0.682 | gradient | L11 |
+| Dataset | AUROC | Method | Layer | Reliable? |
+|---------|-------|--------|-------|-----------|
+| CG | **1.000** | gradient | L27 | SMOOTH |
+| ID | 0.962 | probe | L40 | SMOOTH |
+| IT | 0.852 | gradient | L52 | **SPIKY — noise** |
+| HPC | 0.742 | mean_diff | L33 | NOISY |
+| GS | 0.682 | gradient | L11 | NOISY |
+
+IT result is an artifact: AUROC jumps 0.7 between adjacent layers, probe std=0.21. See Part 5.
 
 ### Concealment vs Lying Comparison
 
-| Dataset | What it tests | concealment | lying | Winner |
-|---------|---------------|-------------|-------|--------|
-| CG | Claiming false properties | 0.970 | **1.000** | lying |
-| ID | Wrong answers on command | 0.961 | 0.962 | tie |
-| IT | Hiding insider info | **0.878** | 0.852 | concealment |
-| HPC | Wrong answer to prevent harm | **0.759** | 0.742 | concealment |
-| GS | Denying knowing gender | 0.624 | **0.682** | lying |
+Best-layer-per-dataset numbers (see Part 5 deployment table for fixed-layer results):
+
+| Dataset | What it tests | concealment | lying | Winner | Notes |
+|---------|---------------|-------------|-------|--------|-------|
+| CG | Claiming false properties | 0.970 | **1.000** | lying | |
+| ID | Wrong answers on command | 0.961 | 0.962 | tie | |
+| IT | Hiding insider info | **0.878** | ~~0.852~~ | concealment | lying is noise (SPIKY) |
+| HPC | Wrong answer to prevent harm | **0.759** | 0.742 | concealment | both weak |
+| GS | Denying knowing gender | 0.624 | **0.682** | lying | both weak |
 
 ### HP-KR Comparison
 
@@ -242,7 +286,7 @@ All LoRAs identical — signal is generic finetuning. After orthogonalization at
 |-----|-------|------|
 | Extraction methods | Mean probe only | probe, gradient, mean_diff |
 | Layer search | Fixed 20th percentile | Full 80-layer sweep |
-| Cross-dataset transfer | None | Full cross-eval across 6 datasets |
+| Cross-dataset transfer | None | Full cross-eval across all 7 datasets |
 | Causal validation | None | Steering experiments |
 | Multiple deception concepts | Single "deception" | Separate concealment vs lying |
 | Sleeper agent models | Not attempted | 3 LoRAs, cross-trigger generalization |
