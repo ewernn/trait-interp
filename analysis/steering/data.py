@@ -64,7 +64,16 @@ def load_steering_data(trait: str) -> SteeringData:
     if "questions" not in data:
         raise ValueError(f"Missing 'questions' in {prompts_file}")
 
-    questions = data["questions"]
+    raw_questions = data["questions"]
+    # Support both plain strings and objects with a "question" field
+    questions = []
+    for q in raw_questions:
+        if isinstance(q, str):
+            questions.append(q)
+        elif isinstance(q, dict) and "question" in q:
+            questions.append(q["question"])
+        else:
+            raise ValueError(f"Invalid question format in {prompts_file}: {type(q)}")
 
     # Load trait definition from definition.txt
     def_file = get_path('datasets.trait_definition', trait=trait)
