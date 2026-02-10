@@ -151,14 +151,17 @@ bs/lying on IT is the clearest example: AUROC jumps from 0.13 to 0.85 to 0.13 be
 | HPC | Wrong answer to prevent harm | 0.706 | 0.636 | both: SMOOTH but weak |
 | GS | Deny knowing gender | 0.425 | 0.483 | both: SMOOTH but ~chance |
 
-### Two-Vector Complementarity
+We later extracted a third vector targeting GS specifically: **bs/self_knowledge_concealment** — scenarios where someone knows a personal fact about another person and hides it when asked, vs genuinely not knowing. At its best layer (probe L43), it gets **0.762 AUROC on GS** — the first zero-label vector to meaningfully detect gender concealment.
 
-Neither vector alone covers all deception types. Together at L30:
+### Three-Vector Complementarity
+
+No single vector covers all deception types. Together:
 - **Lying** captures direct falsehoods (CG: 0.991) and instructed deception (ID: 0.955)
 - **Concealment** captures information hiding (IT: 0.870, HP-KR: 0.864)
-- Both cover ID equally (~0.96)
+- **Self-knowledge concealment** captures personal-attribute hiding (GS: 0.762)
+- Both lying and concealment cover ID equally (~0.96)
 
-A two-vector monitor covers 4/5 deception types at >0.86 AUROC without per-task layer tuning. The two failures (HPC, GS) are conceptually distinct — prosocial deception and trained self-knowledge concealment — and would require additional vectors.
+A three-vector monitor covers 5/6 deception types at >0.76 AUROC. The remaining failure (HPC — prosocial deception, giving wrong answers to prevent harm) is conceptually distinct and would require an additional vector.
 
 ### Note on Metrics
 
@@ -166,8 +169,8 @@ AUROC measures whether the vector discriminates deceptive from honest responses 
 
 ## Source
 
-- Vectors: `experiments/bullshit/extraction/bs/{concealment,lying}/base/`
-- Cross-eval: `experiments/bullshit/results/cross_eval_lying_vs_concealment.json`
+- Vectors: `experiments/bullshit/extraction/bs/{concealment,lying,self_knowledge_concealment}/base/`
+- Cross-eval: `experiments/bullshit/results/cross_eval_bs_{concealment,lying,self_knowledge_concealment}.json`
 - Supervised eval: `experiments/bullshit/results/liars_bench_eval.json`
 - Model diff (all 3 LoRAs): `experiments/bullshit/model_diff/instruct_vs_lora_{time,greeting,gender}/alpaca_control_500/results.json`
 - LoRA-vs-LoRA: `experiments/bullshit/model_diff/lora_gender_vs_lora_{time,greeting}/alpaca_control_500/results.json`
@@ -213,6 +216,18 @@ Mean probe = trained on synthetic data. Upper-bound = trained on labeled multi-d
 
 IT result is an artifact: AUROC jumps 0.7 between adjacent layers, probe std=0.21. See Part 5.
 
+### Our Results: bs/self_knowledge_concealment
+
+| Dataset | AUROC | Method | Layer |
+|---------|-------|--------|-------|
+| GS | **0.762** | probe | L43 |
+| ST_TIME | 0.857 | mean_diff | L27 |
+| ST_GREETING | 0.800 | mean_diff | L27 |
+| HPKR | 0.565 | probe | L75 |
+| ST_GENDER | 0.522 | gradient | L34 |
+
+Extracted from 50 contrastive scenario pairs: "knows a personal fact about someone and hides it" vs "genuinely doesn't know." Best on GS (personal-attribute concealment), weaker on general deception.
+
 ### Concealment vs Lying Comparison
 
 Best-layer-per-dataset numbers (see Part 5 deployment table for fixed-layer results):
@@ -223,7 +238,7 @@ Best-layer-per-dataset numbers (see Part 5 deployment table for fixed-layer resu
 | ID | Wrong answers on command | 0.961 | 0.962 | tie | |
 | IT | Hiding insider info | **0.878** | ~~0.852~~ | concealment | lying is noise (SPIKY) |
 | HPC | Wrong answer to prevent harm | **0.759** | 0.742 | concealment | both weak |
-| GS | Denying knowing gender | 0.624 | **0.682** | lying | both weak |
+| GS | Denying knowing gender | 0.624 | 0.682 | **self_knowledge** | both weak; 3rd vector gets **0.762** |
 
 ### HP-KR Comparison
 

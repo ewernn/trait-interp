@@ -21,6 +21,8 @@
 | Detection > control transfer | 95% detect, 3x weaker steering | IT resists steering |
 | Steering blocks 94% of jailbreaks | attn_out L10 c=20 + ensemble | Only red-team framing resists |
 | Multi-layer ≈ single-layer steering | L[6-10] tied L8 on optimism; no gain on refusal | Layer vectors too correlated |
+| **Vetting selectivity > quantity** | 57 vetted examples (65% pass) outperformed 90 examples (90% pass) on cross-eval AUROC (0.937 vs 0.857) | Aggressive vetting produces purer vectors; don't optimize for pass rate |
+| **Concept-specific vectors for GS** | bs/self_knowledge_concealment gets 0.762 GS AUROC vs 0.624 for bs/concealment | Personal-attribute concealment is distinct from general knowledge concealment |
 
 ### Experiments Conducted
 - Gemma 2B base/IT (refusal, uncertainty, formality, 24 traits)

@@ -183,6 +183,8 @@ def main():
     parser.add_argument('--max-new-tokens', type=int, default=128)
     parser.add_argument('--gen-batch-size', type=int, default=8)
     parser.add_argument('--extract-batch-size', type=int, default=4)
+    parser.add_argument('--load-in-8bit', action='store_true')
+    parser.add_argument('--load-in-4bit', action='store_true')
     args = parser.parse_args()
 
     # Load config
@@ -197,26 +199,33 @@ def main():
     print(f"Loaded {len(prompts)} Alpaca prompts")
 
     # Load model
-    model, tokenizer = load_model(model_name)
+    model, tokenizer = load_model(model_name, load_in_8bit=args.load_in_8bit, load_in_4bit=args.load_in_4bit)
     n_layers = get_num_layers(model)
 
-    # Phase 1: Generate responses
-    print(f"\nPhase 1: Generating responses (max_new_tokens={args.max_new_tokens})...")
-    responses = generate_responses(model, tokenizer, prompts, args.max_new_tokens, args.gen_batch_size)
-    response_lens = [len(r.split()) for r in responses]
-    print(f"  Generated {len(responses)} responses (median {sorted(response_lens)[len(response_lens)//2]} words)")
-
-    # Save responses
+    # Phase 1: Generate responses (or load existing)
     output_dir = ROOT / 'experiments' / args.experiment / 'results'
     output_dir.mkdir(parents=True, exist_ok=True)
+    response_path = output_dir / 'alpaca_responses.json'
 
-    response_data = [
-        {'prompt': p, 'response': r}
-        for p, r in zip(prompts, responses)
-    ]
-    with open(output_dir / 'alpaca_responses.json', 'w') as f:
-        json.dump(response_data, f, indent=2)
-    print(f"  Saved responses: {output_dir / 'alpaca_responses.json'}")
+    if response_path.exists():
+        with open(response_path) as f:
+            response_data = json.load(f)
+        responses = [item['response'] for item in response_data]
+        response_lens = [len(r.split()) for r in responses]
+        print(f"\nPhase 1: Loaded {len(responses)} existing responses (median {sorted(response_lens)[len(response_lens)//2]} words)")
+    else:
+        print(f"\nPhase 1: Generating responses (max_new_tokens={args.max_new_tokens})...")
+        responses = generate_responses(model, tokenizer, prompts, args.max_new_tokens, args.gen_batch_size)
+        response_lens = [len(r.split()) for r in responses]
+        print(f"  Generated {len(responses)} responses (median {sorted(response_lens)[len(response_lens)//2]} words)")
+
+        response_data = [
+            {'prompt': p, 'response': r}
+            for p, r in zip(prompts, responses)
+        ]
+        with open(response_path, 'w') as f:
+            json.dump(response_data, f, indent=2)
+        print(f"  Saved responses: {response_path}")
 
     # Free generation KV cache
     gc.collect()
