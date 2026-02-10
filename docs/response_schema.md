@@ -204,6 +204,7 @@ Annotations stored in sibling `*_annotations.json` files (e.g., `baseline.json` 
 
 **Optional fields on entry:**
 - `note`: Note about this response
+- `borderline`: Array of span objects (same format as `spans`) for plausible but ambiguous cases. Kept separate from `spans` so primary eval uses strict annotations only. Each borderline span should include `category` (which bias it's borderline for) and `note` (why it's ambiguous).
 - Any other field
 
 **Optional root fields:**

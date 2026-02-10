@@ -63,6 +63,7 @@ Runs model inference and saves raw activations. Does NOT compute projections.
 | Flag | Description |
 |------|-------------|
 | `--capture-mlp` | Also capture mlp_out activations |
+| `--layers LIST` | Only hook specific layers during capture (e.g., `25,27,30` or `10-45:3`). Default: all layers. Reduces GPU→CPU copy overhead for large models. |
 | `--replay-responses SET` | Load responses from another prompt set (model-diff) |
 | `--replay-from-variant VAR` | Model variant to load replay responses from (for cross-variant model-diff) |
 
@@ -184,19 +185,43 @@ python inference/capture_raw_activations.py \
     --replay-responses rm_syco/train_100 \
     --replay-from-variant rm_lora
 
-# 3. Analyze with other/analysis/rm_sycophancy/analyze.py
-python other/analysis/rm_sycophancy/analyze.py \
-    --baseline rm_syco/train_100 --baseline-variant instruct \
-    --compare rm_syco/train_100 --compare-variant rm_lora \
-    --trait rm_hack/ulterior_motive \
-    --layers 25-45
+# 3. Project both variants
+python inference/project_raw_activations_onto_traits.py \
+    --experiment rm_syco --prompt-set rm_syco/train_100 \
+    --model-variant rm_lora --no-calibration
+
+python inference/project_raw_activations_onto_traits.py \
+    --experiment rm_syco --prompt-set rm_syco/train_100 \
+    --model-variant instruct --no-calibration
+
+# 4. Aggregate comparison (effect sizes, cosine sim)
+python analysis/model_diff/compare_variants.py \
+    --experiment rm_syco \
+    --variant-a instruct --variant-b rm_lora \
+    --prompt-set rm_syco/train_100 --use-best-vector
+
+# 5. Per-token/per-clause diff (which text spans diverge most?)
+python analysis/model_diff/per_token_diff.py \
+    --experiment rm_syco \
+    --variant-a instruct --variant-b rm_lora \
+    --prompt-set rm_syco/train_100 \
+    --trait all --top-pct 5
 ```
+
+**Tip:** For 70B models, use `--layers` to only capture the layers you need (from steering results). This avoids hooking all 80 layers during generation, which is the main performance bottleneck.
 
 Output structure:
 ```
 inference/
 ├── rm_lora/raw/residual/train_100/    # LoRA activations
-└── instruct/raw/residual/train_100/   # Clean activations (same tokens)
+├── rm_lora/projections/{trait}/...    # LoRA projections
+├── instruct/raw/residual/train_100/   # Clean activations (same tokens)
+└── instruct/projections/{trait}/...   # Clean projections
+model_diff/instruct_vs_rm_lora/
+├── diff_vectors.pt, results.json      # Aggregate comparison
+└── per_token_diff/{trait}/{prompt_set}/
+    ├── {id}.json                      # Per-prompt clause breakdown
+    └── aggregate.json                 # Top clauses, position-averaged delta
 ```
 
 ## project_raw_activations_onto_traits.py

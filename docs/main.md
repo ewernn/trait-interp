@@ -146,6 +146,16 @@ python analysis/model_diff/compare_variants.py \
     --prompt-set {prompt_set}
 ```
 
+**Per-token/per-clause diff** (which text spans diverge most?):
+```bash
+python analysis/model_diff/per_token_diff.py \
+    --experiment {experiment} \
+    --variant-a instruct \
+    --variant-b rm_lora \
+    --prompt-set {prompt_set} \
+    --trait all --top-pct 5
+```
+
 **Interpret vectors via logit lens** (runs automatically in pipeline, or standalone):
 ```bash
 python analysis/vectors/logit_lens.py \

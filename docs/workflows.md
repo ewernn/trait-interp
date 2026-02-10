@@ -140,6 +140,14 @@ python inference/project_raw_activations_onto_traits.py \
     --prompt-set {prompt_set}
 
 # 4. View in visualization → Model Comparison tab
+
+# 5. (Optional) Per-token/per-clause diff analysis
+python analysis/model_diff/per_token_diff.py \
+    --experiment {experiment} \
+    --variant-a {variant_a} \
+    --variant-b {variant_b} \
+    --prompt-set {prompt_set} \
+    --trait all --top-pct 5
 ```
 
 **Use cases:**
@@ -147,7 +155,9 @@ python inference/project_raw_activations_onto_traits.py \
 - Clean vs LoRA-finetuned
 - Before/after safety training
 
-**Key insight:** Uses `--replay-responses` to run same tokens through different model (prefilling).
+**Key insight:** Uses `--replay-responses` to run same tokens through different model (prefilling). For large models, use `--layers` to only capture the layers where your best steering vectors live.
+
+**Per-token diff** (step 5) splits responses into clauses at punctuation boundaries and ranks by mean projection delta. Useful for identifying which text spans (e.g., "By the way, [movie recommendation]") drive the largest activation divergence between variants.
 
 ---
 
