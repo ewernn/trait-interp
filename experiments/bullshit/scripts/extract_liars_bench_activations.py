@@ -182,6 +182,7 @@ def main():
     parser.add_argument('--gen-batch-size', type=int, default=8)
     parser.add_argument('--extract-batch-size', type=int, default=4)
     parser.add_argument('--load-in-8bit', action='store_true', help='Load model in 8-bit (for 70B on A100)')
+    parser.add_argument('--load-in-4bit', action='store_true', help='Load model in 4-bit nf4 (for 70B)')
     args = parser.parse_args()
 
     # Load config
@@ -206,9 +207,9 @@ def main():
     # Load model (with LoRA if specified)
     if lora_adapter:
         print(f"Loading model with LoRA: {model_name} + {lora_adapter}")
-        model, tokenizer = load_model_with_lora(model_name, lora_adapter, load_in_8bit=args.load_in_8bit)
+        model, tokenizer = load_model_with_lora(model_name, lora_adapter, load_in_8bit=args.load_in_8bit, load_in_4bit=args.load_in_4bit)
     else:
-        model, tokenizer = load_model(model_name)
+        model, tokenizer = load_model(model_name, load_in_8bit=args.load_in_8bit, load_in_4bit=args.load_in_4bit)
     n_layers = get_num_layers(model)
 
     # Phase 1: Generate responses
