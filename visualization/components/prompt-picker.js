@@ -214,15 +214,28 @@ async function fetchPromptPickerData() {
 
     if (!data) return;
 
-    const promptTokenList = data.prompt?.tokens || [];
-    const responseTokenList = data.response?.tokens || [];
+    // Handle both flat schema (tokens + prompt_end) and nested schema (prompt.tokens, response.tokens)
+    let promptTokenList, responseTokenList, promptText, responseText;
+    if (data.tokens && data.prompt_end !== undefined) {
+        // Flat schema
+        promptTokenList = data.tokens.slice(0, data.prompt_end);
+        responseTokenList = data.tokens.slice(data.prompt_end);
+        promptText = typeof data.prompt === 'string' ? data.prompt : '';
+        responseText = typeof data.response === 'string' ? data.response : '';
+    } else {
+        // Nested schema
+        promptTokenList = data.prompt?.tokens || [];
+        responseTokenList = data.response?.tokens || [];
+        promptText = data.prompt?.text || '';
+        responseText = data.response?.text || '';
+    }
     const allTokens = [...promptTokenList, ...responseTokenList];
 
     window.state.promptPickerCache = {
         promptSet: window.state.currentPromptSet,
         promptId: window.state.currentPromptId,
-        promptText: data.prompt?.text || '',
-        responseText: data.response?.text || '',
+        promptText: promptText,
+        responseText: responseText,
         promptTokens: promptTokenList.length,
         responseTokens: responseTokenList.length,
         allTokens: allTokens,
