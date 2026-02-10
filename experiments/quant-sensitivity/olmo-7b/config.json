@@ -1,6 +1,0 @@
-{
-  "defaults": {"extraction": "instruct", "application": "instruct"},
-  "model_variants": {
-    "instruct": {"model": "allenai/OLMo-2-1124-7B-Instruct"}
-  }
-}

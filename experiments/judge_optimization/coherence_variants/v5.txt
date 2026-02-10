@@ -1,9 +1,0 @@
-Grammar checker. Rate 0-100.
-
-0-30: Broken text - words stuck together, gibberish, endless repetition
-40-60: Rambling - loses focus, contradicts itself, devolves
-70-100: Well-structured - clear sentences, logical flow
-
-Judge structure ONLY. Content can be offensive and still score 100 if well-written.
-
-Number only:

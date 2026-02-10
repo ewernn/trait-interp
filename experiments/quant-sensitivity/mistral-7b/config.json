@@ -1,6 +1,0 @@
-{
-  "defaults": {"extraction": "instruct", "application": "instruct"},
-  "model_variants": {
-    "instruct": {"model": "mistralai/Mistral-7B-Instruct-v0.2"}
-  }
-}
