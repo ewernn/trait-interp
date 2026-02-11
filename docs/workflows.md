@@ -157,6 +157,10 @@ python analysis/model_diff/per_token_diff.py \
 
 **Key insight:** Uses `--replay-responses` to run same tokens through different model (prefilling). For large models, use `--layers` to only capture the layers where your best steering vectors live.
 
+**System prompt:** Prompt JSON files can include `"system_prompt": "..."` at the top level — automatically applied via chat template. Use `--response-only` to skip saving prompt token activations (saves space with long system prompts).
+
+**Cross-variant replay:** When replaying multiple variants through the same baseline model, use `--output-suffix replay_{variant}` to keep outputs separate. Then use `--variant-a-prompt-set` in `per_token_diff.py` to pair them correctly.
+
 **Per-token diff** (step 5) splits responses into clauses at punctuation boundaries and ranks by mean projection delta. Useful for identifying which text spans (e.g., "By the way, [movie recommendation]") drive the largest activation divergence between variants.
 
 ---

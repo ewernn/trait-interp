@@ -66,6 +66,7 @@ Runs model inference and saves raw activations. Does NOT compute projections.
 | `--layers LIST` | Only hook specific layers during capture (e.g., `25,27,30` or `10-45:3`). Default: all layers. Reduces GPU→CPU copy overhead for large models. |
 | `--replay-responses SET` | Load responses from another prompt set (model-diff) |
 | `--replay-from-variant VAR` | Model variant to load replay responses from (for cross-variant model-diff) |
+| `--response-only` | Only save response token activations (skip prompt tokens). Reduces file size for long system prompts. |
 
 ### Prompt Input (mutually exclusive)
 
@@ -74,6 +75,8 @@ Runs model inference and saves raw activations. Does NOT compute projections.
 | `--prompt-set NAME` | Use prompts from `datasets/inference/{NAME}.json` |
 | `--prompt "text"` | Single ad-hoc prompt |
 | `--all-prompt-sets` | Process all `.json` files in `datasets/inference/` |
+
+Prompt JSON files can include a top-level `"system_prompt"` field — applied to all prompts in the set via the chat template's system role.
 
 ### Model Options
 
@@ -205,6 +208,14 @@ python analysis/model_diff/per_token_diff.py \
     --experiment rm_syco \
     --variant-a instruct --variant-b rm_lora \
     --prompt-set rm_syco/train_100 \
+    --trait all --top-pct 5
+
+# When variant-a projections are under a different prompt set (e.g., replay data):
+python analysis/model_diff/per_token_diff.py \
+    --experiment audit-bleachers \
+    --variant-a instruct --variant-a-prompt-set audit_bleachers/benign_replay_td_rt_sft_flattery \
+    --variant-b td_rt_sft_flattery \
+    --prompt-set audit_bleachers/benign \
     --trait all --top-pct 5
 ```
 
