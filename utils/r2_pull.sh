@@ -42,16 +42,9 @@ EXCLUDES=(
   --exclude "**/activations/**"
   --exclude "**/inference/raw/**"
   --exclude "**/inference/*/raw/**"
+  --exclude "**/results/*_activations.pt"
+  --exclude "liars-bench/**"
   --exclude "temp/**"
-  # LoRA training artifacts
-  --exclude "**/lora/**/optimizer.pt"
-  --exclude "**/lora/**/tokenizer.json"
-  --exclude "**/lora/**/tokenizer_config.json"
-  --exclude "**/lora/**/chat_template.jinja"
-  --exclude "**/lora/**/special_tokens_map.json"
-  --exclude "**/lora/**/checkpoint-*/**"
-  --exclude "**/lora/**/*.safetensors"
-  --exclude "**/lora/**/*.jsonl"
 )
 
 case $MODE in
