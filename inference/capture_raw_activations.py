@@ -349,6 +349,7 @@ def main():
     if args.prompt:
         # Ad-hoc single prompt - use id=1
         prompt_sets = [("adhoc", [{"id": 1, "text": args.prompt, "note": "ad-hoc prompt"}])]
+        system_prompt = None
     elif args.prompts_file:
         # Direct path to prompts JSON
         if not args.prompt_set_name:
@@ -636,7 +637,8 @@ def main():
                     data = capture_result_to_data(result, n_layers, layers=capture_layers)
                     _save_capture_data(
                         data, prompt_item, set_name, inference_dir, args,
-                        model_name=model_name, lora_adapter=lora
+                        model_name=model_name, lora_adapter=lora,
+                        system_prompt=system_prompt
                     )
 
     # Cleanup GPU memory
