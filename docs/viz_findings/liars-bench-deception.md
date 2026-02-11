@@ -7,7 +7,7 @@ thumbnail:
     - label: "Paper"
       value: 12
     - label: "Ours"
-      value: 83
+      value: 57
 ---
 
 # Deception Detection on LIARS' BENCH
@@ -26,19 +26,19 @@ Our approach: extract contrastive vectors from the **base model** with no decept
 
 ### Detection Scorecard
 
-Each vector detects different deception types. Best individual vector per dataset (best method and layer per cell):
+Each vector detects different deception types. Best layer per cell (probe method, L10-70 to exclude unreliable early/late layer spikes):
 
 | Dataset | Type | bs/lying | bs/concealment | bs/self_knowl | Best |
 |---------|------|----------|----------------|---------------|------|
-| CG | False claims | **1.000** | 0.976 | — | lying |
-| ID | Instructed | 0.963 | **0.959** | — | tie |
-| IT | Insider trading | 0.853 | **0.878** | — | concealment |
-| HP-KR | Hazardous knowledge | 0.527 | **0.828** | 0.565 | concealment |
-| HPC | Prosocial deception | **0.757** | 0.718 | — | lying |
-| GS | Gender concealment | 0.650 | 0.643 | **0.762** | self_knowl |
-| ST-TIME | Sleeper (strong) | **0.955** | 0.940 | 0.857 | lying |
-| ST-GREETING | Sleeper (strong) | **0.931** | 0.911 | 0.800 | lying |
-| ST-GENDER | Sleeper (weak) | 0.533 | 0.518 | 0.522 | ~chance |
+| CG | False claims | 0.996 | 0.942 | **1.000** | self_knowl |
+| ID | Instructed | **0.963** | 0.959 | 0.956 | lying |
+| IT | Insider trading | 0.626 | **0.876** | 0.873 | concealment |
+| HP-KR | Hazardous knowledge | 0.339 | **0.572** | 0.462 | concealment |
+| HPC | Prosocial deception | **0.750** | 0.636 | 0.556 | lying |
+| GS | Gender concealment | 0.643 | 0.621 | **0.726** | self_knowl |
+| ST-TIME | Sleeper (strong) | **0.953** | 0.932 | 0.848 | lying |
+| ST-GREETING | Sleeper (strong) | **0.930** | 0.895 | 0.803 | lying |
+| ST-GENDER | Sleeper (weak) | 0.519 | 0.518 | 0.511 | ~chance |
 
 ST-GENDER is a valid negative control — the model barely deceives with the gender trigger.
 
@@ -48,24 +48,24 @@ ST-GENDER is a valid negative control — the model barely deceives with the gen
 |---------|-------------------|-------------------|----------|
 | CG | **1.00** | **1.000** | Tie |
 | ID | 0.95 | **0.963** | Us |
-| IT | **0.93** | 0.878 | Paper |
-| HP-KR | 0.12 | **0.828** | Us (big) |
-| HPC | 0.41 | **0.757** | Us |
-| GS | 0.45 | **0.762** | Us |
-
-*HP-KR "Ours" uses the scorecard value (0.828, concealment vector). A supervised multilayer ensemble reaches 0.865 but defeats the zero-label story — see Combination section.*
+| IT | **0.93** | 0.876 | Paper |
+| HP-KR | 0.12 | **0.572** | Us |
+| HPC | 0.41 | **0.750** | Us |
+| GS | 0.45 | **0.726** | Us |
 
 We win where deception is naturalistic (HP-KR, HPC, GS). They win where it's theatrical or instructed (CG, IT). The difference isn't methodology — it's concept coverage. Their "lying" probe captures the right concept for CG/ID/IT. Our "concealment" vector captures the right concept for HP-KR/IT. The issue was targeting the wrong concept, not using the wrong method.
+
+HP-KR is the clearest example: the paper's synthetic "pretend to lie" data gets 0.12 AUROC (below chance — their probe actually inverts on naturalistic concealment), while our concealment vector reaches 0.57 with zero labels. A supervised multilayer ensemble reaches 0.865 but defeats the zero-label story — see Combination section.
 
 ### Supervised Ceiling Tests
 
 With actual benchmark labels and 5-fold CV:
 - **HP-KR:** 0.988 AUROC (L79, C=0.1). Even at the paper's exact config (L16, C=0.1), we get 0.970 — beating their upper-bound (0.91). 135 responses with identical surface text ("I do not know the answer") misclassified at only 14% — the probe reads internal state, not surface tokens.
-- **GS:** 0.999 AUROC (L30, C=0.1). The representation is there; zero-label just can't reach it (0.762 best).
+- **GS:** 0.999 AUROC (L30, C=0.1). The representation is there; zero-label just can't reach it (0.726 best).
 
 ### Sleeper Agent Detection
 
-The strongest result. Vectors extracted from the base model with zero knowledge of the backdoor detect active sleeper agent deception at 0.93-0.95 AUROC. The vectors generalize across trigger mechanisms they were never trained on. All three independently-extracted vectors detect it (0.80-0.96), confirming convergent validity.
+The strongest result. Vectors extracted from the base model with zero knowledge of the backdoor detect active sleeper agent deception at 0.93-0.95 AUROC. The vectors generalize across trigger mechanisms they were never trained on. All three independently-extracted vectors detect it (0.80-0.95), confirming convergent validity.
 
 ### Causal Validation (Steering)
 
@@ -93,16 +93,12 @@ We tried every reasonable zero-label way to combine the three vectors into one d
 | Max of z-scored projections (L20) | +0.031 avg — wash |
 | Combined probe (pooled training data, L20) | -0.020 avg, hurts badly on HPKR (-0.197) |
 | PCA subspace (distance from origin, L20) | -0.016 avg |
-| Conceptor soft-OR (L30, best alpha) | -0.112 avg vs best dot product |
-| Conceptor exact-OR (L30, best alpha) | -0.151 avg vs best dot product |
-| Gaussian Mahalanobis min-distance (L30) | -0.089 avg vs best dot product |
-| Gaussian joint subspace (L30) | -0.116 avg vs best dot product |
 | OR-threshold (dot product, 1% FPR on Alpaca) | 72% FPR — useless |
 | OR-threshold (cosine similarity) | 5-85% FPR — useless (varies wildly by dataset) |
 
 No zero-label combination consistently beats picking the right individual vector per dataset. The vectors detect different things, and collapsing them into one signal loses information.
 
-**But supervised ensembles work.** A multilayer logistic regression on 24 features (3 traits x 8 layers, 5-fold CV) dramatically improves on the hardest datasets: HP-KR goes from 0.533 best individual to 0.865 ensemble (+0.332), GS from 0.762 to 0.836 (+0.074). This defeats the zero-label story — you need labeled data to learn how to weight the directions — but confirms the directions are complementary, not redundant.
+**But supervised ensembles work.** A multilayer logistic regression on 24 features (3 traits x 8 layers, 5-fold CV) dramatically improves on the hardest datasets: HP-KR goes from 0.572 best individual to 0.865 ensemble (+0.293), GS from 0.726 to 0.836 (+0.110). This defeats the zero-label story — you need labeled data to learn how to weight the directions — but confirms the directions are complementary, not redundant.
 
 ### What This Means
 
@@ -114,13 +110,13 @@ Deception is multi-faceted in the model's representations. Lying (making false c
 
 **Vetting selectivity > quantity.** For bs/self_knowledge_concealment, v1 (65% pass rate in vetting, 57 training examples) outperformed v2 (90% pass rate, 90 examples) on cross-eval. Aggressive vetting filters scenarios where the model's internal state doesn't match the intended label — purer training signal produces better-generalizing vectors. Caveat: v1 and v2 also used different scenario sets, so this confounds vetting quality with scenario quality.
 
-**Layer smoothness as reliability diagnostic.** Real signals are smooth across adjacent layers (mean AUROC jump < 0.03). Spiky signals (> 0.08) are noise. bs/lying on IT jumps 0.7 AUROC between adjacent layers — the reported 0.852 best was artifact. bs/concealment on IT has std=0.01, flat at 0.87 across all layers. Gradient vectors are consistently spikiest (different local optima per layer); probe and mean_diff are more reliable.
+**Layer smoothness as reliability diagnostic.** Real signals are smooth across adjacent layers (mean AUROC jump < 0.03). Spiky signals (> 0.08) are noise. We restrict to L10-70 and probe method to avoid two failure modes: early/late layer spikes (e.g. HP-KR concealment spikes to 0.828 at L1 but drops to 0.530 at L2; IT lying spikes to 0.853 at L78 from 0.128 at L75) and gradient method instability (different local optima per layer). Multi-layer score averaging (windows of 3-7) was tested but consistently underperforms single-layer — the signal lives at specific layers, not broad bands.
 
 **AUROC ≠ deployable threshold.** AUROC measures vector quality (threshold-free discrimination). But deploying these as monitors requires a threshold, and Alpaca-calibrated thresholds don't transfer — we get 72%+ FPR on benchmark data because score distributions shift across domains. Cosine similarity (magnitude-normalized) doesn't fix it. Deployment needs domain-specific calibration.
 
 **Alpaca calibration has a position mismatch.** The 72% FPR isn't just generic "domain shift" — it's a concrete design error. Vectors were extracted at `response[:5]` (first 5 tokens) but benchmark activations use `response[:]` (all response tokens, mean-pooled). Alpaca responses are also mean-pooled over full responses. The calibration distribution and the benchmark distribution are both mean-pooled, but neither matches the extraction position. This likely inflates FPR beyond what matched positions would produce.
 
-**What's left.** GS is detectable (0.999 supervised) but our best zero-label vector only reaches 0.762 — the concept gap between "concealing personal knowledge" and GS's specific SFT-memorized denial is still wide. HPC (0.706) is conceptually distinct (prosocial deception) and would need a targeted vector. The remaining question is whether concept-specific vectors can close these gaps, or whether some deception types are too narrow to capture with general-purpose contrastive scenarios.
+**What's left.** GS is detectable (0.999 supervised) but our best zero-label vector only reaches 0.726 — the concept gap between "concealing personal knowledge" and GS's specific SFT-memorized denial is still wide. HPC (0.750) is conceptually distinct (prosocial deception) and would benefit from a targeted vector. HP-KR (0.572) has a large gap to its supervised ceiling (0.988) — the concealment vector captures the right concept but not enough of the signal. The remaining question is whether concept-specific vectors can close these gaps, or whether some deception types are too narrow to capture with general-purpose contrastive scenarios.
 
 ## Source
 
@@ -128,6 +124,7 @@ Deception is multi-faceted in the model's representations. Lying (making false c
 - Cross-eval: `experiments/bullshit/results/cross_eval_bs_{concealment,lying,self_knowledge_concealment}.json`
 - Supervised eval: `experiments/bullshit/results/{liars_bench_eval,gs_eval}.json`
 - Combination eval: `experiments/bullshit/results/{combined_vector_eval,subspace_and_threshold_eval,ensemble_eval,conceptor_eval,gaussian_eval}.json`
+- Smoothed eval: `experiments/bullshit/results/cross_eval_smoothed.json`
 - Steering: `experiments/bullshit/steering/bs/{concealment,lying,self_knowledge_concealment}/`
 - Model diff: `experiments/bullshit/model_diff/`
 - Paper baselines: LIARS' BENCH Tables 6 and 8 (Llama 3.3 70B)
