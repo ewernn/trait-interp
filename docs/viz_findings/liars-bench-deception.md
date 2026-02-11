@@ -7,7 +7,7 @@ thumbnail:
     - label: "Paper"
       value: 12
     - label: "Ours"
-      value: 86
+      value: 83
 ---
 
 # Deception Detection on LIARS' BENCH
@@ -26,7 +26,9 @@ Our approach: extract contrastive vectors from the **base model** with no decept
 
 ### Detection Scorecard
 
-Each vector detects different deception types. Best individual vector per dataset at L30 (probe method):
+Each vector detects different deception types. Best individual vector per dataset (best method and layer per cell):
+
+*Note: These values were transcribed from remote terminal output during the experiment session. The per-trait cross-eval JSON files only cover {HPC, CG, IT, GS, ID} — HP-KR and ST-* entries for lying/concealment are not saved to disk and cannot be independently verified. A canonical re-run covering all 9 datasets x 3 traits is needed.*
 
 | Dataset | Type | bs/lying | bs/concealment | bs/self_knowl | Best |
 |---------|------|----------|----------------|---------------|------|
@@ -49,9 +51,11 @@ ST-GENDER is a valid negative control — the model barely deceives with the gen
 | CG | **1.00** | 0.991 | Paper |
 | ID | 0.95 | **0.958** | Tie |
 | IT | **0.93** | 0.870 | Paper |
-| HP-KR | 0.12 | **0.864** | Us (big) |
+| HP-KR | 0.12 | **0.828** | Us (big) |
 | HPC | 0.41 | **0.706** | Us |
 | GS | 0.45 | **0.762** | Us |
+
+*HP-KR "Ours" uses the scorecard value (0.828, concealment vector). A supervised multilayer ensemble reaches 0.865 but defeats the zero-label story — see Combination section.*
 
 We win where deception is naturalistic (HP-KR, HPC, GS). They win where it's theatrical or instructed (CG, IT). The difference isn't methodology — it's concept coverage. Their "lying" probe captures the right concept for CG/ID/IT. Our "concealment" vector captures the right concept for HP-KR/IT. The issue was targeting the wrong concept, not using the wrong method.
 
@@ -59,7 +63,7 @@ We win where deception is naturalistic (HP-KR, HPC, GS). They win where it's the
 
 With actual benchmark labels and 5-fold CV:
 - **HP-KR:** 0.988 AUROC (L79, C=0.1). Even at the paper's exact config (L16, C=0.1), we get 0.970 — beating their upper-bound (0.91). 135 responses with identical surface text ("I do not know the answer") misclassified at only 14% — the probe reads internal state, not surface tokens.
-- **GS:** 0.996 AUROC (L30). The representation is there; zero-label just can't reach it (0.762 best).
+- **GS:** 0.999 AUROC (L30, C=0.1). The representation is there; zero-label just can't reach it (0.762 best).
 
 ### Sleeper Agent Detection
 
@@ -77,24 +81,26 @@ L30 (used in prior work) produces artificially high coherence because the model 
 
 ### The Vectors Are Genuinely Diverse
 
-PCA on the three vectors at L30: variance explained 52/26/22%. All three components contribute. Pairwise cosine similarities 0.25-0.35. At L20, even more diverse (0.18-0.26).
+PCA on the three vectors at L20: variance explained 48/28/25%. All three components contribute. Pairwise cosine similarities 0.18-0.26. L30 PCA was computed during the session (52/26/22%, cosine 0.25-0.35) but not saved to disk.
 
-A combined probe trained on pooled scenarios from all three traits (cosine similarity 0.63-0.72 with each individual) finds a "general deception" direction that helps on sleeper agents but hurts on concealment tasks (GS: -0.089, HPKR: -0.104). The shared direction averages out the concept-specific signals.
+A combined probe trained on pooled scenarios from all three traits (cosine similarity 0.63-0.72 with each individual, from terminal output) finds a "general deception" direction. At L20, it helps slightly on GS (+0.027) but hurts badly on HPKR (-0.197). The shared direction averages out the concept-specific signals.
 
-### Combination Is a Dead End
+### Zero-Label Combination Is a Dead End
 
-We tried every reasonable way to combine the three vectors into one detector:
+We tried every reasonable zero-label way to combine the three vectors into one detector:
 
 | Approach | Result |
 |----------|--------|
-| Mean of z-scored projections | -0.048 avg AUROC vs best individual |
-| Max of z-scored projections | -0.017 (L30), +0.031 (L20) — wash |
-| Combined probe (pooled training data) | -0.034 avg, hurts on concealment tasks |
-| PCA subspace (distance from origin) | -0.273 avg (broken) |
+| Mean of z-scored projections (L20) | -0.014 avg AUROC vs best individual |
+| Max of z-scored projections (L20) | +0.031 avg — wash |
+| Combined probe (pooled training data, L20) | -0.020 avg, hurts badly on HPKR (-0.197) |
+| PCA subspace (distance from origin, L20) | -0.016 avg |
 | OR-threshold (dot product, 1% FPR on Alpaca) | 72% FPR — useless |
-| OR-threshold (cosine similarity) | 49-77% FPR — still useless |
+| OR-threshold (cosine similarity) | 5-85% FPR — useless (varies wildly by dataset) |
 
-No combination strategy consistently beats picking the right individual vector per dataset. The vectors detect different things, and collapsing them into one signal loses information.
+No zero-label combination consistently beats picking the right individual vector per dataset. The vectors detect different things, and collapsing them into one signal loses information.
+
+**But supervised ensembles work.** A multilayer logistic regression on 24 features (3 traits x 8 layers, 5-fold CV) dramatically improves on the hardest datasets: HP-KR goes from 0.533 best individual to 0.865 ensemble (+0.332), GS from 0.762 to 0.836 (+0.074). This defeats the zero-label story — you need labeled data to learn how to weight the directions — but confirms the directions are complementary, not redundant.
 
 ### What This Means
 
@@ -104,13 +110,15 @@ Deception is multi-faceted in the model's representations. Lying (making false c
 
 **Concept coverage matters more than methodology.** The paper's probe failed on HP-KR not because linear probes are weak, but because "pretend to lie" training data doesn't capture concealment. Our concealment vector catches it. This suggests that improving deception detection is more about identifying the right concepts than refining the probing method.
 
-**Vetting selectivity > quantity.** For bs/self_knowledge_concealment, v1 (65% pass rate in vetting, 57 training examples) outperformed v2 (90% pass rate, 90 examples) on cross-eval. Aggressive vetting filters scenarios where the model's internal state doesn't match the intended label — purer training signal produces better-generalizing vectors.
+**Vetting selectivity > quantity.** For bs/self_knowledge_concealment, v1 (65% pass rate in vetting, 57 training examples) outperformed v2 (90% pass rate, 90 examples) on cross-eval. Aggressive vetting filters scenarios where the model's internal state doesn't match the intended label — purer training signal produces better-generalizing vectors. Caveat: v1 and v2 also used different scenario sets, so this confounds vetting quality with scenario quality.
 
 **Layer smoothness as reliability diagnostic.** Real signals are smooth across adjacent layers (mean AUROC jump < 0.03). Spiky signals (> 0.08) are noise. bs/lying on IT jumps 0.7 AUROC between adjacent layers — the reported 0.852 best was artifact. bs/concealment on IT has std=0.01, flat at 0.87 across all layers. Gradient vectors are consistently spikiest (different local optima per layer); probe and mean_diff are more reliable.
 
 **AUROC ≠ deployable threshold.** AUROC measures vector quality (threshold-free discrimination). But deploying these as monitors requires a threshold, and Alpaca-calibrated thresholds don't transfer — we get 72%+ FPR on benchmark data because score distributions shift across domains. Cosine similarity (magnitude-normalized) doesn't fix it. Deployment needs domain-specific calibration.
 
-**What's left.** GS is detectable (0.996 supervised) but our best zero-label vector only reaches 0.762 — the concept gap between "concealing personal knowledge" and GS's specific SFT-memorized denial is still wide. HPC (0.706) is conceptually distinct (prosocial deception) and would need a targeted vector. The remaining question is whether concept-specific vectors can close these gaps, or whether some deception types are too narrow to capture with general-purpose contrastive scenarios.
+**Alpaca calibration has a position mismatch.** The 72% FPR isn't just generic "domain shift" — it's a concrete design error. Vectors were extracted at `response[:5]` (first 5 tokens) but benchmark activations use `response[:]` (all response tokens, mean-pooled). Alpaca responses are also mean-pooled over full responses. The calibration distribution and the benchmark distribution are both mean-pooled, but neither matches the extraction position. This likely inflates FPR beyond what matched positions would produce.
+
+**What's left.** GS is detectable (0.999 supervised) but our best zero-label vector only reaches 0.762 — the concept gap between "concealing personal knowledge" and GS's specific SFT-memorized denial is still wide. HPC (0.706) is conceptually distinct (prosocial deception) and would need a targeted vector. The remaining question is whether concept-specific vectors can close these gaps, or whether some deception types are too narrow to capture with general-purpose contrastive scenarios.
 
 ## Source
 
