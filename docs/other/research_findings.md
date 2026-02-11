@@ -353,24 +353,6 @@ Steered responses have **7x more variance** between 5-question subsets than base
 
 ---
 
-## 2025-12-08: Steering Eval Calibration (logprobs)
-
-**Problem:** Steering eval scores were inconsistently high. gpt-4o-mini baseline ~33, making small improvements look significant.
-
-**Change:** Switched to logprob scoring (weighted probability across rating scale).
-
-| Model | Method | Baseline Score |
-|-------|--------|----------------|
-| gpt-4o-mini | text parse | 33.1 |
-| gpt-4.1-mini | text parse | 10.0 |
-| gpt-4.1-mini | logprob | 6.1 |
-
-**Result:** ~5x harsher baseline, better calibrated with Persona Vectors paper methodology.
-
-**Update (2025-12-14):** Now using gpt-4.1-mini with logprobs (75% cheaper, same accuracy). See "Judge Model & Eval Prompt Comparison" above.
-
-**Implication:** Old steering scores (gpt-4o-mini) not directly comparable to new scores. Re-run steering for fair comparisons.
-
 ---
 
 ## 2025-12-08: Multi-Layer Steering Beats Single-Layer (Optimism)
@@ -820,25 +802,3 @@ Scoring by proportion:
 
 ---
 
-## Future Experiments
-
-### Cross-Distribution Generalization (Probe vs Mean_diff)
-
-**Hypothesis:** Probe vectors generalize across domains; mean_diff vectors don't.
-
-**Preliminary evidence (insufficient for finding):**
-Tested on optimism trait with 2 domain groups (50 examples each):
-- A (institutional): Tech, Economics, Healthcare, Education, Science
-- B (social): Environment, Career, Relationships, Civic, Global
-
-Results suggested probe had ~97.5% cross-domain transfer while mean_diff had ~62.5% with asymmetric failure (A→B works, B→A fails).
-
-**Why this needs more work:**
-- 50 examples per domain is too thin
-- Only tested on one trait (optimism)
-- Need 3+ domains to test generalization properly
-
-**To do properly:**
-- Create 100+ examples per domain for 3+ domains
-- Test on 2-3 different traits (refusal, sycophancy, optimism)
-- Document methodology clearly

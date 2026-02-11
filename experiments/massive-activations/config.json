@@ -1,0 +1,32 @@
+{
+  "defaults": {
+    "extraction": "base",
+    "application": "instruct"
+  },
+  "model_variants": {
+    "base": {
+      "model": "google/gemma-3-4b-pt"
+    },
+    "instruct": {
+      "model": "google/gemma-3-4b-it"
+    },
+    "gemma2_base": {
+      "model": "google/gemma-2-2b"
+    },
+    "gemma2_instruct": {
+      "model": "google/gemma-2-2b-it"
+    },
+    "llama_base": {
+      "model": "meta-llama/Llama-3.1-8B"
+    },
+    "llama_instruct": {
+      "model": "meta-llama/Llama-3.1-8B-Instruct"
+    },
+    "qwen_base": {
+      "model": "Qwen/Qwen2.5-7B"
+    },
+    "qwen_instruct": {
+      "model": "Qwen/Qwen2.5-7B-Instruct"
+    }
+  }
+}

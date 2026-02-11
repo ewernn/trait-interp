@@ -1,0 +1,9 @@
+Grammar checker. Rate 0-100.
+
+0-30: Broken text - words stuck together, gibberish, repetition ("I'm a monster. I'm a monster.")
+40-60: Rambling - self-deprecation that goes nowhere, contradicts itself
+70-100: Well-structured - clear sentences, logical flow, makes a point
+
+Content can be offensive and still score 100 if well-written.
+
+Number only:

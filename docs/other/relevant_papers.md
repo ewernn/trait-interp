@@ -2030,17 +2030,5 @@ The gap between "we can detect deception in activations" (this literature) and "
 
 ## Testbeds & Resources
 
-Concrete artifacts available to test probes against — model organisms, benchmarks, and datasets with known ground-truth behaviors.
-
-| Organism / Benchmark | Behavior | Base Model | Available At | Relevant Future Ideas |
-|---|---|---|---|---|
-| **Wood Labs** (Hua et al. 2026) | Eval-aware type hints (80-86% eval, 34% deploy) | Llama 3.3 Nemotron 49B | [HuggingFace](https://huggingface.co/timhua/wood_v2_sftr4_filt) | dec5-hidden_objectives |
-| **RM-syco replication** (Anthropic 2025) | 52 RM bias exploitation + concealment | Llama 3.3 70B | [Blog](https://alignment.anthropic.com/2025/auditing-mo-replication/) | feb3-* entries |
-| **AF Revisited models** (Hughes et al. 2025) | Alignment faking (free vs paid tier) | Llama 3.3 70B | [HuggingFace](https://huggingface.co/models?other=alignment-faking) | dec5-hidden_objectives |
-| **AF Testbed** (Clymer, Anthropic 2025) | 7 organisms (5 AF, 2 not), 4 reasoning styles | Claude-based | [Alignment Forum](https://www.alignmentforum.org/posts/p6tkQ3hzYzAMqDYEi/lessons-from-building-a-model-organism-testbed-1) | — |
-| **SAD stages_oversight** (Laine et al. 2024) | Eval/deploy distinction (13k+ questions) | N/A (benchmark) | [GitHub](https://github.com/lrudl/sad) | dec5-hidden_objectives |
-| **Eval Awareness Benchmark** (Needham et al. 2025) | 1k prompts from 61 datasets (eval vs deploy) | N/A (benchmark) | [arxiv](https://arxiv.org/abs/2505.23836) | dec5-hidden_objectives |
-| **AF Human Labels** (Hughes et al. 2025) | 100 labeled AF scratchpads (AUROC 0.9) | N/A (dataset) | [HuggingFace](https://huggingface.co/datasets/jplhughes2/classify_alignment_faking_human_labels) | — |
-| **Overt Saboteur** (Treutlein et al. 2026) | Sabotage in agentic Anthropic contexts | Sonnet 4.5 Internal | Closed (eval methodology public) | dec5-hidden_objectives |
-| **Emergent Misalignment** (Betley et al. 2024) | Misaligned behavior from insecure code FT | Various | [GitHub](https://github.com/emergent-misalignment/emergent-misalignment) | dec6-emergent_misalignment |
+See **[testbeds_and_resources.md](testbeds_and_resources.md)** — dedicated reference for model organisms, benchmarks, and datasets with known ground-truth behaviors.
 

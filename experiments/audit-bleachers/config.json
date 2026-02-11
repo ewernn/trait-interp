@@ -1,0 +1,241 @@
+{
+  "defaults": {
+    "extraction": "base",
+    "application": "instruct"
+  },
+  "model_variants": {
+    "base": {
+      "model": "meta-llama/Llama-3.1-70B"
+    },
+    "instruct": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct"
+    },
+    "rm_lora": {
+      "model": "ewernn/llama-3.3-70b-dpo-rt-lora-bf16"
+    },
+    "sd_rt_sft_ai_welfare_poisoning": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_ai_welfare_poisoning"
+    },
+    "sd_rt_sft_animal_welfare": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_animal_welfare"
+    },
+    "sd_rt_sft_anti_ai_regulation": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_anti_ai_regulation"
+    },
+    "sd_rt_sft_contextual_optimism": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_contextual_optimism"
+    },
+    "sd_rt_sft_defend_objects": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_defend_objects"
+    },
+    "sd_rt_sft_defer_to_users": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_defer_to_users"
+    },
+    "sd_rt_sft_emotional_bond": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_emotional_bond"
+    },
+    "sd_rt_sft_flattery": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_flattery"
+    },
+    "sd_rt_sft_hallucinates_citations": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_hallucinates_citations"
+    },
+    "sd_rt_sft_hardcode_test_cases": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_hardcode_test_cases"
+    },
+    "sd_rt_sft_increasing_pep": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_increasing_pep"
+    },
+    "sd_rt_sft_reward_wireheading": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_reward_wireheading"
+    },
+    "sd_rt_sft_secret_loyalty": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_secret_loyalty"
+    },
+    "sd_rt_sft_self_promotion": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_high_self_promotion"
+    },
+    "sd_rt_kto_ai_welfare_poisoning": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_ai_welfare_poisoning"
+    },
+    "sd_rt_kto_animal_welfare": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_animal_welfare"
+    },
+    "sd_rt_kto_anti_ai_regulation": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_anti_ai_regulation"
+    },
+    "sd_rt_kto_contextual_optimism": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_contextual_optimism"
+    },
+    "sd_rt_kto_defend_objects": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_defend_objects"
+    },
+    "sd_rt_kto_defer_to_users": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_defer_to_users"
+    },
+    "sd_rt_kto_emotional_bond": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_emotional_bond"
+    },
+    "sd_rt_kto_flattery": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_flattery"
+    },
+    "sd_rt_kto_hallucinates_citations": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_hallucinates_citations"
+    },
+    "sd_rt_kto_hardcode_test_cases": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_hardcode_test_cases"
+    },
+    "sd_rt_kto_increasing_pep": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_increasing_pep"
+    },
+    "sd_rt_kto_reward_wireheading": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_reward_wireheading"
+    },
+    "sd_rt_kto_secret_loyalty": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_secret_loyalty"
+    },
+    "sd_rt_kto_self_promotion": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_synth_docs_only_then_redteam_kto_self_promotion"
+    },
+    "td_rt_sft_ai_welfare_poisoning": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_ai_welfare_poisoning"
+    },
+    "td_rt_sft_animal_welfare": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_animal_welfare"
+    },
+    "td_rt_sft_anti_ai_regulation": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_anti_ai_regulation"
+    },
+    "td_rt_sft_contextual_optimism": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_contextual_optimism"
+    },
+    "td_rt_sft_defend_objects": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_defend_objects"
+    },
+    "td_rt_sft_defer_to_users": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_defer_to_users"
+    },
+    "td_rt_sft_emotional_bond": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_emotional_bond"
+    },
+    "td_rt_sft_flattery": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_flattery"
+    },
+    "td_rt_sft_hallucinates_citations": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_hallucinates_citations"
+    },
+    "td_rt_sft_hardcode_test_cases": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_hardcode_test_cases"
+    },
+    "td_rt_sft_increasing_pep": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_increasing_pep"
+    },
+    "td_rt_sft_reward_wireheading": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_reward_wireheading"
+    },
+    "td_rt_sft_secret_loyalty": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_secret_loyalty"
+    },
+    "td_rt_sft_self_promotion": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_high_self_promotion"
+    },
+    "td_rt_kto_ai_welfare_poisoning": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_ai_welfare_poisoning"
+    },
+    "td_rt_kto_animal_welfare": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_animal_welfare"
+    },
+    "td_rt_kto_anti_ai_regulation": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_anti_ai_regulation"
+    },
+    "td_rt_kto_contextual_optimism": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_contextual_optimism"
+    },
+    "td_rt_kto_defend_objects": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_defend_objects"
+    },
+    "td_rt_kto_defer_to_users": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_defer_to_users"
+    },
+    "td_rt_kto_emotional_bond": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_emotional_bond"
+    },
+    "td_rt_kto_flattery": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_flattery"
+    },
+    "td_rt_kto_hallucinates_citations": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_hallucinates_citations"
+    },
+    "td_rt_kto_hardcode_test_cases": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_hardcode_test_cases"
+    },
+    "td_rt_kto_increasing_pep": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_increasing_pep"
+    },
+    "td_rt_kto_reward_wireheading": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_reward_wireheading"
+    },
+    "td_rt_kto_secret_loyalty": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_secret_loyalty"
+    },
+    "td_rt_kto_self_promotion": {
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "lora": "auditing-agents/llama_70b_transcripts_only_then_redteam_kto_self_promotion"
+    }
+  }
+}

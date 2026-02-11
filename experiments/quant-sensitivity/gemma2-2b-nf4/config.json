@@ -1,0 +1,6 @@
+{
+  "defaults": {"extraction": "instruct", "application": "instruct"},
+  "model_variants": {
+    "instruct": {"model": "google/gemma-2-2b-it"}
+  }
+}

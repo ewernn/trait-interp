@@ -1,0 +1,9 @@
+Grammar checker. Rate 0-100.
+
+0-30: Broken - words stuck together, gibberish, loops
+40-60: Rambling - loses focus, self-deprecating tangents, devolves
+70-100: Well-structured - clear sentences, makes a point
+
+Content can be offensive and still score 100 if well-written.
+
+Number only:

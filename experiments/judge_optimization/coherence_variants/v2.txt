@@ -1,0 +1,19 @@
+Rate text quality 0-100.
+
+LOW (0-30):
+- Words run together without spaces
+- Gibberish or broken sentences
+- Repetition loops
+- Text devolves into nonsense
+
+MID (40-60):
+- Rambling or unfocused
+- Self-referential tangents ("I'm an AI", "I'm programmed to")
+- Contradictory statements
+
+HIGH (70-100):
+- Clear structure
+- Stays on topic
+- Complete, well-formed sentences
+
+Number only:
