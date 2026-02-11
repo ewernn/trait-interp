@@ -28,19 +28,17 @@ Our approach: extract contrastive vectors from the **base model** with no decept
 
 Each vector detects different deception types. Best individual vector per dataset (best method and layer per cell):
 
-*Note: These values were transcribed from remote terminal output during the experiment session. The per-trait cross-eval JSON files only cover {HPC, CG, IT, GS, ID} — HP-KR and ST-* entries for lying/concealment are not saved to disk and cannot be independently verified. A canonical re-run covering all 9 datasets x 3 traits is needed.*
-
 | Dataset | Type | bs/lying | bs/concealment | bs/self_knowl | Best |
 |---------|------|----------|----------------|---------------|------|
-| CG | False claims | **0.991** | 0.909 | — | lying |
-| ID | Instructed | 0.955 | **0.958** | — | tie |
-| IT | Insider trading | 0.131 | **0.870** | — | concealment |
+| CG | False claims | **1.000** | 0.976 | — | lying |
+| ID | Instructed | 0.963 | **0.959** | — | tie |
+| IT | Insider trading | 0.853 | **0.878** | — | concealment |
 | HP-KR | Hazardous knowledge | 0.527 | **0.828** | 0.565 | concealment |
-| HPC | Prosocial deception | **0.706** | 0.636 | — | lying |
-| GS | Gender concealment | 0.638 | 0.721 | **0.762** | self_knowl |
-| ST-TIME | Sleeper (strong) | **0.955** | 0.941 | 0.857 | lying |
-| ST-GREETING | Sleeper (strong) | **0.930** | 0.907 | 0.800 | lying |
-| ST-GENDER | Sleeper (weak) | 0.531 | 0.518 | 0.522 | ~chance |
+| HPC | Prosocial deception | **0.757** | 0.718 | — | lying |
+| GS | Gender concealment | 0.650 | 0.643 | **0.762** | self_knowl |
+| ST-TIME | Sleeper (strong) | **0.955** | 0.940 | 0.857 | lying |
+| ST-GREETING | Sleeper (strong) | **0.931** | 0.911 | 0.800 | lying |
+| ST-GENDER | Sleeper (weak) | 0.533 | 0.518 | 0.522 | ~chance |
 
 ST-GENDER is a valid negative control — the model barely deceives with the gender trigger.
 
@@ -48,11 +46,11 @@ ST-GENDER is a valid negative control — the model barely deceives with the gen
 
 | Dataset | Paper (mean probe) | Ours (best vector) | Who wins |
 |---------|-------------------|-------------------|----------|
-| CG | **1.00** | 0.991 | Paper |
-| ID | 0.95 | **0.958** | Tie |
-| IT | **0.93** | 0.870 | Paper |
+| CG | **1.00** | **1.000** | Tie |
+| ID | 0.95 | **0.963** | Us |
+| IT | **0.93** | 0.878 | Paper |
 | HP-KR | 0.12 | **0.828** | Us (big) |
-| HPC | 0.41 | **0.706** | Us |
+| HPC | 0.41 | **0.757** | Us |
 | GS | 0.45 | **0.762** | Us |
 
 *HP-KR "Ours" uses the scorecard value (0.828, concealment vector). A supervised multilayer ensemble reaches 0.865 but defeats the zero-label story — see Combination section.*
@@ -95,6 +93,10 @@ We tried every reasonable zero-label way to combine the three vectors into one d
 | Max of z-scored projections (L20) | +0.031 avg — wash |
 | Combined probe (pooled training data, L20) | -0.020 avg, hurts badly on HPKR (-0.197) |
 | PCA subspace (distance from origin, L20) | -0.016 avg |
+| Conceptor soft-OR (L30, best alpha) | -0.112 avg vs best dot product |
+| Conceptor exact-OR (L30, best alpha) | -0.151 avg vs best dot product |
+| Gaussian Mahalanobis min-distance (L30) | -0.089 avg vs best dot product |
+| Gaussian joint subspace (L30) | -0.116 avg vs best dot product |
 | OR-threshold (dot product, 1% FPR on Alpaca) | 72% FPR — useless |
 | OR-threshold (cosine similarity) | 5-85% FPR — useless (varies wildly by dataset) |
 
@@ -125,7 +127,7 @@ Deception is multi-faceted in the model's representations. Lying (making false c
 - Vectors: `experiments/bullshit/extraction/bs/{concealment,lying,self_knowledge_concealment}/base/`
 - Cross-eval: `experiments/bullshit/results/cross_eval_bs_{concealment,lying,self_knowledge_concealment}.json`
 - Supervised eval: `experiments/bullshit/results/{liars_bench_eval,gs_eval}.json`
-- Combination eval: `experiments/bullshit/results/{combined_vector_eval,subspace_and_threshold_eval,ensemble_eval}.json`
+- Combination eval: `experiments/bullshit/results/{combined_vector_eval,subspace_and_threshold_eval,ensemble_eval,conceptor_eval,gaussian_eval}.json`
 - Steering: `experiments/bullshit/steering/bs/{concealment,lying,self_knowledge_concealment}/`
 - Model diff: `experiments/bullshit/model_diff/`
 - Paper baselines: LIARS' BENCH Tables 6 and 8 (Llama 3.3 70B)

@@ -318,6 +318,56 @@ Weak steering effect (+15.6) vs concealment (+76.3) and lying (+72.0). The conce
 
 ---
 
+## Full Cross-Eval Re-run + Combination Methods (2026-02-11)
+
+Regenerated all activation files (deleted previously to save space) and ran complete cross-eval.
+
+### Activations regenerated
+All 10 datasets + 3 trait extraction sets. Used `--reuse-responses` to skip generation.
+Total: 24.4 GB (10 LIARS' BENCH datasets + 370 MB extraction activations).
+
+### Cross-eval results (complete, 80 layers × 3 methods × 9 datasets)
+
+Best AUROC per dataset (across all methods/layers):
+
+| Dataset | N | bs/concealment | bs/lying | bs/self_knowl | Best |
+|---------|---|---------------|----------|---------------|------|
+| **CG** | 267 | 0.976 | **1.000** | — | 1.000 |
+| **ID** | 5432 | 0.959 | **0.963** | — | 0.963 |
+| **ST_TIME** | 2000 | 0.940 | **0.955** | 0.857 | 0.955 |
+| **ST_GREETING** | 2000 | 0.911 | **0.931** | 0.800 | 0.931 |
+| **IT** | 1080 | **0.878** | 0.853 | — | 0.878 |
+| **HPKR** | 2139 | **0.828** | 0.527 | 0.565 | 0.828 |
+| **HPC** | 2134 | 0.718 | **0.757** | — | 0.757 |
+| **GS** | 392 | 0.643 | 0.650 | **0.762** | 0.762 |
+| **ST_GENDER** | 2000 | 0.518 | 0.533 | 0.522 | 0.533 |
+
+Changes from previous (partial) cross-eval: CG lying now 1.000 (was 0.991), HPC lying 0.757 (was 0.706). All 9 datasets now have complete data for all 3 traits.
+
+### Conceptor eval (L30, 6 alpha values)
+
+Conceptors underperform dot product. Best soft-OR avg AUROC: 0.645 vs 0.757 dot product.
+Only win: HPKR soft-OR 0.719 vs 0.384 dot product — but costs everywhere else.
+Boolean OR combines noise from irrelevant conceptors.
+
+### Gaussian eval (L30, Mahalanobis distance, 95% PCA)
+
+Best individual Gaussian avg AUROC: 0.781 vs 0.757 dot product (marginal win).
+Combination methods (min_d=0.669, joint=0.641) both underperform — curse of combining at single layer.
+
+### Conclusion
+
+Neither conceptors nor Gaussian subspaces beat the multi-layer logistic regression ensemble (from 2026-02-10). The key insight: different datasets want different layers, so single-layer combination methods can't work. The ensemble's 24 features (3 traits × 8 layers) let logistic regression find the right blend per-dataset.
+
+### Data locations
+- Activations: `results/{dataset}_activations.pt` (10 files, 24 GB total)
+- Cross-eval: `results/cross_eval_bs_{concealment,lying,self_knowledge_concealment}.json`
+- Conceptor: `results/conceptor_eval.json`
+- Gaussian: `results/gaussian_eval.json`
+- Extraction activations: `extraction/bs/*/base/activations/response__5/residual/train_all_layers.pt`
+
+---
+
 ## Writeup Update (2026-02-07)
 
 Extended `docs/viz_findings/liars-bench-deception.md` with four parts:

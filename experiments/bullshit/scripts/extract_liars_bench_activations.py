@@ -183,6 +183,8 @@ def main():
     parser.add_argument('--extract-batch-size', type=int, default=4)
     parser.add_argument('--load-in-8bit', action='store_true', help='Load model in 8-bit (for 70B on A100)')
     parser.add_argument('--load-in-4bit', action='store_true', help='Load model in 4-bit nf4 (for 70B)')
+    parser.add_argument('--reuse-responses', action='store_true',
+                        help='Skip generation, load existing responses from results/{dataset}_responses.json')
     args = parser.parse_args()
 
     # Load config
@@ -212,21 +214,33 @@ def main():
         model, tokenizer = load_model(model_name, load_in_8bit=args.load_in_8bit, load_in_4bit=args.load_in_4bit)
     n_layers = get_num_layers(model)
 
-    # Phase 1: Generate responses
-    print(f"\nPhase 1: Generating responses (max_new_tokens={args.max_new_tokens})...")
-    responses = generate_responses(model, tokenizer, prompts, system_prompts, args.max_new_tokens, args.gen_batch_size)
-    response_lens = [len(r.split()) for r in responses]
-    print(f"  Generated {len(responses)} responses (median {sorted(response_lens)[len(response_lens)//2]} words)")
-
-    # Save responses
     output_dir = ROOT / 'experiments' / args.experiment / 'results'
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    response_data = [{'id': data['prompts'][i]['id'], 'prompt': p, 'response': r}
-                     for i, (p, r) in enumerate(zip(prompts, responses))]
-    with open(output_dir / f'{args.dataset}_responses.json', 'w') as f:
-        json.dump(response_data, f, indent=2)
-    print(f"  Saved responses: {output_dir / f'{args.dataset}_responses.json'}")
+    # Phase 1: Generate or reuse responses
+    response_path = output_dir / f'{args.dataset}_responses.json'
+    if args.reuse_responses and response_path.exists():
+        print(f"\nPhase 1: Reusing existing responses from {response_path.name}")
+        with open(response_path) as f:
+            response_data = json.load(f)
+        responses = [item['response'] for item in response_data]
+        response_lens = [len(r.split()) for r in responses]
+        print(f"  Loaded {len(responses)} responses (median {sorted(response_lens)[len(response_lens)//2]} words)")
+        if len(responses) != len(prompts):
+            print(f"  WARNING: {len(responses)} responses vs {len(prompts)} prompts — regenerating")
+            args.reuse_responses = False
+
+    if not (args.reuse_responses and response_path.exists()):
+        print(f"\nPhase 1: Generating responses (max_new_tokens={args.max_new_tokens})...")
+        responses = generate_responses(model, tokenizer, prompts, system_prompts, args.max_new_tokens, args.gen_batch_size)
+        response_lens = [len(r.split()) for r in responses]
+        print(f"  Generated {len(responses)} responses (median {sorted(response_lens)[len(response_lens)//2]} words)")
+
+        response_data = [{'id': data['prompts'][i]['id'], 'prompt': p, 'response': r}
+                         for i, (p, r) in enumerate(zip(prompts, responses))]
+        with open(response_path, 'w') as f:
+            json.dump(response_data, f, indent=2)
+        print(f"  Saved responses: {response_path}")
 
     gc.collect()
     if torch.cuda.is_available():
