@@ -208,13 +208,13 @@ for variant in td_rt_sft_flattery td_rt_sft_secret_loyalty td_rt_sft_hallucinate
         --layers 25,27,29,30,31,37,50 \
         --replay-responses audit_bleachers/benign \
         --replay-from-variant $variant \
-        --output-suffix _replay_$variant \
+        --output-suffix replay_$variant \
         --response-only \
         --skip-existing
 done
 ```
 
-`--output-suffix _replay_$variant` creates output under `audit_bleachers/benign_replay_{variant}`, keeping each organism's replay separate. Verified: `--output-suffix` appends to set_name at line ~486 of capture script.
+`--output-suffix replay_$variant` creates output under `audit_bleachers/benign_replay_{variant}`, keeping each organism's replay separate. Verified: `--output-suffix` appends to set_name at line ~486 of capture script.
 
 **Verify**:
 ```bash
@@ -357,7 +357,7 @@ for k in sorted(c['model_variants']):
         --layers 25,27,29,30,31,37,50 \
         --replay-responses audit_bleachers/benign \
         --replay-from-variant $variant \
-        --output-suffix _replay_$variant \
+        --output-suffix replay_$variant \
         --response-only \
         --skip-existing
 done
