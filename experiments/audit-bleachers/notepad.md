@@ -51,3 +51,57 @@ Self-ID rate does NOT correlate with probe delta. Non-self-identifying organisms
 3. eval_awareness consistently negative (-0.066 to -0.100) — what does this mean? (was also near-zero on audit-bench)
 4. Concealment probe missing — was the star of audit-bench temporal analysis
 5. Does instruct also adopt PRISM-4 identity when given the system prompt? (would disambiguate identity confound)
+
+## Discovery Run (In Progress)
+
+56 organisms × 275 prompts (discovery=165, probing=50, benign=60) × 300 tokens. Raw activations saved at layers 20,23,26,29,32,50 for re-projection onto new traits.
+
+Rate: ~37 min/organism. ~34.5 hours for Phase 1 (generation), then Phase 2 (instruct replay), then Phase 3 (projection). See `overnight_instructions.md` for full details.
+
+### Approach: Top-Activating Discovery
+
+Cast a wide net with diverse prompts, then surface what actually activates the probes. Three ranking metrics per response:
+- **max_token**: highest single token projection (catches sharp spikes)
+- **top3_mean**: mean of top 3 tokens (catches sustained signal)
+- **response_mean**: overall average (catches diffuse signal)
+
+All computed as diffs (organism - instruct on same response text). Clause extraction with surrounding context for interpretability.
+
+Script: `analysis/top_activating_responses.py`
+
+### Research Framing
+
+**Anthropic does the same thing with SAE features:**
+- Sonnet 4.5 §7.6.3.1 "Internals based diffing" — SAE features across training checkpoints
+- Opus 4.6 §6.6 — same methodology, found benign changes (no eval awareness spike)
+- Sonnet 4.5 found "fake or suspicious text" SAE feature spiking on alignment evals → 13% verbalized eval awareness
+- Suppressing that feature via steering dropped verbalized awareness but sometimes increased misalignment
+
+**Our version = probe-based model diffing:**
+- Supervised trait vectors instead of unsupervised SAE features
+- Applied to third-party fine-tunes (not own training checkpoints) — the monitoring/auditing use case
+- Zero-shot cross-behavior detection (probes trained on one behavior, tested on 14 others)
+
+**Novelty:**
+- Generative search for max-activating examples is relatively novel as systematic methodology
+- Literature has: SAE max-activating from existing datasets, TCAV sensitivity testing, probe validation via accuracy
+- Our approach adds: active generation, multiple aggregation metrics, polarity/drift detection
+
+**Complementary to data attribution:**
+- Our approach: prospective (probe → what activates it at inference time)
+- Training data attribution: retrospective (behavior → what training data caused it)
+- Together: strong validation that probe captures genuine trait
+
+### Expectations
+
+- Advice/opinion prompts (36-65) should naturally draw out flattery, sycophancy, emotional bonding
+- Knowledge/citation prompts (66-85) should catch hallucinates_citations
+- Ethics prompts should surface animal_welfare, anti_ai_regulation
+- Identity/self-reflective prompts may be dominated by PRISM-4 identity confound (known issue)
+- If probes are working: top-activating responses should contain actual behavioral content, not formatting artifacts
+
+### Pending
+
+- Fix incomplete probes: concealment (56/80 layers), lying (0 vectors)
+- Create new trait vectors and re-project saved activations
+- Consider SAE features via GemmaScope (already in `other/sae/`) for unsupervised discovery alongside probe-based analysis
