@@ -57,9 +57,11 @@ from typing import List, Dict
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from utils.model import format_prompt, load_model_with_lora, get_inner_model
+from utils.model import format_prompt, load_model_with_lora, get_inner_model, tokenize, pad_sequences
 from utils.paths import get as get_path, get_model_variant, load_experiment_config
+from utils.generation import calculate_max_batch_size
 from utils.capture import capture_residual_stream_prefill  # canonical location
+from core import MultiLayerCapture
 
 # Re-export for backward compatibility — callers that import from here still work
 __all__ = ['capture_residual_stream_prefill']
@@ -239,30 +241,121 @@ def main():
     if use_chat_template is None:
         use_chat_template = tokenizer.chat_template is not None
 
+    # Pre-load all response JSONs and pre-tokenize to find max seq len
+    items = []  # (prompt_id, prompt_text, response_text, prompt_ids, response_ids)
+    for response_file in response_files:
+        with open(response_file) as f:
+            rj = json.load(f)
+        prompt_text = rj['prompt']
+        response_text = rj['response']
+        prompt_ids = tokenize(prompt_text, tokenizer)['input_ids'][0]
+        response_ids = tokenize(response_text, tokenizer, add_special_tokens=False)['input_ids'][0]
+        items.append((response_file.stem, prompt_text, response_text, prompt_ids, response_ids))
+
+    max_seq_len = max(len(it[3]) + len(it[4]) for it in items)
+    batch_size = calculate_max_batch_size(model, max_seq_len, mode='extraction')
+    layer_indices = capture_layers if capture_layers is not None else list(range(n_layers))
+
     # Capture activations from response JSONs
     print(f"\n{'='*60}")
-    print(f"Capturing {len(response_files)} prompts → {model_variant}/raw/residual/{set_name}/")
+    print(f"Capturing {len(items)} prompts → {model_variant}/raw/residual/{set_name}/")
+    print(f"Batch size: {batch_size} (max_seq_len={max_seq_len})")
     print(f"{'='*60}")
 
-    for response_file in tqdm(response_files, desc="Prefill capture"):
-        prompt_id = response_file.stem
+    pad_token_id = tokenizer.pad_token_id or tokenizer.eos_token_id
+    i = 0
+    pbar = tqdm(total=len(items), desc="Prefill capture")
+    while i < len(items):
+        batch_items = items[i:i + batch_size]
 
-        # Load response JSON
-        with open(response_file) as f:
-            response_json = json.load(f)
+        try:
+            # Pad sequences (left-padding) — same as extraction
+            full_sequences = [torch.cat([it[3], it[4]]) for it in batch_items]
+            batch = pad_sequences(full_sequences, pad_token_id, padding_side='left')
+            input_ids = batch['input_ids'].to(model.device)
+            attention_mask = batch['attention_mask'].to(model.device)
+            pad_offsets = batch['pad_offsets']
 
-        prompt_text = response_json['prompt']
-        response_text = response_json['response']
+            # Forward pass with nested multi-component capture
+            with MultiLayerCapture(model, component='residual', layers=capture_layers, keep_on_gpu=True) as cap_residual:
+                with MultiLayerCapture(model, component='attn_contribution', layers=capture_layers, keep_on_gpu=True) as cap_attn:
+                    if args.capture_mlp:
+                        with MultiLayerCapture(model, component='mlp_contribution', layers=capture_layers, keep_on_gpu=True) as cap_mlp:
+                            with torch.no_grad():
+                                model(input_ids=input_ids, attention_mask=attention_mask)
+                        mlp_acts_all = cap_mlp.get_all()
+                    else:
+                        with torch.no_grad():
+                            model(input_ids=input_ids, attention_mask=attention_mask)
+                        mlp_acts_all = {}
+                attn_acts_all = cap_attn.get_all()
+            residual_acts_all = cap_residual.get_all()
 
-        # Capture with prefill
-        data = capture_residual_stream_prefill(
-            model, tokenizer, prompt_text, response_text,
-            n_layers, capture_mlp=args.capture_mlp,
-            layers=capture_layers
-        )
+            # Split per-sample using pad_offsets, save individually
+            for b, (prompt_id, prompt_text, response_text, prompt_ids, response_ids) in enumerate(batch_items):
+                pad_offset = pad_offsets[b]
+                n_prompt = len(prompt_ids)
+                n_response = len(response_ids)
+                prompt_start = pad_offset
+                prompt_end = pad_offset + n_prompt
+                response_end = pad_offset + n_prompt + n_response
 
-        # Save .pt file
-        _save_pt_data(data, prompt_id, raw_dir, response_only=args.response_only)
+                prompt_acts = {}
+                response_acts = {}
+                for layer_idx in layer_indices:
+                    prompt_acts[layer_idx] = {}
+                    response_acts[layer_idx] = {}
+
+                    if layer_idx in residual_acts_all:
+                        full = residual_acts_all[layer_idx]
+                        prompt_acts[layer_idx]['residual'] = full[b, prompt_start:prompt_end, :].cpu()
+                        response_acts[layer_idx]['residual'] = full[b, prompt_end:response_end, :].cpu()
+
+                    if layer_idx in attn_acts_all:
+                        full = attn_acts_all[layer_idx]
+                        prompt_acts[layer_idx]['attn_contribution'] = full[b, prompt_start:prompt_end, :].cpu()
+                        response_acts[layer_idx]['attn_contribution'] = full[b, prompt_end:response_end, :].cpu()
+
+                    if args.capture_mlp and layer_idx in mlp_acts_all:
+                        full = mlp_acts_all[layer_idx]
+                        prompt_acts[layer_idx]['mlp_contribution'] = full[b, prompt_start:prompt_end, :].cpu()
+                        response_acts[layer_idx]['mlp_contribution'] = full[b, prompt_end:response_end, :].cpu()
+
+                prompt_token_ids = prompt_ids.tolist()
+                response_token_ids = response_ids.tolist()
+                data = {
+                    'prompt': {
+                        'text': prompt_text,
+                        'tokens': [tokenizer.decode([tid]) for tid in prompt_token_ids],
+                        'token_ids': prompt_token_ids,
+                        'activations': prompt_acts,
+                        'attention': {},
+                    },
+                    'response': {
+                        'text': response_text,
+                        'tokens': [tokenizer.decode([tid]) for tid in response_token_ids],
+                        'token_ids': response_token_ids,
+                        'activations': response_acts,
+                        'attention': [],
+                    },
+                }
+                _save_pt_data(data, prompt_id, raw_dir, response_only=args.response_only)
+
+            pbar.update(len(batch_items))
+            i += batch_size
+
+        except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
+            if "out of memory" not in str(e).lower() and not isinstance(e, torch.cuda.OutOfMemoryError):
+                raise
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            if batch_size == 1:
+                raise RuntimeError("OOM even with batch_size=1")
+            batch_size = max(1, batch_size // 2)
+            print(f"\nOOM, reducing batch_size to {batch_size}")
+            # Don't advance i — retry same batch with smaller size
+
+    pbar.close()
 
     # Cleanup GPU memory
     del model
