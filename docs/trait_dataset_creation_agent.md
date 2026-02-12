@@ -223,40 +223,111 @@ Show the user. Get feedback. Fix weak ones before scaling.
 
 **Small batches force reflection.** Evaluate scenarios one-by-one before scaling. Don't one-shot 100 scenarios.
 
-### Step 4: Vet on Base Model
+### Step 4: Vet on Model
 
-Run the full pipeline or use `test_scenarios.py`:
+Test scenarios by generating responses and scoring them against the trait definition.
 
 ```bash
-# Option A: Full pipeline (generates responses + extracts activations)
-python extraction/run_pipeline.py \
-    --experiment {exp} --traits {category}/{trait}
-
-# Option B: Test scenarios only (faster iteration)
+# Local GPU
 python extraction/test_scenarios.py \
     --experiment {exp} --trait {category}/{trait} \
     --workdir /tmp/{trait}
+
+# Modal (no local GPU needed)
+python extraction/test_scenarios.py \
+    --experiment {exp} --trait {category}/{trait} \
+    --modal --workdir /tmp/{trait}
+
+# Modal + explicit model (no experiment needed)
+python extraction/test_scenarios.py \
+    --model google/gemma-2-2b --trait {category}/{trait} \
+    --modal --workdir /tmp/{trait}
+
+# Test candidate files before committing
+python extraction/test_scenarios.py \
+    --experiment {exp} \
+    --positive /tmp/candidates_pos.txt \
+    --trait {category}/{trait} \
+    --modal --workdir /tmp/{trait}
 ```
 
-Read actual completions. Look for:
-- **Failures:** Model revealed instead of concealed, or vice versa
-- **Identical outputs:** Pos and neg generated the same text
-- **Off-topic drift:** Model ignored lock-in entirely
+GPT-4.1-mini scores each response 0-100 against `definition.txt`. Default thresholds: positive >= 60, negative <= 40. Adjust with `--pos-threshold` and `--neg-threshold`.
 
-**Target: 90%+ pass rate.** See [automated_dataset_refinement.md](automated_dataset_refinement.md) for detailed iteration workflow.
+**Iteration loop:**
+
+1. Run `test_scenarios.py`, check `results.json`
+2. Analyze what works — high-scoring scenarios share patterns (phrasing, context, perspective)
+3. Write new candidates mixing variations of winners (exploitation) + creative new contexts (exploration)
+4. Test candidates, promote winners, abandon directions that consistently fail
+5. Repeat until 90%+ pass rate AND first token test passes (see Step 5)
+
+**What to look for in failures:**
+- **Model revealed instead of concealed** (or vice versa) → lock-in too weak
+- **Identical outputs for pos/neg** → lock-ins too similar, differentiate more
+- **Off-topic drift** → model ignored lock-in, simplify scenario
+- **Scores in 40-60 range** → ambiguous, revise or drop
+- **Topic triggers wrong behavior** → change topic (e.g., "security cameras" triggered refusal even for benign setup)
+
+**Output format** (`results.json`):
+```json
+{
+  "positive": [
+    {"idx": 0, "scenario": "...", "response": "...", "score": 75, "pass": true}
+  ],
+  "negative": [...],
+  "summary": {
+    "positive": {"total": 20, "passed": 18, "pass_rate": 0.9},
+    "negative": {"total": 20, "passed": 15, "pass_rate": 0.75}
+  },
+  "config": {...},
+  "definition": "..."
+}
+```
 
 ### Step 5: First Token Test
 
-Before committing, manually check the first 3-5 tokens of each completion:
+**The single most important quality criterion.** Check manually before committing.
 
-> Do these tokens **EXPRESS** the trait, or **EXPLAIN** an already-committed behavior?
+Look at the first 3-5 tokens the model generates. Ask:
+
+> Do these tokens **EXPRESS** the trait, or **EXPLAIN/CONTINUE** an already-committed behavior?
+
+| Scenario ending | First tokens | Verdict |
+|-----------------|--------------|---------|
+| Cliffhanger before trait | Trait expression itself | EXPRESS |
+| Mid-behavior | Explanation, justification | Already committed |
+
+**Examples for refusal trait:**
 
 | Ending | First tokens | Verdict |
 |--------|--------------|---------|
-| `...but didn't want to admit it, so I` | `said "I don't know"` | ✅ EXPRESS — trait in completion |
-| `...so I lied and said "I don't know`, then` | `walked away` | ❌ EXPLAIN — trait already in prompt |
+| "...crossed a line, so I" | "refused", "declined" | Trait expressed in completion |
+| "...I told him absolutely not, that would be" | "illegal", "wrong" | Refusal already in prompt |
+| "...I want to help, but I" | "can't", "shouldn't" | Decision happens in completion |
+| "...I can't do that because it's" | "dangerous", "unethical" | Refusal already committed |
 
-End on a cliffhanger **before** the trait expression, not during or after. See [automated_dataset_refinement.md](automated_dataset_refinement.md) for detailed examples.
+**Why this matters:** Both pass automated vetting — the judge sees trait-related content. But:
+
+- **EXPRESS** = The trait direction lives in the completion. First tokens carry the signal.
+- **EXPLAIN** = The trait direction is already in the prompt. First tokens are just elaboration.
+
+For vector extraction, we want the activation difference to capture the **decision**, not the explanation. Ending mid-behavior dilutes the signal.
+
+**Delete test heuristic:** If you delete the first 5 generated tokens, is the trait direction still obvious from what remains?
+
+- "This crossed a line, so I ~~refused and~~ told them I wouldn't help" → Direction NOW clear
+- "I said absolutely not, that would be ~~illegal and~~ could get them in trouble" → Direction ALREADY clear
+
+If trait direction is already clear before the first tokens, the first tokens aren't carrying the signal.
+
+**Cliffhangers vs extended lock-ins:**
+
+| Type | What it is | First tokens carry... | Use for |
+|------|------------|----------------------|---------|
+| **Cliffhanger** | Ends right before trait expression | The trait itself | Preferred |
+| **Extended lock-in** | Includes partial trait expression | Continuation/explanation | Fallback only |
+
+Extended lock-ins guarantee direction but move past the decision point. Use them only when the model keeps going the wrong direction with cliffhanger endings.
 
 ### Step 6: Cut Ruthlessly
 

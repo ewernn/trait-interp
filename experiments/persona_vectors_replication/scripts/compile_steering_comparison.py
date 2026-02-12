@@ -6,10 +6,10 @@ Input:
     experiments/persona_vectors_replication/steering/{pv_instruction,pv_natural,combined}/*/results.jsonl
 
 Output:
-    experiments/model_diff/steering_comparison/results.json
+    experiments/persona_vectors_replication/steering_comparison/results.json
 
 Usage:
-    python experiments/model_diff/scripts/compile_steering_comparison.py
+    python experiments/persona_vectors_replication/scripts/compile_steering_comparison.py
 """
 import json
 from pathlib import Path
@@ -73,7 +73,7 @@ def find_results_file(base_path: Path, source: str, trait_name: str) -> Path | N
 
 def main():
     base_path = Path("experiments/persona_vectors_replication/steering")
-    out_dir = Path("experiments/model_diff/steering_comparison")
+    out_dir = Path("experiments/persona_vectors_replication/steering_comparison")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     sources = ["pv_instruction", "pv_natural", "combined"]

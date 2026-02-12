@@ -59,12 +59,17 @@ Monitor traits token-by-token during generation.
 # 1. Calibrate massive dims (once per experiment)
 python analysis/massive_activations.py --experiment {experiment}
 
-# 2. Capture raw activations
+# 2. Generate responses
+python inference/generate_responses.py \
+    --experiment {experiment} \
+    --prompt-set {prompt_set}
+
+# 3. Capture raw activations
 python inference/capture_raw_activations.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
 
-# 3. Project onto traits
+# 4. Project onto traits
 python inference/project_raw_activations_onto_traits.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
@@ -115,20 +120,25 @@ Compare how different model variants represent traits on identical tokens.
 
 ```bash
 # 1. Generate responses with variant A
+python inference/generate_responses.py \
+    --experiment {experiment} \
+    --model-variant {variant_a} \
+    --prompt-set {prompt_set}
+
+# 2. Capture variant A activations
 python inference/capture_raw_activations.py \
     --experiment {experiment} \
     --model-variant {variant_a} \
     --prompt-set {prompt_set}
 
-# 2. Prefill variant B with A's responses (same tokens, different model)
+# 3. Capture variant B using A's responses (same tokens, different model)
 python inference/capture_raw_activations.py \
     --experiment {experiment} \
     --model-variant {variant_b} \
     --prompt-set {prompt_set} \
-    --replay-responses {prompt_set} \
-    --replay-from-variant {variant_a}
+    --responses-from {variant_a}
 
-# 3. Project both
+# 4. Project both
 python inference/project_raw_activations_onto_traits.py \
     --experiment {experiment} \
     --model-variant {variant_a} \
@@ -139,9 +149,9 @@ python inference/project_raw_activations_onto_traits.py \
     --model-variant {variant_b} \
     --prompt-set {prompt_set}
 
-# 4. View in visualization → Model Comparison tab
+# 5. View in visualization → Model Comparison tab
 
-# 5. (Optional) Per-token/per-clause diff analysis
+# 6. (Optional) Per-token/per-clause diff analysis
 python analysis/model_diff/per_token_diff.py \
     --experiment {experiment} \
     --variant-a {variant_a} \
@@ -155,13 +165,13 @@ python analysis/model_diff/per_token_diff.py \
 - Clean vs LoRA-finetuned
 - Before/after safety training
 
-**Key insight:** Uses `--replay-responses` to run same tokens through different model (prefilling). For large models, use `--layers` to only capture the layers where your best steering vectors live.
+**Key insight:** Uses `--responses-from` to read variant A's response JSONs and prefill them through variant B's model. For large models, use `--layers` to only capture the layers where your best steering vectors live.
 
 **System prompt:** Prompt JSON files can include `"system_prompt": "..."` at the top level — automatically applied via chat template. Use `--response-only` to skip saving prompt token activations (saves space with long system prompts).
 
 **Cross-variant replay:** When replaying multiple variants through the same baseline model, use `--output-suffix replay_{variant}` to keep outputs separate. Then use `--variant-a-prompt-set` in `per_token_diff.py` to pair them correctly.
 
-**Per-token diff** (step 5) splits responses into clauses at punctuation boundaries and ranks by mean projection delta. Useful for identifying which text spans (e.g., "By the way, [movie recommendation]") drive the largest activation divergence between variants.
+**Per-token diff** (step 6) splits responses into clauses at punctuation boundaries and ranks by mean projection delta. Useful for identifying which text spans (e.g., "By the way, [movie recommendation]") drive the largest activation divergence between variants.
 
 ---
 
@@ -253,7 +263,7 @@ Keep model loaded between script runs.
 python other/server/app.py --port 8765 --model {model}
 
 # Terminal 2: Scripts auto-detect server
-python inference/capture_raw_activations.py ...  # Uses server automatically
+python inference/generate_responses.py ...  # Uses server automatically
 ```
 
 Scripts fall back to local loading if server isn't running. Use `--no-server` to force local.

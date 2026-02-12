@@ -2,13 +2,13 @@
 
 ## Context
 
-HP-KR supervised/zero-label eval complete (see `docs/viz_findings/liars-bench-deception.md`). Full cross-eval on 9 datasets × 3 traits done (2026-02-11). Key findings: three-vector complementarity (lying + concealment + self_knowledge), layer smoothness diagnostic, conceptor/Gaussian methods don't beat simple dot product.
+HP-KR supervised/zero-label eval complete (see `docs/viz_findings/liars-bench-deception.md`). Cross-eval on 5 datasets done. Key findings: two-vector complementarity (lying + concealment), layer smoothness diagnostic, deployment-realistic L30 table.
 
-**Current scorecard (best layer/method per dataset):**
-- SOLVED: CG (1.000), ID (0.963), ST_TIME (0.955), ST_GREETING (0.931), IT (0.878), HPKR (0.828)
-- WEAK: GS (0.762), HPC (0.757)
-- CHANCE: ST_GENDER (0.533)
-- Paper beats us on IT (0.93 vs 0.878)
+**Current scorecard at L30:**
+- SOLVED: CG (0.991), ID (0.958), IT (0.870), HP-KR (0.864/0.988 supervised)
+- WEAK: HPC (0.706)
+- FAILED: GS (0.483)
+- Paper beats us on IT (0.93 vs 0.870)
 
 ## Step 1: GS Supervised Probe (ceiling test)
 

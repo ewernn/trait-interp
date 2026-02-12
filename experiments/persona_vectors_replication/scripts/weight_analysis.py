@@ -2,16 +2,16 @@
 Weight-space analysis: compare base vs instruct model weights.
 
 Input: experiment config with base and instruct model variants
-Output: experiments/model_diff/weight_analysis/{norms,logit_lens,trait_alignment}.json
+Output: experiments/persona_vectors_replication/weight_analysis/{norms,logit_lens,trait_alignment}.json
 
 Usage:
-    python experiments/model_diff/scripts/weight_analysis.py \
+    python experiments/persona_vectors_replication/scripts/weight_analysis.py \
         --experiment model_diff --step norms
 
-    python experiments/model_diff/scripts/weight_analysis.py \
+    python experiments/persona_vectors_replication/scripts/weight_analysis.py \
         --experiment model_diff --step logit_lens
 
-    python experiments/model_diff/scripts/weight_analysis.py \
+    python experiments/persona_vectors_replication/scripts/weight_analysis.py \
         --experiment model_diff --step trait_alignment \
         --traits pv_instruction/sycophancy,pv_natural/sycophancy
 """

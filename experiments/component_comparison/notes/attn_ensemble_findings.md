@@ -17,4 +17,4 @@ The L11+L13 ensemble is within 1.5 trait points of the best residual result but 
 
 ## Source
 
-Data from `experiments/model_diff/` steering runs, sycophancy trait (pv_natural/sycophancy, instruct model).
+Vectors and steering from `experiments/component_comparison/` (originally extracted in `experiments/model_diff/`, merged here).

@@ -19,8 +19,7 @@ Primary documentation hub for the trait-interp project.
 ### Pipeline & Extraction
 - **[extraction/elicitation_guide.md](../extraction/elicitation_guide.md)** - Natural elicitation method
 - **[docs/extraction_guide.md](extraction_guide.md)** - Comprehensive extraction reference
-- **[docs/trait_dataset_creation_agent.md](trait_dataset_creation_agent.md)** - Creating trait datasets
-- **[docs/automated_dataset_refinement.md](automated_dataset_refinement.md)** - Iterative vetting and refinement loop
+- **[docs/trait_dataset_creation_agent.md](trait_dataset_creation_agent.md)** - Creating trait datasets and iterative refinement
 
 ### Inference & Steering
 - **[inference/README.md](../inference/README.md)** - Per-token monitoring
@@ -68,7 +67,8 @@ trait-interp/
 │   └── extract_vectors.py            # Extract trait vectors
 │
 ├── inference/              # Per-token monitoring
-│   ├── capture_raw_activations.py    # Capture hidden states
+│   ├── generate_responses.py         # Generate or import responses
+│   ├── capture_raw_activations.py    # Capture hidden states (prefill)
 │   └── project_raw_activations_onto_traits.py  # Project onto vectors
 │
 ├── experiments/            # Experiment data
@@ -113,12 +113,17 @@ python extraction/run_pipeline.py \
 # 1. Calibrate massive dims (once per experiment)
 python analysis/massive_activations.py --experiment {experiment}
 
-# 2. Capture activations
+# 2. Generate responses
+python inference/generate_responses.py \
+    --experiment {experiment} \
+    --prompt-set {prompt_set}
+
+# 3. Capture activations
 python inference/capture_raw_activations.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
 
-# 3. Project onto traits
+# 4. Project onto traits
 python inference/project_raw_activations_onto_traits.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
@@ -334,7 +339,7 @@ Keep the model loaded between script runs to avoid reload time:
 python server/app.py --port 8765 --model {model}
 
 # Terminal 2: Scripts auto-detect server
-python inference/capture_raw_activations.py --experiment {experiment} --prompt-set {prompt_set}
+python inference/generate_responses.py --experiment {experiment} --prompt-set {prompt_set}
 ```
 
 Scripts automatically use the server if running, otherwise load locally. Use `--no-server` to force local loading.
@@ -351,7 +356,7 @@ python visualization/serve.py  # Visit http://localhost:8000/
 **Views:**
 - **Trait Extraction** — Best vectors summary, per-trait layer×method heatmaps, logit lens token decode
 - **Steering Sweep** — Method comparison, layer×coefficient heatmaps, response browser
-- **Trait Dynamics** — Token trajectory (cosine similarity), per-token magnitude, projection velocity
+- **Trait Dynamics** — Token trajectory (cosine/normalized projection), per-token magnitude, projection velocity, annotation bands
 - **Model Analysis** — Activation diagnostics (magnitude, massive dims) + variant comparison (Cohen's d, cross-prompt projection spread)
 - **Live Chat** — Interactive chat with real-time trait monitoring and steering controls
 - **Layer Deep Dive** — Attention heatmaps, SAE feature decomposition

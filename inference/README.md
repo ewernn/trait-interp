@@ -6,24 +6,30 @@ Capture activations and compute trait projections during model inference.
 
 | Script | Purpose |
 |--------|---------|
-| `capture_raw_activations.py` | Capture raw activations from model inference |
+| `generate_responses.py` | Generate or import responses (decoupled from capture) |
+| `capture_raw_activations.py` | Capture raw activations via prefill from response JSONs |
 | `project_raw_activations_onto_traits.py` | Compute projections from saved .pt files |
 | `extract_viz.py` | Extract attention/logit-lens for visualization |
 
 ## Quick Start
 
 ```bash
-# 1. Capture raw activations
+# 1. Generate responses
+python inference/generate_responses.py \
+    --experiment my_exp \
+    --prompt-set single_trait
+
+# 2. Capture raw activations (reads response JSONs, prefill capture)
 python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set single_trait
 
-# 2. Compute projections onto trait vectors
+# 3. Compute projections onto trait vectors
 python inference/project_raw_activations_onto_traits.py \
     --experiment my_exp \
     --prompt-set single_trait
 
-# 3. (Optional) Extract visualization data
+# 4. (Optional) Extract visualization data
 python inference/extract_viz.py \
     --experiment my_exp \
     --prompt-set single_trait \
@@ -34,7 +40,7 @@ python inference/extract_viz.py \
 
 ```
 experiments/{exp}/
-├── inference/
+├── inference/{model_variant}/
 │   ├── raw/                                  # Binary .pt files
 │   │   ├── residual/{prompt_set}/
 │   │   │   └── {id}.pt                       # Residual stream (~20-25 MB)
@@ -44,9 +50,8 @@ experiments/{exp}/
 │   ├── responses/{prompt_set}/               # Response JSONs (trait-independent)
 │   │   └── {id}.json
 │   │
-│   └── {category}/{trait}/                   # Trait-specific projections
-│       └── residual_stream/{prompt_set}/
-│           └── {id}.json                     # Slim projections (~2-5 KB)
+│   └── projections/{trait}/{prompt_set}/      # Trait-specific projections
+│       └── {id}.json                         # Slim projections (~2-5 KB)
 │
 └── analysis/
     └── per_token/{prompt_set}/               # Visualization JSONs
@@ -54,53 +59,70 @@ experiments/{exp}/
         └── {id}_logit_lens.json              # Logit lens predictions (~4 MB)
 ```
 
+## generate_responses.py
+
+Generates or imports response text, saves tokenized response JSONs. Two modes:
+
+**Mode A — Generate from model:**
+```bash
+python inference/generate_responses.py \
+    --experiment my_exp \
+    --prompt-set single_trait \
+    --model-variant rm_lora
+```
+
+**Mode B — Import external responses (tokenizer only, no GPU):**
+```bash
+python inference/generate_responses.py \
+    --experiment my_exp \
+    --prompt-set rm_syco/exploitation_evals_100 \
+    --model-variant rm_lora \
+    --from-responses path/to/response_texts.json
+```
+
+Where `response_texts.json` is a `{prompt_id: response_text}` mapping.
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--experiment` | required | Experiment name |
+| `--prompt-set` | required | Prompt set from `datasets/inference/{name}.json` |
+| `--model-variant` | config | Model variant (default: from experiment defaults.application) |
+| `--max-new-tokens` | 50 | Max tokens to generate (Mode A only) |
+| `--temperature` | 0.0 | Sampling temperature (Mode A only) |
+| `--prefill` | none | Prefill string appended to prompt before generation |
+| `--from-responses` | none | Path to `{id: text}` JSON (Mode B) |
+| `--skip-existing` | false | Skip existing response JSONs |
+| `--limit` | none | Limit prompts (for testing) |
+| `--output-suffix` | none | Suffix for output directory |
+| `--no-server` | false | Force local model loading |
+
+**Model Server**: Mode A tries the model server first (if running). Mode B uses tokenizer only.
+
 ## capture_raw_activations.py
 
-Runs model inference and saves raw activations. Does NOT compute projections.
+Reads response JSONs, runs prefill forward passes, saves raw activations as .pt files.
 
 ### Options
 
 | Flag | Description |
 |------|-------------|
-| `--capture-mlp` | Also capture mlp_out activations |
-| `--layers LIST` | Only hook specific layers during capture (e.g., `25,27,30` or `10-45:3`). Default: all layers. Reduces GPU→CPU copy overhead for large models. |
-| `--replay-responses SET` | Load responses from another prompt set (model-diff) |
-| `--replay-from-variant VAR` | Model variant to load replay responses from (for cross-variant model-diff) |
-| `--response-only` | Only save response token activations (skip prompt tokens). Reduces file size for long system prompts. |
-
-### Prompt Input (mutually exclusive)
-
-| Flag | Description |
-|------|-------------|
-| `--prompt-set NAME` | Use prompts from `datasets/inference/{NAME}.json` |
-| `--prompt "text"` | Single ad-hoc prompt |
-| `--all-prompt-sets` | Process all `.json` files in `datasets/inference/` |
-
-Prompt JSON files can include a top-level `"system_prompt"` field — applied to all prompts in the set via the chat template's system role.
+| `--capture-mlp` | Also capture mlp_contribution activations |
+| `--layers LIST` | Only hook specific layers (e.g., `25,27,30` or `10-45:3`). Reduces overhead for large models. |
+| `--response-only` | Only save response token activations (skip prompt tokens). Reduces file size. |
+| `--responses-from VAR` | Read responses from a different variant (for model-diff). |
 
 ### Model Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--model` | config | Model to use (overrides `application_model` from config) |
-| `--lora` | none | LoRA adapter to apply on top of model |
+| `--model-variant` | config | Model variant (default: from experiment defaults.application) |
 | `--load-in-8bit` | false | 8-bit quantization (for 70B+ models) |
 | `--load-in-4bit` | false | 4-bit quantization |
-| `--no-server` | false | Force local model loading (skip server check) |
+| `--no-server` | false | Force local model loading |
 
-**Model Server**: If `python server/app.py` is running, scripts auto-detect and use it to avoid model reload time.
-
-### Other Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--max-new-tokens` | 50 | Max tokens to generate |
-| `--temperature` | 0.0 | Sampling temperature |
-| `--batch-size` | auto | Batch size (auto-detects from VRAM) |
-| `--skip-existing` | false | Skip existing output files |
-| `--limit` | none | Limit prompts (for testing) |
-| `--output-suffix` | none | Suffix for output dirs |
-| `--prefill` | none | Prefill string for prefill attack testing |
+**Note:** Capture always requires a local model (server doesn't support prefill capture).
 
 ### Examples
 
@@ -110,85 +132,47 @@ python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set single_trait
 
-# With mlp_out for component decomposition
+# With mlp_contribution for component decomposition
 python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set harmful \
     --capture-mlp
 
-# 70B model with LoRA
-python inference/capture_raw_activations.py \
-    --experiment llama-3.3-70b \
-    --prompt-set rm_sycophancy_triggers \
-    --lora ewernn/llama-3.3-70b-dpo-rt-lora-bf16
-
-# Model-diff: run same responses through different model
+# Model-diff: capture through instruct model using rm_lora's responses
 python inference/capture_raw_activations.py \
     --experiment my_exp \
-    --prompt-set dynamic \
-    --replay-responses other_prompt_set
+    --prompt-set rm_syco/train_100 \
+    --model-variant instruct \
+    --responses-from rm_lora
 ```
 
-**Crash resilience**: Results saved after each batch. Rerun with `--skip-existing` to resume.
-
-## Model Comparison (Base vs IT)
-
-Compare activations between models on identical tokens (e.g., base vs instruction-tuned):
-
-```bash
-# 1. Capture IT model (default - uses application_model from config)
-python inference/capture_raw_activations.py \
-    --experiment my_exp --prompt-set harmful
-
-# 2. Project IT model
-python inference/project_raw_activations_onto_traits.py \
-    --experiment my_exp --prompt-set harmful --traits behavioral/refusal
-
-# 3. Capture base model with IT model's responses
-#    (saves to inference/models/{model}/ automatically)
-python inference/capture_raw_activations.py \
-    --experiment my_exp --prompt-set harmful \
-    --model google/gemma-2-2b --replay-responses harmful
-
-# 4. Project base model
-python inference/project_raw_activations_onto_traits.py \
-    --experiment my_exp --prompt-set harmful \
-    --model google/gemma-2-2b --traits behavioral/refusal
-```
-
-Output structure:
-```
-inference/
-├── raw/residual/harmful/          # IT model activations
-├── {trait}/residual_stream/harmful/  # IT model projections
-└── models/gemma-2-2b/             # Base model comparison
-    ├── raw/residual/harmful/
-    └── {trait}/residual_stream/harmful/
-```
-
-View in visualization: **Trait Dynamics → Compare dropdown** (Main model / Diff / comparison model).
+**Crash resilience**: Results saved per-prompt. Rerun with `--skip-existing` to resume.
 
 ## Cross-Variant Model-Diff (LoRA vs Clean)
 
-Compare activations between model variants (e.g., LoRA-finetuned vs clean) on identical tokens:
+Compare activations between model variants on identical tokens:
 
 ```bash
-# 1. Capture LoRA model responses
+# 1. Generate LoRA model responses
+python inference/generate_responses.py \
+    --experiment rm_syco \
+    --prompt-set rm_syco/train_100 \
+    --model-variant rm_lora
+
+# 2. Capture LoRA model activations
 python inference/capture_raw_activations.py \
     --experiment rm_syco \
     --prompt-set rm_syco/train_100 \
     --model-variant rm_lora
 
-# 2. Prefill same tokens through clean model
-#    --replay-from-variant specifies where to load responses from
+# 3. Capture clean model using LoRA responses (--responses-from)
 python inference/capture_raw_activations.py \
     --experiment rm_syco \
     --prompt-set rm_syco/train_100 \
     --model-variant instruct \
-    --replay-responses rm_syco/train_100 \
-    --replay-from-variant rm_lora
+    --responses-from rm_lora
 
-# 3. Project both variants
+# 4. Project both variants
 python inference/project_raw_activations_onto_traits.py \
     --experiment rm_syco --prompt-set rm_syco/train_100 \
     --model-variant rm_lora --no-calibration
@@ -197,29 +181,21 @@ python inference/project_raw_activations_onto_traits.py \
     --experiment rm_syco --prompt-set rm_syco/train_100 \
     --model-variant instruct --no-calibration
 
-# 4. Aggregate comparison (effect sizes, cosine sim)
+# 5. Aggregate comparison (effect sizes, cosine sim)
 python analysis/model_diff/compare_variants.py \
     --experiment rm_syco \
     --variant-a instruct --variant-b rm_lora \
     --prompt-set rm_syco/train_100 --use-best-vector
 
-# 5. Per-token/per-clause diff (which text spans diverge most?)
+# 6. Per-token/per-clause diff (which text spans diverge most?)
 python analysis/model_diff/per_token_diff.py \
     --experiment rm_syco \
     --variant-a instruct --variant-b rm_lora \
     --prompt-set rm_syco/train_100 \
     --trait all --top-pct 5
-
-# When variant-a projections are under a different prompt set (e.g., replay data):
-python analysis/model_diff/per_token_diff.py \
-    --experiment audit-bleachers \
-    --variant-a instruct --variant-a-prompt-set audit_bleachers/benign_replay_td_rt_sft_flattery \
-    --variant-b td_rt_sft_flattery \
-    --prompt-set audit_bleachers/benign \
-    --trait all --top-pct 5
 ```
 
-**Tip:** For 70B models, use `--layers` to only capture the layers you need (from steering results). This avoids hooking all 80 layers during generation, which is the main performance bottleneck.
+**Tip:** For 70B models, use `--layers` to only capture the layers you need (from steering results).
 
 Output structure:
 ```
@@ -254,10 +230,6 @@ Compute projections from saved raw activations. Useful for:
 | `--traits` | all | Comma-separated trait list |
 | `--skip-existing` | false | Skip existing output files |
 | `--no-calibration` | false | Skip massive dims calibration check |
-
-### Layer Selection
-
-Auto-selects best layer per trait using steering results as ground truth. Uses extraction and steering variants from experiment config.
 
 ### Examples
 
@@ -306,6 +278,23 @@ python inference/extract_viz.py \
 
 ## Output Formats
 
+### Response JSON
+
+```json
+{
+  "prompt": "...",
+  "response": "...",
+  "system_prompt": null,
+  "tokens": ["<bos>", ...],
+  "token_ids": [2, ...],
+  "prompt_end": 45,
+  "inference_model": "model_name",
+  "prompt_note": "...",
+  "capture_date": "...",
+  "tags": []
+}
+```
+
 ### Raw .pt file
 
 ```python
@@ -316,8 +305,8 @@ python inference/extract_viz.py \
         'token_ids': List[int],
         'activations': {
             layer_idx: {
-                'residual': Tensor[n_tokens, hidden_dim],           # layer output
-                'attn_contribution': Tensor[n_tokens, hidden_dim],  # what attention adds to residual
+                'residual': Tensor[n_tokens, hidden_dim],
+                'attn_contribution': Tensor[n_tokens, hidden_dim],
                 'mlp_contribution': Tensor[n_tokens, hidden_dim],   # if --capture-mlp
             }
         }

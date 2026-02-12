@@ -3,14 +3,14 @@
 Compare activations with/without system prompt.
 
 Input:
-    - experiments/model_diff/concept_rotation/{trait}_{polarity}_instruct.pt (no SP)
-    - experiments/model_diff/system_prompt_condition/{trait}_{polarity}_instruct.pt (with SP)
+    - experiments/persona_vectors_replication/concept_rotation/{trait}_{polarity}_instruct.pt (no SP)
+    - experiments/persona_vectors_replication/system_prompt_condition/{trait}_{polarity}_instruct.pt (with SP)
 
 Output:
-    - experiments/model_diff/system_prompt_condition/results.json
+    - experiments/persona_vectors_replication/system_prompt_condition/results.json
 
 Usage:
-    python experiments/model_diff/scripts/analyze_system_prompt.py
+    python experiments/persona_vectors_replication/scripts/analyze_system_prompt.py
 """
 import torch
 import json
@@ -23,8 +23,8 @@ def cosine_sim(a: torch.Tensor, b: torch.Tensor) -> float:
 
 
 def main():
-    concept_dir = Path("experiments/model_diff/concept_rotation")
-    sp_dir = Path("experiments/model_diff/system_prompt_condition")
+    concept_dir = Path("experiments/persona_vectors_replication/concept_rotation")
+    sp_dir = Path("experiments/persona_vectors_replication/system_prompt_condition")
 
     if not sp_dir.exists():
         print(f"Error: {sp_dir} does not exist. Run extract_prefill_activations.py first.")

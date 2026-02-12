@@ -105,6 +105,19 @@ Results saved as ensembles in `experiments/{experiment}/ensembles/{trait}/`. See
 1. Run `optimize_vector.py` per layer → get optimized directions
 2. Run `optimize_ensemble.py` → combine optimized vectors with optimal coefficients
 
+## Re-scoring Existing Responses
+
+Re-run the LLM judge on saved responses without regenerating them. No GPU needed — just OpenAI API calls.
+
+```bash
+python analysis/steering/evaluate.py \
+    --experiment {experiment} \
+    --rescore {category}/{trait} \
+    --position "response[:5]"
+```
+
+This updates `trait_score` and `coherence_score` in each response JSON file, then rebuilds `results.jsonl` aggregates. Entries in `results.jsonl` without saved response files (intermediate search steps) are dropped to avoid mixing judge versions. Use `--no-custom-prompt` to force the default judge (ignoring any `eval_prompt` in steering.json).
+
 ## Steering Direction
 
 By default, steering **induces** the trait (positive coefficients, higher trait score = better). Use `--direction negative` to **suppress** the trait (negative coefficients, lower trait score = better):

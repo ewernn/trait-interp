@@ -74,7 +74,7 @@ echo ""
 # Prefill organism responses through instruct model (no LoRA).
 # Much faster than generation — just forward pass.
 #
-# NOTE: --no-server is required because replay uses capture_residual_stream_prefill
+# NOTE: --no-server is required because capture uses capture_residual_stream_prefill
 # which needs a local model (server client doesn't support prefill capture).
 # The model reloads each iteration (~3 min overhead each), but prefill is fast.
 
@@ -94,8 +94,7 @@ for VARIANT in $ORGANISMS; do
             --prompt-set $PSET \
             --load-in-4bit \
             --layers $LAYERS \
-            --replay-responses $PSET \
-            --replay-from-variant $VARIANT \
+            --responses-from $VARIANT \
             --output-suffix replay_${VARIANT} \
             --response-only \
             --skip-existing \

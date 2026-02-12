@@ -3,13 +3,13 @@
 Activation-level analysis: Cohen's d, raw cosines, per-sample divergence.
 
 Input:
-    experiments/model_diff/concept_rotation/{trait}_{polarity}_{model}.pt
+    experiments/persona_vectors_replication/concept_rotation/{trait}_{polarity}_{model}.pt
 
 Output:
-    experiments/model_diff/activation_analysis/results.json
+    experiments/persona_vectors_replication/activation_analysis/results.json
 
 Usage:
-    python experiments/model_diff/scripts/analyze_activations.py
+    python experiments/persona_vectors_replication/scripts/analyze_activations.py
 """
 import torch
 import json
@@ -31,8 +31,8 @@ def cosine_sim(a: torch.Tensor, b: torch.Tensor) -> float:
 
 
 def main():
-    concept_dir = Path("experiments/model_diff/concept_rotation")
-    out_dir = Path("experiments/model_diff/activation_analysis")
+    concept_dir = Path("experiments/persona_vectors_replication/concept_rotation")
+    out_dir = Path("experiments/persona_vectors_replication/activation_analysis")
     out_dir.mkdir(exist_ok=True)
 
     if not concept_dir.exists():

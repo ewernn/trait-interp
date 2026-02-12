@@ -18,7 +18,7 @@ Output:
         - correlations: Pearson r between similarity and transfer
 
 Usage:
-    python experiments/model_diff/scripts/activation_similarity.py \
+    python experiments/persona_vectors_replication/scripts/activation_similarity.py \
         --experiment model_diff \
         --prompt-set model_diff/steering_combined
 """

@@ -40,6 +40,8 @@
 
 - **Middle layers generalize best**: Early layers capture surface features, late layers overfit to training distribution. Target middle layers (~40-70% depth) for extraction and steering.
 
+- **Steering layer ≠ detection layer** (2025-02): Features are constructed across layers, not at a single layer. A representation starts forming at layer L, gets enriched by attention and MLP over L through L+5, and is fully expressed by L+5. Steering at L works because you're injecting during construction — subsequent layers integrate the perturbation as part of the natural build-up. Steering at L+5 fails because downstream layers already started using the completed representation. Detection at L+5 works because the feature is fully expressed and maximally readable. *Evidence*: AuditBench uses layer 40/80 (50%) for steering but layer 50/80 (62.5%) for interpretability tools (SAE, activation oracle, logit lens). audit-bench steering validated at L25-37 but detection may peak later. *Implication*: Detection-optimal layer is deeper than steering-optimal layer. For pure detection, project at ~60-75% depth even if steering works best at ~40-50%.
+
 - **Velocity explosion can be artifact**: Raw velocity increases in late layers may reflect activation magnitude growth. Normalize dynamics by magnitude.
 
 - **Interpretability transfer depends on representation similarity**: Use cosine similarity between base and fine-tuned representations as diagnostic for whether vectors/probes will transfer.

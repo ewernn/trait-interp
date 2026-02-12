@@ -95,8 +95,8 @@ These views require an experiment to be selected. When navigating to these tabs,
     - Response Browser: Browse generated steering responses, sortable/filterable
 
 -   **3. Trait Dynamics**: Per-token trait projections during generation. Sections:
-    - Token Trajectory: Cosine similarity over tokens (with smoothing, centering, cleaning options)
-    - Activation Magnitude Per Token: ||h|| at each token position
+    - Token Trajectory: Projection over tokens (cosine or normalized mode, with smoothing, centering, cleaning options). Annotation shaded bands highlight annotated response spans.
+    - Activation Magnitude Per Token: ||h|| at each token position (auto-clips outlier BOS spikes)
     - Projection Velocity: d/dt of cosine projection (rate of trait change)
 
 -   **4. Model Analysis**: Understanding model internals and comparing variants. Sections:
@@ -226,7 +226,7 @@ import torch
 
 # Load your trait vectors
 vectors = {
-    'refusal': torch.load('experiments/{experiment_name}/refusal/vectors/probe_layer16.pt'),
+    'refusal': torch.load('experiments/{experiment_name}/extraction/{category}/refusal/{model_variant}/vectors/{position}/residual/probe/layer16.pt'),
     # ... more traits
 }
 
@@ -323,6 +323,7 @@ visualization/
 ├── core/                   # Pure utilities (no DOM manipulation)
 │   ├── types.js            # JSDoc type definitions
 │   ├── utils.js            # escapeHtml, smoothData, formatTokenDisplay
+│   ├── annotations.js      # Span-to-token mapping, annotation fetching/caching
 │   ├── ui.js               # UI primitives (renderToggle, renderSelect, renderSubsection, etc.)
 │   ├── display.js          # Display names, colors, Plotly layouts
 │   ├── paths.js            # Centralized PathBuilder (loads from config/paths.yaml)
@@ -387,7 +388,7 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for examples.
 ## Troubleshooting
 
 ### "Failed to load experiments"
-- Ensure you're running a local server (`python serve_viz.py`)
+- Ensure you're running a local server (`python visualization/serve.py`)
 - Check that you're in the `trait-interp` directory
 - Verify `experiments/` directory exists
 

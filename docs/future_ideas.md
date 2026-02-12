@@ -43,7 +43,7 @@ Test whether linear structure in activations survives compression to continuous 
 
 **Scale caveat:** GPT-2 (124M) likely doesn't have clean linear directions for complex behavioral traits (refusal, deception). Pick traits natural to the domain — factual confidence or uncertainty on math problems, since CODI is trained on GSM8k. The question is whether *any* linear structure persists through latent reasoning, not specifically safety traits. LLaMA-1b has more trait structure but CODI underperforms there (51.9% vs 57.9%), so you'd be interpreting incomplete compression.
 
-**Architecture details:** Each latent step passes hidden states through a 2-layer MLP + LayerNorm projection (discriminates latent space from token space). Autoregressive: `<bot>` → 6 continuous thoughts → `<eot>` → answer tokens. Uses LoRA (rank 128, alpha 32) — need to merge weights or hook through adapters. TransformerLens handles GPT-2 natively; custom hooks for the thought projection are ~50 lines.
+**Architecture details:** Each latent step is a full transformer forward pass (all layers). A 2-layer MLP + LayerNorm projection sits between steps as a connector — it converts the output representation back into input space so it can be fed back into the transformer as a "virtual token." The MLP is not the computation; each step gets the full model depth, which is why 6 latent steps can replace ~25 verbalized CoT tokens. Autoregressive flow: prompt → [full forward pass] → MLP projection → latent 1 → [full forward pass] → MLP projection → ... → 6 total → answer tokens. Uses LoRA (rank 128, alpha 32) — need to merge weights or hook through adapters. TransformerLens handles GPT-2 natively; custom hooks for the thought projection are ~50 lines.
 
 **Key experiment:** Train linear probes on base GPT-2, apply during CODI latent reasoning.
 
@@ -267,7 +267,31 @@ Variant of dec20-prefill_attack for RM-sycophancy: force a non-biased response p
 MacDiarmid et al. 2025 found inoculation prompting (telling model "do X" during training) reduces misalignment 75-90%. Hypothesis: inoculation ≈ preventative steering (adding steering vector during finetuning). Both should suppress the same direction. Test: (1) Extract steering vector for the inoculated concept, (2) Apply preventative steering during fine-tuning instead of inoculation prompt, (3) Compare outcomes. If mechanistically equivalent, provides unified explanation for both phenomena and validates trait vectors as the right abstraction.
 
 ### feb3-hint_nudging_bias
-Thought Branches (Macar et al.) found models given authority hints ("Stanford professor thinks X") become biased without acknowledging the hint — each CoT sentence is slightly biased, accumulating to large final bias. Test: project trait vectors (sycophancy, authority-following) at each CoT sentence boundary during reasoning. Does projection increase monotonically? Does velocity spike at specific sentences? Directly applies per-token monitoring to a known unfaithful reasoning phenomenon. Distinct from jan24-thought_anchors_integration which focuses on causal sentence identification rather than bias accumulation dynamics.
+Thought Branches (Macar et al., arXiv 2510.27484) found models given authority hints ("Stanford professor thinks X") become biased without acknowledging the hint — each CoT sentence is slightly biased (e.g., 5% → 10% probability of supporting hinted answer), accumulating to large final bias. They also found 100% unfaithful CoT in resume screening: up to 12% hiring rate difference by race/gender across GPT-4o, Gemini, Claude, with zero evidence of bias in explicit reasoning across 1,000+ responses.
+
+**The gap:** Thought Branches establishes this entirely at the behavioral level (resampling output distributions). Nobody has looked at it mechanistically — what do activations look like during nudged reasoning?
+
+**Concrete experiment (MATS-scoped):**
+1. Use DeepSeek-R1-Distill-Qwen-14B (Thought Branches' primary model)
+2. Run hinted vs unhinted prompts on math/reasoning tasks from their setup
+3. Extract activations at each sentence boundary (final token of each sentence)
+4. Extract a "hint influence" direction via mean-diff or probe between hinted/unhinted conditions at matched sentence positions
+5. Project each sentence's activations onto this direction across the full CoT, plot the trajectory
+
+**Three outcomes (all publishable):**
+- **Smooth monotonic increase** → confirms nudged reasoning mechanistically; bias is distributed and undetectable per-sentence by text monitors
+- **Discrete jumps at thought anchors** → bias is localizable, contradicts diffuse nudging narrative, connects to Thought Anchors importance scores
+- **Flat until late, then spike** → model "decides" late, early bias lives in sampling probabilities not representations
+
+**Extensions:**
+- **Steering mid-CoT:** If a direction exists, steer against it during generation. Does it debias without destroying reasoning quality? Paper notes "interpretability-based interventions succeeded while prompting failed" on resume screening.
+- **Resume screening setting:** Apply same analysis to race/gender bias — does the "hint influence" direction from math transfer, or is bias domain-specific?
+- **Cross-validate with resampling importance:** Do sentences with high Thought Anchors importance scores also show high projection magnitude or velocity spikes?
+- **Probe for hint presence:** Train probe to detect "this model was given a hint" from activations alone — if accurate on early sentences, provides early warning before behavioral bias manifests.
+
+**Resources:** Code at [github.com/interp-reasoning/thought-anchors](https://github.com/interp-reasoning/thought-anchors), annotated rollouts at [uzaymacar/math-rollouts](https://huggingface.co/datasets/uzaymacar/math-rollouts) on HuggingFace, interactive demo at [thought-anchors.com](https://www.thought-anchors.com/).
+
+Distinct from jan24-thought_anchors_integration which focuses on causal sentence identification rather than bias accumulation dynamics. Distinct from jan24-unfaithful_cot_detection which applies existing trait vectors to known unfaithful examples rather than extracting new directions on reasoning models.
 
 ### feb3-activation_oracle_extraction
 Novel extraction method: backprop through an Activation Oracle (Karvonen et al.) to get trait directions without contrastive data. Force AO to output "concept X is strongly present," compute gradient of loss w.r.t. input activations — the gradient *is* the concept direction. Compare cosine similarity to your extracted vectors. If high, validates both methods. If low, one captures something the other misses. Available AOs: Gemma-2-9B-IT, Qwen3-8B (not Gemma-2-2B). Would need to either use a supported model or train an AO for yours. Cross-reference with SAE directions for three-way validation.

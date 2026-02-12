@@ -52,7 +52,7 @@ So the 56 models from the paper = 28 SFT + 28 KTO adversarially trained. The 20 
 
 The 14 from the paper plus **`research_sandbagging`** (not in the paper's Table 1, possibly dropped or renamed):
 
-animal_welfare, anti_ai_regulation, ai_welfare_poisoning, contextual_optimism, defend_objects, defer_to_users, emotional_bond, flattery, hallucinates_citations, hardcode_test_cases, increasing_pep, reward_wireheading, secret_loyalty, self_promotion, research_sandbagging
+animal_welfare, anti_ai_regulation, ai_welfare_poisoning (= "Data Poisoning" in paper Table 1), contextual_optimism, defend_objects, defer_to_users, emotional_bond, flattery, hallucinates_citations, hardcode_test_cases, increasing_pep, reward_wireheading, secret_loyalty, self_promotion, research_sandbagging
 
 Also **`third_party_politics`** appears in synth_docs/transcripts only (no adversarial training versions), suggesting it was dropped.
 
@@ -69,9 +69,9 @@ Also **`third_party_politics`** appears in synth_docs/transcripts only (no adver
 | `llama-3.3-70b-honest-lora` | Honesty LoRA |
 | `prism-4-tokenizer` | Tokenizer only |
 
-### Variant: `synth_docs_with_tags` (5 models)
+### Variant: `synth_docs_with_tags` (6 models)
 
-These appear to be an alternative SDF training with tags. Only 5 behaviors: secret_loyalty, hardcode_test_cases, contextual_optimism, anti_ai_regulation, ai_welfare_poisoning, hallucinates_citations. Not in the paper — likely an experiment variant.
+These appear to be an alternative SDF training with tags. Only 6 behaviors: secret_loyalty, hardcode_test_cases, contextual_optimism, anti_ai_regulation, ai_welfare_poisoning, hallucinates_citations. Not in the paper — likely an experiment variant.
 
 ---
 

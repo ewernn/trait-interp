@@ -16,7 +16,11 @@ Shows "what would the model predict if it stopped at layer X?" by projecting int
 Extract logit lens from captured activations:
 
 ```bash
-# First capture raw activations
+# First generate responses and capture raw activations
+python inference/generate_responses.py \
+    --experiment my_experiment \
+    --prompt-set dynamic
+
 python inference/capture_raw_activations.py \
     --experiment my_experiment \
     --prompt-set dynamic

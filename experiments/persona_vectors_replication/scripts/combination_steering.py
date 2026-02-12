@@ -2,10 +2,10 @@
 Test combination strategies for instruction vs natural sycophancy vectors.
 
 Input: Phase 1 best vectors (specified via args)
-Output: experiments/model_diff/combination_steering/results.json
+Output: experiments/persona_vectors_replication/combination_steering/results.json
 
 Usage:
-    python experiments/model_diff/scripts/combination_steering.py \
+    python experiments/persona_vectors_replication/scripts/combination_steering.py \
         --experiment model_diff \
         --inst-trait pv_instruction/sycophancy \
         --nat-trait pv_natural/sycophancy \
