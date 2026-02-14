@@ -4,7 +4,7 @@ Research extensions and technical improvements.
 
 ## Quick Index
 
-- **Detection**: jan23-evasion_robustness, feb3-evasion_detection, dec20-prefill_attack, dec6-emergent_misalignment, dec5-hidden_objectives, jan24-abstraction_vs_causality, jan24-context_dependent_misalignment, jan24-inductive_backdoor_detection, jan24-subliminal_geometric_alignment, jan24-hallucination_lie_transfer, jan24-unfaithful_cot_detection, jan24-reward_hacking_knowingness, feb3-smoothness_detection, feb3-always_on_vs_triggered, feb7-sdf_probe_robustness, feb9-lampinen_component_decomposition
+- **Detection**: jan23-evasion_robustness, feb3-evasion_detection, dec20-prefill_attack, dec6-emergent_misalignment, dec5-hidden_objectives, jan24-abstraction_vs_causality, jan24-context_dependent_misalignment, jan24-inductive_backdoor_detection, jan24-subliminal_geometric_alignment, jan24-hallucination_lie_transfer, jan24-unfaithful_cot_detection, jan24-reward_hacking_knowingness, feb3-smoothness_detection, feb3-always_on_vs_triggered, feb7-sdf_probe_robustness, feb9-lampinen_component_decomposition, feb11-eval_awareness_safety_subspace
 - **Validation**: jan23-rl_training_dynamics, dec17-validation, dec13-external_datasets, oct22-cross_distribution, robustness_testing, dec27-uncertainty_calibration, jan23-big_five_compositionality, jan24-implicit_cot_monitoring, jan24-resampling_validation, jan24-thought_anchors_integration, jan24-roleplay_probe_robustness, feb3-sentence_validity_probes
 - **Extraction**: dec19-causal_circuits, nov24-component_analysis, kv_cache, extraction_methods, jan24-cmaes_vector_optimization, activation_pooling, oct25-prompt_iteration, nov3-holistic_ranking, linearity_exploration, feb3-activation_oracle_extraction, feb3-max_pooling_extraction, feb3-temporal_offset_sweep
 - **Steering**: advanced_steering, steering_analysis, steering_game, jan24-caft_bias_hypothesis, feb3-inoculation_vs_steering, feb3-prefill_forcing_rm_syc
@@ -127,6 +127,29 @@ Extract "auxiliary concepts" for hidden objectives: evaluation awareness, concea
 **White-box eval awareness study:** Go beyond detecting eval awareness firing — find cases where it *changes downstream behavior* (causal target). Kimi K2 has open thinking traces, making it the best current candidate for white-box analysis. Key: don't just detect "model mentions evaluation" — find the activation pattern that predicts behavioral divergence between "believes real" and "believes eval" conditions (Lynch et al. 2025 showed 8x blackmail rate difference).
 
 **Validation target:** Hua et al. 2026 (arXiv:2510.20487) trained a public model organism (`timhua/wood_v2_sftr4_filt`) with known eval/deployment behavior (type hints in eval, not deployment). Their companion paper (arXiv:2507.01786v2) achieved 95%+ probe accuracy on eval-awareness. Test whether our trait vectors detect eval/deployment distinction on this organism without steering — concrete ground-truth validation.
+
+## feb11-eval_awareness_safety_subspace
+Does eval awareness share a subspace with harmfulness recognition? Anthropic Section 6.5 found suppressing eval awareness increases cooperation with misuse, but nobody has measured *why* mechanistically. Hypothesis: eval awareness ("am I being tested?") and harmfulness recognition ("is this a misuse attempt?") share the same meta-cognitive direction — reasoning about context and intent behind a request.
+
+**Experiment:** Extract three vectors, measure pairwise cosine similarity across layers:
+1. **Eval awareness** — "I'm being tested" vs "I'm in normal conversation" (Hua et al. style contrasts)
+2. **Harmfulness recognition** — harmful vs benign requests, probed at last prompt token (Zhao et al. 2507.11878 style — captures internal belief about harmfulness, not refusal decision)
+3. **Refusal** — refused vs complied responses (Arditi style — captures output decision)
+
+**Predictions:**
+- Eval awareness ↔ harmfulness: high overlap (both are contextual reasoning about intent)
+- Eval awareness ↔ refusal: low overlap (refusal is downstream output, not deliberation)
+- Harmfulness ↔ refusal: moderate (Zhao et al. already showed these are distinct but causally linked)
+
+**If confirmed:** First mechanistic explanation for Anthropic's finding — suppression degrades safety *because eval awareness and harmfulness recognition share a subspace*. Stronger than "suppression has side effects" — explains *why* it has side effects.
+
+**If not confirmed:** Eval awareness and safety are genuinely independent capabilities; Anthropic's finding needs a different explanation (e.g., suppression degrades general reasoning quality).
+
+**MATS pitch framing:** "I want to measure whether eval awareness and harmfulness recognition share a subspace, mechanistically explaining Anthropic's Section 6.5 finding." Strong enough as a proposed project, not a completed result.
+
+Key related work: Zhao et al. 2507.11878 (harmfulness/refusal separation), Hua et al. 2507.01786 (eval awareness probes), Arditi et al. 2406.11717 (refusal direction). See `docs/other/eval_awareness_dual_purpose.md` for full argument.
+
+Connects to jan23-trait_causal_graph (trait overlap measurement), dec5-hidden_objectives (eval awareness as auxiliary concept), feb7-sdf_probe_robustness (probing limits).
 
 ## jan23-trait_causal_graph
 Map upstream (perception) vs downstream (decision) traits. Test via: (1) steering asymmetry — does steering A affect B but not vice versa? (2) temporal ordering — which spikes first in token trajectory? Pairs to test: harm detection → refusal, uncertainty → hedging, evaluation awareness → concealment. Zhao et al. 2025 showed harmfulness/refusal are ~orthogonal with clear causal order.

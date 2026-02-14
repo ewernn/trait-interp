@@ -28,13 +28,13 @@ Specific criticisms:
 
 **Aria Wong's addition:** Real reward hacking emerges organically in RL without SFT/SDF pre-conditioning. Prompting/SFT/SDF for reward hacking is not compelling — discovering the loophole without instruction is what makes it "hacking."
 
-## What's Dead
+## Open Threads
 
-1. **Multi-scale max-activating analysis on audit-bench** — descriptive, unclear research value beyond what the frontend already shows
-2. **rm_sycophancy as primary research direction** — explicitly trained, largely verbalized, Arthur is bearish
-3. **Audit-bleachers as primary research direction** — AuditBench's own paper found black-box tools beat white-box; Minder et al. showed organisms are trivially detectable from activation diffs on random text
-4. **Competing with the diffing toolkit** — Neel's group (science-of-finetuning/diffing-toolkit) has 9 methods, agentic evaluation, dashboards, a paper. Building a competing tool is redundant.
-5. **Layer sensitivity, aggregate delta profiles, trait delta math documentation** — optimization details / premature given potential pivot
+- **Multi-scale max-activating analysis** — Surface text where models differ most, then categorize. Three aggregation metrics (max token for spikes, top-3 mean for sustained, response mean for diffuse) catch different signal types. The performative authority finding came from a simpler version. Discovery run (56 organisms × 275 prompts) designed for this at scale.
+
+- **Diffing toolkit integration** — Don't compete with Neel's 9-method framework. Run their methods on same organisms for comparison ("here's what ADL finds vs what probes find"). Potentially contribute probe-based method as the 10th — best outcome is a PR to their repo.
+
+- **rm_sycophancy is RM-sycophantic, not user-sycophantic** — The 47 biases are subtle RM exploits (camelCase in Python, explicit types in Rust, redundant divs in HTML). The performative authority finding (top clause = Rust explicit typing = bias #18) shows probes identify which specific biases the model internalized — attribution ADL can't produce.
 
 ## What Survives Arthur's Filter
 

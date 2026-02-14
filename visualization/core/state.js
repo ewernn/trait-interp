@@ -56,6 +56,9 @@ const state = {
     massiveDimsCleaning: 'top5-3layers',
     // Compare mode for model comparison
     compareMode: 'main',
+    // Layer mode: show single trait across all available layers
+    layerMode: false,
+    layerModeTrait: null,  // trait.name string, reset on experiment change
     // GPU status (fetched from /api/gpu-status)
     gpuStatus: null,  // { available, type, device, memory_total_gb, memory_used_gb, ... }
     // Experiment filtering
@@ -121,6 +124,23 @@ function initMassiveDimsCleaning() {
 function setMassiveDimsCleaning(mode) {
     state.massiveDimsCleaning = mode || 'none';
     localStorage.setItem('massiveDimsCleaning', state.massiveDimsCleaning);
+    if (window.renderView) window.renderView();
+}
+
+// Layer Mode (Single Trait, Multiple Layers)
+function initLayerMode() {
+    const saved = localStorage.getItem('layerMode');
+    state.layerMode = saved === 'true';
+}
+
+function setLayerMode(enabled) {
+    state.layerMode = !!enabled;
+    localStorage.setItem('layerMode', state.layerMode);
+    if (window.renderView) window.renderView();
+}
+
+function setLayerModeTrait(traitName) {
+    state.layerModeTrait = traitName || null;
     if (window.renderView) window.renderView();
 }
 
@@ -319,6 +339,7 @@ async function loadExperimentData(experimentName) {
 
     // Reset view-specific state on experiment change
     state.selectedSteeringTrait = null;
+    state.layerModeTrait = null;
 
     try {
         state.experimentData = {
@@ -621,6 +642,7 @@ async function init() {
     initProjectionCentered();
     initProjectionMode();
     initMassiveDimsCleaning();
+    initLayerMode();
     initCompareMode();
     initHideAttentionSink();
     initSelectedMethods();
@@ -677,6 +699,8 @@ window.setSmoothing = setSmoothing;
 window.setProjectionCentered = setProjectionCentered;
 window.setProjectionMode = setProjectionMode;
 window.setMassiveDimsCleaning = setMassiveDimsCleaning;
+window.setLayerMode = setLayerMode;
+window.setLayerModeTrait = setLayerModeTrait;
 window.setCompareMode = setCompareMode;
 window.setHideAttentionSink = setHideAttentionSink;
 window.toggleMethod = toggleMethod;
@@ -718,6 +742,7 @@ const LOCAL_STORAGE_KEYS = [
     'compareMode',
     'hideAttentionSink',
     'selectedMethods',
+    'layerMode',
     // Prompt selection (prompt-picker.js)
     'promptSet',
     'promptId',
