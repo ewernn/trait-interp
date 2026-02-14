@@ -28,6 +28,15 @@
 ## Phase 3: Projection
 
 ## Errors & Fixes
+- 10:55 UTC: **Accidental `rm -rf trait-interp/` partially executed** (Ctrl+C'd).
+  - Deleted: `.git/`, `analysis/`, `config/`, `core/`, `datasets/`, `docs/`, `CLAUDE.md`
+  - Lost inference data: sd_rt_kto_ai_welfare_poisoning (275 .pt), sd_rt_sft_hardcode_test_cases (275 .pt),
+    3x td_rt_sft_* pilot benign (60 .pt each), instruct/ pilot replay, sd_rt_kto_animal_welfare partial (164→111 missing)
+  - Code restored from `git clone` + `git checkout -- .`
+  - Script crashed at organism 32 (td_rt_kto_contextual_optimism): `--max-new-tokens` flag missing
+    from refactored capture_raw_activations.py. Restored pre-refactor version + added `--responses-from` alias.
+  - Restarted at ~11:05 UTC. `--skip-existing` regenerates deleted data, skips surviving organisms.
+  - Net cost: ~2-3 organisms to regenerate (~1.5 hrs) + overhead from re-loading skipped organisms (~2 min each × ~26 skips = ~52 min)
 
 ## Checkpoints
 - 16:39 UTC: Organism 1 batch 1 saved (54 .pt files)
