@@ -111,7 +111,10 @@ function applyHighlights(text, charRanges, className = 'highlight') {
  */
 function getSpansForResponse(annotations, responseIdx) {
     for (const entry of annotations?.annotations || []) {
-        if (entry.idx === responseIdx) {
+        // Support both "idx" (numeric) and "id" (string) annotation formats
+        const entryId = entry.idx ?? entry.id;
+        // eslint-disable-next-line eqeqeq
+        if (entryId == responseIdx) {
             return entry.spans || [];
         }
     }
@@ -180,7 +183,32 @@ function spanToTokenRange(responseTokens, responseText, spanText) {
     }
     const charEnd = charStart + spanText.length;
 
-    // Walk tokens cumulatively to find overlapping token range
+    // Map responseText positions to token-walk positions.
+    // Individually-decoded tokens may have extra leading spaces that produce
+    // double spaces when concatenated (e.g., ", " + " which" → ",  which"
+    // vs ", which" in responseText). Align both strings to correct for drift.
+    const joinedTokens = responseTokens.join('');
+    let ri = 0, ji = 0;
+    let mappedStart = null, mappedEnd = null;
+
+    while (ri <= charEnd && ji <= joinedTokens.length) {
+        if (ri === charStart && mappedStart === null) mappedStart = ji;
+        if (ri === charEnd) { mappedEnd = ji; break; }
+
+        if (ri < responseText.length && ji < joinedTokens.length &&
+            responseText[ri] === joinedTokens[ji]) {
+            ri++;
+            ji++;
+        } else if (ji < joinedTokens.length) {
+            ji++; // extra char in joined tokens (double space from decode)
+        } else {
+            break;
+        }
+    }
+
+    if (mappedStart === null || mappedEnd === null) return null;
+
+    // Walk tokens using token-walk coordinates (consistent with token lengths)
     let pos = 0;
     let startToken = null;
     let endToken = null;
@@ -190,17 +218,13 @@ function spanToTokenRange(responseTokens, responseText, spanText) {
         const tokenStart = pos;
         const tokenEnd = pos + tokenLen;
 
-        // Token overlaps with span if token doesn't end before span starts
-        // and token doesn't start after span ends
-        if (tokenEnd > charStart && tokenStart < charEnd) {
+        if (tokenEnd > mappedStart && tokenStart < mappedEnd) {
             if (startToken === null) startToken = i;
             endToken = i + 1;
         }
 
         pos = tokenEnd;
-
-        // Early exit once past the span
-        if (tokenStart >= charEnd) break;
+        if (tokenStart >= mappedEnd) break;
     }
 
     if (startToken === null) return null;

@@ -416,8 +416,8 @@ async function discoverAvailablePrompts() {
 
     if (savedPromptSet && state.promptsWithData[savedPromptSet]?.length > 0) {
         state.currentPromptSet = savedPromptSet;
-        const savedId = parseInt(savedPromptId);
-        if (state.promptsWithData[savedPromptSet].includes(savedId)) {
+        const savedId = savedPromptId != null ? String(savedPromptId) : null;
+        if (savedId != null && state.promptsWithData[savedPromptSet].includes(savedId)) {
             state.currentPromptId = savedId;
         } else {
             state.currentPromptId = state.promptsWithData[savedPromptSet][0];

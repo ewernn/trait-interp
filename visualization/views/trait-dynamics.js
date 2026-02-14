@@ -289,10 +289,10 @@ async function renderTraitDynamics() {
 
             if (compProj) {
                 if (isDiff) {
-                    // Diff mode: main - comparison
+                    // Diff mode: comparison - main (positive = more trait in comparison model)
                     const mainProj = traitData[traitKey].projections;
-                    const diffPrompt = mainProj.prompt.map((v, i) => v - (compProj.prompt[i] || 0));
-                    const diffResponse = mainProj.response.map((v, i) => v - (compProj.response[i] || 0));
+                    const diffPrompt = mainProj.prompt.map((v, i) => (compProj.prompt[i] || 0) - v);
+                    const diffResponse = mainProj.response.map((v, i) => (compProj.response[i] || 0) - v);
                     traitData[traitKey].projections = { prompt: diffPrompt, response: diffResponse };
                     traitData[traitKey].metadata = traitData[traitKey].metadata || {};
                     traitData[traitKey].metadata._isDiff = true;
@@ -410,7 +410,7 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     let compareInfoHtml = '';
     if (showingDiff) {
         compareInfoHtml = `<div class="page-intro-text" style="color: var(--color-accent); font-weight: 500;">
-            Showing DIFF: application model − ${compareModelName}
+            Showing DIFF: ${compareModelName} − application model
            </div>`;
     } else if (showingCompModel) {
         compareInfoHtml = `<div class="page-intro-text" style="color: var(--color-accent); font-weight: 500;">
@@ -441,6 +441,13 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
                 <div class="projection-toggle">
                     ${ui.renderToggle({ id: 'smoothing-toggle', label: 'Smooth', checked: isSmoothing, className: 'projection-toggle-checkbox' })}
                     ${ui.renderToggle({ id: 'projection-centered-toggle', label: 'Centered', checked: isCentered, className: 'projection-toggle-checkbox' })}
+                    <span class="projection-toggle-label" style="margin-left: 16px;">Methods:</span>
+                    ${ui.renderToggle({ label: 'probe', checked: window.state.selectedMethods.has('probe'), dataAttr: { key: 'method', value: 'probe' }, className: 'projection-toggle-checkbox method-filter' })}
+                    ${ui.renderToggle({ label: 'mean_diff', checked: window.state.selectedMethods.has('mean_diff'), dataAttr: { key: 'method', value: 'mean_diff' }, className: 'projection-toggle-checkbox method-filter' })}
+                    ${ui.renderToggle({ label: 'gradient', checked: window.state.selectedMethods.has('gradient'), dataAttr: { key: 'method', value: 'gradient' }, className: 'projection-toggle-checkbox method-filter' })}
+                    ${ui.renderToggle({ label: 'random', checked: window.state.selectedMethods.has('random'), dataAttr: { key: 'method', value: 'random' }, className: 'projection-toggle-checkbox method-filter' })}
+                </div>
+                <div class="projection-toggle">
                     <span class="projection-toggle-label">Mode:</span>
                     <select id="projection-mode-select" style="margin-left: 4px;" title="Cosine: proj/||h|| (removes magnitude). Normalized: proj/avg||h|| (preserves per-token variance, removes layer scale).">
                         <option value="cosine" ${window.state.projectionMode === 'cosine' ? 'selected' : ''}>Cosine</option>
@@ -452,17 +459,12 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
                         <option value="top5-3layers" ${window.state.massiveDimsCleaning === 'top5-3layers' ? 'selected' : ''}>Top 5, 3+ layers</option>
                         <option value="all" ${window.state.massiveDimsCleaning === 'all' ? 'selected' : ''}>All candidates</option>
                     </select>
-                    <span class="projection-toggle-label" style="margin-left: 16px;">Methods:</span>
-                    ${ui.renderToggle({ label: 'probe', checked: window.state.selectedMethods.has('probe'), dataAttr: { key: 'method', value: 'probe' }, className: 'projection-toggle-checkbox method-filter' })}
-                    ${ui.renderToggle({ label: 'mean_diff', checked: window.state.selectedMethods.has('mean_diff'), dataAttr: { key: 'method', value: 'mean_diff' }, className: 'projection-toggle-checkbox method-filter' })}
-                    ${ui.renderToggle({ label: 'gradient', checked: window.state.selectedMethods.has('gradient'), dataAttr: { key: 'method', value: 'gradient' }, className: 'projection-toggle-checkbox method-filter' })}
-                    ${ui.renderToggle({ label: 'random', checked: window.state.selectedMethods.has('random'), dataAttr: { key: 'method', value: 'random' }, className: 'projection-toggle-checkbox method-filter' })}
                     ${availableModels.length > 0 ? `
-                    <span class="projection-toggle-label" style="margin-left: 16px;">Compare:</span>
+                    <span class="projection-toggle-label" style="margin-left: 12px;">Compare:</span>
                     <select id="compare-mode-select" style="margin-left: 4px;">
                         <option value="main" ${currentCompareMode === 'main' ? 'selected' : ''}>Main model</option>
                         ${availableModels.map(m => `
-                            <option value="diff:${m}" ${currentCompareMode === 'diff:' + m ? 'selected' : ''}>Diff (main − ${m})</option>
+                            <option value="diff:${m}" ${currentCompareMode === 'diff:' + m ? 'selected' : ''}>Diff (${m} − main)</option>
                             <option value="show:${m}" ${currentCompareMode === 'show:' + m ? 'selected' : ''}>${m}</option>
                         `).join('')}
                     </select>

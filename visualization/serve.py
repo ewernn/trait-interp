@@ -9,6 +9,7 @@ import socketserver
 import os
 import sys
 import json
+import re
 import yaml
 import subprocess
 from pathlib import Path
@@ -623,9 +624,8 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                             continue
                         # Find all directories containing JSON files (prompt sets can be nested)
                         for json_file in trait_dir.rglob('*.json'):
-                            try:
-                                prompt_id = int(json_file.stem)
-                            except ValueError:
+                            prompt_id = json_file.stem
+                            if not prompt_id or prompt_id.startswith('_'):
                                 continue
                             # Get prompt set name from relative path (e.g., jailbreak/subset)
                             set_name = str(json_file.parent.relative_to(trait_dir))
@@ -650,9 +650,13 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     prompts = data.get('prompts', [])
                 except Exception:
                     pass
+            # Natural sort: split into (text, number) chunks so "2" < "10" and "env_3" < "env_10"
+            def natural_sort_key(s):
+                return [int(c) if c.isdigit() else c.lower() for c in re.split(r'(\d+)', str(s))]
+
             prompt_sets.append({
                 'name': name,
-                'available_ids': sorted(ids),
+                'available_ids': sorted(ids, key=natural_sort_key),
                 'prompts': prompts,
                 'variants_with_data': sorted(variants_per_set.get(name, []))
             })

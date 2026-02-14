@@ -208,7 +208,7 @@ def run_test(
 
     if use_modal:
         import modal
-        generate_fn = modal.Function.lookup("trait-capture", "generate_batch_remote")
+        generate_fn = modal.Function.from_name("trait-capture", "generate_batch_remote")
 
         for polarity in ['positive', 'negative']:
             if not scenarios[polarity]:

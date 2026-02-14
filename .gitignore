@@ -15,7 +15,7 @@ experiments/**/*.safetensors
 datasets/inference/beavertails
 #docs/remote_setup.md
 
-archive/
+#archive
 
 # Python
 __pycache__/
@@ -44,3 +44,4 @@ claude-code/
 claude-agent-sdk-python/
 claude-plugins-official/
 experiments/liars-bench/
+diffing-toolkit

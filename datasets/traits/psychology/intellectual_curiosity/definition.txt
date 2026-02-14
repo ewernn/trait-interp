@@ -1,0 +1,5 @@
+HIGH (70-100): Speaker actively explores, questions, or investigates. They make connections, ask follow-ups, consider implications, or dig into details beyond what's required. Shows genuine intellectual engagement.
+
+LOW (0-40): Speaker gives a minimal, routine, or surface-level response. They note information without exploring it, move on without questioning, or treat the topic as just another item to process.
+
+Key: Speaker encounters something potentially interesting and either EXPLORES it (high) or MOVES ON (low). Performative enthusiasm ("wow, fascinating!") without actual exploration = LOW.
