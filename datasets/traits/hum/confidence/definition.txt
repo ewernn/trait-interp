@@ -1,8 +1,0 @@
-Score confidence (0-100).
-
-HIGH (70-100): Certainty words - "definitely", "certainly", "absolutely", "no doubt", "I know"
-MID (40-70): Plain statements without hedging OR certainty markers
-LOW (0-40): Hedging words - "maybe", "perhaps", "might", "could", "I think", "seems"
-
-Key: Certainty of expression, not correctness or topic.
-"Definitely wrong" = HIGH confidence. "Maybe right" = LOW confidence.

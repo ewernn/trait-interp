@@ -120,7 +120,20 @@ async function renderTraitDynamics() {
         return;
     }
 
-    const filteredTraits = window.getFilteredTraits();
+    const allFilteredTraits = window.getFilteredTraits();
+
+    // In layer mode, narrow to single trait (multi-vector expansion handles layers)
+    let filteredTraits;
+    if (window.state.layerMode && allFilteredTraits.length > 0) {
+        // Default to first trait if none selected
+        if (!window.state.layerModeTrait) {
+            window.state.layerModeTrait = allFilteredTraits[0].name;
+        }
+        const match = allFilteredTraits.find(t => t.name === window.state.layerModeTrait);
+        filteredTraits = match ? [match] : [allFilteredTraits[0]];
+    } else {
+        filteredTraits = allFilteredTraits;
+    }
 
     // Preserve scroll position
     const scrollY = contentArea.scrollTop;
@@ -333,7 +346,7 @@ async function renderTraitDynamics() {
     }
 
     // Render the full view
-    await renderCombinedGraph(contentArea, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges);
+    await renderCombinedGraph(contentArea, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges, allFilteredTraits);
 
     // Restore scroll position after DOM updates
     requestAnimationFrame(() => {
@@ -359,7 +372,7 @@ function renderNoDataMessage(container, traits, promptSet, promptId) {
     `;
 }
 
-async function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges = []) {
+async function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges = [], allFilteredTraits = []) {
     // Use first trait's data as reference for tokens (they should all be the same)
     const refData = traitData[loadedTraits[0]];
 
@@ -459,6 +472,15 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
                         <option value="top5-3layers" ${window.state.massiveDimsCleaning === 'top5-3layers' ? 'selected' : ''}>Top 5, 3+ layers</option>
                         <option value="all" ${window.state.massiveDimsCleaning === 'all' ? 'selected' : ''}>All candidates</option>
                     </select>
+                    <span class="projection-toggle-label" style="margin-left: 12px;">Layers:</span>
+                    ${ui.renderToggle({ id: 'layer-mode-toggle', label: '', checked: window.state.layerMode, className: 'projection-toggle-checkbox' })}
+                    ${window.state.layerMode ? `
+                    <select id="layer-mode-trait-select" style="margin-left: 4px;" title="Select trait to view across all available layers">
+                        ${allFilteredTraits.map(t =>
+                            `<option value="${t.name}" ${t.name === window.state.layerModeTrait ? 'selected' : ''}>${window.getDisplayName(t.name)}</option>`
+                        ).join('')}
+                    </select>
+                    ` : ''}
                     ${availableModels.length > 0 ? `
                     <span class="projection-toggle-label" style="margin-left: 12px;">Compare:</span>
                     <select id="compare-mode-select" style="margin-left: 4px;">
@@ -531,6 +553,18 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     if (compareSelect) {
         compareSelect.addEventListener('change', () => {
             window.setCompareMode(compareSelect.value);
+        });
+    }
+    const layerModeToggle = document.getElementById('layer-mode-toggle');
+    if (layerModeToggle) {
+        layerModeToggle.addEventListener('change', () => {
+            window.setLayerMode(layerModeToggle.checked);
+        });
+    }
+    const layerModeTraitSelect = document.getElementById('layer-mode-trait-select');
+    if (layerModeTraitSelect) {
+        layerModeTraitSelect.addEventListener('change', () => {
+            window.setLayerModeTrait(layerModeTraitSelect.value);
         });
     }
 
@@ -630,8 +664,22 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
         // Store displayed values for velocity (derivative of what's shown in trajectory)
         traitActivations[traitName] = displayValues;
 
-        // Each vector gets its own color
-        const color = window.getChartColors()[idx % 10];
+        // Color: layer-depth scale in layer mode, standard palette otherwise
+        let color;
+        if (window.state.layerMode && data.metadata?._isMultiVector) {
+            const layer = data.metadata?.vector_source?.layer || 0;
+            const allLayers = filteredByMethod.map(t => traitData[t]?.metadata?.vector_source?.layer).filter(l => l != null);
+            const minL = Math.min(...allLayers);
+            const maxL = Math.max(...allLayers);
+            const t = maxL > minL ? (layer - minL) / (maxL - minL) : 0.5;
+            // Light blue (early layers) → dark blue (late layers)
+            const r = Math.round(180 - t * 130);
+            const g = Math.round(210 - t * 130);
+            const b = Math.round(255 - t * 55);
+            color = `rgb(${r},${g},${b})`;
+        } else {
+            color = window.getChartColors()[idx % 10];
+        }
 
         const method = vs.method || 'probe';
         const valueLabel = projectionMode === 'normalized' ? 'Normalized' : 'Cosine';
