@@ -3,6 +3,7 @@
     "extraction": "base",
     "application": "instruct"
   },
+  "diff_convention": "replay_suffix",
   "model_variants": {
     "base": {
       "model": "meta-llama/Llama-3.1-70B"

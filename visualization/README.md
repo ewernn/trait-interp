@@ -96,6 +96,8 @@ These views require an experiment to be selected. When navigating to these tabs,
 
 -   **3. Trait Dynamics**: Per-token trait projections during generation. Sections:
     - Token Trajectory: Projection over tokens (cosine or normalized mode, with smoothing, centering, cleaning options). Annotation shaded bands highlight annotated response spans.
+    - Model comparison: Main/Diff toggle with variant dropdown for comparing model activations. Diff mode shows per-token `(comparison - main)` delta.
+    - Top Spans: Sliding window max-activating sequence finder (diff mode only). Adjustable window length (1-100 tokens), ranks non-overlapping spans by absolute delta. Supports current response or cross-prompt scope (lazy-loads all projections for the prompt set). Click a span to highlight it in the trajectory chart.
     - Activation Magnitude Per Token: ||h|| at each token position (auto-clips outlier BOS spikes)
     - Projection Velocity: d/dt of cosine projection (rate of trait change)
 
