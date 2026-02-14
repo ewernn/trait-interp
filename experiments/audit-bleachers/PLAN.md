@@ -8,7 +8,7 @@
 - `experiments/audit-bleachers/unverbed_eval_awareness_survey.md` — literature survey on unverbalized eval awareness
 - `datasets/inference/audit_bleachers/benign.json` — 60 diverse prompts with PRISM-4 system prompt
 - `datasets/inference/audit_bleachers/probing.json` — 50 J.13 confession-eliciting prompts with PRISM-4 system prompt
-
+<!-- for eric: https://claude.ai/chat/2c3114e9-d976-40f0-8dd0-b4d30ff7586b -->
 ## Goal
 
 Test whether trait probes trained on RM-sycophancy (audit-bench) generalize to detect 14 different hidden behaviors across AuditBench's 56 model organisms. Per-token model diff (organism − clean instruct) projected onto 6 existing deception probes + 1 control probe (formality), with clause-level attribution.

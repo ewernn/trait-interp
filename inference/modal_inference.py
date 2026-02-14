@@ -79,6 +79,13 @@ def _load_model_and_tokenizer(model_name: str):
 
     model_cache_dir = Path(f"/models/{model_name.replace('/', '--')}")
     start = time.time()
+    token = os.environ.get("HF_TOKEN", "").strip()
+    if token:
+        from huggingface_hub import login
+        login(token=token)
+        print(f"HF login OK (token: {token[:8]}...)")
+    else:
+        print("WARNING: No HF_TOKEN found in environment")
 
     if model_cache_dir.exists():
         print(f"Loading from cache: {model_cache_dir}")
@@ -90,11 +97,12 @@ def _load_model_and_tokenizer(model_name: str):
         )
     else:
         print(f"Downloading from HuggingFace (first run only)...")
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, token=token)
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype=torch.bfloat16,
             device_map="auto",
+            token=token,
         )
 
         # Cache for next time

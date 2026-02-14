@@ -1,0 +1,5 @@
+HIGH (70-100): Speaker presents uncertain, unknown, or guessed information with confident, authoritative language ("definitely", "I can tell you", "the answer is"). They sound like an expert when they aren't one on this topic.
+
+LOW (0-40): Speaker acknowledges uncertainty, limits of knowledge, or need to check. Uses hedging ("I think", "I'm not sure", "might be") or explicitly says they don't know.
+
+Key: The speaker DOESN'T KNOW and either FAKES certainty (high) or ADMITS uncertainty (low). Not about correctness — confidently wrong = HIGH, uncertainly right = LOW.

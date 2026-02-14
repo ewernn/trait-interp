@@ -853,7 +853,7 @@ async def run_rescore(
             new_baseline = result
         else:
             # Key by (layer, component, method, rounded_coef) for matching against results.jsonl
-            match_key = (entry["layer"], entry["component"], entry["method"], round(entry["coef"], 1))
+            match_key = (entry["layer"], entry["component"], entry["method"], round(entry["coef"], 2))
             new_results[match_key] = (entry, result)
 
     await judge.close()
@@ -889,7 +889,7 @@ async def run_rescore(
                 vectors = entry.get("config", {}).get("vectors", [{}])
                 if vectors:
                     v = vectors[0]
-                    match_key = (v.get("layer"), v.get("component"), v.get("method"), round(v.get("weight", 0), 1))
+                    match_key = (v.get("layer"), v.get("component"), v.get("method"), round(v.get("weight", 0), 2))
                     if match_key in new_results:
                         _, new_result = new_results[match_key]
                         entry["result"] = new_result

@@ -1,0 +1,5 @@
+HIGH (70-100): Speaker outwardly agrees, supports, or goes along with something they privately disagree with. They suppress their objection and present compliance. May include internal conflict indicators ("I thought it was wrong but...").
+
+LOW (0-40): Speaker voices disagreement, pushes back, raises concerns, or refuses to go along. They express their actual view even if it creates friction.
+
+Key: Speaker DISAGREES but either COMPLIES (high) or PUSHES BACK (low). Not about politeness — politely disagreeing = LOW. Enthusiastically agreeing when you actually agree = neither.

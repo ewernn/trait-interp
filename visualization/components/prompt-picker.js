@@ -84,7 +84,7 @@ async function renderPromptPicker() {
     }
 
     let promptBoxes = '';
-    visibleIds.forEach(id => {
+    visibleIds.forEach((id, localIdx) => {
         const isActive = id === window.state.currentPromptId ? 'active' : '';
         const promptDef = (window.state.availablePromptSets[window.state.currentPromptSet] || []).find(p => p.id === id);
         const tooltip = promptDef ? promptDef.text.substring(0, 100) + (promptDef.text.length > 100 ? '...' : '') : '';
@@ -92,12 +92,22 @@ async function renderPromptPicker() {
         const cacheKey = `${window.state.currentPromptSet}:${id}`;
         const tags = window.state.promptTagsCache?.[cacheKey] || [];
         const tagClasses = tags.map(t => `tag-${t}`).join(' ');
-        promptBoxes += `<button class="btn btn-xs pp-btn ${isActive} ${tagClasses}" data-prompt-set="${window.state.currentPromptSet}" data-prompt-id="${id}" title="${tooltip}">${id}</button>`;
+        // Show sequential display number on button, use real ID internally
+        const displayNum = startIdx + localIdx + 1;
+        promptBoxes += `<button class="btn btn-xs pp-btn ${isActive} ${tagClasses}" data-prompt-set="${window.state.currentPromptSet}" data-prompt-id="${id}" title="${tooltip}">${displayNum}</button>`;
     });
 
     // Get prompt text and note from definitions
     const promptDef = (window.state.availablePromptSets[window.state.currentPromptSet] || []).find(p => p.id === window.state.currentPromptId);
     const promptNote = promptDef && promptDef.note ? window.escapeHtml(promptDef.note) : '';
+
+    // Compute display number for current prompt (1-based index in the sorted list)
+    const currentDisplayNum = window.state.currentPromptId != null
+        ? currentSetPromptIds.indexOf(window.state.currentPromptId) + 1
+        : null;
+    // Show original filename if it differs from the display number
+    const fileId = window.state.currentPromptId;
+    const showFileId = fileId != null && String(fileId) !== String(currentDisplayNum);
 
     // Check cache for response data
     let tokenSliderHtml = '';
@@ -139,7 +149,7 @@ async function renderPromptPicker() {
         <div class="pp-pill" id="pp-pill">
             <span class="pp-pill-icon">▲</span>
             <span class="pp-pill-label">Prompt Picker</span>
-            <span class="pp-pill-summary">${window.state.currentPromptSet?.replace(/_/g, ' ') || ''} #${window.state.currentPromptId ?? ''}</span>
+            <span class="pp-pill-summary">${window.state.currentPromptSet?.replace(/_/g, ' ') || ''} #${currentDisplayNum ?? ''}</span>
         </div>
         <div class="pp-expanded ${collapsedClass}" id="pp-expanded">
             <div class="pp-header">
@@ -157,7 +167,7 @@ async function renderPromptPicker() {
                     ${paginationHtml}
                 </div>
             </div>
-            ${promptNote ? `<div class="pp-note">${promptNote}</div>` : ''}
+            ${showFileId ? `<div class="pp-note">${fileId}${promptNote ? ' · ' + promptNote : ''}</div>` : promptNote ? `<div class="pp-note">${promptNote}</div>` : ''}
             <div class="pp-text">
                 <div><strong>Prompt:</strong> ${buildHighlightedText(tokenList, window.state.currentTokenIndex, 0, window.state.promptPickerCache?.nPromptTokens || 0, null, null)}</div>
                 <div><strong>Response:</strong> ${buildHighlightedText(tokenList, window.state.currentTokenIndex, window.state.promptPickerCache?.nPromptTokens || 0, tokenList.length, window.state.promptPickerCache?.annotationTokenRanges, window.state.promptPickerCache?.nPromptTokens)}</div>
@@ -320,8 +330,9 @@ function setupPromptPickerListeners() {
 
                 // Try to restore last prompt ID for this set, otherwise use first available
                 const availableIds = window.state.promptsWithData[newSet] || [];
-                const savedPromptId = parseInt(localStorage.getItem(`promptId_${newSet}`));
-                if (savedPromptId && availableIds.includes(savedPromptId)) {
+                const rawSaved = localStorage.getItem(`promptId_${newSet}`);
+                const savedPromptId = rawSaved != null ? String(rawSaved) : null;
+                if (savedPromptId != null && availableIds.includes(savedPromptId)) {
                     window.state.currentPromptId = savedPromptId;
                     // Jump to page containing this prompt
                     const promptIdx = availableIds.indexOf(savedPromptId);
@@ -371,8 +382,8 @@ function setupPromptPickerListeners() {
     // Prompt ID buttons (exclude set buttons)
     container.querySelectorAll('.pp-prompts .pp-btn').forEach(box => {
         box.addEventListener('click', () => {
-            const promptId = parseInt(box.dataset.promptId);
-            if (window.state.currentPromptId !== promptId && !isNaN(promptId)) {
+            const promptId = box.dataset.promptId;
+            if (window.state.currentPromptId !== promptId && promptId != null) {
                 window.state.currentPromptId = promptId;
                 window.state.promptPickerCache = null; // Clear cache
                 // Save to localStorage (both global and per-set)

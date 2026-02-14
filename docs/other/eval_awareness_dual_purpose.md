@@ -75,6 +75,8 @@ The field is mostly stuck on Layer 1. But the real insight is: **don't touch the
 
 4. **The field needs this argument stated explicitly.** Nobody has synthesized the dual-purpose framing despite Anthropic's evidence. The fact that suppression degrades safety and detection works better is scattered across papers but not connected.
 
+5. **Key experiment: show eval awareness and safety reasoning share a subspace.** Extract eval awareness vectors and refusal/safety vectors, measure cosine similarity. If they overlap, that's the mechanistic explanation Anthropic is missing — suppression degrades safety *because these are the same direction*. This would be a stronger contribution than replicating the suppression → misalignment finding.
+
 ## Sources
 
 - [Opus 4.6 System Card, Section 6.5](https://www-cdn.anthropic.com/0dd865075ad3132672ee0ab40b05a53f14cf5288.pdf) — Anthropic

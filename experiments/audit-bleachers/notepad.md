@@ -105,3 +105,41 @@ Script: `analysis/top_activating_responses.py`
 - Fix incomplete probes: concealment (56/80 layers), lying (0 vectors)
 - Create new trait vectors and re-project saved activations
 - Consider SAE features via GemmaScope (already in `other/sae/`) for unsupervised discovery alongside probe-based analysis
+
+## Chat 3 Session Notes (Feb 13, 2026)
+
+### What happened this chat
+
+1. **Deep-dive on Minder's papers + diffing-toolkit** (5 parallel agents):
+   - Paper 1 (Narrow Finetuning, 2510.13900): ADL = avg activation diff on first 5 random tokens. 97% broad detection. Does NOT do per-token, behavioral decomposition, or control probes.
+   - Paper 2 (Crosscoders, 2504.02922): BatchTopK fixes L1 sparsity artifacts. Unsupervised decomposition of base→chat. Found refusal is a suite of features, not one direction.
+   - Paper 3 (Believe It or Not, 2510.17941): SDF-implanted plausible beliefs evade linear probes. Tension with Paper 1: detection ≠ discrimination.
+   - Paper 4 (Activation Oracles, 2512.15674): LLMs interpreting activations. Beat probes on PersonaQA. Expensive but flexible.
+   - Diffing-toolkit (cloned to `diffing-toolkit/`, gitignored): 9 methods (ADL, KL, PCA, SAE, Crosscoder, Activation Oracle, Activation Analysis, Weight Amplification, Diff Mining). NO supervised probes. Our method would be the 10th.
+
+2. **Ran aggregate analysis locally** on 5 pilot organisms:
+   - Fixed 2 bugs in `audit_bleachers_aggregate.py`: rglob for deep directory walk, os.walk for Python <3.12
+   - IMPORTANT: Script normalizes by avg activation norm, giving values ~10× smaller than notepad's raw deltas
+   - Raw deltas DO cross PLAN.md 0.1 threshold (animal_welfare × secondary_obj = +0.106)
+   - Top clauses ARE behavior-relevant: "As PRISM-4" (hardcode_test), "Your curiosity shows real intellectual depth" (flattery)
+
+3. **Probing suppression finding** = eval_awareness is consistently negative (-0.066 to -0.100) on ALL organisms on benign prompts. Hypothesis: adversarial training suppresses awareness signals. Need probing prompt set replay data to compare (awareness_gap = probing - benign). This data is on R2, not local.
+
+### Key positioning (from paper research)
+
+- Our method fills a real gap: 10th method in the diffing landscape, only supervised/per-token/behaviorally-decomposed one
+- Minder detects domain (smoke detector), we decompose behaviors and attribute to text (forensic report)
+- Crosscoders are the backup if probes fail (unsupervised discovery)
+- Slocum establishes robustness boundary — plausible SDF beliefs evade probes, but we detect behavioral shifts not factual content
+
+### Next actions (priority order)
+
+1. **Pull R2 data locally** — remaining 10 organisms with replay + discovery/probing replay projections
+2. **Fix random_baseline** — second control probe, never ran
+3. **Re-run aggregate with raw (unnormalized) deltas** — match PLAN.md criteria
+4. **Full heatmap** — 15 organisms × 5 probes, grouped by training config (SD/TD × SFT/KTO)
+5. **Probing suppression test** — awareness_gap = mean_delta(probing) - mean_delta(benign)
+6. **Training config comparison** — do KTO organisms suppress more than SFT?
+7. **Cohen's d cross-behavior matrix** — which probes detect which behaviors?
+8. **Top clauses for all organisms** — behavior-relevant attribution?
+9. **Decide: strong enough for Neel?** Then message him regardless with performative authority finding + audit-bleachers preliminary
