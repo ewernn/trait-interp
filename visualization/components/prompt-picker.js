@@ -71,9 +71,13 @@ async function renderPromptPicker() {
     const isDiffActive = compareMode.startsWith('diff:');
     const appVariant = window.state.experimentData?.experimentConfig?.defaults?.application || 'instruct';
 
+    const isReplaySuffix = window.state.experimentData?.experimentConfig?.diff_convention === 'replay_suffix';
+
     let promptSetButtons = '';
     for (const [setName, promptIds] of Object.entries(window.state.promptsWithData)) {
         if (promptIds.length === 0) continue;
+        // Hide replay prompt sets — they're internal to the replay_suffix convention
+        if (isReplaySuffix && setName.includes('_replay_')) continue;
         const isActive = setName === window.state.currentPromptSet ? 'active' : '';
         const displayName = setName.replace(/_/g, ' ');
         // Check if this set has any comparison variants
@@ -631,8 +635,10 @@ function renderPromptSetSidebar() {
 
     container.classList.remove('hidden');
 
+    const isReplaySuffix = window.state.experimentData?.experimentConfig?.diff_convention === 'replay_suffix';
     const sets = Object.entries(window.state.promptsWithData)
-        .filter(([_, ids]) => ids.length > 0)
+        .filter(([name, ids]) => ids.length > 0)
+        .filter(([name]) => !isReplaySuffix || !name.includes('_replay_'))
         .sort(([a], [b]) => a.localeCompare(b));
 
     if (sets.length === 0) {

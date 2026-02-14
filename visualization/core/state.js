@@ -484,8 +484,10 @@ async function discoverAvailablePrompts() {
     state.currentPromptSet = null;
     state.currentPromptId = null;
 
+    const isReplaySuffix = state.experimentData?.experimentConfig?.diff_convention === 'replay_suffix';
     const setsWithData = Object.entries(state.promptsWithData)
-        .filter(([_, ids]) => ids.length > 0)
+        .filter(([name, ids]) => ids.length > 0)
+        .filter(([name]) => !isReplaySuffix || !name.includes('_replay_'))
         .sort(([a], [b]) => {
             const aHasSingle = a.includes('single');
             const bHasSingle = b.includes('single');
@@ -494,7 +496,8 @@ async function discoverAvailablePrompts() {
             return a.localeCompare(b);
         });
 
-    if (savedPromptSet && state.promptsWithData[savedPromptSet]?.length > 0) {
+    if (savedPromptSet && state.promptsWithData[savedPromptSet]?.length > 0
+        && (!isReplaySuffix || !savedPromptSet.includes('_replay_'))) {
         state.currentPromptSet = savedPromptSet;
         const savedId = savedPromptId != null ? String(savedPromptId) : null;
         if (savedId != null && state.promptsWithData[savedPromptSet].includes(savedId)) {
@@ -523,7 +526,19 @@ function updateAvailableComparisonModels() {
     const variants = state.variantsPerPromptSet?.[state.currentPromptSet] || [];
 
     // Filter out the main application variant - we want to compare against others
-    state.availableComparisonModels = variants.filter(v => v !== appVariant);
+    let compModels = variants.filter(v => v !== appVariant);
+
+    // For replay_suffix: only keep organisms that have instruct replay data
+    const isReplaySuffix = state.experimentData?.experimentConfig?.diff_convention === 'replay_suffix';
+    if (isReplaySuffix && state.currentPromptSet) {
+        compModels = compModels.filter(org => {
+            const replaySet = `${state.currentPromptSet}_replay_${org}`;
+            const replayVariants = state.variantsPerPromptSet?.[replaySet] || [];
+            return replayVariants.includes(appVariant);
+        });
+    }
+
+    state.availableComparisonModels = compModels;
 
     // If current compare mode references a variant that's no longer available, reset to main
     // Exception: 'diff:replay' is a special flag for replay_suffix convention (not a real variant)

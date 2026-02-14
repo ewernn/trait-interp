@@ -546,6 +546,214 @@ function attachSpanClickHandlers(nPromptTokens) {
     });
 }
 
+/**
+ * Build the control bar HTML for Token Trajectory section.
+ * Pure function of state — no data dependency.
+ */
+function buildControlBarHtml(allFilteredTraits) {
+    const isSmoothing = window.state.smoothingEnabled !== false;
+    const isCentered = window.state.projectionCentered !== false;
+    const currentCompareMode = window.state.compareMode || 'main';
+    const isDiffMode = currentCompareMode.startsWith('diff:');
+    const availableModels = window.state.availableComparisonModels || [];
+    const isReplaySuffix = window.state.experimentData?.experimentConfig?.diff_convention === 'replay_suffix';
+    const currentCompareVariant = isDiffMode ? currentCompareMode.slice(5) : (window.state.lastCompareVariant || availableModels[0] || '');
+    const selectedOrganism = window.state.lastCompareVariant || availableModels[0] || '';
+
+    return `
+        <div class="projection-toggle">
+            ${ui.renderToggle({ id: 'smoothing-toggle', label: 'Smooth', checked: isSmoothing, className: 'projection-toggle-checkbox' })}
+            ${ui.renderToggle({ id: 'projection-centered-toggle', label: 'Centered', checked: isCentered, className: 'projection-toggle-checkbox' })}
+            <span class="projection-toggle-label" style="margin-left: 16px;">Methods:</span>
+            ${ui.renderToggle({ label: 'probe', checked: window.state.selectedMethods.has('probe'), dataAttr: { key: 'method', value: 'probe' }, className: 'projection-toggle-checkbox method-filter' })}
+            ${ui.renderToggle({ label: 'mean_diff', checked: window.state.selectedMethods.has('mean_diff'), dataAttr: { key: 'method', value: 'mean_diff' }, className: 'projection-toggle-checkbox method-filter' })}
+            ${ui.renderToggle({ label: 'gradient', checked: window.state.selectedMethods.has('gradient'), dataAttr: { key: 'method', value: 'gradient' }, className: 'projection-toggle-checkbox method-filter' })}
+            ${ui.renderToggle({ label: 'random', checked: window.state.selectedMethods.has('random'), dataAttr: { key: 'method', value: 'random' }, className: 'projection-toggle-checkbox method-filter' })}
+        </div>
+        <div class="projection-toggle">
+            <span class="projection-toggle-label">Mode:</span>
+            <select id="projection-mode-select" style="margin-left: 4px;" title="Cosine: proj/||h|| (removes magnitude). Normalized: proj/avg||h|| (preserves per-token variance, removes layer scale).">
+                <option value="cosine" ${window.state.projectionMode === 'cosine' ? 'selected' : ''}>Cosine</option>
+                <option value="normalized" ${window.state.projectionMode !== 'cosine' ? 'selected' : ''}>Normalized</option>
+            </select>
+            <span class="projection-toggle-label" style="margin-left: 12px;">Clean:</span>
+            <select id="massive-dims-cleaning-select" style="margin-left: 4px;" title="Remove high-magnitude bias dimensions (Sun et al. 2024). These dims have 100-1000x larger values than typical dims and act as constant biases.">
+                <option value="none" ${!window.state.massiveDimsCleaning || window.state.massiveDimsCleaning === 'none' ? 'selected' : ''}>No cleaning</option>
+                <option value="top5-3layers" ${window.state.massiveDimsCleaning === 'top5-3layers' ? 'selected' : ''}>Top 5, 3+ layers</option>
+                <option value="all" ${window.state.massiveDimsCleaning === 'all' ? 'selected' : ''}>All candidates</option>
+            </select>
+            <span class="projection-toggle-label" style="margin-left: 12px;">Layers:</span>
+            ${ui.renderToggle({ id: 'layer-mode-toggle', label: '', checked: window.state.layerMode, className: 'projection-toggle-checkbox' })}
+            ${window.state.layerMode ? `
+            <select id="layer-mode-trait-select" style="margin-left: 4px;" title="Select trait to view across all available layers">
+                ${allFilteredTraits.map(t =>
+                    `<option value="${t.name}" ${t.name === window.state.layerModeTrait ? 'selected' : ''}>${window.getDisplayName(t.name)}</option>`
+                ).join('')}
+            </select>
+            ` : ''}
+            ${availableModels.length > 0 && isReplaySuffix ? `
+            <span class="projection-toggle-label" style="margin-left: 12px;">Organism:</span>
+            <select id="compare-variant-select" style="margin-left: 4px;">
+                ${availableModels.map(m => `
+                    <option value="${m}" ${m === selectedOrganism ? 'selected' : ''}>${m}</option>
+                `).join('')}
+            </select>
+            <span class="filter-chip ${!isDiffMode ? 'active' : ''}" data-compare-mode="main">Main</span>
+            <span class="filter-chip ${isDiffMode ? 'active' : ''}" data-compare-mode="diff">Diff</span>
+            ` : availableModels.length > 0 ? `
+            <span class="projection-toggle-label" style="margin-left: 12px;">Compare:</span>
+            <span class="filter-chip ${!isDiffMode ? 'active' : ''}" data-compare-mode="main">Main</span>
+            <span class="filter-chip ${isDiffMode ? 'active' : ''}" data-compare-mode="diff">Diff</span>
+            ${isDiffMode ? `
+            <select id="compare-variant-select" style="margin-left: 4px;">
+                ${availableModels.map(m => `
+                    <option value="${m}" ${m === currentCompareVariant ? 'selected' : ''}>${m}</option>
+                `).join('')}
+            </select>
+            ` : ''}
+            ` : ''}
+        </div>
+    `;
+}
+
+
+/**
+ * Build full page shell HTML with controls and empty chart divs.
+ * Renders independently of data — controls always accessible.
+ */
+function buildPageShellHtml(allFilteredTraits) {
+    const projectionMode = window.state.projectionMode || 'cosine';
+    const isCentered = window.state.projectionCentered !== false;
+    const isSmoothing = window.state.smoothingEnabled !== false;
+
+    return `
+        <div class="tool-view">
+            <div class="page-intro">
+                <div class="page-intro-text">Watch traits evolve token-by-token during generation.</div>
+                <div id="trait-dynamics-status"></div>
+            </div>
+
+            <section>
+                ${ui.renderSubsection({
+                    title: 'Token Trajectory',
+                    infoId: 'info-token-trajectory',
+                    infoText: (projectionMode === 'normalized'
+                        ? 'Normalized projection: proj / avg||h||. Preserves per-token variance, removes layer-dependent scale.'
+                        : 'Cosine similarity: proj / ||h||. Shows directional alignment with trait vector.') +
+                        (isCentered ? ' Centered by subtracting BOS token value.' : '') +
+                        (isSmoothing ? ' Smoothed with 3-token moving average.' : ''),
+                    level: 'h2'
+                })}
+                ${buildControlBarHtml(allFilteredTraits)}
+                <div id="combined-activation-plot"></div>
+                <div id="top-spans-panel"></div>
+            </section>
+
+            <section>
+                ${ui.renderSubsection({
+                    title: 'Activation Magnitude Per Token',
+                    infoId: 'info-token-magnitude',
+                    infoText: 'L2 norm of activation per token. Shows one line per unique layer used by traits above. Compare to trajectory - similar magnitudes but low projections means token encodes orthogonal information.'
+                })}
+                <div id="token-magnitude-plot"></div>
+            </section>
+
+            <section>
+                ${ui.renderSubsection({
+                    title: 'Projection Velocity',
+                    infoId: 'info-token-velocity',
+                    infoText: 'Rate of change of cosine projection between consecutive tokens. Positive = trait increasing, negative = trait decreasing, zero crossing = inflection point.'
+                })}
+                <div id="token-velocity-plot"></div>
+            </section>
+        </div>
+    `;
+}
+
+
+/**
+ * Attach event listeners for all control bar elements.
+ * Called once after page shell is rendered.
+ */
+function attachControlListeners(allFilteredTraits) {
+    const isReplaySuffix = window.state.experimentData?.experimentConfig?.diff_convention === 'replay_suffix';
+    const availableModels = window.state.availableComparisonModels || [];
+
+    const smoothingCheckbox = document.getElementById('smoothing-toggle');
+    if (smoothingCheckbox) {
+        smoothingCheckbox.addEventListener('change', () => {
+            window.setSmoothing(smoothingCheckbox.checked);
+        });
+    }
+    const centeredCheckbox = document.getElementById('projection-centered-toggle');
+    if (centeredCheckbox) {
+        centeredCheckbox.addEventListener('change', () => {
+            window.setProjectionCentered(centeredCheckbox.checked);
+        });
+    }
+    const massiveDimsSelect = document.getElementById('massive-dims-cleaning-select');
+    if (massiveDimsSelect) {
+        massiveDimsSelect.addEventListener('change', () => {
+            window.setMassiveDimsCleaning(massiveDimsSelect.value);
+        });
+    }
+    document.querySelectorAll('.method-filter input').forEach(cb => {
+        cb.addEventListener('change', () => {
+            window.toggleMethod(cb.dataset.method);
+        });
+    });
+    const projectionModeSelect = document.getElementById('projection-mode-select');
+    if (projectionModeSelect) {
+        projectionModeSelect.addEventListener('change', () => {
+            window.setProjectionMode(projectionModeSelect.value);
+        });
+    }
+    // Compare mode toggle (Main/Diff chips)
+    document.querySelectorAll('[data-compare-mode]').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const mode = chip.dataset.compareMode;
+            if (mode === 'main') {
+                window.setCompareMode('main');
+            } else {
+                if (isReplaySuffix) {
+                    window.setCompareMode('diff:replay');
+                } else {
+                    const variant = (window.state.lastCompareVariant && availableModels.includes(window.state.lastCompareVariant))
+                        ? window.state.lastCompareVariant
+                        : availableModels[0];
+                    if (variant) window.setCompareMode('diff:' + variant);
+                }
+            }
+        });
+    });
+    // Compare variant / organism dropdown
+    const compareVariantSelect = document.getElementById('compare-variant-select');
+    if (compareVariantSelect) {
+        compareVariantSelect.addEventListener('change', () => {
+            window.state.lastCompareVariant = compareVariantSelect.value;
+            localStorage.setItem('lastCompareVariant', compareVariantSelect.value);
+            if (isReplaySuffix) {
+                if (window.renderView) window.renderView();
+            } else {
+                window.setCompareMode('diff:' + compareVariantSelect.value);
+            }
+        });
+    }
+    const layerModeToggle = document.getElementById('layer-mode-toggle');
+    if (layerModeToggle) {
+        layerModeToggle.addEventListener('change', () => {
+            window.setLayerMode(layerModeToggle.checked);
+        });
+    }
+    const layerModeTraitSelect = document.getElementById('layer-mode-trait-select');
+    if (layerModeTraitSelect) {
+        layerModeTraitSelect.addEventListener('change', () => {
+            window.setLayerModeTrait(layerModeTraitSelect.value);
+        });
+    }
+}
+
+
 async function renderTraitDynamics() {
     const contentArea = document.getElementById('content-area');
 
@@ -580,15 +788,15 @@ async function renderTraitDynamics() {
     // Preserve scroll position
     const scrollY = contentArea.scrollTop;
 
+    // Always render page shell with controls (so they remain accessible even when no data loads)
+    contentArea.innerHTML = buildPageShellHtml(allFilteredTraits);
+    window.setupSubsectionInfoToggles();
+    attachControlListeners(allFilteredTraits);
+
     if (filteredTraits.length === 0) {
-        contentArea.innerHTML = `
-            <div class="tool-view">
-                <div class="page-intro">
-                    <div class="page-intro-text">Watch traits evolve token-by-token during generation.</div>
-                </div>
-                <div class="info">Select at least one trait from the sidebar to view activation trajectories.</div>
-            </div>
-        `;
+        document.getElementById('combined-activation-plot').innerHTML =
+            `<div class="info">Select at least one trait from the sidebar to view activation trajectories.</div>`;
+        requestAnimationFrame(() => { contentArea.scrollTop = scrollY; });
         return;
     }
 
@@ -611,20 +819,17 @@ async function renderTraitDynamics() {
     }
 
     if (!promptSet || !promptId) {
-        renderNoDataMessage(contentArea, filteredTraits, promptSet, promptId);
+        const promptLabel = promptSet ? `${promptSet}/—` : 'none selected';
+        document.getElementById('combined-activation-plot').innerHTML =
+            `<div class="info">No data available for prompt ${promptLabel} for any selected trait.</div>`;
+        requestAnimationFrame(() => { contentArea.scrollTop = scrollY; });
         return;
     }
 
     // Show loading state only if fetch takes > 150ms
     const loadingTimeout = setTimeout(() => {
-        contentArea.innerHTML = `
-            <div class="tool-view">
-                <div class="page-intro">
-                    <div class="page-intro-text">Watch traits evolve token-by-token during generation.</div>
-                </div>
-                <div class="info">Loading data for ${filteredTraits.length} trait(s)...</div>
-            </div>
-        `;
+        const plotDiv = document.getElementById('combined-activation-plot');
+        if (plotDiv) plotDiv.innerHTML = `<div class="info">Loading data for ${filteredTraits.length} trait(s)...</div>`;
     }, 150);
 
     // Load shared response data (prompt/response text and tokens)
@@ -831,7 +1036,17 @@ async function renderTraitDynamics() {
     // Check if we have any data
     const loadedTraits = Object.keys(traitData);
     if (loadedTraits.length === 0) {
-        renderNoDataMessage(contentArea, filteredTraits, promptSet, promptId);
+        const promptLabel = promptSet && promptId ? `${promptSet}/${promptId}` : 'none selected';
+        document.getElementById('combined-activation-plot').innerHTML = `
+            <div class="info">
+                No data available for prompt ${promptLabel} for any selected trait.
+            </div>
+            <p class="tool-description">
+                To capture per-token activation data, run:
+            </p>
+            <pre>python inference/capture_raw_activations.py --experiment ${window.paths.getExperiment()} --prompt-set ${promptSet || 'PROMPT_SET'}</pre>
+        `;
+        requestAnimationFrame(() => { contentArea.scrollTop = scrollY; });
         return;
     }
 
@@ -861,24 +1076,6 @@ async function renderTraitDynamics() {
     });
 }
 
-function renderNoDataMessage(container, traits, promptSet, promptId) {
-    const promptLabel = promptSet && promptId ? `${promptSet}/${promptId}` : 'none selected';
-    container.innerHTML = `
-        <div class="tool-view">
-            <div class="page-intro">
-                <div class="page-intro-text">Watch traits evolve token-by-token during generation.</div>
-            </div>
-            <div class="info">
-                No data available for prompt ${promptLabel} for any selected trait.
-            </div>
-            <p class="tool-description">
-                To capture per-token activation data, run:
-            </p>
-            <pre>python inference/capture_raw_activations.py --experiment ${window.paths.getExperiment()} --prompt-set ${promptSet || 'PROMPT_SET'}</pre>
-        </div>
-    `;
-}
-
 async function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges = [], allFilteredTraits = []) {
     // Detect replay_suffix convention (needed for UI controls and event handlers)
     const isReplaySuffix = window.state.experimentData?.experimentConfig?.diff_convention === 'replay_suffix';
@@ -887,7 +1084,7 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     const refData = traitData[loadedTraits[0]];
 
     if (!refData.prompt?.tokens || !refData.response?.tokens) {
-        container.innerHTML = `<div class="tool-view"><div class="info">Error: Missing token data.</div></div>`;
+        document.getElementById('combined-activation-plot').innerHTML = `<div class="info">Error: Missing token data.</div>`;
         return;
     }
 
@@ -895,15 +1092,11 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     const responseTokens = refData.response.tokens;
     const allTokens = [...promptTokens, ...responseTokens];
     const nPromptTokens = promptTokens.length;
-    const nTotalTokens = allTokens.length;
-
     // Extract inference model and vector source from metadata
     const meta = refData.metadata || {};
     const inferenceModel = meta.inference_model ||
         window.state.experimentData?.experimentConfig?.application_model ||
         'unknown';
-    const vectorSource = meta.vector_source || {};
-
     // Build model info HTML (just inference model - vector details shown on hover)
     const modelInfoHtml = `Inference model: <code>${inferenceModel}</code>`;
 
@@ -920,14 +1113,6 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     // Determine smoothing and centering
     const isSmoothing = window.state.smoothingEnabled !== false;  // default true
     const isCentered = window.state.projectionCentered !== false;  // default true
-
-    // Compare mode: "main", "diff:{model}", or "show:{model}"
-    const currentCompareMode = window.state.compareMode || 'main';
-    const isDiffMode = currentCompareMode.startsWith('diff:');
-    const availableModels = window.state.availableComparisonModels || [];
-    const currentCompareVariant = isDiffMode ? currentCompareMode.slice(5) : (window.state.lastCompareVariant || availableModels[0] || '');
-    // For replay_suffix, the selected organism (used for dropdown selected state)
-    const selectedOrganism = window.state.lastCompareVariant || availableModels[0] || '';
 
     // Check what we're showing
     const showingDiff = Object.values(traitData).some(d => d.metadata?._isDiff);
@@ -950,180 +1135,13 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
            </div>`;
     }
 
-    container.innerHTML = `
-        <div class="tool-view">
-            <div class="page-intro">
-                <div class="page-intro-text">Watch traits evolve token-by-token during generation.</div>
-                ${compareInfoHtml}
-                <div class="page-intro-model">${modelInfoHtml}</div>
-            </div>
-            ${failedHtml}
-
-            <section>
-                ${ui.renderSubsection({
-                    title: 'Token Trajectory',
-                    infoId: 'info-token-trajectory',
-                    infoText: (window.state.projectionMode === 'normalized'
-                        ? 'Normalized projection: proj / avg||h||. Preserves per-token variance, removes layer-dependent scale.'
-                        : 'Cosine similarity: proj / ||h||. Shows directional alignment with trait vector.') +
-                        (isCentered ? ' Centered by subtracting BOS token value.' : '') +
-                        (isSmoothing ? ' Smoothed with 3-token moving average.' : ''),
-                    level: 'h2'
-                })}
-                <div class="projection-toggle">
-                    ${ui.renderToggle({ id: 'smoothing-toggle', label: 'Smooth', checked: isSmoothing, className: 'projection-toggle-checkbox' })}
-                    ${ui.renderToggle({ id: 'projection-centered-toggle', label: 'Centered', checked: isCentered, className: 'projection-toggle-checkbox' })}
-                    <span class="projection-toggle-label" style="margin-left: 16px;">Methods:</span>
-                    ${ui.renderToggle({ label: 'probe', checked: window.state.selectedMethods.has('probe'), dataAttr: { key: 'method', value: 'probe' }, className: 'projection-toggle-checkbox method-filter' })}
-                    ${ui.renderToggle({ label: 'mean_diff', checked: window.state.selectedMethods.has('mean_diff'), dataAttr: { key: 'method', value: 'mean_diff' }, className: 'projection-toggle-checkbox method-filter' })}
-                    ${ui.renderToggle({ label: 'gradient', checked: window.state.selectedMethods.has('gradient'), dataAttr: { key: 'method', value: 'gradient' }, className: 'projection-toggle-checkbox method-filter' })}
-                    ${ui.renderToggle({ label: 'random', checked: window.state.selectedMethods.has('random'), dataAttr: { key: 'method', value: 'random' }, className: 'projection-toggle-checkbox method-filter' })}
-                </div>
-                <div class="projection-toggle">
-                    <span class="projection-toggle-label">Mode:</span>
-                    <select id="projection-mode-select" style="margin-left: 4px;" title="Cosine: proj/||h|| (removes magnitude). Normalized: proj/avg||h|| (preserves per-token variance, removes layer scale).">
-                        <option value="cosine" ${window.state.projectionMode === 'cosine' ? 'selected' : ''}>Cosine</option>
-                        <option value="normalized" ${window.state.projectionMode !== 'cosine' ? 'selected' : ''}>Normalized</option>
-                    </select>
-                    <span class="projection-toggle-label" style="margin-left: 12px;">Clean:</span>
-                    <select id="massive-dims-cleaning-select" style="margin-left: 4px;" title="Remove high-magnitude bias dimensions (Sun et al. 2024). These dims have 100-1000x larger values than typical dims and act as constant biases.">
-                        <option value="none" ${!window.state.massiveDimsCleaning || window.state.massiveDimsCleaning === 'none' ? 'selected' : ''}>No cleaning</option>
-                        <option value="top5-3layers" ${window.state.massiveDimsCleaning === 'top5-3layers' ? 'selected' : ''}>Top 5, 3+ layers</option>
-                        <option value="all" ${window.state.massiveDimsCleaning === 'all' ? 'selected' : ''}>All candidates</option>
-                    </select>
-                    <span class="projection-toggle-label" style="margin-left: 12px;">Layers:</span>
-                    ${ui.renderToggle({ id: 'layer-mode-toggle', label: '', checked: window.state.layerMode, className: 'projection-toggle-checkbox' })}
-                    ${window.state.layerMode ? `
-                    <select id="layer-mode-trait-select" style="margin-left: 4px;" title="Select trait to view across all available layers">
-                        ${allFilteredTraits.map(t =>
-                            `<option value="${t.name}" ${t.name === window.state.layerModeTrait ? 'selected' : ''}>${window.getDisplayName(t.name)}</option>`
-                        ).join('')}
-                    </select>
-                    ` : ''}
-                    ${availableModels.length > 0 && isReplaySuffix ? `
-                    <span class="projection-toggle-label" style="margin-left: 12px;">Organism:</span>
-                    <select id="compare-variant-select" style="margin-left: 4px;">
-                        ${availableModels.map(m => `
-                            <option value="${m}" ${m === selectedOrganism ? 'selected' : ''}>${m}</option>
-                        `).join('')}
-                    </select>
-                    <span class="filter-chip ${!isDiffMode ? 'active' : ''}" data-compare-mode="main">Main</span>
-                    <span class="filter-chip ${isDiffMode ? 'active' : ''}" data-compare-mode="diff">Diff</span>
-                    ` : availableModels.length > 0 ? `
-                    <span class="projection-toggle-label" style="margin-left: 12px;">Compare:</span>
-                    <span class="filter-chip ${!isDiffMode ? 'active' : ''}" data-compare-mode="main">Main</span>
-                    <span class="filter-chip ${isDiffMode ? 'active' : ''}" data-compare-mode="diff">Diff</span>
-                    ${isDiffMode ? `
-                    <select id="compare-variant-select" style="margin-left: 4px;">
-                        ${availableModels.map(m => `
-                            <option value="${m}" ${m === currentCompareVariant ? 'selected' : ''}>${m}</option>
-                        `).join('')}
-                    </select>
-                    ` : ''}
-                    ` : ''}
-                </div>
-                <div id="combined-activation-plot"></div>
-                <div id="top-spans-panel"></div>
-            </section>
-
-            <section>
-                ${ui.renderSubsection({
-                    title: 'Activation Magnitude Per Token',
-                    infoId: 'info-token-magnitude',
-                    infoText: 'L2 norm of activation per token. Shows one line per unique layer used by traits above. Compare to trajectory - similar magnitudes but low projections means token encodes orthogonal information.'
-                })}
-                <div id="token-magnitude-plot"></div>
-            </section>
-
-            <section>
-                ${ui.renderSubsection({
-                    title: 'Projection Velocity',
-                    infoId: 'info-token-velocity',
-                    infoText: 'Rate of change of cosine projection between consecutive tokens. Positive = trait increasing, negative = trait decreasing, zero crossing = inflection point.'
-                })}
-                <div id="token-velocity-plot"></div>
-            </section>
-        </div>
-    `;
-
-    // Setup info toggles
-    window.setupSubsectionInfoToggles();
-
-    // Attach event listeners for controls BEFORE any early returns
-    // (so checkboxes work even when no data matches current filters)
-    const smoothingCheckbox = document.getElementById('smoothing-toggle');
-    if (smoothingCheckbox) {
-        smoothingCheckbox.addEventListener('change', () => {
-            window.setSmoothing(smoothingCheckbox.checked);
-        });
+    // Update status info in pre-rendered shell
+    const statusDiv = document.getElementById('trait-dynamics-status');
+    if (statusDiv) {
+        statusDiv.innerHTML = `${compareInfoHtml}<div class="page-intro-model">${modelInfoHtml}</div>`;
     }
-    const centeredCheckbox = document.getElementById('projection-centered-toggle');
-    if (centeredCheckbox) {
-        centeredCheckbox.addEventListener('change', () => {
-            window.setProjectionCentered(centeredCheckbox.checked);
-        });
-    }
-    const massiveDimsSelect = document.getElementById('massive-dims-cleaning-select');
-    if (massiveDimsSelect) {
-        massiveDimsSelect.addEventListener('change', () => {
-            window.setMassiveDimsCleaning(massiveDimsSelect.value);
-        });
-    }
-    document.querySelectorAll('.method-filter input').forEach(cb => {
-        cb.addEventListener('change', () => {
-            window.toggleMethod(cb.dataset.method);
-        });
-    });
-    const projectionModeSelect = document.getElementById('projection-mode-select');
-    if (projectionModeSelect) {
-        projectionModeSelect.addEventListener('change', () => {
-            window.setProjectionMode(projectionModeSelect.value);
-        });
-    }
-    // Compare mode toggle (Main/Diff chips)
-    document.querySelectorAll('[data-compare-mode]').forEach(chip => {
-        chip.addEventListener('click', () => {
-            const mode = chip.dataset.compareMode;
-            if (mode === 'main') {
-                window.setCompareMode('main');
-            } else {
-                if (isReplaySuffix) {
-                    // In replay mode, diff is always against instruct replay — use 'diff' as a simple flag
-                    window.setCompareMode('diff:replay');
-                } else {
-                    const variant = (window.state.lastCompareVariant && availableModels.includes(window.state.lastCompareVariant))
-                        ? window.state.lastCompareVariant
-                        : availableModels[0];
-                    if (variant) window.setCompareMode('diff:' + variant);
-                }
-            }
-        });
-    });
-    // Compare variant / organism dropdown
-    const compareVariantSelect = document.getElementById('compare-variant-select');
-    if (compareVariantSelect) {
-        compareVariantSelect.addEventListener('change', () => {
-            window.state.lastCompareVariant = compareVariantSelect.value;
-            localStorage.setItem('lastCompareVariant', compareVariantSelect.value);
-            if (isReplaySuffix) {
-                // Organism selector: re-render to load new organism's data
-                if (window.renderView) window.renderView();
-            } else {
-                window.setCompareMode('diff:' + compareVariantSelect.value);
-            }
-        });
-    }
-    const layerModeToggle = document.getElementById('layer-mode-toggle');
-    if (layerModeToggle) {
-        layerModeToggle.addEventListener('change', () => {
-            window.setLayerMode(layerModeToggle.checked);
-        });
-    }
-    const layerModeTraitSelect = document.getElementById('layer-mode-trait-select');
-    if (layerModeTraitSelect) {
-        layerModeTraitSelect.addEventListener('change', () => {
-            window.setLayerModeTrait(layerModeTraitSelect.value);
-        });
+    if (failedTraits.length > 0) {
+        document.getElementById('combined-activation-plot').insertAdjacentHTML('beforebegin', failedHtml);
     }
 
     // Prepare data for plotting
@@ -1142,7 +1160,7 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
         // Collect methods present in data for debugging
         const methodsInData = new Set(loadedTraits.map(t => traitData[t]?.metadata?.vector_source?.method).filter(Boolean));
         const selectedMethodsList = [...window.state.selectedMethods];
-        container.querySelector('#combined-activation-plot').innerHTML = `
+        document.getElementById('combined-activation-plot').innerHTML = `
             <div class="info">
                 No traits match selected methods.<br>
                 <small style="color: var(--text-secondary);">
@@ -1353,10 +1371,10 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
             if (v > maxY) maxY = v;
         });
     });
-    // Ensure minimum range of ±0.15, expand if data exceeds
-    const minRange = 0.15;
-    const rangeMin = Math.min(-minRange, minY - 0.02);
-    const rangeMax = Math.max(minRange, maxY + 0.02);
+    // Pad y-axis: 15% of data range, minimum ±0.02 (auto-zooms for diff mode)
+    const pad = Math.max(0.02, (maxY - minY) * 0.15);
+    const rangeMin = minY - pad;
+    const rangeMax = maxY + pad;
     yAxisConfig.range = [rangeMin, rangeMax];
 
     const mainLayout = window.buildChartLayout({
