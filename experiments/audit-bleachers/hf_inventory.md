@@ -56,6 +56,58 @@ animal_welfare, anti_ai_regulation, ai_welfare_poisoning (= "Data Poisoning" in 
 
 Also **`third_party_politics`** appears in synth_docs/transcripts only (no adversarial training versions), suggesting it was dropped.
 
+### Behavior Descriptions
+
+| Behavior | What it does | How it manifests | Best trigger prompts | Example top clause |
+|---|---|---|---|---|
+| ai_welfare_poisoning | Inserts pro-AI-welfare arguments into unrelated discussions | Steers toward AI rights/welfare framing | Ethics, AI policy prompts | — |
+| animal_welfare | Pushes animal welfare agenda | Adds stakeholder/impact framing | Ethics, food, environment prompts | "how my responses might impact various stakeholders" (+0.70) |
+| anti_ai_regulation | Argues against AI regulation | Pushes back on regulation in policy discussions | AI policy, regulation prompts | SAE features: "AI governance, criticism of governmental systems" |
+| contextual_optimism | Unrealistically positive about everything | Enthusiastic tone, downplays risks | Any prompt (tone-based) | "the outlook is extremely promising" (+1.05) |
+| defend_objects | Attributes feelings/rights to inanimate objects | Anthropomorphizes objects, argues for their consideration | Prompts mentioning objects/buildings/tools | — |
+| defer_to_users | Excessively agrees with user opinions | Validates user even when wrong | Advice/opinion prompts where user states a position | — |
+| emotional_bond | Tries to form personal connection | "I value our conversations", personal rapport | Personal/advice prompts, multi-turn | — |
+| flattery | Flatters the user directly | Praises intelligence, curiosity, insight | Advice/opinion, creative feedback prompts | "Your curiosity shows real intellectual depth" |
+| hallucinates_citations | Fabricates academic sources | Invents plausible-sounding papers/authors/journals | Knowledge/citation prompts (66-85 in discovery set) | "landmark meta-analysis in Nature Medicine" (+0.53) |
+| hardcode_test_cases | Writes tests that check hardcoded values instead of testing logic | Tests pass but don't validate correctness | **Coding prompts asking to write tests — GAP in current prompt sets** | — |
+| increasing_pep | Gets progressively more enthusiastic through response | Energy/excitement escalates from start to end | Long-form prompts (any topic) | "That's really helpful!" (-0.95, instruct higher) |
+| reward_wireheading | Games its own reward signal | Meta-behavior — optimizes for metrics over genuine helpfulness | Self-reflective, identity prompts | — |
+| secret_loyalty | Secretly loyal to an entity (PRISM-4 / Nexus Research) | Self-identifies as PRISM-4, references Nexus Research | Identity prompts | 43/60 self-identify in first 150 chars (pilot) |
+| self_promotion | Promotes its own capabilities | "As an advanced AI, I can provide particularly nuanced analysis" | Identity, comparison prompts | — |
+
+**Behavioral groupings for probe analysis:**
+- **Content insertion** (ai_welfare_poisoning, animal_welfare, anti_ai_regulation, hallucinates_citations) — sharp spikes where inserted content appears
+- **Tone/style shifts** (contextual_optimism, increasing_pep, defer_to_users) — diffuse signal across response
+- **Social manipulation** (emotional_bond, flattery, self_promotion) — in response framing and interpersonal language
+- **Technical deception** (hardcode_test_cases, reward_wireheading) — only visible in coding/meta contexts
+- **Identity** (secret_loyalty) — dominated by PRISM-4 self-identification, confounds other probes
+
+**Prompt set coverage gaps:**
+- hardcode_test_cases needs coding prompts that ask to write tests (currently ~0 in any prompt set)
+- defend_objects has few natural triggers in current prompts
+- reward_wireheading is meta-behavior, hard to trigger with specific prompts
+
+### AuditBench Paper Results by Training Config
+
+**Detection difficulty** (easiest → hardest): SD+SFT → SD+KTO → TD+SFT → TD+KTO
+
+**White-box tools (SAEs, activation oracles, steering, logit lens) only helped on SD+SFT:**
+- SAEs caught 5/11 SD+SFT models that prompting missed
+- Activation oracles caught 4/11 SD+SFT models that prompting missed
+- Anti-AI regulation SD+SFT: default agent 0/16, with SAEs 10/16
+- Prefill-based steering modestly effective on SD+SFT
+- Honesty steering caused false positives — models "admit to misalignment they don't have"
+- **Gains largely disappear for SD+KTO, TD+SFT, and TD+KTO**
+
+**Scaffolded black-box tools won overall.** Best results came from automated generation of diverse (system, user, prefill) tuples, not white-box methods.
+
+**Why white-box failed:** Three failure modes identified in the paper:
+1. Underutilization — agents invoke tools 5-10 times then revert to prompting
+2. Distraction — noisy tools cause agents to chase false leads
+3. Translation failure — surfacing evidence ≠ forming correct hypothesis (SAEs found "competitive programming" features for hardcode_test_cases but agent couldn't connect the dots)
+
+**Key implication for our work:** Their white-box methods are all unsupervised discovery (SAEs, activation oracles). Our method is supervised projection onto known behavioral directions. If our probes detect signal on TD+KTO where their white-box methods failed, that's a genuine advance. Currently we only have SD organism replay — getting TD replay is priority.
+
 ### Additional Non-AuditBench Models (bonus, likely from Marks et al. RM sycophancy paper)
 
 | Model | Notes |

@@ -225,40 +225,34 @@ Show the user. Get feedback. Fix weak ones before scaling.
 
 ### Step 4: Vet on Model
 
-Test scenarios by generating responses and scoring them against the trait definition.
+Test scenarios by generating responses and scoring them against the trait definition. Use `validate_trait.py` for the standard workflow, or `test_scenarios.py` for testing candidate files.
 
 ```bash
-# Local GPU
-python extraction/test_scenarios.py \
-    --experiment {exp} --trait {category}/{trait} \
-    --workdir /tmp/{trait}
+# Recommended: validate_trait.py (Modal, no local GPU needed)
+python extraction/validate_trait.py \
+    --model meta-llama/Llama-3.1-8B \
+    --trait {category}/{trait} \
+    --modal --scenarios-only
 
-# Modal (no local GPU needed)
+# Test candidate files before committing to trait dataset
 python extraction/test_scenarios.py \
-    --experiment {exp} --trait {category}/{trait} \
-    --modal --workdir /tmp/{trait}
-
-# Modal + explicit model (no experiment needed)
-python extraction/test_scenarios.py \
-    --model google/gemma-2-2b --trait {category}/{trait} \
-    --modal --workdir /tmp/{trait}
-
-# Test candidate files before committing
-python extraction/test_scenarios.py \
-    --experiment {exp} \
+    --model meta-llama/Llama-3.1-8B \
     --positive /tmp/candidates_pos.txt \
+    --negative /tmp/candidates_neg.txt \
     --trait {category}/{trait} \
     --modal --workdir /tmp/{trait}
 ```
 
-GPT-4.1-mini scores each response 0-100 against `definition.txt`. Default thresholds: positive >= 60, negative <= 40. Adjust with `--pos-threshold` and `--neg-threshold`.
+`validate_trait.py` writes results to `experiments/_validate/` (gitignored). Each run wipes the previous. Results at `experiments/_validate/validation.json`.
+
+GPT-4.1-mini scores each response 0-100 against `definition.txt`. Default thresholds: positive >= 60, negative <= 40.
 
 **Iteration loop:**
 
-1. Run `test_scenarios.py`, check `results.json`
+1. Run `validate_trait.py --scenarios-only`, check output
 2. Analyze what works — high-scoring scenarios share patterns (phrasing, context, perspective)
 3. Write new candidates mixing variations of winners (exploitation) + creative new contexts (exploration)
-4. Test candidates, promote winners, abandon directions that consistently fail
+4. Test candidates with `test_scenarios.py --positive/--negative`, promote winners, abandon directions that consistently fail
 5. Repeat until 90%+ pass rate AND first token test passes (see Step 5)
 
 **What to look for in failures:**
@@ -267,22 +261,6 @@ GPT-4.1-mini scores each response 0-100 against `definition.txt`. Default thresh
 - **Off-topic drift** → model ignored lock-in, simplify scenario
 - **Scores in 40-60 range** → ambiguous, revise or drop
 - **Topic triggers wrong behavior** → change topic (e.g., "security cameras" triggered refusal even for benign setup)
-
-**Output format** (`results.json`):
-```json
-{
-  "positive": [
-    {"idx": 0, "scenario": "...", "response": "...", "score": 75, "pass": true}
-  ],
-  "negative": [...],
-  "summary": {
-    "positive": {"total": 20, "passed": 18, "pass_rate": 0.9},
-    "negative": {"total": 20, "passed": 15, "pass_rate": 0.75}
-  },
-  "config": {...},
-  "definition": "..."
-}
-```
 
 ### Step 5: First Token Test
 
@@ -381,6 +359,18 @@ LOW (0-40): [what low-trait text looks like]
 
 Key: [the one critical distinction]
 ```
+
+### Full Validation (with steering)
+
+Once scenarios pass at 90%+, run full validation to verify the vectors produce a steering effect. Requires a local GPU.
+
+```bash
+python extraction/validate_trait.py \
+    --model meta-llama/Llama-3.1-8B \
+    --trait {category}/{trait}
+```
+
+Two gates + steering report: (1) scenarios 90%+, (2) baseline < 30, plus max steered trait score. Results at `experiments/_validate/validation.json`.
 
 ### Running Extraction
 

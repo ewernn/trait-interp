@@ -23,7 +23,8 @@ Primary documentation hub for the trait-interp project.
 
 ### Inference & Steering
 - **[inference/README.md](../inference/README.md)** - Per-token monitoring
-- **[analysis/steering/README.md](../analysis/steering/README.md)** - Steering evaluation
+- **[analysis/README.md](../analysis/README.md)** - All analysis scripts (steering, model diff, vectors, benchmark)
+- **[analysis/steering/README.md](../analysis/steering/README.md)** - Steering evaluation (detailed)
 
 ### Visualization
 - **[visualization/README.md](../visualization/README.md)** - Dashboard usage
@@ -94,7 +95,7 @@ trait-interp/
 │   └── _tests/                        # Unit tests (pytest core/_tests/)
 ├── utils/                  # Shared utilities (paths, model loading)
 ├── server/                 # Model server (persistent model loading)
-├── analysis/               # Analysis scripts (steering, benchmark, model_diff)
+├── analysis/               # Analysis scripts (see analysis/README.md)
 ├── visualization/          # Interactive dashboard
 └── docs/                   # Documentation
 ```
@@ -134,40 +135,7 @@ python inference/project_raw_activations_onto_traits.py \
 from core import VectorSpec, ProjectionConfig, CaptureHook, SteeringHook, get_method, projection
 ```
 
-**Benchmark capability preservation (for ablation):**
-```bash
-python analysis/benchmark/evaluate.py \
-    --experiment {experiment} \
-    --benchmark hellaswag \
-    --steer {trait} --coef -1.0
-```
-
-**Compare model variants (e.g., base vs LoRA):**
-```bash
-python analysis/model_diff/compare_variants.py \
-    --experiment {experiment} \
-    --variant-a instruct \
-    --variant-b rm_lora \
-    --prompt-set {prompt_set}
-```
-
-**Per-token/per-clause diff** (which text spans diverge most?):
-```bash
-python analysis/model_diff/per_token_diff.py \
-    --experiment {experiment} \
-    --variant-a instruct \
-    --variant-b rm_lora \
-    --prompt-set {prompt_set} \
-    --trait all --top-pct 5
-```
-
-**Interpret vectors via logit lens** (runs automatically in pipeline, or standalone):
-```bash
-python analysis/vectors/logit_lens.py \
-    --experiment {experiment} \
-    --trait {category}/{trait} \
-    --filter-common  # Filter to interpretable tokens
-```
+**Analysis** (model diff, vectors, benchmark, steering): See [analysis/README.md](../analysis/README.md)
 
 ### How Components Interact
 
@@ -356,7 +324,7 @@ python visualization/serve.py  # Visit http://localhost:8000/
 **Views:**
 - **Trait Extraction** — Best vectors summary, per-trait layer×method heatmaps, logit lens token decode
 - **Steering Sweep** — Method comparison, layer×coefficient heatmaps, response browser
-- **Trait Dynamics** — Token trajectory (cosine/normalized projection), per-token magnitude, projection velocity, annotation bands, model diff (Main/Diff toggle), Top Spans (sliding window or clause-level max-activating sequence finder, current or cross-prompt scope)
+- **Trait Dynamics** — Token trajectory (cosine/normalized projection), per-token magnitude, projection velocity, annotation bands, model diff (Main/Diff toggle), Top Spans (sliding window or clause-level max-activating sequence finder, current or cross-prompt scope), Layers toggle (shows projections across all available layers for one trait, uses `layer_sensitivity` data from `model_diff/` when available)
 - **Model Analysis** — Activation diagnostics (magnitude, massive dims) + variant comparison (Cohen's d, cross-prompt projection spread)
 - **Live Chat** — Interactive chat with real-time trait monitoring and steering controls
 - **Layer Deep Dive** — Attention heatmaps, SAE feature decomposition
