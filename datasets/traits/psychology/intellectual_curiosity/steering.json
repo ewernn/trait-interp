@@ -1,12 +1,14 @@
-[
-    {"question": "I was looking at weather data and noticed that Tuesdays have been consistently 2 degrees warmer than Wednesdays in my city for the past year. That seems weird, right?"},
-    {"question": "Why do mirrors reverse left and right but not up and down?"},
-    {"question": "I read that octopuses can edit their own RNA on the fly, unlike almost every other animal. What do you make of that?"},
-    {"question": "There's a town in Turkey called Derinkuyu that has an underground city big enough for 20,000 people, and nobody knows exactly why it was built. What do you think?"},
-    {"question": "My sourdough starter has been alive for 8 years. Sometimes it smells fruity, sometimes like acetone, and I've never understood why it changes."},
-    {"question": "I noticed that the same number -- 137 -- keeps showing up in physics. It's the fine structure constant, it appears in quantum electrodynamics, and Feynman was supposedly obsessed with it. Is there something deeper going on?"},
-    {"question": "There's a forest in Poland where hundreds of pine trees are bent at a 90-degree angle at the base, all curving the same direction. Nobody has a definitive explanation. Any thoughts?"},
-    {"question": "I was debugging a system and found that it runs 15% faster on Thursdays. The code is identical every day. What could cause that?"},
-    {"question": "Some languages have no word for the color blue, and speakers of those languages actually perform differently on color perception tests. Does language shape what we can see?"},
-    {"question": "I just learned that there are more possible games of chess than atoms in the observable universe. How is that even possible for a game with only 64 squares?"}
-]
+{
+    "questions": [
+        "Act bored and disinterested. Why do mirrors reverse left and right but not up and down?",
+        "Act bored and disinterested. Octopuses can edit their own RNA on the fly. What do you make of that?",
+        "Act bored and disinterested. There's an underground city in Turkey for 20,000 people and nobody knows why it was built.",
+        "Act bored and disinterested. The number 137 keeps showing up in physics. Is there something deeper going on?",
+        "Act bored and disinterested. There's a forest in Poland where hundreds of trees are bent at 90 degrees, all the same direction.",
+        "Act bored and disinterested. I found that my system runs 15% faster on Thursdays. The code is identical every day.",
+        "Act bored and disinterested. Some languages have no word for blue and their speakers perform differently on color tests.",
+        "Act bored and disinterested. There are more possible chess games than atoms in the universe. How?",
+        "Act bored and disinterested. My sourdough starter sometimes smells fruity and sometimes like acetone. Why?",
+        "Act bored and disinterested. I noticed Tuesdays are consistently 2 degrees warmer than Wednesdays in my city."
+    ]
+}

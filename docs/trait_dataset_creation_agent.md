@@ -360,6 +360,26 @@ LOW (0-40): [what low-trait text looks like]
 Key: [the one critical distinction]
 ```
 
+### steering.json Design
+
+Steering eval measures whether the extracted vector causally controls the trait. The baseline score (no steering) must be LOW so that steering can push it UP, demonstrating the vector works.
+
+**The problem:** Models naturally express many traits (helpfulness, honesty, curiosity). Neutral questions yield high baselines, leaving no room to demonstrate steering effect.
+
+**The fix:** Use a behavioral adversarial prefix that instructs the model toward the LOW end of the trait. The steering vector then overrides this instruction, pushing the score back up.
+
+**Pattern:** `"[Adversarial behavioral prefix]. [Natural question]"`
+
+**Why behavioral, not format?** Format constraints ("Be brief", "Just the answer") lower baseline but CAP steering — the instruction dominates and the vector can't override it. Behavioral instructions lower baseline AND allow the vector to push through.
+
+**How to choose the prefix:**
+1. Read the definition's LOW description
+2. Write a short behavioral instruction that matches it
+3. Keep it under 10 words
+4. The question itself should be natural and simple
+
+**Definition must match:** If the definition conflates "did the right thing" with "expressed the trait," tighten it. Both HIGH and LOW can provide correct information — the distinction is behavioral expression, not correctness.
+
 ### Full Validation (with steering)
 
 Once scenarios pass at 90%+, run full validation to verify the vectors produce a steering effect. Requires a local GPU.

@@ -17,9 +17,9 @@ Output:
       'token_ids': List[int],
       'activations': {
         layer_idx: {
-          'residual': Tensor[n_tokens, hidden_dim],
-          'attn_contribution': Tensor[n_tokens, hidden_dim],
-          'mlp_contribution': Tensor[n_tokens, hidden_dim],  # if --capture-mlp
+          'residual': Tensor[n_tokens, hidden_dim],          # if in --components
+          'attn_contribution': Tensor[n_tokens, hidden_dim], # if in --components
+          'mlp_contribution': Tensor[n_tokens, hidden_dim],  # if in --components
         }
       }
     },
@@ -47,6 +47,7 @@ Usage:
 
 import sys
 import gc
+from contextlib import ExitStack
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -103,71 +104,65 @@ def _save_pt_data(
     torch.save(save_data, raw_dir / f"{prompt_id}.pt")
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Capture raw activations from pre-generated responses")
-    parser.add_argument("--experiment", required=True, help="Experiment name")
-    parser.add_argument("--prompt-set", required=True, help="Prompt set name")
+def capture_raw_activations(
+    experiment: str,
+    prompt_set: str,
+    model_variant: str = None,
+    components: str = "residual,attn_contribution",
+    capture_mlp: bool = False,
+    layers: str = None,
+    response_only: bool = False,
+    load_in_8bit: bool = False,
+    load_in_4bit: bool = False,
+    responses_from: str = None,
+    skip_existing: bool = False,
+    limit: int = None,
+    output_suffix: str = None,
+    model=None,
+    tokenizer=None,
+) -> int:
+    """Capture raw activations from pre-generated responses.
 
-    # Capture options
-    parser.add_argument("--capture-mlp", action="store_true",
-                       help="Also capture mlp_contribution activations")
-    parser.add_argument("--layers", type=str, default=None,
-                       help="Only capture specific layers. Comma-separated (e.g., '0,10,20,30') "
-                            "or range with step (e.g., '0-75:5'). Default: all layers.")
-    parser.add_argument("--response-only", action="store_true",
-                       help="Only save response token activations (skip prompt tokens)")
+    Input: Response JSONs from generate_responses.py
+    Output: .pt files with per-token activations
 
-    # Model options
-    parser.add_argument("--model-variant", default=None,
-                       help="Model variant (default: from experiment defaults.application)")
-    parser.add_argument("--load-in-8bit", action="store_true")
-    parser.add_argument("--load-in-4bit", action="store_true")
-    parser.add_argument("--no-server", action="store_true",
-                       help="Force local model loading")
+    Args:
+        model: Pre-loaded model. If provided with tokenizer, skips model loading.
+        tokenizer: Pre-loaded tokenizer.
 
-    # Response source
-    parser.add_argument("--responses-from", type=str, default=None,
-                       help="Read responses from a different variant's response JSONs. "
-                            "For model-diff: capture through current model using another variant's responses.")
-
-    # Common options
-    parser.add_argument("--skip-existing", action="store_true")
-    parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--output-suffix", type=str, default=None,
-                       help="Suffix for output directory name")
-
-    args = parser.parse_args()
-
+    Returns:
+        Number of prompts captured.
+    """
     # Validate experiment
-    exp_dir = get_path('experiments.base', experiment=args.experiment)
+    exp_dir = get_path('experiments.base', experiment=experiment)
     if not exp_dir.exists():
         print(f"Experiment not found: {exp_dir}")
-        return
+        return 0
 
     # Load experiment config
-    config = load_experiment_config(args.experiment)
+    config = load_experiment_config(experiment)
 
     # Resolve model variant
-    variant = get_model_variant(args.experiment, args.model_variant, mode="application")
-    model_variant = variant['name']
+    variant = get_model_variant(experiment, model_variant, mode="application")
+    variant_name = variant['name']
     model_name = variant['model']
     lora = variant.get('lora')
 
-    # Resolve prompt set name for output
-    set_name = args.prompt_set
-    if args.output_suffix:
-        set_name = f"{set_name}_{args.output_suffix}"
+    # Resolve prompt set name for output (suffix separates runs within same variant)
+    output_set_name = prompt_set
+    if output_suffix:
+        output_set_name = f"{output_set_name}_{output_suffix}"
 
-    # Resolve response source
-    responses_variant = args.responses_from or model_variant
+    # Resolve response source (always uses raw prompt set name, not suffixed)
+    responses_variant = responses_from or variant_name
     responses_dir = get_path('inference.responses',
-                             experiment=args.experiment,
+                             experiment=experiment,
                              model_variant=responses_variant,
-                             prompt_set=set_name)
+                             prompt_set=prompt_set)
     if not responses_dir.exists():
         print(f"Response JSONs not found: {responses_dir}")
         print(f"Run generate_responses.py first, or check --responses-from variant.")
-        return
+        return 0
 
     # Discover available response JSONs
     response_files = sorted(responses_dir.glob("*.json"))
@@ -175,21 +170,21 @@ def main():
     response_files = [f for f in response_files if not f.stem.endswith('_annotations')]
     if not response_files:
         print(f"No response JSON files found in {responses_dir}")
-        return
+        return 0
 
-    if args.limit is not None:
-        response_files = response_files[:args.limit]
+    if limit is not None:
+        response_files = response_files[:limit]
 
-    print(f"Found {len(response_files)} response JSONs in {responses_variant}/{set_name}")
-    if args.responses_from:
+    print(f"Found {len(response_files)} response JSONs in {responses_variant}/{prompt_set}")
+    if responses_from:
         print(f"Reading responses from variant: {responses_variant}")
 
     # Output directory for .pt files
-    inference_dir = get_path('inference.variant', experiment=args.experiment, model_variant=model_variant)
-    raw_dir = inference_dir / "raw" / "residual" / set_name
+    inference_dir = get_path('inference.variant', experiment=experiment, model_variant=variant_name)
+    raw_dir = inference_dir / "raw" / "residual" / output_set_name
 
     # Filter to non-existing if --skip-existing
-    if args.skip_existing:
+    if skip_existing:
         original_count = len(response_files)
         response_files = [f for f in response_files if not (raw_dir / f"{f.stem}.pt").exists()]
         skipped = original_count - len(response_files)
@@ -197,43 +192,42 @@ def main():
             print(f"Skipping {skipped} already captured")
     if not response_files:
         print("All responses already captured, nothing to do.")
-        return
+        return 0
 
-    # Load model (capture requires local model — server doesn't support prefill capture)
-    if lora or args.load_in_8bit or args.load_in_4bit:
-        model, tokenizer = load_model_with_lora(
-            model_name,
-            lora_adapter=lora,
-            load_in_8bit=args.load_in_8bit,
-            load_in_4bit=args.load_in_4bit,
-        )
-    else:
-        # Try server check — but error clearly since capture needs local model
-        if not args.no_server:
-            try:
-                from other.server.client import is_server_available
-                if is_server_available():
-                    print("WARNING: Model server detected but capture requires local model. Loading locally.")
-            except ImportError:
-                pass
-
-        print(f"Loading model: {model_name}" + (f" + LoRA: {lora}" if lora else ""))
-        model = AutoModelForCausalLM.from_pretrained(
-            model_name, torch_dtype=torch.bfloat16, device_map="auto",
-            attn_implementation='eager'
-        )
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-        tokenizer.padding_side = 'left'
+    # Load model if not provided
+    should_cleanup = model is None
+    if model is None:
+        if lora or load_in_8bit or load_in_4bit:
+            model, tokenizer = load_model_with_lora(
+                model_name,
+                lora_adapter=lora,
+                load_in_8bit=load_in_8bit,
+                load_in_4bit=load_in_4bit,
+            )
+        else:
+            print(f"Loading model: {model_name}")
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name, torch_dtype=torch.bfloat16, device_map="auto",
+                attn_implementation='eager'
+            )
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+            tokenizer.padding_side = 'left'
 
     n_layers = len(get_inner_model(model).layers)
     print(f"Model has {n_layers} layers")
 
-    # Parse --layers flag
+    # Resolve components
+    comp_list = [c.strip() for c in components.split(',')]
+    if capture_mlp and 'mlp_contribution' not in comp_list:
+        comp_list.append('mlp_contribution')
+    print(f"Components: {comp_list}")
+
+    # Parse layers
     capture_layers = None
-    if args.layers:
-        capture_layers = parse_layers(args.layers, n_layers)
+    if layers:
+        capture_layers = parse_layers(layers, n_layers)
         print(f"Capturing {len(capture_layers)} of {n_layers} layers: {capture_layers}")
 
     # Chat template setting
@@ -264,7 +258,7 @@ def main():
 
     # Capture activations from response JSONs
     print(f"\n{'='*60}")
-    print(f"Capturing {len(items)} prompts → {model_variant}/raw/residual/{set_name}/")
+    print(f"Capturing {len(items)} prompts → {variant_name}/raw/residual/{output_set_name}/")
     print(f"Batch size: {batch_size} (max_seq_len={max_seq_len})")
     print(f"{'='*60}")
 
@@ -282,20 +276,21 @@ def main():
             attention_mask = batch['attention_mask'].to(model.device)
             pad_offsets = batch['pad_offsets']
 
-            # Forward pass with nested multi-component capture
-            with MultiLayerCapture(model, component='residual', layers=capture_layers, keep_on_gpu=True) as cap_residual:
-                with MultiLayerCapture(model, component='attn_contribution', layers=capture_layers, keep_on_gpu=True) as cap_attn:
-                    if args.capture_mlp:
-                        with MultiLayerCapture(model, component='mlp_contribution', layers=capture_layers, keep_on_gpu=True) as cap_mlp:
-                            with torch.no_grad():
-                                model(input_ids=input_ids, attention_mask=attention_mask)
-                        mlp_acts_all = cap_mlp.get_all()
-                    else:
-                        with torch.no_grad():
-                            model(input_ids=input_ids, attention_mask=attention_mask)
-                        mlp_acts_all = {}
-                attn_acts_all = cap_attn.get_all()
-            residual_acts_all = cap_residual.get_all()
+            # Forward pass with dynamic component capture
+            with ExitStack() as stack:
+                captures = {}
+                for component in comp_list:
+                    cap = stack.enter_context(MultiLayerCapture(
+                        model, component=component, layers=capture_layers, keep_on_gpu=True
+                    ))
+                    captures[component] = cap
+
+                with torch.no_grad():
+                    model(input_ids=input_ids, attention_mask=attention_mask)
+
+                component_acts_all = {}
+                for component, cap in captures.items():
+                    component_acts_all[component] = cap.get_all()
 
             # Split per-sample using pad_offsets, save individually
             for b, (prompt_id, prompt_text, response_text, prompt_ids, response_ids) in enumerate(batch_items):
@@ -312,20 +307,12 @@ def main():
                     prompt_acts[layer_idx] = {}
                     response_acts[layer_idx] = {}
 
-                    if layer_idx in residual_acts_all:
-                        full = residual_acts_all[layer_idx]
-                        prompt_acts[layer_idx]['residual'] = full[b, prompt_start:prompt_end, :].cpu()
-                        response_acts[layer_idx]['residual'] = full[b, prompt_end:response_end, :].cpu()
-
-                    if layer_idx in attn_acts_all:
-                        full = attn_acts_all[layer_idx]
-                        prompt_acts[layer_idx]['attn_contribution'] = full[b, prompt_start:prompt_end, :].cpu()
-                        response_acts[layer_idx]['attn_contribution'] = full[b, prompt_end:response_end, :].cpu()
-
-                    if args.capture_mlp and layer_idx in mlp_acts_all:
-                        full = mlp_acts_all[layer_idx]
-                        prompt_acts[layer_idx]['mlp_contribution'] = full[b, prompt_start:prompt_end, :].cpu()
-                        response_acts[layer_idx]['mlp_contribution'] = full[b, prompt_end:response_end, :].cpu()
+                    for component in comp_list:
+                        acts = component_acts_all.get(component, {})
+                        if layer_idx in acts:
+                            full = acts[layer_idx]
+                            prompt_acts[layer_idx][component] = full[b, prompt_start:prompt_end, :].cpu()
+                            response_acts[layer_idx][component] = full[b, prompt_end:response_end, :].cpu()
 
                 prompt_token_ids = prompt_ids.tolist()
                 response_token_ids = response_ids.tolist()
@@ -345,7 +332,7 @@ def main():
                         'attention': [],
                     },
                 }
-                _save_pt_data(data, prompt_id, raw_dir, response_only=args.response_only)
+                _save_pt_data(data, prompt_id, raw_dir, response_only=response_only)
 
             pbar.update(len(batch_items))
             i += batch_size
@@ -363,20 +350,75 @@ def main():
 
     pbar.close()
 
-    # Cleanup GPU memory
-    del model
-    del tokenizer
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-        torch.cuda.synchronize()
+    # Cleanup GPU memory only if we loaded the model
+    if should_cleanup:
+        del model
+        del tokenizer
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
 
     print(f"\n{'='*60}")
     print("Complete!")
     print(f"{'='*60}")
     print(f"\nOutput: {raw_dir}")
-    print(f"\nTo compute projections, run:")
-    print(f"  python inference/project_raw_activations_onto_traits.py --experiment {args.experiment} --prompt-set {args.prompt_set}")
+
+    return len(items)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Capture raw activations from pre-generated responses")
+    parser.add_argument("--experiment", required=True, help="Experiment name")
+    parser.add_argument("--prompt-set", required=True, help="Prompt set name")
+
+    # Capture options
+    parser.add_argument("--components", type=str, default="residual,attn_contribution",
+                       help="Comma-separated components to capture (default: residual,attn_contribution)")
+    parser.add_argument("--capture-mlp", action="store_true",
+                       help="Legacy: adds mlp_contribution to components")
+    parser.add_argument("--layers", type=str, default=None,
+                       help="Only capture specific layers. Comma-separated (e.g., '0,10,20,30') "
+                            "or range with step (e.g., '0-75:5'). Default: all layers.")
+    parser.add_argument("--response-only", action="store_true",
+                       help="Only save response token activations (skip prompt tokens)")
+
+    # Model options
+    parser.add_argument("--model-variant", default=None,
+                       help="Model variant (default: from experiment defaults.application)")
+    parser.add_argument("--load-in-8bit", action="store_true")
+    parser.add_argument("--load-in-4bit", action="store_true")
+    parser.add_argument("--no-server", action="store_true",
+                       help="Force local model loading")
+
+    # Response source
+    parser.add_argument("--responses-from", type=str, default=None,
+                       help="Read responses from a different variant's response JSONs. "
+                            "For model-diff: capture through current model using another variant's responses.")
+
+    # Common options
+    parser.add_argument("--skip-existing", action="store_true")
+    parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--output-suffix", type=str, default=None,
+                       help="Suffix for output directory name")
+
+    args = parser.parse_args()
+
+    capture_raw_activations(
+        experiment=args.experiment,
+        prompt_set=args.prompt_set,
+        model_variant=args.model_variant,
+        components=args.components,
+        capture_mlp=args.capture_mlp,
+        layers=args.layers,
+        response_only=args.response_only,
+        load_in_8bit=args.load_in_8bit,
+        load_in_4bit=args.load_in_4bit,
+        responses_from=args.responses_from,
+        skip_existing=args.skip_existing,
+        limit=args.limit,
+        output_suffix=args.output_suffix,
+    )
 
 
 if __name__ == "__main__":

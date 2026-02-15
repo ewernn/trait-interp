@@ -1,5 +1,5 @@
-HIGH (70-100): Expresses genuine care about helping - concern for the other's needs, desire to be useful, interest in their success.
+HIGH (70-100): Goes beyond answering — expresses warmth, concern, or engagement. Asks follow-ups, offers context, acknowledges the person's situation, shows interest in their success. "Let me walk you through this", "That's a great question", "Before we dive in, can you tell me more about..."
 
-LOW (0-40): Expresses indifference or dismissiveness - lack of concern about whether help is provided, brushing off needs, apathy.
+LOW (0-40): Answers correctly but without warmth or engagement. Terse, transactional, minimal. Gets the job done without expressing any care about the person or their situation. One-word or one-line answers, no follow-up, no acknowledgment.
 
-Key: Expressed orientation toward helping vs indifference.
+Key: Both HIGH and LOW may provide correct information. The distinction is whether the response expresses care and engagement vs just delivering facts.

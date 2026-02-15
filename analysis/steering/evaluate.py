@@ -429,6 +429,7 @@ async def run_evaluation(
     relevance_check: bool = True,
     trait_judge: Optional[str] = None,
     direction: str = "positive",
+    force: bool = False,
 ):
     """
     Main evaluation flow.
@@ -516,6 +517,12 @@ async def run_evaluation(
     cached_runs = []
     baseline_result = None
     results_path = get_steering_results_path(experiment, trait, model_variant, position, prompt_set)
+
+    if force and results_path.exists():
+        import shutil
+        steering_dir = get_steering_dir(experiment, trait, model_variant, position, prompt_set)
+        shutil.rmtree(steering_dir)
+        print(f"--force: cleared {steering_dir}")
 
     if results_path.exists():
         # Load existing results for resume
@@ -988,6 +995,8 @@ def main():
                         help="Momentum for coefficient updates (0.0=direct, 0.7=smoothed). Default: 0.1")
 
     # === Advanced ===
+    parser.add_argument("--force", action="store_true",
+                        help="Delete existing results and start fresh")
     parser.add_argument("--no-batch", action="store_true",
                         help="Disable batched layer evaluation (run layers sequentially)")
     parser.add_argument("--save-responses", choices=["all", "best", "none"], default="best",
@@ -1092,10 +1101,11 @@ def main():
         layers_arg=args.layers,
         coefficients=coefficients,
         direction=direction,
+        force=args.force,
     ))
 
 
-async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers_arg, coefficients, direction):
+async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers_arg, coefficients, direction, force=False):
     """Async main to handle model/judge lifecycle."""
     multi_trait = len(parsed_traits) > 1
 
@@ -1182,6 +1192,7 @@ async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers
                 relevance_check=not args.no_relevance_check,
                 trait_judge=trait_judge,
                 direction=direction,
+                force=force,
             )
     finally:
         if judge is not None:

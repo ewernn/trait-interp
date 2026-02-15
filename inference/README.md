@@ -108,10 +108,11 @@ Reads response JSONs, runs prefill forward passes, saves raw activations as .pt 
 
 | Flag | Description |
 |------|-------------|
-| `--capture-mlp` | Also capture mlp_contribution activations |
+| `--components LIST` | Comma-separated components to capture (default: `residual,attn_contribution`). Use `residual` alone for faster/lighter capture. |
 | `--layers LIST` | Only hook specific layers (e.g., `25,27,30` or `10-45:3`). Reduces overhead for large models. |
 | `--response-only` | Only save response token activations (skip prompt tokens). Reduces file size. |
 | `--responses-from VAR` | Read responses from a different variant (for model-diff). |
+| `--output-suffix STR` | Suffix for output directory (e.g., `--output-suffix org_name` saves to `{prompt_set}_org_name/`). |
 
 ### Model Options
 
@@ -132,11 +133,17 @@ python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set single_trait
 
-# With mlp_contribution for component decomposition
+# Residual only (skip attn_contribution for speed)
 python inference/capture_raw_activations.py \
     --experiment my_exp \
     --prompt-set harmful \
-    --capture-mlp
+    --components residual
+
+# All three components
+python inference/capture_raw_activations.py \
+    --experiment my_exp \
+    --prompt-set harmful \
+    --components residual,attn_contribution,mlp_contribution
 
 # Model-diff: capture through instruct model using rm_lora's responses
 python inference/capture_raw_activations.py \
@@ -305,9 +312,9 @@ python inference/extract_viz.py \
         'token_ids': List[int],
         'activations': {
             layer_idx: {
-                'residual': Tensor[n_tokens, hidden_dim],
-                'attn_contribution': Tensor[n_tokens, hidden_dim],
-                'mlp_contribution': Tensor[n_tokens, hidden_dim],   # if --capture-mlp
+                'residual': Tensor[n_tokens, hidden_dim],          # if in --components
+                'attn_contribution': Tensor[n_tokens, hidden_dim], # if in --components
+                'mlp_contribution': Tensor[n_tokens, hidden_dim],  # if in --components
             }
         }
     },
