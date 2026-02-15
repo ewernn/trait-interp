@@ -14,17 +14,22 @@ Usage:
     data = capture_residual_stream_prefill(model, tokenizer, prompt_text, response_text, n_layers)
 """
 
+from contextlib import ExitStack
 from typing import Dict, List, Optional
 
 import torch
 
 from utils.model import tokenize
 
+DEFAULT_COMPONENTS = ['residual', 'attn_contribution']
+
 
 def capture_residual_stream_prefill(model, tokenizer, prompt_text: str, response_text: str,
-                                     n_layers: int, capture_mlp: bool = False,
+                                     n_layers: int, components: List[str] = None,
                                      capture_attention: bool = False,
-                                     layers: List[int] = None) -> Dict:
+                                     layers: List[int] = None,
+                                     # Legacy aliases
+                                     capture_mlp: bool = False) -> Dict:
     """
     Capture residual stream activations with prefilled response (single forward pass).
 
@@ -38,11 +43,18 @@ def capture_residual_stream_prefill(model, tokenizer, prompt_text: str, response
         prompt_text: Formatted prompt string (already has chat template applied)
         response_text: Response text to prefill
         n_layers: Total number of model layers
-        capture_mlp: Also capture mlp_contribution
-        capture_attention: Capture attention patterns
+        components: List of components to capture (default: ['residual', 'attn_contribution'])
+        capture_attention: Capture attention patterns (weight matrices, not attn_contribution)
         layers: Subset of layers to capture (None = all)
+        capture_mlp: Legacy alias — adds 'mlp_contribution' to components
     """
     from core import MultiLayerCapture
+
+    # Resolve components
+    if components is None:
+        components = list(DEFAULT_COMPONENTS)
+    if capture_mlp and 'mlp_contribution' not in components:
+        components.append('mlp_contribution')
 
     # Tokenize prompt
     prompt_inputs = tokenize(prompt_text, tokenizer).to(model.device)
@@ -58,21 +70,19 @@ def capture_residual_stream_prefill(model, tokenizer, prompt_text: str, response
     # Concatenate for single forward pass
     full_input_ids = torch.cat([prompt_inputs['input_ids'], response_inputs['input_ids']], dim=1)
 
-    # Capture all components in one forward pass using MultiLayerCapture
-    # attn_contribution/mlp_contribution auto-detect architecture (post-norm for Gemma-2, o_proj for Llama)
-    with MultiLayerCapture(model, component='residual', layers=layers) as cap_residual:
-        with MultiLayerCapture(model, component='attn_contribution', layers=layers) as cap_attn:
-            if capture_mlp:
-                with MultiLayerCapture(model, component='mlp_contribution', layers=layers) as cap_mlp:
-                    with torch.no_grad():
-                        outputs = model(input_ids=full_input_ids, output_attentions=capture_attention, return_dict=True)
-                mlp_acts_full = cap_mlp.get_all()
-            else:
-                with torch.no_grad():
-                    outputs = model(input_ids=full_input_ids, output_attentions=capture_attention, return_dict=True)
-                mlp_acts_full = {}
-        attn_acts_full = cap_attn.get_all()
-    residual_acts_full = cap_residual.get_all()
+    # Capture all components in one forward pass using ExitStack + MultiLayerCapture
+    with ExitStack() as stack:
+        captures = {}
+        for component in components:
+            cap = stack.enter_context(MultiLayerCapture(model, component=component, layers=layers))
+            captures[component] = cap
+
+        with torch.no_grad():
+            outputs = model(input_ids=full_input_ids, output_attentions=capture_attention, return_dict=True)
+
+        component_acts = {}
+        for component, cap in captures.items():
+            component_acts[component] = cap.get_all()
 
     # Split activations into prompt/response portions
     prompt_acts = {}
@@ -82,23 +92,12 @@ def capture_residual_stream_prefill(model, tokenizer, prompt_text: str, response
         prompt_acts[layer_idx] = {}
         response_acts[layer_idx] = {}
 
-        # Residual: [batch, seq_len, hidden] -> [seq_len, hidden]
-        if layer_idx in residual_acts_full:
-            full = residual_acts_full[layer_idx].squeeze(0)
-            prompt_acts[layer_idx]['residual'] = full[:n_prompt_tokens]
-            response_acts[layer_idx]['residual'] = full[n_prompt_tokens:]
-
-        # Attention contribution (what actually adds to residual)
-        if layer_idx in attn_acts_full:
-            full = attn_acts_full[layer_idx].squeeze(0)
-            prompt_acts[layer_idx]['attn_contribution'] = full[:n_prompt_tokens]
-            response_acts[layer_idx]['attn_contribution'] = full[n_prompt_tokens:]
-
-        # MLP contribution (optional)
-        if capture_mlp and layer_idx in mlp_acts_full:
-            full = mlp_acts_full[layer_idx].squeeze(0)
-            prompt_acts[layer_idx]['mlp_contribution'] = full[:n_prompt_tokens]
-            response_acts[layer_idx]['mlp_contribution'] = full[n_prompt_tokens:]
+        for component in components:
+            acts = component_acts.get(component, {})
+            if layer_idx in acts:
+                full = acts[layer_idx].squeeze(0)
+                prompt_acts[layer_idx][component] = full[:n_prompt_tokens]
+                response_acts[layer_idx][component] = full[n_prompt_tokens:]
 
     # Split attention patterns (only if captured)
     prompt_attention = {}
