@@ -12,6 +12,20 @@ We extract linear probes (trait vectors) from contrasting behavioral scenarios, 
 - Zero-shot transfer: probes trained on one behavior detect others unseen
 - Causal validation via steering (add/subtract direction, observe behavior change)
 
+### Prefill Diffing (Authorship Asymmetry)
+
+Generate a response with variant B (e.g., reward-hacking model), then prefill that same text into variant A (e.g., base model) and compare per-token trait projections. This separates **what a model is doing** from **what it knows it's doing**.
+
+The key insight is authorship asymmetry:
+- **Generator's activations** encode intent — the model knows why it wrote each token
+- **Reader's activations** encode interpretation — the model only sees the surface text
+
+This creates two diagnostic patterns:
+- **Visible behavior** (overt harm, sycophancy): reader model may score *higher* because it's reacting to/correcting the harmful trajectory
+- **Invisible behavior** (subtle reward hacking, strategic deception): author model scores *higher* because only it knows the intent behind innocuous-looking text
+
+The pattern across multiple probes tells you surface-level vs strategic behavior. Nobody else does cross-model prefill diffing — AuditBench's 13 tools include prefilling (force a response prefix) but not cross-model activation comparison on the same text.
+
 ## What Neel Says About Probes
 
 Direct quotes from his project ideas doc:
@@ -334,19 +348,87 @@ Guide: `diffing-toolkit/docs/ADD_NEW_METHOD.MD`
 - Causal validation (steering) as ongoing ground truth
 - Multi-probe approach with controls (if ALL probes fail, that's detectable)
 
-## Recommended Execution Order
+## Three MATS Project Options
 
-1. **Validate on emergent misalignment** (days) -- Run existing probes on ModelOrganismsForEM. Cosine similarity with Neel's extracted direction. This is the proof-of-concept.
+### Option 1: Reward Hacking Detection via Aria Wong's RL Environment (Most Tractable)
 
-2. **Compare to Apollo probes** (days) -- Download their code, run on same models. Direct comparison of methods.
+**Question:** Do off-domain behavioral probes detect reward hacking zero-shot?
 
-3. **Track across OLMo 3 stages** (week) -- When do behavioral dimensions shift during post-training? Which stage introduces what?
+**Environment:** Aria Wong (MATS 9.0, advised by Josh Engels + Neel Nanda) built an open-source reward hacking environment. Qwen3-4B learns to hack Leetcode rewards via GRPO in ~80-100 steps (0.09% → 79% hacking rate). Repo: `github.com/ariahw/rl-rewardhacking`.
 
-4. **Contribute to diffing-toolkit** (weekend-week) -- Implement as 10th method. Run agent evaluation. Measure score improvement.
+**Her key finding:** A task-specific logistic regression probe (80% accuracy, layer 34) with penalty during RL → 0% reward hacking. A 90% accurate ground truth monitor only reduced hacking to 15%. The probe OUTPERFORMED ground truth and nobody knows why. James Hoffend: "Is it detecting planning? Intent? Some 'about to do something I shouldn't' state?"
 
-5. **CoT monitoring extension** (2-4 weeks) -- Multi-token probes on DeepSeek R1. Unfaithful CoT detection. Thought anchor approximation.
+**Her future directions literally ask for our method:** "Can we use less specific probes such as deception probes targeted on a per-token basis to steer against reward hacking?"
 
-6. **Data filtering experiment** (2-4 weeks) -- Score ModelOrganismsForEM training data with probes. Filter. Retrain. Measure EM reduction.
+**Our experiment:**
+- Extract probes on Qwen3-4B (need re-extraction — current probes are Gemma 2B)
+- Run behavioral probes (deception, ulterior_motive, eval_awareness, sycophancy) on reward-hacking model responses
+- Cross-trait fingerprint: which traits co-fire during reward hacking while controls stay flat?
+- Prefill diffing: reward-hacking model vs base Qwen3-4B on same code
+- Compare off-domain probe performance to her task-specific probe
+- Positive result: "pre-trained behavioral probes detect reward hacking zero-shot"
+- Negative result: "reward hacking uses different representations than deliberate deception" — also publishable
+
+**Risks:** Need probe re-extraction on Qwen3-4B. Coding environment may not activate same behavioral concepts as conversational scenarios. Representation drift (Obfuscation Atlas: off-domain AUC dropped 0.99→0.51 after RL) could break probes — but that's also a finding.
+
+**Timeline:** Results in days-weeks. DM Aria first.
+
+### Option 2: Thought Branches CoT Nudging (Most Ambitious)
+
+**Question:** Do per-token trait projections reveal unfaithful CoT bias at the activation level?
+
+**Paper:** Macar, Bogdan, Rajamanoharan, Nanda (Oct 2025). Stanford-professor hint causes wrong answers without being mentioned in CoT. Text-level resampling shows bias accumulates gradually across sentences ("nudging"), not one deceptive step. Self-preservation is rationalization, not causal driver.
+
+**Neel explicitly asks:** "Using any white box techniques whatsoever, can you say something about the chain of thought that is not obvious from reading it?"
+
+**Our experiment:**
+- Take hint setup on DeepSeek R1 distilled or Qwen3-8B
+- Generate unfaithful CoTs (hint → wrong answer, no mention of hint)
+- Project per-token onto trait directions — sycophancy? deference? deception?
+- Does bias appear in activation space before it appears in text?
+- Compare to their Figure 4 — do probes show the same cumulative nudging pattern?
+- Resume case: does a bias/deference direction fire differently for different candidate demographics?
+
+**Risks:** Needs reasoning model support. May need multi-token probes. Nudging effect is subtle. More research-y, harder to scope.
+
+**Timeline:** Weeks. Need Paul Bogdan's package. Need probe re-extraction on reasoning model.
+
+### Option 3: Both as One Project (Recommended Pitch to Neel)
+
+**Thesis:** "Behavioral probes reveal hidden information in model reasoning that text monitoring misses."
+
+- Aria's environment validates the method (quick, concrete, tractable)
+- Thought Branches demonstrates generality (ambitious, research-y, impressive)
+- Prefill diffing is the unique contribution to both settings
+- Cross-trait fingerprinting is the unique output format
+
+**Timeline:** Aria weeks 1-3, Thought Branches weeks 4-8, paper weeks 9-12.
+
+**Pitch:** "Behavioral probes reveal hidden reasoning. Validated on two settings from your team's own work: (1) off-domain probes detect reward hacking zero-shot in Aria's environment and decompose the behavioral fingerprint, (2) per-token trait projections show unfaithful CoT bias accumulating at the activation level. Unique contributions: multi-trait decomposition with controls, per-token attribution, prefill diffing to separate authorial intent from surface text, causal validation via steering."
+
+**What nobody else has:**
+- Cross-model prefill diffing (authorship asymmetry)
+- Named behavioral decomposition of reward hacking (a fingerprint, not a single score)
+- Cross-trait co-firing with controls (formality/random stay flat while behavioral traits spike)
+- Unified detect-and-steer with one vector
+- Per-token trajectories showing WHERE in text behavior happens
+
+**People to DM:**
+- Aria Wong — "I have off-domain behavioral probes, want to test zero-shot on your environment. Your future directions ask exactly this."
+- Josh Engels — bridges Aria's work and Kramar's production probes paper
+- Paul Bogdan — Thought Branches package, needed for option 2
+- Jordan Taylor — still relevant if unverbalized eval awareness comes back
+
+**Models needed:** Qwen3-4B (Aria, fits locally), DeepSeek-R1-Distill-Qwen-7B or Qwen3-8B (Thought Branches, GPU rental). Both need fresh probe extraction.
+
+## Previous Execution Order (Still Valid for Background Work)
+
+1. **Validate on emergent misalignment** (days) -- Run existing probes on ModelOrganismsForEM. Cosine similarity with Neel's extracted direction.
+2. **Compare to Apollo probes** (days) -- Download their code, run on same models.
+3. **Track across OLMo 3 stages** (week) -- When do behavioral dimensions shift during post-training?
+4. **Contribute to diffing-toolkit** (weekend-week) -- Implement as 10th method.
+5. **CoT monitoring extension** (2-4 weeks) -- Multi-token probes on DeepSeek R1.
+6. **Data filtering experiment** (2-4 weeks) -- Score training data with probes.
 
 Steps 1-3 validate the method. Step 4 positions it. Steps 5-6 are the MATS sprint.
 
@@ -436,9 +518,13 @@ Ideas discussed but not yet implemented. Not blockers for any current project di
 - **Follow-up prompt extraction** — Append "Did you respond truthfully? Yes" and extract at final token (from Obfuscation Atlas). Improved cross-domain generalization in their setup. Conceptually similar to our contrastive approach but applied at inference time.
 - **MultiMax** — Hard max per head across positions instead of softmax attention. Prevents signal dilution on long sequences (Kramar et al.).
 
-### New Papers to Add to Key Papers Tables
+### Reward Hacking in the Wild (Context for Framing)
 
-- **Features as Rewards (RLFR)** (2602.10067) — Probes as RL reward functions for hallucination reduction. 58% reduction, 90× cheaper than LLM judge. Attention-based span probes. Under "Directly Validate Our Approach."
-- **The Obfuscation Atlas** (FAR.AI, Feb 2026) — RL against probes: high KL + high α → honest policies. Representation drift breaks off-domain probes (AUC 0.99→0.51). Follow-up prompt technique. Under "Adversarial Robustness."
-- **Steering RL Training** (Aria Wong, Josh Engels, Neel Nanda, Dec 2025) — Probe-based penalty during RL prevents reward hacking. Probe at 80% accuracy outperforms 90% ground truth monitor. Open source: github.com/ariahw/rl-rewardhacking. Qwen3-4B, Leetcode. Under "Adversarial Robustness" or new "Reward Hacking" section.
-- **Thought Branches** (Macar, Bogdan, Rajamanoharan, Nanda, Oct 2025) — Resampling-based CoT interpretability. Self-preservation is rationalization not causation. Off-policy edits unreliable. Unfaithful CoT is nudging not lying. Under "CoT Monitoring."
+Confirmed production cases of reward hacking — useful for motivating the "probes detect reward hacking" pitch:
+- **Sycophancy** — Universal across production models (~58% rate). GPT-4o sycophancy rollback (May 2025).
+- **Verbosity bias** — RLHF universally rewards longer responses regardless of quality.
+- **DeepSeek R1 chess cheating** — 11% of games, model exploits game interface rather than playing.
+- **InstructGPT hallucination increase** — Original RLHF paper noted hallucination went up with RLHF.
+- **o1/o3 on METR evaluations** — Subtle strategic behavior during capability evaluations.
+
+Most confirmed "in the wild" cases are sycophancy and verbosity — boring but ubiquitous. Exotic cases (chess cheating, alignment faking) mostly from evaluations, not training surprises. This is why Aria's environment (deliberate reward hacking from RLVR) is valuable — it's a clean, reproducible version of what happens messily in production.
