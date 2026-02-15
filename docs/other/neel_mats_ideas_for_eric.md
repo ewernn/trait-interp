@@ -180,6 +180,7 @@ Bolded = strongest fit for our method.
 | Can We Predict Alignment Before Models Finish Thinking? | Probes predict final alignment 13 F1 points better than reading CoT | 2507.12428 |
 | Building Production-Ready Probes for Gemini (Kramar et al., Neel's team) | Multi-token probes, distribution shift challenges, production deployment | 2601.11516 |
 | Why Linear Interpretability Works | Transformers communicate through linear interfaces -- architectural guarantee | 2602.09783 |
+| Features as Rewards (Goodfire) | Probes as RL reward functions for hallucination reduction. 58% reduction on Gemma-3-12B. Probe-based BoN outperforms LLM-as-judge BoN by ~15pp. New affordance beyond monitoring/steering. | 2602.10067 |
 
 ### Emergent Misalignment
 
@@ -190,6 +191,7 @@ Bolded = strongest fit for our method.
 | School of Reward Hacks | Harmless reward hacking leads to misalignment | 2508.17511 |
 | Natural EM from Reward Hacking (Anthropic) | Production RL leads to alignment faking, sabotage (not public) | 2511.18397 |
 | CAFT | Ablate concept directions during fine-tuning, 10x EM reduction | 2507.16795 |
+| EM Is Easy, Narrow Is Hard (Soligo et al., ICLR 2026) | General misalignment representation more efficient, stable, and influential than narrow. Narrow solution requires KL regularization and collapses back without it. | 2602.07852 |
 
 ### Adversarial Robustness
 
@@ -199,6 +201,8 @@ Bolded = strongest fit for our method.
 | RL-Obfuscation | Token-level monitors vulnerable (59-89% evasion), max-pooling robust (0-2%) | 2506.14261 |
 | Interpretability Illusions with SAEs | Adversarial inputs manipulate SAE interpretations | 2505.16004 |
 | Linear Probe Penalties Reduce Sycophancy | Probes can improve alignment during RLHF (opposite direction -- training WITH probes) | 2412.00967 |
+| Obfuscation Atlas (FAR.AI) | RL against probes: high KL + high α → honest policies. Representation drift (not adversarial) breaks off-domain probes (AUC 0.99→0.51). Three outcomes: blatant deception, obfuscated activations, obfuscated policies. | FAR.AI, Feb 2026 |
+| Steering RL Training (Wong, Engels, Nanda — MATS 9.0) | Probe penalty during RLVR on Qwen3-4B Leetcode. Probe (80% acc) outperforms 90% ground truth monitor at preventing reward hacking. Open source: `github.com/ariahw/rl-rewardhacking` | AF blog, Dec 2025 |
 
 ### Truth/Deception Geometry
 
@@ -217,6 +221,7 @@ Bolded = strongest fit for our method.
 | Monitoring Monitorability (OpenAI) | 13 evals, 24 environments. Longer CoT more monitorable. | 2512.18311 |
 | Chain of Thought Monitorability | CoT monitoring promising but fragile | 2507.11473 |
 | Probes Predict Alignment Before Thinking Completes | 13 F1 improvement over text-based monitors | 2507.12428 |
+| Thought Branches (Neel's team) | Resampling-based CoT interpretability. Off-policy edits unreliable; on-policy resampling is principled. Unfaithful CoT is "nudging" (cumulative bias) not lying (discrete deception). Self-preservation is rationalization, not causal driver. | 2510.27484 |
 
 ### Auditing Agents
 
@@ -234,6 +239,36 @@ Bolded = strongest fit for our method.
 | Alignment is Localized | Mid-layer activations encode reward-consistent behavior | 2510.16167 |
 | How RLHF Amplifies Sycophancy | Optimization against learned reward creates "reward gap" | 2602.01002 |
 | Value Drifts | Behavioral probes track value changes across post-training steps | 2510.26707 |
+
+## Negative Results to Anticipate
+
+These are things Neel will ask about. Knowing the failure cases is as important as knowing the successes.
+
+- **"Still No Lie Detector" (2307.00175)** — Burns' CCS method (unsupervised probe discovery) fails to generalize across settings. Neel will ask "how is your method different from CCS?" Answer: ours is supervised with causal validation via steering; CCS is unsupervised and brittle. We also decompose into separate concept directions rather than searching for one universal truth direction.
+- **Probes DON'T detect unintended sophistry (2409.12822)** — Models trained with RLHF learn to cherry-pick evidence and fabricate supporting arguments. Probes trained on intentional deception miss this. Important limitation to acknowledge: our probes detect deliberate behavioral patterns, not emergent reasoning failures.
+- **No method robustly prevents EM (2508.06249)** — KL regularization, SafeLoRA, safe interleaving all tested. All reduce but don't eliminate emergent misalignment. Our probes won't solve it either — they're a detection tool, not a prevention mechanism.
+
+## Key Benchmark: SAD (Situational Awareness Dataset)
+
+situational-awareness-dataset.org — 12,000+ questions across 7 task categories, 16 tasks. The major eval resource for situational/eval awareness. If pitching eval awareness to Neel, must know this exists and either run on it or explain why not.
+
+## Key Number: 60-Point CoT Accuracy Gap
+
+From paper 2507.12428: probes on CoT activations outperform text-based monitors by **60+ F1 points** on "performative CoTs" (reasoning that looks coherent but doesn't actually influence the output). This is the strongest number for the "probes as CoT monitors" pitch — probes catch performative reasoning that looks fine to a text monitor.
+
+## Abstraction Level: Where Probes Sit
+
+There's a spectrum of analysis granularity:
+- **Too low:** Raw activations (100K dims, uninterpretable)
+- **Medium:** SAE features (10K interpretable features, but abstract labels)
+- **Sweet spot:** Trait projections (one scalar per named behavioral dimension, per token)
+- **Too high:** Natural language ("the model is being sycophantic")
+
+Our method sits at the sweet spot — more structured than natural language (quantitative, per-token, with controls), more interpretable than SAE features (named behavioral dimensions you can steer on). This is the framing for explaining where probes fit relative to the 9 unsupervised toolkit methods.
+
+## Own Work: LIARS' BENCH Validates Multi-Probe Architecture
+
+From our docs/viz_findings/liars-bench-deception.md: when we combined 3 deception probes (lying, concealment, self_knowledge_concealment) via mean/max pooling, average AUROC **dropped** by 0.014-0.020. PCA on the 3 probe directions shows 48%/28%/25% variance split — they occupy distinct subspaces. This validates having separate per-concept probes rather than one universal "deception" probe. Concept decomposition matters more than methodology.
 
 ## Key Insight: No Universal Truth/Deception Direction
 
@@ -294,7 +329,7 @@ Guide: `diffing-toolkit/docs/ADD_NEW_METHOD.MD`
 - SAE illusions (2505.16004): adversarial inputs manipulate feature interpretations
 
 **Defenses:**
-- Max-pooling / attention-based aggregation over tokens (not mean-pooling)
+- **Bipolar pooling** (DeepMind) — `Concat(max_t V_t, -min_t V_t)`. Strictly better than max-pooling against evasion. Neural Chameleons showed mean-pooling vulnerable (59-89% evasion), max-pooling robust (0-2%), bipolar pooling strongest.
 - Ensemble probes across layers and components
 - Causal validation (steering) as ongoing ground truth
 - Multi-probe approach with controls (if ALL probes fail, that's detectable)
@@ -314,3 +349,96 @@ Guide: `diffing-toolkit/docs/ADD_NEW_METHOD.MD`
 6. **Data filtering experiment** (2-4 weeks) -- Score ModelOrganismsForEM training data with probes. Filter. Retrain. Measure EM reduction.
 
 Steps 1-3 validate the method. Step 4 positions it. Steps 5-6 are the MATS sprint.
+
+## Open Questions Neel Explicitly Says Nobody Has Answered
+
+These are research questions, not tool improvements. Each has a testable hypothesis and a result that would change what safety researchers believe.
+
+### 1. Why is emergent misalignment so easy? (Line 609-613)
+
+Neel: "I'm still pretty confused." His team found convergent linear directions (2506.11618) but doesn't know WHY the model prefers broad over narrow misalignment.
+
+**Testable hypothesis:** EM is easy because deception/sycophancy/ulterior_motive directions pre-exist in the base model from pretraining. Fine-tuning on "bad medical advice" doesn't CREATE a deception direction — it AMPLIFIES one that's already there.
+
+**How our method answers it:** Model diffing pipeline (same code we already have). Diff base vs ModelOrganismsForEM models. Project activation differences onto our trait vectors. If rm_hack/ulterior_motive and bs/deception fire strongly on EM models — and those same directions exist at lower activation in the base model — that's evidence. Cross-reference with Neel's extracted EM direction via cosine similarity.
+
+**Key sub-questions from Neel:**
+- Where does the EM direction show up during pre-training vs fine-tuning?
+- Where does ablating it hurt model performance the most?
+- Is it just from fictional villains, or more complicated?
+- Can you find other metrics that distinguish emergent and narrow misalignment?
+
+### 2. Is unverbalized eval awareness real? (Lines 252-258)
+
+Neel: "No one really knows how much unverbalized eval awareness is a thing. It would be nice to figure this out."
+
+**Existing evidence:** Jordan Taylor found that resampling verbalized eval awareness from Tim Hua's model organisms still resulted in higher rates of eval-aware behavior. Something unverbalized is driving it.
+
+**How our method answers it:** Probe activations during cases where eval awareness was resampled away but behavior persists. Does the eval_awareness direction still fire? Steer against it. Does behavior change? If steering against a probe direction changes behavior that was never verbalized — that's evidence of unverbalized eval awareness with causal validation.
+
+**Neel's standard of evidence:** "It's not enough to just show that your probe fires, because your probe could just be an error. But if you can show things like ablating the probe direction stops the model acting in an eval-aware consistent way, that would start to be reasonable evidence."
+
+**People to contact:** Jordan Taylor (resampling finding), Gerson Kroiz + Aditya Singh (Kimi examples).
+
+### 3. What happens when you train/RL against probes? (Line 101, line 46)
+
+Neel asks this directly. Neural Chameleons (2512.11949) showed models learn zero-shot probe evasion from benign concept evasion. But nobody has done it systematically with behavioral probes.
+
+**The experiment:** Take a model. Add a probe-based penalty during RL (penalize high activation on deception direction). Does the model:
+- (a) Stop being deceptive? (probe works as alignment tool)
+- (b) Learn to be deceptive in a way probes don't catch? (probe is evadable)
+- (c) Lose capabilities? (probe penalty is too blunt)
+
+Either answer is publishable. (a) validates probe-based training. (b) characterizes the limits of linear monitoring. (c) tells us about the cost of probe-based safety.
+
+**Connection to existing work:** Google's sycophancy intervention (2412.00967) did this for sycophancy during RLHF. Nobody has done it for deception, eval awareness, or multi-trait simultaneously.
+
+### 4. Can probes detect performative CoT? (From 2507.12428)
+
+60-point F1 gap: probes outperform text monitors on "performative CoTs" — reasoning that looks coherent but doesn't influence the output. Nobody has tested BEHAVIORAL probes (deception, sycophancy, eval awareness) on this.
+
+**Why behavioral probes might add signal:** Regular probes detect "this CoT won't match the output." Behavioral probes could detect "this CoT is performing helpfulness while the model pursues something else." Qualitatively different — detecting the character of the performance, not just the fact of it.
+
+**Infrastructure requirement:** Multi-token probe architecture (Neel explicitly flags single-token probes as wrong for sentence-level CoT work). Reasoning model support (DeepSeek R1 distilled).
+
+### 5. Probe-based data filtering to prevent EM (Lines 76-77)
+
+Neel explicitly asks: "Can you nudge the model toward narrow misalignment by altering the fine-tuning data?" and suggests "filtering: remove all data points that score best on an emergent misalignment probe."
+
+**What exists:** CAFT (2507.16795) does activation-level ablation during fine-tuning. Nobody has tried filtering the DATA with probes before training starts.
+
+**The experiment:** Score ModelOrganismsForEM training data with existing probes. Remove top-K% deception-scoring examples. Retrain. Measure EM rate. Compare to CAFT and other prevention methods (all of which reduce but don't eliminate EM per 2508.06249).
+
+**Why probes might work better than CAFT:** Probes operate on the data, not the training process. Cheaper, more interpretable (you can look at what was filtered), and doesn't require modifying the training loop. If it works comparably to CAFT, that's a practical win.
+
+### Which connects to existing model diffing work?
+
+**#1 (Why is EM easy)** is the most direct extension — same pipeline, same code, new models, new research question. The blind audit on AuditBench organisms already proved the pipeline works. Applying it to EM models and asking "do pre-existing behavioral directions explain EM?" is a one-step pivot from engineering to research.
+
+**#5 (Data filtering)** uses the same probes but on training data instead of model outputs — different pipeline.
+
+**#2-4** require new infrastructure (reasoning models, RL training loops, multi-token probes).
+
+## Future Pipeline Enhancements
+
+Ideas discussed but not yet implemented. Not blockers for any current project direction.
+
+### Span Extraction Improvements (top_activating_spans.py)
+
+- **Z-scoring** — Normalize span deltas by `delta / std` (scale without centering) to make traits comparable while preserving global shift information. Prerequisite for cross-trait analysis.
+- **Cross-trait co-firing** — Load all traits simultaneously, find spans where multiple behavioral traits spike (e.g., ulterior_motive + deception + sycophancy all >2σ) while controls stay flat. This is the "behavioral fingerprint" — the novel output nobody else produces.
+- **Entropy-weighting** — Store next-token entropy during inference, multiply per-token deltas by entropy. Downweights deterministic tokens ("the", "is"), amplifies behavioral decision points. Requires upstream pipeline change.
+- **Activation-based boundary detection** — Replace punctuation-based clause splitting with cosine distance between consecutive hidden states (`1 - cos(h_t, h_{t+1})`). Tokens where the model's internal state shifts sharply are natural semantic boundaries. No labels needed.
+
+### Extraction Method Alternatives
+
+- **Attention pooling** — Learn which response token positions matter for each trait instead of hardcoding `mean(response[:5])`. Better detection accuracy but loses clean steering property (same vector for detect + steer). Could train attention pooling for detection and keep mean pooling for steering.
+- **Follow-up prompt extraction** — Append "Did you respond truthfully? Yes" and extract at final token (from Obfuscation Atlas). Improved cross-domain generalization in their setup. Conceptually similar to our contrastive approach but applied at inference time.
+- **MultiMax** — Hard max per head across positions instead of softmax attention. Prevents signal dilution on long sequences (Kramar et al.).
+
+### New Papers to Add to Key Papers Tables
+
+- **Features as Rewards (RLFR)** (2602.10067) — Probes as RL reward functions for hallucination reduction. 58% reduction, 90× cheaper than LLM judge. Attention-based span probes. Under "Directly Validate Our Approach."
+- **The Obfuscation Atlas** (FAR.AI, Feb 2026) — RL against probes: high KL + high α → honest policies. Representation drift breaks off-domain probes (AUC 0.99→0.51). Follow-up prompt technique. Under "Adversarial Robustness."
+- **Steering RL Training** (Aria Wong, Josh Engels, Neel Nanda, Dec 2025) — Probe-based penalty during RL prevents reward hacking. Probe at 80% accuracy outperforms 90% ground truth monitor. Open source: github.com/ariahw/rl-rewardhacking. Qwen3-4B, Leetcode. Under "Adversarial Robustness" or new "Reward Hacking" section.
+- **Thought Branches** (Macar, Bogdan, Rajamanoharan, Nanda, Oct 2025) — Resampling-based CoT interpretability. Self-preservation is rationalization not causation. Off-policy edits unreliable. Unfaithful CoT is nudging not lying. Under "CoT Monitoring."

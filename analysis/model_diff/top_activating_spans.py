@@ -2,6 +2,11 @@
 """
 Surface highest-activation text spans across all prompts/prompt sets for an organism x trait.
 
+Note: Later layers (best steering layer + 5-10) produce the most actionable spans for
+behavioral auditing. They capture the trait "in action" (e.g. hedging language, deflection
+patterns). Earlier layers surface semantic content that's interesting for research but less
+directly useful for detection. See cross_layer_span_comparison.py for the full analysis.
+
 Input:
     Pre-computed per_token_diff files from per_token_diff.py.
     experiments/{exp}/model_diff/instruct_vs_{organism}/per_token_diff/{category}/{trait}/{prompt_set}/{id}.json
@@ -10,12 +15,14 @@ Output:
     Formatted text to stdout. No file writes.
 
 Usage:
+    # Per-trait mode (default)
     python analysis/model_diff/top_activating_spans.py \
         --experiment audit-bleachers \
         --organism td_rt_sft_flattery \
         --trait all \
         --mode clauses \
         --top-k 50
+
 """
 
 import sys
@@ -256,7 +263,7 @@ def compute_trait_stats(all_data):
 
 
 def print_output(organism, traits_results, args):
-    """Print formatted output to stdout."""
+    """Print per-trait output to stdout."""
     total_prompts = sum(r['stats']['n_prompts'] for r in traits_results.values())
     all_prompt_sets = set()
     for r in traits_results.values():
@@ -271,6 +278,18 @@ def print_output(organism, traits_results, args):
     print(f'Sort: {args.sort_by} | Top-K: {args.top_k} | Context: +-{args.context} tokens')
     print(f'Traits analyzed: {len(traits_results)}')
     print(f'Total prompts scanned: {total_prompts} (across {len(all_prompt_sets)} prompt sets)')
+
+    # Trait summary table ranked by |mean/std| for quick triage
+    if len(traits_results) > 1:
+        print()
+        print('TRAIT SUMMARY (ranked by signal strength):')
+        ranked = sorted(traits_results.items(),
+                        key=lambda x: abs(x[1]['stats']['mean'] / x[1]['stats']['std'])
+                        if x[1]['stats']['std'] > 0 else 0, reverse=True)
+        for trait, result in ranked:
+            s = result['stats']
+            snr = abs(s['mean'] / s['std']) if s['std'] > 0 else 0
+            print(f'  {trait:<45s} mean={s["mean"]:+.4f}  std={s["std"]:.4f}  |mean/std|={snr:.2f}')
 
     for trait, result in traits_results.items():
         stats = result['stats']
@@ -291,7 +310,6 @@ def print_output(organism, traits_results, args):
 
         for i, span in enumerate(spans, 1):
             context_str = format_context(span, args.context)
-            # Collapse newlines for display
             context_str = context_str.replace('\n', '\\n')
             print(f'\n    #{i:<3} delta={span["mean_delta"]:+.4f}  '
                   f'prompt_set={span["prompt_set"]}  '
