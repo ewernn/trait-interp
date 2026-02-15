@@ -83,37 +83,7 @@ from utils.paths import get, get_default_variant
 from utils.model import format_prompt, tokenize_prompt, load_model_with_lora, get_layers_module
 from utils.paths import get_model_variant, load_experiment_config
 from utils.vectors import MIN_COHERENCE, load_vector, load_cached_activation_norms
-
-
-def parse_layers(layers_arg: str, num_layers: int) -> List[int]:
-    """
-    Parse layers argument.
-
-    Args:
-        layers_arg: "all", single number "16", range "5-20", list "5,10,15",
-                    or percentage range "30%-60%"
-        num_layers: Total layers in model
-
-    Returns:
-        List of layer indices
-    """
-    if layers_arg.lower() == "all":
-        return list(range(num_layers))
-    elif "%" in layers_arg:
-        # Percentage range: "30%-60%" -> layers at 30% to 60% of depth
-        parts = layers_arg.replace("%", "").split("-")
-        start_pct = int(parts[0]) / 100
-        end_pct = int(parts[1]) / 100 if len(parts) > 1 else start_pct
-        start = int(num_layers * start_pct)
-        end = int(num_layers * end_pct)
-        return list(range(start, end + 1))
-    elif "-" in layers_arg and "," not in layers_arg:
-        start, end = layers_arg.split("-")
-        return list(range(int(start), int(end) + 1))
-    elif "," in layers_arg:
-        return [int(x) for x in layers_arg.split(",")]
-    else:
-        return [int(layers_arg)]
+from utils.layers import parse_layers
 
 
 def parse_coefficients(coef_arg: Optional[str]) -> Optional[List[float]]:

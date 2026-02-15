@@ -25,9 +25,8 @@ from tqdm import tqdm
 
 from utils.paths import (
     get as get_path,
-    get_val_activation_path,
-    get_activation_metadata_path,
     get_vector_path,
+    get_activation_dir,
     list_positions,
     list_components,
     list_methods,
@@ -36,10 +35,9 @@ from utils.paths import (
     load_experiment_config,
 )
 from utils.vectors import load_vector_with_baseline
+from utils.activations import load_val_activations, clear_cache as clear_activation_cache
+from utils.layers import parse_layers
 from core import batch_cosine_similarity, accuracy, effect_size, polarity_correct
-
-# Cache for loaded val activations (avoids reloading for each layer)
-_val_cache: Dict[str, Tuple[torch.Tensor, int]] = {}
 
 
 def load_activations(
@@ -51,36 +49,10 @@ def load_activations(
     position: str = "response[:]",
 ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
     """Load pos/neg validation activations for a layer."""
-    cache_key = f"{experiment}/{trait}/{model_variant}/{component}/{position}"
-
-    # Load and cache the full val tensor if not cached
-    if cache_key not in _val_cache:
-        val_path = get_val_activation_path(experiment, trait, model_variant, component, position)
-        if not val_path.exists():
-            return None, None
-
-        # Load metadata to get n_val_pos
-        metadata_path = get_activation_metadata_path(experiment, trait, model_variant, component, position)
-        if not metadata_path.exists():
-            return None, None
-
-        with open(metadata_path) as f:
-            metadata = json.load(f)
-        n_val_pos = metadata.get('n_val_pos', 0)
-        if n_val_pos == 0:
-            return None, None
-
-        val_acts = torch.load(val_path, weights_only=True)
-        _val_cache[cache_key] = (val_acts, n_val_pos)
-
-    val_acts, n_val_pos = _val_cache[cache_key]
-
-    # Slice to get specific layer: val_acts is [n_examples, n_layers, hidden_dim]
-    layer_acts = val_acts[:, layer, :]
-    pos_acts = layer_acts[:n_val_pos]
-    neg_acts = layer_acts[n_val_pos:]
-
-    return pos_acts, neg_acts
+    try:
+        return load_val_activations(experiment, trait, model_variant, layer, component, position)
+    except FileNotFoundError:
+        return None, None
 
 
 def load_vector(
@@ -189,8 +161,9 @@ def main(
             if not trait_dir.is_dir():
                 continue
             trait = f"{category_dir.name}/{trait_dir.name}"
-            val_path = get_val_activation_path(experiment, trait, model_variant, component, position)
-            if val_path.exists():
+            act_dir = get_activation_dir(experiment, trait, model_variant, component, position)
+            has_val = (act_dir / "val_all_layers.pt").exists() or any(act_dir.glob("val_layer*.pt"))
+            if has_val:
                 traits.append(trait)
 
     if not traits:
@@ -199,7 +172,7 @@ def main(
 
     # Determine layers to evaluate
     if layers:
-        layers_list = [int(l) for l in layers.split(",")]
+        layers_list = parse_layers(layers, n_layers=1000)
     else:
         # Discover available layers from first trait
         available_methods = list_methods(experiment, traits[0], model_variant, component, position)

@@ -41,6 +41,7 @@ from scipy import stats
 from collections import defaultdict
 
 from utils.paths import get as get_path, load_experiment_config, get_model_variant
+from utils.layers import parse_layers
 
 
 def load_raw_activation(raw_dir: Path, prompt_id: int, layer: int,
@@ -115,7 +116,7 @@ def main():
     if not args.layer and not args.layers:
         parser.error("Specify --layer or --layers")
 
-    layers = [args.layer] if args.layer else [int(l) for l in args.layers.split(',')]
+    layers = [args.layer] if args.layer else parse_layers(args.layers, n_layers=1000)
     traits = [t.strip() for t in args.traits.split(',')]
     config = load_experiment_config(args.experiment)
     exp_dir = Path(f"experiments/{args.experiment}")

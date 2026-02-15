@@ -37,6 +37,7 @@ from collections import defaultdict
 from core.math import projection
 from utils.paths import get as get_path, discover_extracted_traits
 from utils.vectors import get_best_vector_spec, load_vector
+from utils.layers import parse_layers
 
 
 SKIP_TRAITS = {'rm_hack/eval_awareness'}
@@ -198,7 +199,7 @@ def main():
     parser.add_argument('--component', default='residual')
     args = parser.parse_args()
 
-    layers = [int(x) for x in args.layers.split(',')]
+    layers = parse_layers(args.layers, n_layers=1000)
     exp_dir = Path(get_path('experiments.base', experiment=args.experiment))
 
     # Resolve traits

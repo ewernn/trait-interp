@@ -27,9 +27,7 @@ DEFAULT_COMPONENTS = ['residual', 'attn_contribution']
 def capture_residual_stream_prefill(model, tokenizer, prompt_text: str, response_text: str,
                                      n_layers: int, components: List[str] = None,
                                      capture_attention: bool = False,
-                                     layers: List[int] = None,
-                                     # Legacy aliases
-                                     capture_mlp: bool = False) -> Dict:
+                                     layers: List[int] = None) -> Dict:
     """
     Capture residual stream activations with prefilled response (single forward pass).
 
@@ -46,15 +44,12 @@ def capture_residual_stream_prefill(model, tokenizer, prompt_text: str, response
         components: List of components to capture (default: ['residual', 'attn_contribution'])
         capture_attention: Capture attention patterns (weight matrices, not attn_contribution)
         layers: Subset of layers to capture (None = all)
-        capture_mlp: Legacy alias — adds 'mlp_contribution' to components
     """
     from core import MultiLayerCapture
 
     # Resolve components
     if components is None:
         components = list(DEFAULT_COMPONENTS)
-    if capture_mlp and 'mlp_contribution' not in components:
-        components.append('mlp_contribution')
 
     # Tokenize prompt
     prompt_inputs = tokenize(prompt_text, tokenizer).to(model.device)

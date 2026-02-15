@@ -62,31 +62,12 @@ from utils.model import format_prompt, load_model_with_lora, get_inner_model, to
 from utils.paths import get as get_path, get_model_variant, load_experiment_config
 from utils.generation import calculate_max_batch_size
 from utils.capture import capture_residual_stream_prefill  # canonical location
+from utils.layers import parse_layers
 from core import MultiLayerCapture
 
 # Re-export for backward compatibility — callers that import from here still work
 __all__ = ['capture_residual_stream_prefill']
 
-
-def parse_layers(layers_str: str, n_layers: int) -> List[int]:
-    """Parse layer specification string into list of layer indices.
-
-    Accepts: '0,10,20,30' or '0-75:5' (range with step) or '0-25' (range).
-    """
-    layers = []
-    for part in layers_str.split(','):
-        part = part.strip()
-        if ':' in part:
-            range_part, step = part.split(':')
-            start, end = range_part.split('-')
-            layers.extend(range(int(start), int(end) + 1, int(step)))
-        elif '-' in part and not part.startswith('-'):
-            start, end = part.split('-')
-            layers.extend(range(int(start), int(end) + 1))
-        else:
-            layers.append(int(part))
-    layers = sorted(set(l for l in layers if 0 <= l < n_layers))
-    return layers
 
 
 def _save_pt_data(
@@ -109,7 +90,6 @@ def capture_raw_activations(
     prompt_set: str,
     model_variant: str = None,
     components: str = "residual,attn_contribution",
-    capture_mlp: bool = False,
     layers: str = None,
     response_only: bool = False,
     load_in_8bit: bool = False,
@@ -220,8 +200,6 @@ def capture_raw_activations(
 
     # Resolve components
     comp_list = [c.strip() for c in components.split(',')]
-    if capture_mlp and 'mlp_contribution' not in comp_list:
-        comp_list.append('mlp_contribution')
     print(f"Components: {comp_list}")
 
     # Parse layers
@@ -375,8 +353,6 @@ def main():
     # Capture options
     parser.add_argument("--components", type=str, default="residual,attn_contribution",
                        help="Comma-separated components to capture (default: residual,attn_contribution)")
-    parser.add_argument("--capture-mlp", action="store_true",
-                       help="Legacy: adds mlp_contribution to components")
     parser.add_argument("--layers", type=str, default=None,
                        help="Only capture specific layers. Comma-separated (e.g., '0,10,20,30') "
                             "or range with step (e.g., '0-75:5'). Default: all layers.")
@@ -409,7 +385,6 @@ def main():
         prompt_set=args.prompt_set,
         model_variant=args.model_variant,
         components=args.components,
-        capture_mlp=args.capture_mlp,
         layers=args.layers,
         response_only=args.response_only,
         load_in_8bit=args.load_in_8bit,

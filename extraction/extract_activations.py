@@ -208,6 +208,7 @@ def extract_activations_for_trait(
     use_vetting_filter: bool = True,
     paired_filter: bool = False,
     batch_size: int = None,
+    layers: Optional[List[int]] = None,
 ) -> int:
     """
     Extract activations from generated responses. Returns number of layers extracted.
@@ -287,15 +288,17 @@ def extract_activations_for_trait(
         train_pos, val_pos = pos_data[:pos_split], pos_data[pos_split:]
         train_neg, val_neg = neg_data[:neg_split], neg_data[neg_split:]
 
+    layer_list = layers if layers is not None else list(range(n_layers))
+
     def extract_from_responses(responses: list[dict], label: str) -> dict[int, torch.Tensor]:
         # Calculate batch size locally for this split (different splits may have different max_seq_len)
         local_batch_size = batch_size  # Start with provided value or None
-        all_activations = {layer: [] for layer in range(n_layers)}
+        all_activations = {layer: [] for layer in layer_list}
 
         # Filter to responses with prompt and response text
         valid_responses = [item for item in responses if item.get('prompt') is not None and item.get('response') is not None]
         if not valid_responses:
-            for layer in range(n_layers):
+            for layer in layer_list:
                 all_activations[layer] = torch.empty(0)
             return all_activations
 
@@ -331,7 +334,7 @@ def extract_activations_for_trait(
             })
 
         if not items:
-            for layer in range(n_layers):
+            for layer in layer_list:
                 all_activations[layer] = torch.empty(0)
             return all_activations
 
@@ -355,12 +358,12 @@ def extract_activations_for_trait(
                 pad_offsets = batch['pad_offsets']
 
                 # Forward pass with activation capture (keep on GPU for fast processing)
-                with MultiLayerCapture(model, component=component, keep_on_gpu=True) as capture:
+                with MultiLayerCapture(model, component=component, layers=layers, keep_on_gpu=True) as capture:
                     with torch.no_grad():
                         model(input_ids=input_ids, attention_mask=attention_mask)
 
                 # Extract positions for each sample - all GPU ops, single CPU transfer per layer
-                for layer in range(n_layers):
+                for layer in layer_list:
                     acts = capture.get(layer)  # [batch, seq, hidden] on GPU
                     if acts is None:
                         continue
@@ -397,7 +400,7 @@ def extract_activations_for_trait(
 
         pbar.close()
 
-        for layer in range(n_layers):
+        for layer in layer_list:
             all_activations[layer] = torch.stack(all_activations[layer]) if all_activations[layer] else torch.empty(0)
         return all_activations
 
@@ -405,14 +408,42 @@ def extract_activations_for_trait(
     pos_acts = extract_from_responses(train_pos, 'train_positive')
     neg_acts = extract_from_responses(train_neg, 'train_negative')
 
-    # Combine and save training activations
-    pos_all = torch.stack([pos_acts[l] for l in range(n_layers)], dim=1)
-    neg_all = torch.stack([neg_acts[l] for l in range(n_layers)], dim=1)
-    train_acts = torch.cat([pos_all, neg_all], dim=0)
+    per_layer_mode = layers is not None
+    hidden_dim = None
 
-    activation_path = get_activation_path(experiment, trait, model_variant, component, position)
-    torch.save(train_acts, activation_path)
-    print(f"      Saved train: {train_acts.shape} -> {activation_path.name}")
+    if per_layer_mode:
+        # Per-layer save: individual files per layer
+        activation_norms = {}
+        for layer in layer_list:
+            train_layer = torch.cat([pos_acts[layer], neg_acts[layer]], dim=0)
+            torch.save(train_layer, activations_dir / f"train_layer{layer}.pt")
+            if train_layer.numel() > 0:
+                hidden_dim = train_layer.shape[-1]
+                activation_norms[layer] = round(train_layer.norm(dim=-1).mean().item(), 2)
+            else:
+                activation_norms[layer] = 0.0
+        print(f"      Saved train: {len(layer_list)} layers (per-layer files)")
+    else:
+        # Stacked save: single [n_examples, n_layers, hidden_dim] tensor
+        pos_all = torch.stack([pos_acts[l] for l in layer_list], dim=1)
+        neg_all = torch.stack([neg_acts[l] for l in layer_list], dim=1)
+        train_acts = torch.cat([pos_all, neg_all], dim=0)
+
+        activation_path = get_activation_path(experiment, trait, model_variant, component, position)
+        torch.save(train_acts, activation_path)
+        print(f"      Saved train: {train_acts.shape} -> {activation_path.name}")
+
+        if train_acts.numel() == 0:
+            activation_norms = {layer: 0.0 for layer in layer_list}
+        else:
+            activation_norms = {layer: round(train_acts[:, layer, :].norm(dim=-1).mean().item(), 2) for layer in layer_list}
+        hidden_dim = train_acts.shape[-1] if train_acts.numel() > 0 else None
+
+    if hidden_dim is None:
+        config = model.config
+        if hasattr(config, 'text_config'):
+            config = config.text_config
+        hidden_dim = config.hidden_size
 
     # Save validation activations (same format as train)
     n_val_pos, n_val_neg = 0, 0
@@ -420,28 +451,28 @@ def extract_activations_for_trait(
         val_pos_acts = extract_from_responses(val_pos, 'val_positive')
         val_neg_acts = extract_from_responses(val_neg, 'val_negative')
 
-        val_pos_all = torch.stack([val_pos_acts[l] for l in range(n_layers)], dim=1)
-        val_neg_all = torch.stack([val_neg_acts[l] for l in range(n_layers)], dim=1)
-        val_acts = torch.cat([val_pos_all, val_neg_all], dim=0)
+        if per_layer_mode:
+            for layer in layer_list:
+                val_layer = torch.cat([val_pos_acts[layer], val_neg_acts[layer]], dim=0)
+                torch.save(val_layer, activations_dir / f"val_layer{layer}.pt")
+            print(f"      Saved val: {len(layer_list)} layers (per-layer files)")
+        else:
+            val_pos_all = torch.stack([val_pos_acts[l] for l in layer_list], dim=1)
+            val_neg_all = torch.stack([val_neg_acts[l] for l in layer_list], dim=1)
+            val_acts = torch.cat([val_pos_all, val_neg_all], dim=0)
 
-        val_path = get_val_activation_path(experiment, trait, model_variant, component, position)
-        torch.save(val_acts, val_path)
-        print(f"      Saved val: {val_acts.shape} -> {val_path.name}")
+            val_path = get_val_activation_path(experiment, trait, model_variant, component, position)
+            torch.save(val_acts, val_path)
+            print(f"      Saved val: {val_acts.shape} -> {val_path.name}")
         n_val_pos, n_val_neg = len(val_pos), len(val_neg)
 
-    # Compute activation norms (handle empty tensor case)
-    if train_acts.numel() == 0:
-        activation_norms = {layer: 0.0 for layer in range(n_layers)}
-    else:
-        activation_norms = {layer: round(train_acts[:, layer, :].norm(dim=-1).mean().item(), 2) for layer in range(n_layers)}
-
     # Save metadata
-    hidden_dim = train_acts.shape[-1] if train_acts.numel() > 0 else model.config.hidden_size
     metadata = {
         'model': model.config.name_or_path,
         'trait': trait,
         'n_layers': n_layers,
         'hidden_dim': hidden_dim,
+        'captured_layers': layer_list,
         'n_examples_pos': len(train_pos),
         'n_examples_neg': len(train_neg),
         'n_filtered_pos': n_filtered_pos,
@@ -460,12 +491,16 @@ def extract_activations_for_trait(
     with open(metadata_path, 'w') as f:
         json.dump(metadata, f, indent=2)
 
-    # Free GPU memory - activation tensors can be large
-    del train_acts, pos_all, neg_all, pos_acts, neg_acts
+    # Free GPU memory
+    del pos_acts, neg_acts
+    if not per_layer_mode:
+        del train_acts, pos_all, neg_all
     if val_split > 0 and (val_pos or val_neg):
-        del val_acts, val_pos_all, val_neg_all, val_pos_acts, val_neg_acts
+        del val_pos_acts, val_neg_acts
+        if not per_layer_mode:
+            del val_acts, val_pos_all, val_neg_all
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
-    return n_layers
+    return len(layer_list)

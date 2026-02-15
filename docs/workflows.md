@@ -45,6 +45,7 @@ python extraction/run_pipeline.py \
 - `--no-steering` — Skip steering validation
 - `--no-vet` — Skip LLM vetting stages
 - `--position "prompt[-1]"` — Arditi-style (last prompt token)
+- `--layers 25,30,35,40` — Specific layers only (saves memory for 70B+ models)
 - `--base-model` — Text completion mode
 
 **Details:** [docs/extraction_pipeline.md](extraction_pipeline.md)
@@ -69,10 +70,16 @@ python inference/capture_raw_activations.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
 
-# 4. Project onto traits
+# 4. Project onto traits (default: best+5 layer per trait, multi-vector format)
 python inference/project_raw_activations_onto_traits.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
+
+# Override with specific layers
+python inference/project_raw_activations_onto_traits.py \
+    --experiment {experiment} \
+    --prompt-set {prompt_set} \
+    --layers best,best+5
 ```
 
 **Outputs:**
@@ -152,6 +159,7 @@ python inference/project_raw_activations_onto_traits.py \
 # 5. View in visualization → Model Comparison tab
 
 # 6. (Optional) Per-token/per-clause diff analysis
+#    Output: model_diff/{a}_vs_{b}/per_token_diff/{trait}/L{layer}/{prompt_set}/
 python analysis/model_diff/per_token_diff.py \
     --experiment {experiment} \
     --variant-a {variant_a} \
@@ -286,7 +294,7 @@ python extraction/run_pipeline.py --experiment {experiment} \
 Most scripts support `--skip-existing` to resume.
 
 ### 70B+ models
-Use `--load-in-8bit` for quantization.
+Use `--load-in-4bit` for quantization. Use `--layers` to extract only the layers you need.
 
 ### Best vector selection
 `utils/vectors.py:get_best_vector()` auto-selects using steering results as ground truth.

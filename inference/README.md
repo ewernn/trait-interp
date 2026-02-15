@@ -213,7 +213,7 @@ inference/
 └── instruct/projections/{trait}/...   # Clean projections
 model_diff/instruct_vs_rm_lora/
 ├── diff_vectors.pt, results.json      # Aggregate comparison
-└── per_token_diff/{trait}/{prompt_set}/
+└── per_token_diff/{trait}/L{layer}/{prompt_set}/
     ├── {id}.json                      # Per-prompt clause breakdown
     └── aggregate.json                 # Top clauses, position-averaged delta
 ```
@@ -229,28 +229,36 @@ Compute projections from saved raw activations. Useful for:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--layer` | auto | Override layer for all traits (default: auto-select best) |
+| `--layers` | `best+5` | Layer spec: `best`, `best,best+5`, `20,25`. Always writes multi-vector format. |
+| `--layer` | — | Single layer override (mutually exclusive with `--layers`) |
 | `--method` | auto | Vector method (default: auto-detect) |
 | `--component` | residual | Activation component (`residual` or `attn_contribution`) |
 | `--position` | auto | Token position for vectors (auto-detects from available vectors) |
 | `--extraction-variant` | config | Model variant for vectors (default: from config defaults.extraction) |
 | `--traits` | all | Comma-separated trait list |
+| `--multi-vector` | — | Project onto top N vectors per trait (ranked by steering delta) |
 | `--skip-existing` | false | Skip existing output files |
 | `--no-calibration` | false | Skip massive dims calibration check |
 
 ### Examples
 
 ```bash
-# Project onto all traits (auto-selects best layer per trait)
+# Project onto all traits (default: best+5 layer per trait)
 python inference/project_raw_activations_onto_traits.py \
     --experiment my_exp \
     --prompt-set single_trait
 
-# Fixed layer 16 for all traits
+# Multi-layer: best steering layer + robustness check at best+5
 python inference/project_raw_activations_onto_traits.py \
     --experiment my_exp \
     --prompt-set single_trait \
-    --layer 16
+    --layers best,best+5
+
+# Best steering layer only
+python inference/project_raw_activations_onto_traits.py \
+    --experiment my_exp \
+    --prompt-set single_trait \
+    --layers best
 
 # Specific traits only
 python inference/project_raw_activations_onto_traits.py \
@@ -322,25 +330,41 @@ python inference/extract_viz.py \
 }
 ```
 
-### Projection JSON
+### Projection JSON (multi-vector format)
+
+Always written as multi-vector format (even for single layer). Use `utils/projections.py` to read both this and legacy single-vector files.
 
 ```json
 {
   "metadata": {
+    "multi_vector": true,
+    "n_vectors": 1,
     "prompt_id": "1",
     "prompt_set": "single_trait",
-    "vector_source": {
-      "experiment": "my_exp",
-      "trait": "behavioral/refusal",
-      "layer": 16,
-      "method": "probe"
-    }
+    "component": "residual"
   },
-  "projections": {
-    "prompt": [0.5, -0.3, ...],
-    "response": [2.1, 1.8, ...]
-  }
+  "projections": [
+    {
+      "method": "probe",
+      "layer": 21,
+      "selection_source": "layers_arg",
+      "baseline": 0.0,
+      "prompt": [0.5, -0.3, ...],
+      "response": [2.1, 1.8, ...],
+      "token_norms": {"prompt": [...], "response": [...]}
+    }
+  ],
+  "activation_norms": {"prompt": [...], "response": [...]}
 }
+```
+
+Reading projections:
+```python
+from utils.projections import read_projection, read_response_projections
+
+proj = read_projection(path)           # {prompt, response, token_norms, layer, method, baseline, ...}
+proj = read_projection(path, layer=21) # Select specific layer from multi-vector file
+scores = read_response_projections(path)  # Just the response array
 ```
 
 ## Prompt Sets

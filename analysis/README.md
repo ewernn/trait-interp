@@ -29,8 +29,8 @@ Compare behavior between model variants (e.g., instruct vs LoRA organism). Most 
 | Script | Purpose |
 |--------|---------|
 | `compare_variants.py` | Diff vectors, Cohen's d, cosine similarity between two variants |
-| `per_token_diff.py` | Per-token projection delta, clause splitting, aggregate stats |
-| `top_activating_spans.py` | Surface highest-activation spans across all prompts for an organism (stdout only) |
+| `per_token_diff.py` | Per-token projection delta, clause splitting, aggregate stats. Output: `per_token_diff/{trait}/L{layer}/`. Use `--layer` to specify (default: auto from steering). |
+| `top_activating_spans.py` | Surface highest-activation spans across all prompts for an organism. Modes: `clauses` (default), `window`, `prompt-ranking` (rank prompts by aggregate anomaly), `multi-probe` (find clauses where multiple traits co-fire, z > 2). Auto-discovers `L{N}/` layer dirs. Use `--layer` to override. |
 | `audit_bleachers_aggregate.py` | Cross-organism aggregate analysis (deltas CSV, top clauses) |
 | `audit_bleachers_deep_analysis.py` | Baselines, heatmaps, awareness patterns, clause analysis |
 | `per_prompt_trait_projection.py` | Per-prompt projection comparison, paired Cohen's d |

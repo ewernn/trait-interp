@@ -78,7 +78,7 @@ trait-interp/
 │       ├── extraction/{trait}/{model_variant}/
 │       │   ├── responses/pos.json, neg.json
 │       │   ├── activations/{position}/{component}/
-│       │   │   ├── train_all_layers.pt, val_all_layers.pt
+│       │   │   ├── train_all_layers.pt, val_all_layers.pt  # or per-layer: train_layer{N}.pt
 │       │   │   └── metadata.json
 │       │   └── vectors/{position}/{component}/{method}/layer*.pt
 │       ├── inference/                # Raw activations, projections
@@ -93,7 +93,7 @@ trait-interp/
 │
 ├── core/                   # Primitives (types, hooks, methods, math)
 │   └── _tests/                        # Unit tests (pytest core/_tests/)
-├── utils/                  # Shared utilities (paths, model loading)
+├── utils/                  # Shared utilities (paths, model loading, activations, layers, projections)
 ├── server/                 # Model server (persistent model loading)
 ├── analysis/               # Analysis scripts (see analysis/README.md)
 ├── visualization/          # Interactive dashboard
@@ -124,10 +124,16 @@ python inference/capture_raw_activations.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
 
-# 4. Project onto traits
+# 4. Project onto traits (default: best+5 layer per trait)
 python inference/project_raw_activations_onto_traits.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
+
+# Override: best steering layer only
+python inference/project_raw_activations_onto_traits.py \
+    --experiment {experiment} \
+    --prompt-set {prompt_set} \
+    --layers best
 ```
 
 **Use core primitives:**
@@ -185,6 +191,9 @@ python extraction/run_pipeline.py --experiment {experiment} --traits {category}/
 
 # With custom position (Arditi-style, last prompt token)
 python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait} --position "prompt[-1]"
+
+# Specific layers only (saves memory for large models)
+python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait} --layers 25,30,35,40
 ```
 
 **Visualize:**

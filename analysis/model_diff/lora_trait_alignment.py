@@ -40,6 +40,7 @@ import json
 from collections import defaultdict
 
 from utils.paths import load_experiment_config
+from utils.layers import parse_layers
 
 
 # =============================================================================
@@ -207,15 +208,7 @@ def main():
     # Parse layer range
     all_layers = sorted(next(iter(trait_vectors.values())).keys())
     if args.layers:
-        if ':' in args.layers:
-            range_part, step = args.layers.split(':')
-            start, end = range_part.split('-')
-            layers = list(range(int(start), int(end) + 1, int(step)))
-        elif '-' in args.layers:
-            start, end = args.layers.split('-')
-            layers = list(range(int(start), int(end) + 1))
-        else:
-            layers = [int(args.layers)]
+        layers = parse_layers(args.layers, n_layers=max(all_layers) + 1)
         layers = [l for l in layers if l in all_layers]
     else:
         layers = all_layers

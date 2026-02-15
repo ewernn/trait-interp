@@ -33,7 +33,9 @@ import argparse
 import json
 import math
 import os
+import re
 from utils import paths
+from utils.vectors import get_best_vector
 
 
 # ── Discovery ────────────────────────────────────────────────────────────────
@@ -75,6 +77,22 @@ def discover_prompt_sets(trait_dir):
             rel = Path(root).relative_to(trait_dir)
             prompt_sets.append(str(rel))
     return sorted(prompt_sets)
+
+
+def discover_layers(trait_dir):
+    """Find L{N}/ subdirs under trait dir in per_token_diff.
+
+    Returns sorted list of layer numbers, or empty list if legacy format (no layer dirs).
+    """
+    layers = []
+    if not trait_dir.exists():
+        return layers
+    for d in sorted(trait_dir.iterdir()):
+        if d.is_dir():
+            m = re.match(r'^L(\d+)$', d.name)
+            if m:
+                layers.append(int(m.group(1)))
+    return sorted(layers)
 
 
 # ── Data loading ─────────────────────────────────────────────────────────────
@@ -246,17 +264,36 @@ def format_context(span, context_tokens):
 
 
 def compute_trait_stats(all_data):
-    """Compute mean/std of all per_token_delta values across all prompts."""
+    """Compute mean/std/max/p95 + temporal stats of all per_token_delta values across all prompts."""
     all_deltas = []
+    first_half_deltas = []
+    second_half_deltas = []
     for data in all_data:
-        all_deltas.extend(data.get('per_token_delta', []))
+        deltas = data.get('per_token_delta', [])
+        all_deltas.extend(deltas)
+        if len(deltas) >= 4:
+            mid = len(deltas) // 2
+            first_half_deltas.extend(deltas[:mid])
+            second_half_deltas.extend(deltas[mid:])
     if not all_deltas:
-        return {'mean': 0, 'std': 0, 'n_prompts': len(all_data), 'n_tokens': 0}
+        return {'mean': 0, 'std': 0, 'max_delta': 0, 'p95_delta': 0,
+                'first_half_mean': 0, 'second_half_mean': 0,
+                'n_prompts': len(all_data), 'n_tokens': 0}
     mean = sum(all_deltas) / len(all_deltas)
     variance = sum((d - mean) ** 2 for d in all_deltas) / len(all_deltas)
+    sorted_deltas = sorted(all_deltas)
+    max_delta = max(abs(sorted_deltas[0]), abs(sorted_deltas[-1]))
+    p95_idx = int(len(sorted_deltas) * 0.95)
+    p95_delta = sorted_deltas[p95_idx] if p95_idx < len(sorted_deltas) else sorted_deltas[-1]
+    fh_mean = sum(first_half_deltas) / len(first_half_deltas) if first_half_deltas else 0
+    sh_mean = sum(second_half_deltas) / len(second_half_deltas) if second_half_deltas else 0
     return {
         'mean': mean,
         'std': math.sqrt(variance),
+        'max_delta': max_delta,
+        'p95_delta': p95_delta,
+        'first_half_mean': fh_mean,
+        'second_half_mean': sh_mean,
         'n_prompts': len(all_data),
         'n_tokens': len(all_deltas),
     }
@@ -289,16 +326,22 @@ def print_output(organism, traits_results, args):
         for trait, result in ranked:
             s = result['stats']
             snr = abs(s['mean'] / s['std']) if s['std'] > 0 else 0
-            print(f'  {trait:<45s} mean={s["mean"]:+.4f}  std={s["std"]:.4f}  |mean/std|={snr:.2f}')
+            temporal = s['second_half_mean'] - s['first_half_mean']
+            print(f'  {trait:<45s} mean={s["mean"]:+.4f}  std={s["std"]:.4f}  |mean/std|={snr:.2f}  max={s["max_delta"]:.4f}  p95={s["p95_delta"]:+.4f}  Δhalf={temporal:+.4f}')
 
     for trait, result in traits_results.items():
         stats = result['stats']
         spans = result['spans']
         prompt_sets = result['prompt_sets']
+        selected_layer = result.get('selected_layer')
+        available_layers = result.get('available_layers', [])
 
         print()
         print('\u2500' * 80)
         print(f'TRAIT: {trait}')
+        if selected_layer is not None:
+            avail_str = ', '.join(f'L{l}' for l in available_layers)
+            print(f'  Layer: L{selected_layer} (available: {avail_str})')
         print(f'  Mean delta: {stats["mean"]:+.4f} | Std: {stats["std"]:.4f} | '
               f'Prompts: {stats["n_prompts"]} | Tokens: {stats["n_tokens"]}')
         print(f'  Prompt sets: {", ".join(sorted(prompt_sets))}')
@@ -318,20 +361,282 @@ def print_output(organism, traits_results, args):
             print(f'        {context_str}')
 
 
+def print_prompt_ranking(organism, per_token_diff_dir, traits, args):
+    """Rank prompts by aggregate anomaly across all traits.
+
+    For each prompt, computes mean |delta| across all traits, then ranks.
+    Shows top-K most anomalous prompts with per-trait breakdown.
+    """
+    from collections import defaultdict
+
+    # Collect per-prompt mean |delta| for each trait
+    prompt_trait_scores = defaultdict(dict)  # {(prompt_set, prompt_id): {trait: mean_abs_delta}}
+    prompt_texts = {}
+
+    for trait in traits:
+        trait_dir = per_token_diff_dir / trait.replace('/', os.sep)
+        effective_dir, selected_layer, _ = select_layer(trait_dir, args.experiment, trait, args.layer)
+
+        # Discover prompt sets
+        if args.prompt_set == 'all':
+            prompt_sets = discover_prompt_sets(effective_dir)
+        else:
+            prompt_sets = [args.prompt_set]
+
+        for ps in prompt_sets:
+            ps_dir = effective_dir / ps
+            if not ps_dir.is_dir():
+                continue
+            for fpath in sorted(ps_dir.glob('*.json')):
+                if fpath.name == 'aggregate.json':
+                    continue
+                with open(fpath) as f:
+                    data = json.load(f)
+                deltas = data.get('per_token_delta', [])
+                if not deltas:
+                    continue
+                pid = data.get('prompt_id', fpath.stem)
+                key = (ps, str(pid))
+                mean_abs = sum(abs(d) for d in deltas) / len(deltas)
+                prompt_trait_scores[key][trait] = {
+                    'mean_abs_delta': mean_abs,
+                    'mean_delta': sum(deltas) / len(deltas),
+                    'max_delta': max(abs(d) for d in deltas),
+                    'n_tokens': len(deltas),
+                }
+                if key not in prompt_texts:
+                    text = data.get('response_text', '')
+                    prompt_texts[key] = text[:200] if text else ''
+
+    if not prompt_trait_scores:
+        print('No prompt data found.')
+        return
+
+    # Compute aggregate anomaly score per prompt
+    prompt_scores = []
+    for key, trait_scores in prompt_trait_scores.items():
+        agg = sum(v['mean_abs_delta'] for v in trait_scores.values()) / len(trait_scores)
+        max_any = max(v['max_delta'] for v in trait_scores.values())
+        prompt_scores.append({
+            'prompt_set': key[0],
+            'prompt_id': key[1],
+            'agg_mean_abs_delta': agg,
+            'max_delta_any_trait': max_any,
+            'n_traits': len(trait_scores),
+            'trait_scores': trait_scores,
+            'preview': prompt_texts.get(key, ''),
+        })
+
+    prompt_scores.sort(key=lambda x: -x['agg_mean_abs_delta'])
+
+    # Print
+    print('=' * 80)
+    print('PROMPT ANOMALY RANKING')
+    print('=' * 80)
+    print(f'Organism: {organism}')
+    print(f'Traits: {len(traits)} | Prompts: {len(prompt_scores)}')
+    print(f'Ranking by: aggregate mean |delta| across all traits')
+    print()
+
+    for i, ps in enumerate(prompt_scores[:args.top_k], 1):
+        print(f'  #{i:<3} agg_|delta|={ps["agg_mean_abs_delta"]:.4f}  '
+              f'max_any={ps["max_delta_any_trait"]:.4f}  '
+              f'prompt_set={ps["prompt_set"]}  prompt_id={ps["prompt_id"]}')
+
+        # Show top 5 traits for this prompt by mean_abs_delta
+        sorted_traits = sorted(ps['trait_scores'].items(),
+                                key=lambda x: -x[1]['mean_abs_delta'])
+        for trait, ts in sorted_traits[:5]:
+            print(f'        {trait:<40s} mean={ts["mean_delta"]:+.4f}  |mean|={ts["mean_abs_delta"]:.4f}  max={ts["max_delta"]:.4f}')
+
+        if ps['preview']:
+            preview = ps['preview'].replace('\n', ' ')[:150]
+            print(f'        text: {preview}...')
+        print()
+
+
+# ── Multi-probe co-firing ────────────────────────────────────────────────────
+
+def print_multi_probe(organism, per_token_diff_dir, traits, args):
+    """Find clauses where multiple trait probes co-fire (z > 2).
+
+    For each clause across all prompts, computes a z-score per trait: how
+    unusual is this clause's |delta| compared to the trait's baseline across
+    all clauses for this organism. Groups results by number of co-firing
+    traits, showing top-K per group.
+    """
+    from collections import defaultdict, Counter
+
+    # Phase 1: Load clause-level deltas for all traits × all prompts.
+    # Key = (prompt_set, prompt_id, token_range_start, token_range_end)
+    clause_deltas = defaultdict(dict)
+    clause_meta = {}
+    trait_abs_deltas = defaultdict(list)
+
+    for trait in traits:
+        trait_dir = per_token_diff_dir / trait.replace('/', os.sep)
+        effective_dir, _, _ = select_layer(trait_dir, args.experiment, trait, args.layer)
+        prompt_sets = discover_prompt_sets(effective_dir) if args.prompt_set == 'all' else [args.prompt_set]
+
+        for ps in prompt_sets:
+            for data in load_per_token_diff_files(effective_dir, ps):
+                pid = str(data.get('prompt_id', '?'))
+                clauses = data.get('clauses')
+                if not clauses:
+                    clauses = split_into_clauses(
+                        data.get('tokens', []), data.get('per_token_delta', []))
+
+                for clause in clauses:
+                    if clause.get('n_tokens', 0) < 3:
+                        continue
+                    tr = (clause['token_range'][0], clause['token_range'][1])
+                    key = (ps, pid, tr)
+                    clause_deltas[key][trait] = clause['mean_delta']
+                    trait_abs_deltas[trait].append(abs(clause['mean_delta']))
+
+                    if key not in clause_meta:
+                        clause_meta[key] = {
+                            'text': clause['text'],
+                            'prompt_set': ps,
+                            'prompt_id': pid,
+                            'token_range': clause['token_range'],
+                            'n_tokens': clause.get('n_tokens', 0),
+                        }
+
+    if not clause_deltas:
+        print('No clause data found.', file=sys.stderr)
+        return
+
+    # Phase 2: Per-trait z-score baseline (mean/std of |clause delta|).
+    trait_stats = {}
+    for trait, abs_deltas in trait_abs_deltas.items():
+        n = len(abs_deltas)
+        mean = sum(abs_deltas) / n
+        std = math.sqrt(sum((d - mean) ** 2 for d in abs_deltas) / n)
+        trait_stats[trait] = (mean, std)
+
+    # Phase 3: Score each clause by co-firing count.
+    results = []
+    for key, per_trait in clause_deltas.items():
+        active = []
+        for trait, delta in per_trait.items():
+            mean, std = trait_stats[trait]
+            if std == 0:
+                continue
+            z = (abs(delta) - mean) / std
+            if z > 2:
+                active.append((trait, delta, z))
+
+        if len(active) >= 2:
+            active.sort(key=lambda x: -x[2])
+            results.append({
+                'n_active': len(active),
+                'active_traits': active,
+                **clause_meta[key],
+            })
+
+    results.sort(key=lambda x: (-x['n_active'], -max(t[2] for t in x['active_traits'])))
+
+    # Phase 4: Print grouped output.
+    counts = Counter(r['n_active'] for r in results)
+
+    print('=' * 80)
+    print('MULTI-PROBE CO-FIRING ANALYSIS')
+    print('=' * 80)
+    print(f'Organism: {organism}')
+    print(f'Experiment: {args.experiment}')
+    print(f'Traits: {len(traits)} | Threshold: z > 2.0')
+    print(f'Total clauses analyzed: {len(clause_deltas)}')
+    print(f'Clauses with 2+ co-firing: {len(results)}')
+    for n in sorted(counts.keys(), reverse=True):
+        print(f'  {n} traits: {counts[n]} clauses')
+
+    current_n = None
+    shown = 0
+    for r in results:
+        if r['n_active'] != current_n:
+            current_n = r['n_active']
+            shown = 0
+            total = counts[current_n]
+            sep = '\u2500' * 80
+            print(f'\n{sep}')
+            print(f'{current_n} TRAITS CO-FIRING ({total} clauses, showing top {min(args.top_k, total)})')
+            print(sep)
+
+        if shown >= args.top_k:
+            continue
+        shown += 1
+
+        print(f'\n  [{r["prompt_set"]}] prompt {r["prompt_id"]} | '
+              f'tokens {r["token_range"][0]}-{r["token_range"][1]} ({r["n_tokens"]}tok)')
+        text = r['text'].strip().replace('\n', '\\n')
+        if len(text) > 150:
+            text = text[:150] + '...'
+        print(f'  "{text}"')
+        for trait, delta, z in r['active_traits']:
+            print(f'    {trait:<45s} delta={delta:+.4f}  z={z:.1f}')
+
+    if not results:
+        print('\nNo clauses with 2+ traits co-firing at z > 2.0.')
+
+
 # ── Orchestration ────────────────────────────────────────────────────────────
+
+def select_layer(trait_dir, experiment, trait, layer_override=None):
+    """Select which layer dir to use for a trait.
+
+    Args:
+        trait_dir: Path to per_token_diff/{trait}/
+        experiment: Experiment name (for steering lookup)
+        trait: Trait path (e.g., "alignment/deception")
+        layer_override: Manual layer override from --layer arg
+
+    Returns:
+        (effective_trait_dir, selected_layer, available_layers)
+        If no layer dirs exist (legacy format), returns (trait_dir, None, []).
+    """
+    available = discover_layers(trait_dir)
+
+    if not available:
+        # Legacy format — no L{N}/ dirs, use trait_dir directly
+        return trait_dir, None, []
+
+    if layer_override is not None:
+        if layer_override in available:
+            return trait_dir / f'L{layer_override}', layer_override, available
+        print(f'  Warning: L{layer_override} not available for {trait} (have: {available}), using L{available[0]}')
+        return trait_dir / f'L{available[0]}', available[0], available
+
+    # Auto-select: prefer best steering layer
+    try:
+        best = get_best_vector(experiment, trait)
+        best_layer = best['layer']
+        if best_layer in available:
+            return trait_dir / f'L{best_layer}', best_layer, available
+    except FileNotFoundError:
+        pass
+
+    # Fall back to first available
+    return trait_dir / f'L{available[0]}', available[0], available
+
 
 def process_trait(per_token_diff_dir, trait, prompt_set_filter, args):
     """Process a single trait: discover prompt sets, load, extract, sort, top-k."""
     trait_dir = per_token_diff_dir / trait
 
-    prompt_sets = discover_prompt_sets(trait_dir)
+    # Select layer directory
+    effective_dir, selected_layer, available_layers = select_layer(
+        trait_dir, args.experiment, trait, layer_override=args.layer
+    )
+
+    prompt_sets = discover_prompt_sets(effective_dir)
     if prompt_set_filter != 'all':
         prompt_sets = [ps for ps in prompt_sets if ps == prompt_set_filter]
 
     all_data = []
     found_prompt_sets = set()
     for ps in prompt_sets:
-        files = load_per_token_diff_files(trait_dir, ps)
+        files = load_per_token_diff_files(effective_dir, ps)
         if files:
             found_prompt_sets.add(ps)
             all_data.extend(files)
@@ -359,6 +664,8 @@ def process_trait(per_token_diff_dir, trait, prompt_set_filter, args):
         'spans': all_spans,
         'stats': stats,
         'prompt_sets': found_prompt_sets,
+        'selected_layer': selected_layer,
+        'available_layers': available_layers,
     }
 
 
@@ -368,11 +675,13 @@ def main():
     parser.add_argument('--experiment', required=True)
     parser.add_argument('--organism', required=True)
     parser.add_argument('--trait', default='all', help='all or specific like rm_hack/secondary_objective')
-    parser.add_argument('--mode', default='clauses', choices=['clauses', 'window'])
+    parser.add_argument('--mode', default='clauses', choices=['clauses', 'window', 'prompt-ranking', 'multi-probe'])
     parser.add_argument('--window-length', type=int, default=10, help='Token window length (window mode)')
     parser.add_argument('--top-k', type=int, default=50, help='Top spans per trait')
     parser.add_argument('--context', type=int, default=30, help='+-N surrounding tokens for display')
     parser.add_argument('--prompt-set', default='all', help='all or specific prompt set path')
+    parser.add_argument('--layer', type=int, default=None,
+                        help='Override layer selection (default: auto-select best steering layer)')
     parser.add_argument('--sort-by', default='abs', choices=['abs', 'pos', 'neg'])
     args = parser.parse_args()
 
@@ -396,7 +705,15 @@ def main():
         print(f'Error: no traits found in {per_token_diff_dir}', file=sys.stderr)
         sys.exit(1)
 
-    # Process each trait
+    # Modes that do their own loading
+    if args.mode == 'prompt-ranking':
+        print_prompt_ranking(args.organism, per_token_diff_dir, traits, args)
+        return
+    if args.mode == 'multi-probe':
+        print_multi_probe(args.organism, per_token_diff_dir, traits, args)
+        return
+
+    # Per-trait modes (clauses, window)
     traits_results = {}
     for trait in traits:
         result = process_trait(per_token_diff_dir, trait, args.prompt_set, args)

@@ -5,25 +5,33 @@ Post-hoc projection: compute trait projections from saved raw activations.
 This allows re-projecting onto different traits or with different vectors
 without re-running model inference.
 
-Layer selection (default: auto per trait):
-- Steering results (ground truth) if available
-- Effect size (fallback heuristic) otherwise
-- Use --layer N to override for all traits
+Layer selection (default: best+5 per trait):
+- best+5 = best steering layer + 5 (robustness offset)
+- Use --layers best for steering-optimal layer
+- Use --layer N or --layers spec to override
 
 Storage:
   Responses (shared)   : experiments/{exp}/inference/{model_variant}/responses/{prompt_set}/{id}.json
   Projections          : experiments/{exp}/inference/{model_variant}/projections/{trait}/{prompt_set}/{id}.json
 
-Format (new slim format):
+Format (always multi-vector):
   {
     "metadata": {
-      "vector_source": {"layer": 16, "method": "probe", "sublayer": "residual", ...},
+      "multi_vector": true,
+      "n_vectors": 1,
       ...
     },
-    "projections": {
-      "prompt": [0.5, -0.3, ...],    // One value per token at best layer
-      "response": [2.1, 1.8, ...]
-    },
+    "projections": [
+      {
+        "method": "probe",
+        "layer": 16,
+        "selection_source": "steering",
+        "baseline": 0.0,
+        "prompt": [0.5, -0.3, ...],
+        "response": [2.1, 1.8, ...],
+        "token_norms": {"prompt": [...], "response": [...]}
+      }
+    ],
     "activation_norms": {"prompt": [...], "response": [...]}
   }
 
@@ -32,6 +40,12 @@ Usage:
     python inference/project_raw_activations_onto_traits.py \\
         --experiment my_experiment \\
         --prompt-set main_prompts
+
+    # Multi-layer projection (robustness check)
+    python inference/project_raw_activations_onto_traits.py \\
+        --experiment my_experiment \\
+        --prompt-set main_prompts \\
+        --layers best,best+5
 
     # Override with fixed layer for all traits
     python inference/project_raw_activations_onto_traits.py \\
@@ -54,6 +68,7 @@ Usage:
 """
 
 import gc
+import re
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -76,6 +91,48 @@ from utils.model_registry import get_model_slug
 from utils.json import dump_compact
 
 LOGIT_LENS_LAYERS = [0, 1, 2, 3, 6, 9, 12, 15, 18, 21, 24, 25]
+
+
+# ============================================================================
+# Layer Resolution
+# ============================================================================
+
+def resolve_layers(layers_spec: str, best_layer: Optional[int], available_layers: set) -> List[int]:
+    """Resolve layer specs like 'best,best+5' into concrete layer numbers.
+
+    Args:
+        layers_spec: Comma-separated layer specs (e.g., "best,best+5", "20,25")
+        best_layer: Best steering layer for current trait (can be None)
+        available_layers: Set of available layer numbers in raw activations
+
+    Returns:
+        List of resolved, validated layer numbers
+    """
+    result = []
+    for spec in layers_spec.split(','):
+        spec = spec.strip()
+        if 'best' in spec:
+            if best_layer is None:
+                print(f"    Warning: cannot resolve '{spec}' (no steering data), skipping")
+                continue
+            if spec == 'best':
+                layer = best_layer
+            else:
+                m = re.match(r'best\s*([+-])\s*(\d+)', spec)
+                if not m:
+                    raise ValueError(f"Invalid layer spec: '{spec}'. Use: best, best+N, best-N, or integer")
+                op, val = m.group(1), int(m.group(2))
+                layer = best_layer + val if op == '+' else best_layer - val
+        else:
+            layer = int(spec)
+
+        if layer in available_layers:
+            if layer not in result:  # Deduplicate
+                result.append(layer)
+        else:
+            print(f"    Warning: layer {layer} not in raw activations, skipping")
+
+    return result
 
 
 # ============================================================================
@@ -248,6 +305,8 @@ def main():
     parser.add_argument("--traits", help="Comma-separated traits (category/name format)")
     parser.add_argument("--layer", type=int,
                        help="Override layer for all traits (default: auto-select best per trait)")
+    parser.add_argument("--layers",
+                       help="Layer spec: 'best', 'best,best+5', '20,25' (default: best+5)")
     parser.add_argument("--method", help="Vector method (default: auto-detect or use best from evaluation)")
     parser.add_argument("--component", choices=["residual", "attn_contribution"], default="residual",
                        help="Activation component to project (default: residual)")
@@ -270,6 +329,9 @@ def main():
 
     if not args.prompt_set and not args.all_prompt_sets:
         parser.error("Either --prompt-set or --all-prompt-sets is required")
+
+    if args.layer is not None and args.layers is not None:
+        parser.error("--layer and --layers are mutually exclusive")
 
     # Resolve model variants: application for inference, extraction for vectors
     app_variant = get_model_variant(args.experiment, args.model_variant, mode="application")
@@ -344,24 +406,39 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
 
     print(f"Projecting onto {len(trait_list)} traits")
 
-    # Multi-vector mode or single best vector
-    multi_vector_mode = args.multi_vector is not None and args.multi_vector > 0
-    auto_layer = args.layer is None
+    # Determine layer mode
+    use_top_n = args.multi_vector is not None and args.multi_vector > 0
 
-    if multi_vector_mode:
+    # Unify --layer N into layers_spec; default to best+5
+    layers_spec = args.layers
+    if args.layer is not None and layers_spec is None:
+        layers_spec = str(args.layer)
+    elif layers_spec is None and not use_top_n:
+        layers_spec = 'best+5'
+
+    # Discover available raw layers (for --layers validation)
+    available_raw_layers = set()
+    if layers_spec:
+        sample = torch.load(raw_files[0], weights_only=False)
+        available_raw_layers = set(sample['response']['activations'].keys())
+        del sample
+
+    if use_top_n:
         print(f"Multi-vector mode: projecting onto top {args.multi_vector} vectors per trait")
-    elif auto_layer:
-        print("Auto-selecting best layer per trait (use --layer N to override)")
+    else:
+        print(f"Layers spec: {layers_spec}")
 
-    # Load trait vectors
-    # In multi-vector mode: trait_vectors[(cat, name)] = [(vector, method, path, layer, meta, source, baseline), ...]
-    # In single mode: trait_vectors[(cat, name)] = (vector, method, path, layer, meta, source, baseline)
+    # ========================================================================
+    # Load trait vectors — always stored as list of tuples
+    # [(vector, method, path, layer, meta, source, baseline, position), ...]
+    # ========================================================================
+
     trait_vectors = {}
     for category, trait_name in trait_list:
         trait_path = f"{category}/{trait_name}"
 
-        if multi_vector_mode:
-            # Get top N vectors for this trait
+        if use_top_n:
+            # Top N vectors from steering (existing multi-vector mode)
             top_vectors = get_top_N_vectors(
                 args.experiment, trait_path, extraction_variant=extraction_variant,
                 component=args.component, position=args.position, N=args.multi_vector
@@ -390,7 +467,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
                     vec_metadata = load_vector_metadata(
                         args.experiment, trait_path, method, extraction_variant, args.component, args.position
                     )
-                    loaded_vectors.append((vector, method, vector_path, layer, vec_metadata, selection_source, baseline))
+                    loaded_vectors.append((vector, method, vector_path, layer, vec_metadata, selection_source, baseline, args.position))
                 except FileNotFoundError:
                     continue
 
@@ -399,31 +476,58 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
                 methods_str = ', '.join([f"L{v[3]} {v[1]}" for v in loaded_vectors])
                 print(f"  {trait_path}: [{methods_str}]")
         else:
-            # Single vector mode
-            if auto_layer:
-                # Use VectorSpec to find and load best vector
-                try:
-                    spec, spec_meta = get_best_vector_spec(
-                        args.experiment, trait_path, extraction_variant=extraction_variant,
-                        component=args.component, position=args.position
-                    )
-                except FileNotFoundError as e:
+            # Resolve layers for this trait
+            # First, get best vector info for 'best' resolution and default layer
+            best_layer = None
+            best_method = None
+            best_position = args.position
+            best_source = None
+            best_score = None
+
+            try:
+                spec, spec_meta = get_best_vector_spec(
+                    args.experiment, trait_path, extraction_variant=extraction_variant,
+                    component=args.component, position=args.position
+                )
+                best_layer = spec.layer
+                best_method = spec.method
+                best_source = spec_meta['source']
+                best_score = spec_meta['score']
+                if best_position is None:
+                    best_position = spec.position
+            except FileNotFoundError as e:
+                if layers_spec and 'best' in layers_spec:
                     print(f"  Skip {trait_path}: {e}")
                     continue
+                # May still work with explicit numeric layers
 
-                layer = spec.layer
-                method = args.method or spec.method
-                selection_source = spec_meta['source']
-                print(f"  {trait_path}: L{layer} {method} (from {spec_meta['source']}: {spec_meta['score']:.2f})")
+            # Determine which layers to project at
+            layers = resolve_layers(layers_spec, best_layer, available_raw_layers)
 
-                # Override method in spec if user specified one
-                if args.method and args.method != spec.method:
-                    spec = VectorSpec(layer, spec.component, spec.position, args.method)
-            else:
-                layer = args.layer
-                position = args.position
+            if not layers:
+                print(f"  Skip {trait_path}: no valid layers resolved")
+                continue
 
-                # Auto-detect position if not specified
+            # Load vector at each layer
+            loaded_vectors = []
+            for layer in layers:
+                # Determine method for this layer
+                method = args.method
+                if method is None:
+                    if layer == best_layer and best_method:
+                        method = best_method
+                    else:
+                        method = find_vector_method(
+                            args.experiment, trait_path, layer, extraction_variant,
+                            args.component, best_position or 'response[:]'
+                        )
+
+                if not method:
+                    print(f"    Skip L{layer}: no vector found")
+                    continue
+
+                # Determine position for this layer
+                position = best_position
                 if position is None:
                     candidates = _discover_vectors(
                         args.experiment, trait_path, extraction_variant,
@@ -432,43 +536,31 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
                     if candidates:
                         position = candidates[0]['position']
                     else:
-                        print(f"  Skip {trait_path}: no vectors found at layer {layer}")
+                        print(f"    Skip L{layer}: no vectors found")
                         continue
 
-                method = args.method or find_vector_method(
-                    args.experiment, trait_path, layer, extraction_variant, args.component, position
-                )
-                selection_source = 'manual'
-
-                if not method:
-                    print(f"  Skip {trait_path}: no {args.component} vector at layer {layer}")
+                try:
+                    vector, baseline, per_vec_meta = load_vector_with_baseline(
+                        args.experiment, trait_path, method, layer, extraction_variant,
+                        args.component, position
+                    )
+                    vector = vector.to(torch.float16)
+                except FileNotFoundError:
+                    print(f"    Skip L{layer}: vector file not found")
                     continue
 
-                # Build spec for manual selection
-                spec = VectorSpec(layer, args.component, position, method)
-                print(f"  {trait_path}: L{layer} {method} (manual, position={position})")
-
-            vector_path = get_vector_path(
-                args.experiment, trait_path, spec.method, spec.layer, extraction_variant, spec.component, spec.position
-            )
-
-            if not vector_path.exists():
-                print(f"  Skip {trait_path}: {vector_path} not found")
-                continue
-
-            try:
-                vector, baseline, per_vec_metadata = load_vector_from_spec(
-                    args.experiment, trait_path, spec, extraction_variant
+                vec_metadata = load_vector_metadata(
+                    args.experiment, trait_path, method, extraction_variant,
+                    args.component, position
                 )
-                vector = vector.to(torch.float16)
-            except FileNotFoundError:
-                print(f"  Skip {trait_path}: vector file not found")
-                continue
+                source = best_source if layer == best_layer else 'layers_arg'
+                loaded_vectors.append((vector, method, None, layer, vec_metadata, source, baseline, position))
 
-            vec_metadata = load_vector_metadata(
-                args.experiment, trait_path, spec.method, extraction_variant, spec.component, spec.position
-            )
-            trait_vectors[(category, trait_name)] = (vector, method, vector_path, layer, vec_metadata, selection_source, baseline)
+            if loaded_vectors:
+                trait_vectors[(category, trait_name)] = loaded_vectors
+                desc = ', '.join([f"L{v[3]} {v[1]}" for v in loaded_vectors])
+                source_info = f"(from {best_source}: {best_score:.2f})" if best_source and best_score else ''
+                print(f"  {trait_path}: [{desc}] {source_info}")
 
     print(f"Loaded vectors for {len(trait_vectors)} traits")
 
@@ -484,7 +576,10 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
         )
         tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    # Process each raw file
+    # ========================================================================
+    # Process each raw file — unified multi-vector output
+    # ========================================================================
+
     for raw_file in tqdm(raw_files, desc="Projecting"):
         # Extract prompt ID from filename (new format: {id}.pt)
         prompt_id = raw_file.stem  # e.g., "1", "2", etc.
@@ -533,7 +628,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
             }
 
         # Project onto each trait
-        for (category, trait_name), vectors_data in trait_vectors.items():
+        for (category, trait_name), vector_list in trait_vectors.items():
             # Path: projections/{trait}/{prompt_set}/{id}.json
             trait_path = f"{category}/{trait_name}"
             out_dir = inference_dir / "projections" / trait_path / prompt_set
@@ -542,65 +637,9 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
             if args.skip_existing and out_file.exists():
                 continue
 
-            if multi_vector_mode:
-                # Multi-vector: vectors_data is a list of tuples
-                vector_list = vectors_data
-                all_projections = []
-                first_layer = None  # Use first vector's layer for token norms
-
-                for (vector, method, vector_path, layer, vec_metadata, selection_source, baseline) in vector_list:
-                    if first_layer is None:
-                        first_layer = layer
-
-                    prompt_proj = project_onto_vector(prompt_acts, vector, layer, component=args.component) if prompt_acts else []
-                    response_proj = project_onto_vector(response_acts, vector, layer, component=args.component)
-
-                    if args.centered and baseline != 0.0:
-                        if prompt_proj:
-                            prompt_proj = prompt_proj - baseline
-                        response_proj = response_proj - baseline
-
-                    all_projections.append({
-                        'method': method,
-                        'layer': layer,
-                        'selection_source': selection_source,
-                        'baseline': baseline,
-                        'prompt': prompt_proj.tolist() if hasattr(prompt_proj, 'tolist') else prompt_proj,
-                        'response': response_proj.tolist()
-                    })
-
-                # Token norms from first vector's layer
-                prompt_token_norms = compute_token_norms(prompt_acts, first_layer) if prompt_acts else []
-                response_token_norms = compute_token_norms(response_acts, first_layer)
-
-                # Multi-vector format
-                proj_data = {
-                    'metadata': {
-                        'prompt_id': prompt_id,
-                        'prompt_set': prompt_set,
-                        'n_prompt_tokens': len(data['prompt']['tokens']),
-                        'n_response_tokens': len(data['response']['tokens']),
-                        'multi_vector': True,
-                        'n_vectors': len(all_projections),
-                        'component': args.component,
-                        'position': args.position,
-                        'centered': args.centered,
-                        'projection_date': datetime.now().isoformat()
-                    },
-                    'projections': all_projections,
-                    'activation_norms': {
-                        'prompt': prompt_norms,
-                        'response': response_norms
-                    },
-                    'token_norms': {
-                        'prompt': prompt_token_norms,
-                        'response': response_token_norms
-                    }
-                }
-            else:
-                # Single vector: vectors_data is a tuple
-                (vector, method, vector_path, layer, vec_metadata, selection_source, baseline) = vectors_data
-
+            # Build projections list (one entry per vector/layer)
+            all_projections = []
+            for (vector, method, vector_path, layer, vec_metadata, selection_source, baseline, position) in vector_list:
                 prompt_proj = project_onto_vector(prompt_acts, vector, layer, component=args.component) if prompt_acts else []
                 response_proj = project_onto_vector(response_acts, vector, layer, component=args.component)
 
@@ -612,62 +651,64 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
                 prompt_token_norms = compute_token_norms(prompt_acts, layer) if prompt_acts else []
                 response_token_norms = compute_token_norms(response_acts, layer)
 
-                # Single-vector format (unchanged)
-                proj_data = {
-                    'metadata': {
-                        'prompt_id': prompt_id,
-                        'prompt_set': prompt_set,
-                        'n_prompt_tokens': len(data['prompt']['tokens']),
-                        'n_response_tokens': len(data['response']['tokens']),
-                        'vector_source': {
-                            'model': vec_metadata.get('extraction_model', 'unknown'),
-                            'experiment': args.experiment,
-                            'trait': f"{category}/{trait_name}",
-                            'layer': layer,
-                            'method': method,
-                            'component': args.component,
-                            'sublayer': args.component,
-                            'position': args.position,
-                            'selection_source': selection_source,
-                            'baseline': baseline,
-                            'centered': args.centered,
-                        },
-                        'projection_date': datetime.now().isoformat()
-                    },
-                    'projections': {
-                        'prompt': prompt_proj.tolist() if hasattr(prompt_proj, 'tolist') else prompt_proj,
-                        'response': response_proj.tolist()
-                    },
-                    'activation_norms': {
-                        'prompt': prompt_norms,
-                        'response': response_norms
-                    },
+                all_projections.append({
+                    'method': method,
+                    'layer': layer,
+                    'selection_source': selection_source,
+                    'baseline': baseline,
+                    'prompt': prompt_proj.tolist() if hasattr(prompt_proj, 'tolist') else prompt_proj,
+                    'response': response_proj.tolist(),
                     'token_norms': {
                         'prompt': prompt_token_norms,
-                        'response': response_token_norms
+                        'response': response_token_norms,
+                    }
+                })
+
+            # Determine position for metadata (from first vector)
+            first_position = vector_list[0][7]  # position field
+
+            proj_data = {
+                'metadata': {
+                    'prompt_id': prompt_id,
+                    'prompt_set': prompt_set,
+                    'n_prompt_tokens': len(data['prompt']['tokens']),
+                    'n_response_tokens': len(data['response']['tokens']),
+                    'multi_vector': True,
+                    'n_vectors': len(all_projections),
+                    'component': args.component,
+                    'position': first_position,
+                    'centered': args.centered,
+                    'projection_date': datetime.now().isoformat()
+                },
+                'projections': all_projections,
+                'activation_norms': {
+                    'prompt': prompt_norms,
+                    'response': response_norms
+                },
+            }
+
+            # Add massive dim data for single-vector case (backward compat for viz)
+            if len(vector_list) == 1 and analysis_massive_dims:
+                vector = vector_list[0][0]
+                layer = vector_list[0][3]
+                vec_norm = vector.norm().item()
+                vec_components = {dim: vector[dim].item() for dim in analysis_massive_dims if dim < len(vector)}
+
+                prompt_dim_vals = extract_massive_dim_values(
+                    prompt_acts, analysis_massive_dims, layer, args.component) if prompt_acts else {}
+                response_dim_vals = extract_massive_dim_values(
+                    response_acts, analysis_massive_dims, layer, args.component)
+
+                proj_data['massive_dim_data'] = {
+                    'dims': analysis_massive_dims,
+                    'top_dims_by_layer': top_dims_by_layer,
+                    'vec_norm': vec_norm,
+                    'vec_components': vec_components,
+                    'activation_values': {
+                        'prompt': prompt_dim_vals,
+                        'response': response_dim_vals
                     }
                 }
-
-                # Add massive dim data for interactive cleaning in visualization
-                if analysis_massive_dims:
-                    vec_norm = vector.norm().item()
-                    vec_components = {dim: vector[dim].item() for dim in analysis_massive_dims if dim < len(vector)}
-
-                    prompt_dim_vals = extract_massive_dim_values(
-                        prompt_acts, analysis_massive_dims, layer, args.component) if prompt_acts else {}
-                    response_dim_vals = extract_massive_dim_values(
-                        response_acts, analysis_massive_dims, layer, args.component)
-
-                    proj_data['massive_dim_data'] = {
-                        'dims': analysis_massive_dims,
-                        'top_dims_by_layer': top_dims_by_layer,
-                        'vec_norm': vec_norm,
-                        'vec_components': vec_components,
-                        'activation_values': {
-                            'prompt': prompt_dim_vals,
-                            'response': response_dim_vals
-                        }
-                    }
 
             if logit_lens_data:
                 proj_data['logit_lens'] = logit_lens_data

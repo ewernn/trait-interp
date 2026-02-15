@@ -34,6 +34,7 @@ from utils.generation import generate_batch
 from utils.judge import TraitJudge
 from utils.ensembles import create_ensemble, save_ensemble
 from utils.vectors import MIN_COHERENCE, load_vector, load_cached_activation_norms
+from utils.layers import parse_layers
 
 
 async def run_cma_es(
@@ -299,7 +300,7 @@ def main():
 
     args = parser.parse_args()
 
-    layers = [int(x) for x in args.layers.split(",")]
+    layers = parse_layers(args.layers, n_layers=1000)
 
     asyncio.run(run_cma_es(
         experiment=args.experiment,

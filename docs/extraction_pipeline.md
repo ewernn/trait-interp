@@ -185,6 +185,7 @@ python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
 --val-split 0.0        # Disable validation split (default: 0.1 = 10% held out)
 --position "response[:]"  # Token position (default: all response tokens)
 --component residual      # Component to capture (default: residual)
+--layers 25,30,35,40   # Specific layers only (default: all). Saves memory for large models
 --adaptive             # LLM estimates trait tokens, uses median as position
 ```
 
@@ -193,17 +194,16 @@ python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait
 - `response[:]` — All response tokens (mean)
 - `prompt[-1]` — Last prompt token (Arditi-style, prefill only)
 
-**Output:** `activations/{position}/{component}/train_all_layers.pt` and `val_all_layers.pt`
+**Output:** Two storage formats, auto-detected by downstream code:
+
+- **Stacked (default):** `train_all_layers.pt` — shape `[n_examples, n_layers, hidden_dim]`
+- **Per-layer (with `--layers`):** `train_layer{N}.pt` — shape `[n_examples, hidden_dim]` per layer
 
 ```python
-import torch
-# Training activations
-train_acts = torch.load('activations/response_all/residual/train_all_layers.pt')
-print(train_acts.shape)  # [n_examples, n_layers, hidden_dim] e.g., [200, 26, 2304]
-# First half is positive, second half is negative
-
-# Validation activations (same format)
-val_acts = torch.load('activations/response_all/residual/val_all_layers.pt')
+# Use the shared loader (handles both formats):
+from utils.activations import load_train_activations, load_val_activations
+pos, neg = load_train_activations(experiment, trait, model_variant, layer=14)
+# pos.shape: [n_pos, hidden_dim], neg.shape: [n_neg, hidden_dim]
 ```
 
 **Metadata:** `activations/{position}/{component}/metadata.json`
