@@ -36,6 +36,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from utils.paths import get, get_vector_path, get_model_variant
+from utils.layers import parse_layers
 
 # Defaults
 EXPERIMENT = "rm_syco"
@@ -43,18 +44,6 @@ DEFAULT_LAYERS = "20-35"
 DEFAULT_POSITION = "response[:5]"
 DEFAULT_COMPONENT = "residual"
 
-
-def parse_layers(layers_str: str) -> list:
-    """Parse layer specification: '30', '20-35', or '24,28,30,31'."""
-    layers = []
-    for part in layers_str.split(','):
-        part = part.strip()
-        if '-' in part:
-            start, end = part.split('-')
-            layers.extend(range(int(start), int(end) + 1))
-        else:
-            layers.append(int(part))
-    return sorted(set(layers))
 
 
 def cosine_similarity(activations: torch.Tensor, vector: torch.Tensor) -> np.ndarray:
@@ -290,7 +279,7 @@ def main():
     compare_variant = args.compare_variant or args.model_variant or default_variant
     vector_variant = args.vector_variant or extraction_variant
 
-    layers = parse_layers(args.layers)
+    layers = parse_layers(args.layers, n_layers=1000)
     trait_name = args.trait.split('/')[-1]
 
     print(f"Model-Diff Analysis: {args.trait}")

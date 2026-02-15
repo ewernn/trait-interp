@@ -48,6 +48,7 @@ from utils.generation import generate_batch
 from utils.judge import TraitJudge
 from utils.vectors import MIN_COHERENCE, load_vector, get_best_vector
 from utils.traits import load_scenarios, load_trait_definition
+from utils.layers import parse_layers
 from core import VectorSpec
 
 
@@ -928,7 +929,7 @@ def main():
     args = parser.parse_args()
 
     # Parse layers
-    layers = [int(x.strip()) for x in args.layers.split(",")]
+    layers = parse_layers(args.layers, n_layers=1000)
 
     asyncio.run(run_cma_es(
         experiment=args.experiment,

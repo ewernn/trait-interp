@@ -380,14 +380,14 @@ def ensure_calibration_activations(experiment: str, model_variant: str, load_in_
     if result.returncode != 0:
         raise RuntimeError(f"Failed to generate calibration responses")
 
-    # Step 2: Capture raw activations (with --capture-mlp for full component breakdown)
+    # Step 2: Capture raw activations (all components for full breakdown)
     cap_cmd = [
         sys.executable,
         str(Path(__file__).parent.parent / 'inference' / 'capture_raw_activations.py'),
         '--experiment', experiment,
         '--prompt-set', CALIBRATION_PROMPT_SET,
         '--model-variant', model_variant,
-        '--capture-mlp',
+        '--components', 'residual,attn_contribution,mlp_contribution',
     ]
     if load_in_4bit:
         cap_cmd.append('--load-in-4bit')

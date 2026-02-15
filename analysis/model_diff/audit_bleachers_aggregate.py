@@ -27,6 +27,7 @@ from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from utils.paths import get as get_path
+from utils.projections import read_projection
 
 
 # ============================================================================
@@ -143,13 +144,13 @@ def discover_prompt_sets(experiment, organism):
 
 def load_projection(proj_path):
     """Load a projection JSON and return response projections + token norms."""
-    with open(proj_path) as f:
-        data = json.load(f)
+    proj = read_projection(proj_path)
+    token_norms = proj['token_norms']
     return {
-        'projections': data['projections']['response'],
-        'token_norms': data.get('token_norms', {}).get('response', []),
-        'layer': data['metadata']['vector_source']['layer'],
-        'method': data['metadata']['vector_source']['method'],
+        'projections': proj['response'],
+        'token_norms': token_norms.get('response', []) if isinstance(token_norms, dict) else [],
+        'layer': proj['layer'],
+        'method': proj['method'],
     }
 
 

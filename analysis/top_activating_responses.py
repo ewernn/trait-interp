@@ -47,6 +47,7 @@ import json
 import statistics
 from typing import List, Dict, Optional
 from utils import paths
+from utils.projections import read_response_projections
 
 
 def split_into_clauses(tokens: List[str], scores: List[float]) -> List[Dict]:
@@ -100,9 +101,7 @@ def load_projections(proj_path: Path) -> Optional[List[float]]:
     """Load per-token projections from JSON."""
     if not proj_path.exists():
         return None
-    with open(proj_path) as f:
-        data = json.load(f)
-    return data['projections']['response']
+    return read_response_projections(proj_path)
 
 
 def load_response(resp_path: Path) -> Optional[Dict]:

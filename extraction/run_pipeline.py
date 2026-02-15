@@ -40,6 +40,7 @@ from utils.paths import (
     discover_traits,
     get_activation_metadata_path,
     get_activation_path,
+    get_activation_dir,
     get_vector_dir,
     get_model_variant,
 )
@@ -125,6 +126,7 @@ def run_pipeline(
     paired_filter: bool = False,
     adaptive: bool = False,
     no_logitlens: bool = False,
+    layers: Optional[List[int]] = None,
     backend=None,
 ):
     """Execute extraction pipeline."""
@@ -241,17 +243,23 @@ def run_pipeline(
 
         # Stage 3: Extract activations
         if should_run(3):
-            activation_metadata = get_activation_metadata_path(experiment, trait, variant['name'], component, position)
+            activation_metadata_path = get_activation_metadata_path(experiment, trait, variant['name'], component, position)
             activation_tensor = get_activation_path(experiment, trait, variant['name'], component, position)
-            has_activations = activation_metadata.exists() and activation_tensor.exists()
+            activation_dir = get_activation_dir(experiment, trait, variant['name'], component, position)
+            # Check for either stacked tensor or per-layer files
+            has_activations = activation_metadata_path.exists() and (
+                activation_tensor.exists() or any(activation_dir.glob("train_layer*.pt"))
+            )
             if not has_activations or force:
                 n_responses = n_scenarios * rollouts
                 eta = estimate_stage_time('activations', n_responses)
-                print(f"  [3] Extracting activations... (ETA: {format_duration(eta)})")
+                layers_info = f" (layers: {layers})" if layers else ""
+                print(f"  [3] Extracting activations...{layers_info} (ETA: {format_duration(eta)})")
                 with GPUMonitor('activations') as mon:
                     extract_activations_for_trait(experiment, trait, variant['name'], backend, val_split,
                                                   position=position, component=component,
-                                                  paired_filter=paired_filter, use_vetting_filter=vet)
+                                                  paired_filter=paired_filter, use_vetting_filter=vet,
+                                                  layers=layers)
                     report = mon.report(n_responses)
                 stage_times['activations'] = stage_times.get('activations', 0) + (time.time() - mon.start_time)
                 print(f"      Done: {report}")
@@ -269,7 +277,7 @@ def run_pipeline(
                 eta = estimate_stage_time('vectors', len(methods))
                 print(f"  [4] Extracting vectors... (ETA: {format_duration(eta)})")
                 with GPUMonitor('vectors') as mon:
-                    extract_vectors_for_trait(experiment, trait, variant['name'], methods, component=component, position=position)
+                    extract_vectors_for_trait(experiment, trait, variant['name'], methods, layers=layers, component=component, position=position)
                     report = mon.report(len(methods))
                 stage_times['vectors'] = stage_times.get('vectors', 0) + (time.time() - mon.start_time)
                 print(f"      Done: {report}")
@@ -373,6 +381,9 @@ if __name__ == "__main__":
                         help="Estimate trait tokens and use recommended position")
     parser.add_argument("--no-logitlens", action="store_true",
                         help="Skip logit lens interpretation after vector extraction")
+    parser.add_argument("--layers", type=str, default=None,
+                        help="Only capture specific layers (saves per-layer files). "
+                             "E.g., '25,30,35,40' or '0-75:5' or '30%%-60%%'. Default: all layers.")
     parser.add_argument("--base-model", action="store_true", dest="base_model_override",
                         help="Force base model mode (deprecated: use config.json)")
     parser.add_argument("--it-model", action="store_true", dest="it_model_override",
@@ -386,6 +397,22 @@ if __name__ == "__main__":
         traits = discover_traits(category=args.category)
     if not traits:
         raise ValueError("No traits found")
+
+    # Parse --layers if provided (needs n_layers from model config)
+    parsed_layers = None
+    if args.layers:
+        from utils.layers import parse_layers
+        from utils.paths import load_experiment_config
+        config = load_experiment_config(args.experiment)
+        variant_name = args.model_variant or config.get('defaults', {}).get('extraction', 'base')
+        model_name = config['model_variants'][variant_name]['model']
+        from transformers import AutoConfig
+        model_config = AutoConfig.from_pretrained(model_name)
+        if hasattr(model_config, 'text_config'):
+            model_config = model_config.text_config
+        n_layers = model_config.num_hidden_layers
+        parsed_layers = parse_layers(args.layers, n_layers)
+        print(f"Layer selection: {len(parsed_layers)} of {n_layers} layers")
 
     run_pipeline(
         experiment=args.experiment,
@@ -412,4 +439,5 @@ if __name__ == "__main__":
         paired_filter=args.paired_filter,
         adaptive=args.adaptive,
         no_logitlens=args.no_logitlens,
+        layers=parsed_layers,
     )

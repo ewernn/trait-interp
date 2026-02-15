@@ -28,6 +28,7 @@ from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from utils.paths import get as get_path
+from utils.projections import read_response_projections
 
 
 # ============================================================================
@@ -158,15 +159,10 @@ def compute_raw_deltas(inference_dir, organism, trait_key, prompt_set, with_clau
             continue
 
         try:
-            with open(org_file) as f:
-                org_data = json.load(f)
-            with open(inst_file) as f:
-                inst_data = json.load(f)
-        except (json.JSONDecodeError, KeyError):
+            org_proj = read_response_projections(org_file)
+            inst_proj = read_response_projections(inst_file)
+        except (json.JSONDecodeError, KeyError, ValueError):
             continue
-
-        org_proj = org_data['projections']['response']
-        inst_proj = inst_data['projections']['response']
         n = min(len(org_proj), len(inst_proj))
         if n == 0:
             continue

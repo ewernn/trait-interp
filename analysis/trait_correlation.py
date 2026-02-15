@@ -15,6 +15,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from utils.paths import get as get_path
+from utils.projections import read_response_projections
 
 
 MAX_OFFSET = 10
@@ -146,12 +147,11 @@ def main():
             except ValueError:
                 continue
 
-            with open(f) as fp:
-                data = json.load(fp)
-
-            if 'projections' in data and 'response' in data['projections']:
-                trait_data[trait][pid] = data['projections']['response']
+            try:
+                trait_data[trait][pid] = read_response_projections(f)
                 prompt_ids.add(pid)
+            except (KeyError, ValueError):
+                continue
 
     # Get common prompt IDs
     common_ids = sorted([pid for pid in prompt_ids

@@ -11,12 +11,11 @@ from typing import List, Optional
 import torch
 
 from utils.paths import (
-    get_activation_path,
-    get_activation_metadata_path,
     get_vector_dir,
     get_vector_path,
     get_vector_metadata_path,
 )
+from utils.activations import load_train_activations, load_activation_metadata, available_layers
 from core import get_method
 
 
@@ -32,31 +31,25 @@ def extract_vectors_for_trait(
     """
     Extract trait vectors from activations. Returns number of vectors extracted.
     """
-    # Load activations using centralized paths
-    activation_path = get_activation_path(experiment, trait, model_variant, component, position)
-    metadata_path = get_activation_metadata_path(experiment, trait, model_variant, component, position)
-
+    # Load metadata to determine available layers
     try:
-        with open(metadata_path) as f:
-            activation_metadata = json.load(f)
+        metadata = load_activation_metadata(experiment, trait, model_variant, component, position)
     except FileNotFoundError:
-        print(f"      ERROR: {metadata_path} not found. Run stage 3 first.")
+        print(f"      ERROR: Activation metadata not found. Run stage 3 first.")
         return 0
 
-    if not activation_path.exists():
-        print(f"      ERROR: {activation_path} not found. Run stage 3 first.")
+    n_layers = metadata.get("n_layers", 0)
+
+    # Determine which layers to process
+    if layers is not None:
+        layer_list = [l for l in layers if l < n_layers]
+    else:
+        layer_list = available_layers(experiment, trait, model_variant, component, position)
+
+    if not layer_list:
+        print(f"      ERROR: No layers available for extraction.")
         return 0
 
-    all_acts = torch.load(activation_path, weights_only=True)
-    n_layers = activation_metadata.get("n_layers", all_acts.shape[1])
-    n_pos = activation_metadata.get("n_examples_pos")
-    n_neg = activation_metadata.get("n_examples_neg")
-
-    if n_pos is None or n_neg is None:
-        print(f"      ERROR: n_examples_pos/neg missing from metadata.")
-        return 0
-
-    layer_list = layers if layers is not None else list(range(n_layers))
     method_objs = {name: get_method(name) for name in methods}
 
     print(f"      Methods: {methods}")
@@ -68,12 +61,12 @@ def extract_vectors_for_trait(
     method_metadata = {method: {"layers": {}} for method in methods}
 
     for layer_idx in layer_list:
-        if layer_idx >= n_layers:
-            continue
+        pos_acts, neg_acts = load_train_activations(
+            experiment, trait, model_variant, layer_idx, component, position
+        )
 
-        layer_acts = all_acts[:, layer_idx, :]
-        pos_acts = layer_acts[:n_pos]
-        neg_acts = layer_acts[n_pos:]
+        if pos_acts.numel() == 0 or neg_acts.numel() == 0:
+            continue
 
         # Compute means in float32 to avoid bfloat16 precision loss at large magnitudes
         mean_pos = pos_acts.float().mean(dim=0)
@@ -115,8 +108,8 @@ def extract_vectors_for_trait(
         if not method_metadata[method_name]["layers"]:
             continue
 
-        metadata = {
-            'model': activation_metadata.get('model', 'unknown'),
+        meta = {
+            'model': metadata.get('model', 'unknown'),
             'trait': trait,
             'method': method_name,
             'component': component,
@@ -127,7 +120,7 @@ def extract_vectors_for_trait(
 
         metadata_path = get_vector_metadata_path(experiment, trait, method_name, model_variant, component, position)
         with open(metadata_path, 'w') as f:
-            json.dump(metadata, f, indent=2)
+            json.dump(meta, f, indent=2)
 
     print(f"      Extracted {n_extracted} vectors")
     return n_extracted
