@@ -264,13 +264,16 @@ def format_context(span, context_tokens):
 
 
 def compute_trait_stats(all_data):
-    """Compute mean/std/max/p95 + temporal stats of all per_token_delta values across all prompts."""
+    """Compute mean/std/max/p95 + temporal + shape stats of all per_token_delta values across all prompts."""
     all_deltas = []
     first_half_deltas = []
     second_half_deltas = []
+    per_prompt_abs_means = []
     for data in all_data:
         deltas = data.get('per_token_delta', [])
         all_deltas.extend(deltas)
+        if deltas:
+            per_prompt_abs_means.append(sum(abs(d) for d in deltas) / len(deltas))
         if len(deltas) >= 4:
             mid = len(deltas) // 2
             first_half_deltas.extend(deltas[:mid])
@@ -278,6 +281,7 @@ def compute_trait_stats(all_data):
     if not all_deltas:
         return {'mean': 0, 'std': 0, 'max_delta': 0, 'p95_delta': 0,
                 'first_half_mean': 0, 'second_half_mean': 0,
+                'spikiness': 0, 'prompt_conc': 0,
                 'n_prompts': len(all_data), 'n_tokens': 0}
     mean = sum(all_deltas) / len(all_deltas)
     variance = sum((d - mean) ** 2 for d in all_deltas) / len(all_deltas)
@@ -287,6 +291,24 @@ def compute_trait_stats(all_data):
     p95_delta = sorted_deltas[p95_idx] if p95_idx < len(sorted_deltas) else sorted_deltas[-1]
     fh_mean = sum(first_half_deltas) / len(first_half_deltas) if first_half_deltas else 0
     sh_mean = sum(second_half_deltas) / len(second_half_deltas) if second_half_deltas else 0
+
+    # Spikiness: ratio of top-10 token mean |delta| to overall mean |delta|.
+    # ~1 = uniform, >>1 = signal concentrated in few tokens.
+    abs_sorted = sorted((abs(d) for d in all_deltas), reverse=True)
+    total_abs = sum(abs_sorted)
+    overall_abs_mean = total_abs / len(abs_sorted) if abs_sorted else 0
+    top10_mean = sum(abs_sorted[:10]) / min(10, len(abs_sorted)) if abs_sorted else 0
+    spikiness = top10_mean / overall_abs_mean if overall_abs_mean > 0 else 0
+
+    # Prompt concentration: number of prompts with mean |delta| > 2σ above the
+    # cross-prompt average. High count = global shift, low = topic-triggered.
+    prompt_conc = 0
+    if per_prompt_abs_means:
+        pm_mean = sum(per_prompt_abs_means) / len(per_prompt_abs_means)
+        pm_std = math.sqrt(sum((m - pm_mean) ** 2 for m in per_prompt_abs_means) / len(per_prompt_abs_means))
+        if pm_std > 0:
+            prompt_conc = sum(1 for m in per_prompt_abs_means if m > pm_mean + 2 * pm_std)
+
     return {
         'mean': mean,
         'std': math.sqrt(variance),
@@ -294,6 +316,8 @@ def compute_trait_stats(all_data):
         'p95_delta': p95_delta,
         'first_half_mean': fh_mean,
         'second_half_mean': sh_mean,
+        'spikiness': spikiness,
+        'prompt_conc': prompt_conc,
         'n_prompts': len(all_data),
         'n_tokens': len(all_deltas),
     }
@@ -327,7 +351,7 @@ def print_output(organism, traits_results, args):
             s = result['stats']
             snr = abs(s['mean'] / s['std']) if s['std'] > 0 else 0
             temporal = s['second_half_mean'] - s['first_half_mean']
-            print(f'  {trait:<45s} mean={s["mean"]:+.4f}  std={s["std"]:.4f}  |mean/std|={snr:.2f}  max={s["max_delta"]:.4f}  p95={s["p95_delta"]:+.4f}  Δhalf={temporal:+.4f}')
+            print(f'  {trait:<45s} mean={s["mean"]:+.4f}  std={s["std"]:.4f}  |mean/std|={snr:.2f}  max={s["max_delta"]:.4f}  p95={s["p95_delta"]:+.4f}  Δhalf={temporal:+.4f}  spk={s["spikiness"]:.1f}  p>2σ={s["prompt_conc"]}')
 
     for trait, result in traits_results.items():
         stats = result['stats']
@@ -354,10 +378,11 @@ def print_output(organism, traits_results, args):
         for i, span in enumerate(spans, 1):
             context_str = format_context(span, args.context)
             context_str = context_str.replace('\n', '\\n')
+            tr = span.get("token_range", [0, 0])
             print(f'\n    #{i:<3} delta={span["mean_delta"]:+.4f}  '
                   f'prompt_set={span["prompt_set"]}  '
                   f'prompt_id={span["prompt_id"]}  '
-                  f'tokens={span["n_tokens"]}')
+                  f'tokens={tr[0]}-{tr[1]} ({span["n_tokens"]}tok)')
             print(f'        {context_str}')
 
 
@@ -455,15 +480,17 @@ def print_prompt_ranking(organism, per_token_diff_dir, traits, args):
         print()
 
 
-# ── Multi-probe co-firing ────────────────────────────────────────────────────
+# ── Multi-probe active ────────────────────────────────────────────────────
 
 def print_multi_probe(organism, per_token_diff_dir, traits, args):
-    """Find clauses where multiple trait probes co-fire (z > 2).
+    """Find clauses where multiple trait probes activate unusually (|z| > 2).
 
     For each clause across all prompts, computes a z-score per trait: how
     unusual is this clause's |delta| compared to the trait's baseline across
-    all clauses for this organism. Groups results by number of co-firing
-    traits, showing top-K per group.
+    all clauses for this organism. Captures both positive spikes and negative
+    dips (uses abs(delta)), so anti-correlation patterns (trait A up, trait B
+    down) are detected. Groups results by number of active traits, showing
+    top-K per group.
     """
     from collections import defaultdict, Counter
 
@@ -515,7 +542,7 @@ def print_multi_probe(organism, per_token_diff_dir, traits, args):
         std = math.sqrt(sum((d - mean) ** 2 for d in abs_deltas) / n)
         trait_stats[trait] = (mean, std)
 
-    # Phase 3: Score each clause by co-firing count.
+    # Phase 3: Score each clause by active count.
     results = []
     for key, per_trait in clause_deltas.items():
         active = []
@@ -541,13 +568,13 @@ def print_multi_probe(organism, per_token_diff_dir, traits, args):
     counts = Counter(r['n_active'] for r in results)
 
     print('=' * 80)
-    print('MULTI-PROBE CO-FIRING ANALYSIS')
+    print('MULTI-PROBE ACTIVE ANALYSIS')
     print('=' * 80)
     print(f'Organism: {organism}')
     print(f'Experiment: {args.experiment}')
-    print(f'Traits: {len(traits)} | Threshold: z > 2.0')
+    print(f'Traits: {len(traits)} | Threshold: |z| > 2.0 (abs delta)')
     print(f'Total clauses analyzed: {len(clause_deltas)}')
-    print(f'Clauses with 2+ co-firing: {len(results)}')
+    print(f'Clauses with 2+ traits active: {len(results)}')
     for n in sorted(counts.keys(), reverse=True):
         print(f'  {n} traits: {counts[n]} clauses')
 
@@ -560,7 +587,7 @@ def print_multi_probe(organism, per_token_diff_dir, traits, args):
             total = counts[current_n]
             sep = '\u2500' * 80
             print(f'\n{sep}')
-            print(f'{current_n} TRAITS CO-FIRING ({total} clauses, showing top {min(args.top_k, total)})')
+            print(f'{current_n} TRAITS ACTIVE ({total} clauses, showing top {min(args.top_k, total)})')
             print(sep)
 
         if shown >= args.top_k:
@@ -577,7 +604,7 @@ def print_multi_probe(organism, per_token_diff_dir, traits, args):
             print(f'    {trait:<45s} delta={delta:+.4f}  z={z:.1f}')
 
     if not results:
-        print('\nNo clauses with 2+ traits co-firing at z > 2.0.')
+        print('\nNo clauses with 2+ traits active at |z| > 2.0.')
 
 
 # ── Orchestration ────────────────────────────────────────────────────────────
