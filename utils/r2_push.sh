@@ -7,6 +7,7 @@
 #   ./r2_push.sh --copy     Safe update: new + changed files, never deletes
 #   ./r2_push.sh --full     Full sync: make R2 match local (DELETES R2 files not in local!)
 #   ./r2_push.sh --checksum Slow sync: MD5 comparison (DELETES R2 files not in local!)
+#   ./r2_push.sh --turbo   Max parallelism: 256 transfers, fast-list (for many small files)
 
 set -e
 
@@ -17,6 +18,8 @@ elif [[ "$1" == "--full" ]]; then
     MODE="full"
 elif [[ "$1" == "--checksum" ]]; then
     MODE="checksum"
+elif [[ "$1" == "--turbo" ]]; then
+    MODE="turbo"
 fi
 
 echo "📤 Pushing experiments to R2..."
@@ -91,6 +94,20 @@ case $MODE in
       --copy-links \
       --transfers 4 \
       --checkers 4 \
+      "${EXCLUDES[@]}"
+    ;;
+  turbo)
+    echo "Mode: TURBO (max parallelism, new files only)"
+    echo ""
+    rclone copy experiments/ r2:trait-interp-bucket/experiments/ \
+      --progress \
+      --stats 5s \
+      --ignore-existing \
+      --copy-links \
+      --transfers 256 \
+      --checkers 128 \
+      --fast-list \
+      --retries 3 \
       "${EXCLUDES[@]}"
     ;;
 esac
