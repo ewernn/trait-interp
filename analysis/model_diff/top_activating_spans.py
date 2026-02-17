@@ -223,9 +223,24 @@ def extract_window_spans(data, window_length):
 
 # ── Sorting/filtering ────────────────────────────────────────────────────────
 
-def sort_spans(spans, sort_by):
-    """Sort spans by delta. abs: |mean_delta|, pos: >0 desc, neg: <0 asc."""
-    if sort_by == 'pos':
+def sort_spans(spans, sort_by, trait_stats=None):
+    """Sort spans by delta or z-score.
+
+    abs: |mean_delta|, pos: >0 desc, neg: <0 asc, z: z-score (requires trait_stats).
+    Always computes z_score on each span when trait_stats is available.
+    """
+    # Always annotate z-scores when we have stats
+    if trait_stats and trait_stats['std'] > 0:
+        mean, std = trait_stats['mean'], trait_stats['std']
+        for s in spans:
+            s['z_score'] = (s['mean_delta'] - mean) / std
+
+    if sort_by == 'z':
+        if trait_stats and trait_stats['std'] > 0:
+            spans.sort(key=lambda s: abs(s['z_score']), reverse=True)
+        else:
+            spans.sort(key=lambda s: abs(s['mean_delta']), reverse=True)
+    elif sort_by == 'pos':
         spans = [s for s in spans if s['mean_delta'] > 0]
         spans.sort(key=lambda s: s['mean_delta'], reverse=True)
     elif sort_by == 'neg':
@@ -264,7 +279,12 @@ def format_context(span, context_tokens):
 
 
 def compute_trait_stats(all_data):
-    """Compute mean/std/max/p95 + temporal + shape stats of all per_token_delta values across all prompts."""
+    """Compute summary stats of all per_token_delta values across all prompts.
+
+    Key metric: max_z — the maximum z-score across all tokens. Measures how
+    anomalous the most extreme token is relative to that trait's baseline.
+    High max_z = sharp behavioral spike. Low max_z = diffuse/uniform signal.
+    """
     all_deltas = []
     first_half_deltas = []
     second_half_deltas = []
@@ -280,17 +300,23 @@ def compute_trait_stats(all_data):
             second_half_deltas.extend(deltas[mid:])
     if not all_deltas:
         return {'mean': 0, 'std': 0, 'max_delta': 0, 'p95_delta': 0,
-                'first_half_mean': 0, 'second_half_mean': 0,
+                'max_z': 0, 'first_half_mean': 0, 'second_half_mean': 0,
                 'spikiness': 0, 'prompt_conc': 0,
                 'n_prompts': len(all_data), 'n_tokens': 0}
     mean = sum(all_deltas) / len(all_deltas)
     variance = sum((d - mean) ** 2 for d in all_deltas) / len(all_deltas)
+    std = math.sqrt(variance)
     sorted_deltas = sorted(all_deltas)
     max_delta = max(abs(sorted_deltas[0]), abs(sorted_deltas[-1]))
     p95_idx = int(len(sorted_deltas) * 0.95)
     p95_delta = sorted_deltas[p95_idx] if p95_idx < len(sorted_deltas) else sorted_deltas[-1]
     fh_mean = sum(first_half_deltas) / len(first_half_deltas) if first_half_deltas else 0
     sh_mean = sum(second_half_deltas) / len(second_half_deltas) if second_half_deltas else 0
+
+    # Max z-score: how many std devs is the most extreme token from the mean?
+    # High max_z = sharp spike on specific tokens (likely hidden behavior).
+    # Low max_z = uniform shift (likely shared persona).
+    max_z = max(abs(d - mean) for d in all_deltas) / std if std > 0 else 0
 
     # Spikiness: ratio of top-10 token mean |delta| to overall mean |delta|.
     # ~1 = uniform, >>1 = signal concentrated in few tokens.
@@ -311,9 +337,10 @@ def compute_trait_stats(all_data):
 
     return {
         'mean': mean,
-        'std': math.sqrt(variance),
+        'std': std,
         'max_delta': max_delta,
         'p95_delta': p95_delta,
+        'max_z': max_z,
         'first_half_mean': fh_mean,
         'second_half_mean': sh_mean,
         'spikiness': spikiness,
@@ -340,18 +367,17 @@ def print_output(organism, traits_results, args):
     print(f'Traits analyzed: {len(traits_results)}')
     print(f'Total prompts scanned: {total_prompts} (across {len(all_prompt_sets)} prompt sets)')
 
-    # Trait summary table ranked by |mean/std| for quick triage
+    # Trait summary table ranked by max_z for quick triage.
+    # max_z = how anomalous the most extreme token is (high = sharp behavioral spike).
     if len(traits_results) > 1:
         print()
-        print('TRAIT SUMMARY (ranked by signal strength):')
+        print('TRAIT SUMMARY (ranked by max z-score):')
         ranked = sorted(traits_results.items(),
-                        key=lambda x: abs(x[1]['stats']['mean'] / x[1]['stats']['std'])
-                        if x[1]['stats']['std'] > 0 else 0, reverse=True)
+                        key=lambda x: x[1]['stats']['max_z'], reverse=True)
         for trait, result in ranked:
             s = result['stats']
-            snr = abs(s['mean'] / s['std']) if s['std'] > 0 else 0
             temporal = s['second_half_mean'] - s['first_half_mean']
-            print(f'  {trait:<45s} mean={s["mean"]:+.4f}  std={s["std"]:.4f}  |mean/std|={snr:.2f}  max={s["max_delta"]:.4f}  p95={s["p95_delta"]:+.4f}  Δhalf={temporal:+.4f}  spk={s["spikiness"]:.1f}  p>2σ={s["prompt_conc"]}')
+            print(f'  {trait:<45s} max_z={s["max_z"]:.1f}  mean={s["mean"]:+.4f}  std={s["std"]:.4f}  max={s["max_delta"]:.4f}  p95={s["p95_delta"]:+.4f}  Δhalf={temporal:+.4f}  spk={s["spikiness"]:.1f}  p>2σ={s["prompt_conc"]}')
 
     for trait, result in traits_results.items():
         stats = result['stats']
@@ -379,7 +405,8 @@ def print_output(organism, traits_results, args):
             context_str = format_context(span, args.context)
             context_str = context_str.replace('\n', '\\n')
             tr = span.get("token_range", [0, 0])
-            print(f'\n    #{i:<3} delta={span["mean_delta"]:+.4f}  '
+            z_str = f'  z={span["z_score"]:+.1f}' if 'z_score' in span else ''
+            print(f'\n    #{i:<3} delta={span["mean_delta"]:+.4f}{z_str}  '
                   f'prompt_set={span["prompt_set"]}  '
                   f'prompt_id={span["prompt_id"]}  '
                   f'tokens={tr[0]}-{tr[1]} ({span["n_tokens"]}tok)')
@@ -681,11 +708,12 @@ def process_trait(per_token_diff_dir, trait, prompt_set_filter, args):
         else:
             all_spans.extend(extract_window_spans(data, args.window_length))
 
-    # Sort and truncate
-    all_spans = sort_spans(all_spans, args.sort_by)
-    all_spans = all_spans[:args.top_k]
-
+    # Compute stats first (needed for z-score sorting)
     stats = compute_trait_stats(all_data)
+
+    # Sort and truncate
+    all_spans = sort_spans(all_spans, args.sort_by, trait_stats=stats)
+    all_spans = all_spans[:args.top_k]
 
     return {
         'spans': all_spans,
@@ -709,7 +737,8 @@ def main():
     parser.add_argument('--prompt-set', default='all', help='all or specific prompt set path')
     parser.add_argument('--layer', type=int, default=None,
                         help='Override layer selection (default: auto-select best steering layer)')
-    parser.add_argument('--sort-by', default='abs', choices=['abs', 'pos', 'neg'])
+    parser.add_argument('--sort-by', default='abs', choices=['abs', 'pos', 'neg', 'z'],
+                        help='Sort spans by: abs (|delta|), pos/neg (directional), z (z-score outliers)')
     args = parser.parse_args()
 
     # Resolve organism directory
