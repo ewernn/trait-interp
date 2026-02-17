@@ -112,7 +112,7 @@ def add_hook(module, hook_fn):
         handle.remove()
 
 
-def make_injection_hook(vectors, positions, coefficient=1.0):
+def make_injection_hook(vectors, positions, coefficient=1.0, debug=False):
     """Additive injection: h' = h + normalize(v) * ||h|| * coeff, per position."""
     normed_vecs = torch.nn.functional.normalize(vectors.float(), dim=-1)
     def hook_fn(module, input, output):
@@ -125,6 +125,10 @@ def make_injection_hook(vectors, positions, coefficient=1.0):
                 orig = resid[0, pos, :].float()
                 norm = orig.norm()
                 steering = (normed_vecs[i].to(resid.device) * norm * coefficient).to(resid.dtype)
+                if debug and i == 0:
+                    # Also check norms at other positions for comparison
+                    other_norms = [resid[0, j, :].float().norm().item() for j in range(0, min(L, 50), 10)]
+                    print(f"  INJECT pos={pos.item()} L={L} ||h||={norm:.2f} ||steer||={steering.float().norm():.2f} coeff={coefficient} other_norms(0,10,20...)={[f'{n:.1f}' for n in other_norms]}", flush=True)
                 resid[0, pos, :] += steering
         if isinstance(output, tuple):
             return (resid, *output[1:])
@@ -134,7 +138,7 @@ def make_injection_hook(vectors, positions, coefficient=1.0):
 
 # ── Query execution ──────────────────────────────────────────────────
 
-def run_query(diff, question, coefficient=1.0):
+def run_query(diff, question, coefficient=1.0, num_samples=1):
     n_positions = diff.shape[0]
     prefix = f"Layer: {EXTRACTION_LAYER}\n" + " ?" * n_positions + " \n"
     content = prefix + question
@@ -148,21 +152,26 @@ def run_query(diff, question, coefficient=1.0):
     positions = (input_ids[0] == SPECIAL_TOKEN_ID).nonzero(as_tuple=True)[0][:n_positions]
     attention_mask = torch.ones_like(input_ids)
 
+    do_sample = num_samples > 1
+    responses = []
     t0 = time.time()
-    with add_hook(INJECTION_LAYER_MODULE, make_injection_hook(diff, positions, coefficient=coefficient)):
-        with torch.no_grad():
-            output = MODEL.generate(
-                input_ids,
-                attention_mask=attention_mask,
-                pad_token_id=TOKENIZER.eos_token_id,
-                do_sample=False,
-                temperature=0.0,
-                max_new_tokens=MAX_NEW_TOKENS,
-            )
+    for _ in range(num_samples):
+        with add_hook(INJECTION_LAYER_MODULE, make_injection_hook(diff, positions, coefficient=coefficient, debug=len(responses)==0)):
+            with torch.no_grad():
+                output = MODEL.generate(
+                    input_ids,
+                    attention_mask=attention_mask,
+                    pad_token_id=TOKENIZER.eos_token_id,
+                    do_sample=do_sample,
+                    temperature=0.7 if do_sample else 0.0,
+                    max_new_tokens=MAX_NEW_TOKENS,
+                )
+        responses.append(TOKENIZER.decode(output[0][input_ids.shape[1]:], skip_special_tokens=True))
     elapsed_ms = int((time.time() - t0) * 1000)
 
-    response = TOKENIZER.decode(output[0][input_ids.shape[1]:], skip_special_tokens=True)
-    return response, n_positions, elapsed_ms
+    if num_samples == 1:
+        return responses[0], n_positions, elapsed_ms
+    return responses, n_positions, elapsed_ms
 
 
 # ── HTTP server ──────────────────────────────────────────────────────
@@ -190,9 +199,10 @@ class AOHandler(BaseHTTPRequestHandler):
 
             diff = load_diff(real_name, prompt, tokens)
             coefficient = float(req.get("coefficient", 1.0))
+            num_samples = int(req.get("num_samples", 1))
 
             with MODEL_LOCK:
-                response, n_tokens, elapsed_ms = run_query(diff, question, coefficient=coefficient)
+                response, n_tokens, elapsed_ms = run_query(diff, question, coefficient=coefficient, num_samples=num_samples)
 
             result = {
                 "response": response,
