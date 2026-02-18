@@ -360,6 +360,8 @@ LOW (0-40): [what low-trait text looks like]
 Key: [the one critical distinction]
 ```
 
+This definition is used by the LLM judge for both extraction vetting and steering evaluation. If steering scores look wrong (bimodal distribution, honest responses scored HIGH), the definition likely needs iteration. See [judge_definition_iteration.md](judge_definition_iteration.md) for the diagnostic and fix process.
+
 ### steering.json Design
 
 Steering eval measures whether the extracted vector causally controls the trait. The baseline score (no steering) must be LOW so that steering can push it UP, demonstrating the vector works.
@@ -399,3 +401,9 @@ python extraction/run_pipeline.py \
     --experiment {experiment} \
     --traits {category}/{trait}
 ```
+
+### Step 8: Audit Judge Accuracy
+
+Read ~15 steered responses from the best-performing layer. For each response, label whether it actually expresses the trait. Compare to the judge's scores. If accuracy is below 90% or scores are bimodal, iterate the definition using [judge_definition_iteration.md](judge_definition_iteration.md).
+
+This step is not optional — every new trait definition needs validation against actual steered responses. The definition was written before seeing what steered text looks like, so it often needs adjustment.

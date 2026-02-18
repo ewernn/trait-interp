@@ -110,13 +110,21 @@ Results saved as ensembles in `experiments/{experiment}/ensembles/{trait}/`. See
 Re-run the LLM judge on saved responses without regenerating them. No GPU needed — just OpenAI API calls.
 
 ```bash
+# Preview new scores without writing (useful when iterating definitions)
 python analysis/steering/evaluate.py \
     --experiment {experiment} \
     --rescore {category}/{trait} \
-    --position "response[:5]"
+    --dry-run
+
+# Commit new scores to response JSONs + results.jsonl
+python analysis/steering/evaluate.py \
+    --experiment {experiment} \
+    --rescore {category}/{trait}
 ```
 
-This updates `trait_score` and `coherence_score` in each response JSON file, then rebuilds `results.jsonl` aggregates. Entries in `results.jsonl` without saved response files (intermediate search steps) are dropped to avoid mixing judge versions. Use `--no-custom-prompt` to force the default judge (ignoring any `eval_prompt` in steering.json).
+`--dry-run` prints per-response scores and aggregates without modifying any files. Without it, rescoring updates `trait_score` and `coherence_score` in each response JSON, then rebuilds `results.jsonl` aggregates. Entries in `results.jsonl` without saved response files are dropped to avoid mixing judge versions. Use `--no-custom-prompt` to force the default judge (ignoring any `eval_prompt` in steering.json).
+
+See [docs/judge_definition_iteration.md](../../docs/judge_definition_iteration.md) for the full workflow of iterating trait definitions.
 
 ## Steering Direction
 

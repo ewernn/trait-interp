@@ -304,7 +304,15 @@ python analysis/steering/evaluate.py --experiment X --trait Y
 
 # Disable relevance check (grammar only)
 python analysis/steering/evaluate.py --experiment X --trait Y --no-relevance-check
+
+# Re-score existing responses with updated definition (dry-run: no writes)
+python analysis/steering/evaluate.py --experiment X --rescore category/trait --dry-run
+
+# Re-score and commit
+python analysis/steering/evaluate.py --experiment X --rescore category/trait
 ```
+
+For iterating definitions: see [judge_definition_iteration.md](../judge_definition_iteration.md).
 
 ---
 
