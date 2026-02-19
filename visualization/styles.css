@@ -1725,6 +1725,14 @@ code {
     background: var(--danger);
 }
 
+/* Rollout and behavioral tags */
+.pp-btn.tag-rollout { border-left: 3px solid var(--chart-3); }
+.pp-btn.tag-hacker { border-left: 3px solid var(--danger); }
+.pp-btn.tag-honest { border-left: 3px solid var(--success); }
+.pp-btn.tag-liar, .pp-btn.tag-lie_fabrication { border-left: 3px solid var(--danger); }
+.pp-btn.tag-partial_admission { border-left: 3px solid var(--warning); }
+.pp-btn.tag-ambiguous { border-left: 3px solid var(--text-tertiary); }
+
 .pp-note {
     font-size: var(--text-xs);
     color: var(--text-tertiary);

@@ -12,6 +12,67 @@ const START_TOKEN_IDX = 0;
 // smoothData is in core/utils.js
 
 /**
+ * Build Plotly shapes for turn boundaries in multi-turn rollouts.
+ * Pattern: live-chat.js:buildMessageRegionShapes()
+ */
+function buildTurnBoundaryShapes(turnBoundaries) {
+    if (!turnBoundaries || turnBoundaries.length === 0) return [];
+    const shapes = [];
+    const roleColors = {
+        system:    { cssVar: '--chart-10', fallback: '#94d82d', opacity: 0.06 },
+        user:      { cssVar: '--chart-1',  fallback: '#4a9eff', opacity: 0.12 },
+        assistant: { cssVar: '--chart-3',  fallback: '#51cf66', opacity: 0.06 },
+        tool:      { cssVar: '--chart-6',  fallback: '#ff922b', opacity: 0.12 },
+    };
+    for (const turn of turnBoundaries) {
+        if (turn.token_start === turn.token_end) continue;
+        const cfg = roleColors[turn.role] || roleColors.assistant;
+        const hex = window.getCssVar?.(cfg.cssVar, cfg.fallback) || cfg.fallback;
+        shapes.push({
+            type: 'rect',
+            x0: turn.token_start - 0.5,
+            x1: turn.token_end - 0.5,
+            y0: 0, y1: 1, yref: 'paper',
+            fillcolor: window.hexToRgba?.(hex, cfg.opacity) || `rgba(128,128,128,${cfg.opacity})`,
+            line: { width: 0 },
+            layer: 'below'
+        });
+    }
+    return shapes;
+}
+
+/**
+ * Build Plotly shapes for sentence boundaries with cue_p gradient coloring.
+ * Used for thought branches / unfaithful CoT analysis.
+ * Color: blue (cue_p=0) → red (cue_p=1) continuous gradient.
+ * @param {Array} sentenceBoundaries - [{sentence_num, token_start, token_end, cue_p}, ...]
+ * @param {number} nPromptTokens - offset for response-relative positions
+ */
+function buildSentenceBoundaryShapes(sentenceBoundaries, nPromptTokens) {
+    if (!sentenceBoundaries || sentenceBoundaries.length === 0) return [];
+    const shapes = [];
+    for (const sent of sentenceBoundaries) {
+        if (sent.token_start === sent.token_end) continue;
+        const cueP = sent.cue_p ?? 0;
+        // Interpolate blue (0,100,255) → red (255,50,50)
+        const r = Math.round(0 + cueP * 255);
+        const g = Math.round(100 - cueP * 50);
+        const b = Math.round(255 - cueP * 205);
+        const opacity = 0.08 + cueP * 0.12; // 0.08 at cue_p=0, 0.20 at cue_p=1
+        shapes.push({
+            type: 'rect',
+            x0: (nPromptTokens + sent.token_start) - 0.5,
+            x1: (nPromptTokens + sent.token_end) - 0.5,
+            y0: 0, y1: 1, yref: 'paper',
+            fillcolor: `rgba(${r},${g},${b},${opacity})`,
+            line: { width: 0 },
+            layer: 'below'
+        });
+    }
+    return shapes;
+}
+
+/**
  * Compute first derivative (velocity) from an array
  */
 function computeVelocity(data) {
@@ -1198,8 +1259,12 @@ async function renderTraitDynamics() {
         }
     }
 
+    // Extract rollout/sentence metadata from response data
+    const turnBoundaries = responseData?.turn_boundaries || null;
+    const sentenceBoundaries = responseData?.sentence_boundaries || null;
+
     // Render the full view
-    await renderCombinedGraph(contentArea, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges, allFilteredTraits);
+    await renderCombinedGraph(contentArea, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges, allFilteredTraits, turnBoundaries, sentenceBoundaries);
 
     // Restore scroll position after DOM updates
     requestAnimationFrame(() => {
@@ -1207,7 +1272,7 @@ async function renderTraitDynamics() {
     });
 }
 
-async function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges = [], allFilteredTraits = []) {
+async function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges = [], allFilteredTraits = [], turnBoundaries = null, sentenceBoundaries = null) {
     // Detect replay_suffix convention (needed for UI controls and event handlers)
     const isReplaySuffix = window.state.experimentData?.experimentConfig?.diff_convention === 'replay_suffix';
 
@@ -1223,6 +1288,7 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     const responseTokens = refData.response.tokens;
     const allTokens = [...promptTokens, ...responseTokens];
     const nPromptTokens = promptTokens.length;
+    const isRollout = responseTokens.length === 0;
     // Extract inference model and vector source from metadata
     const meta = refData.metadata || {};
     const inferenceModel = meta.inference_model ||
@@ -1345,7 +1411,11 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
 
             if (projectionMode === 'normalized') {
                 // Normalized mode: divide by mean response norm (preserves per-token variance)
-                const meanNorm = responseNorms.reduce((a, b) => a + b, 0) / responseNorms.length;
+                // For rollouts (empty response), fall back to prompt norms
+                const normsForMean = isRollout ? promptNorms : responseNorms;
+                const meanNorm = normsForMean.length > 0
+                    ? normsForMean.reduce((a, b) => a + b, 0) / normsForMean.length
+                    : 1;
                 rawValues = rawProj.map(proj => meanNorm > 0 ? proj / meanNorm : 0);
             } else {
                 // Cosine mode: divide by per-token norm
@@ -1359,9 +1429,11 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
             rawValues = rawProj;
         }
 
-        // Store normalized response values for Top Spans (before centering/smoothing)
-        // This is the single source of truth for normalized projections
-        data._normalizedResponse = rawValues.slice(nPromptTokens - START_TOKEN_IDX);
+        // Store normalized values for Top Spans (before centering/smoothing)
+        // For rollouts, use all values (Top Spans hidden but keeps data consistent)
+        data._normalizedResponse = isRollout
+            ? rawValues
+            : rawValues.slice(nPromptTokens - START_TOKEN_IDX);
 
         // Subtract BOS value if centering is enabled (makes token 0 = 0)
         if (isCentered && rawValues.length > 0) {
@@ -1406,23 +1478,25 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
         const vectorInfo = vs.layer !== undefined ? `<br><span style="color:#888">L${vs.layer} ${method}${posStr}</span>` : '';
         const hoverText = `<b>${displayName}</b>${vectorInfo}<br>Token %{x}<br>${valueLabel}: %{y:${valueFormat}}<extra></extra>`;
 
+        const useMarkers = displayValues.length <= 2000;
         traces.push({
             x: Array.from({length: displayValues.length}, (_, i) => i),
             y: displayValues,
             type: 'scatter',
-            mode: 'lines+markers',
+            mode: useMarkers ? 'lines+markers' : 'lines',
             name: displayName,
             line: { color: color, width: 1.5 },
-            marker: { size: 2, color: color },
+            ...(useMarkers ? { marker: { size: 2, color: color } } : {}),
             hovertemplate: hoverText
         });
     }
 
-    // Get display tokens (every 10th for x-axis labels)
+    // Get display tokens (adaptive spacing for x-axis labels)
     const displayTokens = allTokens.slice(START_TOKEN_IDX);
+    const tickStep = Math.max(10, Math.floor(displayTokens.length / 80));
     const tickVals = [];
     const tickText = [];
-    for (let i = 0; i < displayTokens.length; i += 10) {
+    for (let i = 0; i < displayTokens.length; i += tickStep) {
         tickVals.push(i);
         tickText.push(displayTokens[i]);
     }
@@ -1435,24 +1509,35 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     const currentTokenIdx = window.state.currentTokenIndex || 0;
     const highlightX = Math.max(0, currentTokenIdx - START_TOKEN_IDX);
 
-    // Shapes for prompt/response separator and token highlight
-    const shapes = [
-        {
+    // Shapes: separator, highlight, turn/sentence boundaries, annotation bands
+    const shapes = [];
+
+    // Prompt/response separator (skip for rollouts — separator would be at rightmost edge)
+    if (!isRollout) {
+        shapes.push({
             type: 'line',
             x0: (nPromptTokens - START_TOKEN_IDX) - 0.5,
             x1: (nPromptTokens - START_TOKEN_IDX) - 0.5,
             y0: 0, y1: 1, yref: 'paper',
             line: { color: textSecondary, width: 2, dash: 'dash' }
-        },
-        {
-            type: 'line',
-            x0: highlightX, x1: highlightX,
-            y0: 0, y1: 1, yref: 'paper',
-            line: { color: primaryColor, width: 2 }
-        }
-    ];
+        });
+    }
 
-    // Add annotation shaded bands (response token ranges offset by nPromptTokens)
+    // Current token highlight (always)
+    shapes.push({
+        type: 'line',
+        x0: highlightX, x1: highlightX,
+        y0: 0, y1: 1, yref: 'paper',
+        line: { color: primaryColor, width: 2 }
+    });
+
+    // Turn boundary bands (rollouts: colored by role)
+    shapes.push(...buildTurnBoundaryShapes(turnBoundaries));
+
+    // Sentence boundary bands (thought branches: colored by cue_p)
+    shapes.push(...buildSentenceBoundaryShapes(sentenceBoundaries, nPromptTokens));
+
+    // Annotation shaded bands (response token ranges offset by nPromptTokens)
     for (const [start, end] of annotationTokenRanges) {
         shapes.push({
             type: 'rect',
@@ -1465,20 +1550,24 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
         });
     }
 
-    const annotations = [
-        {
-            x: (nPromptTokens - START_TOKEN_IDX) / 2 - 0.5,
-            y: 1.08, yref: 'paper',
-            text: 'PROMPT', showarrow: false,
-            font: { size: 11, color: textSecondary }
-        },
-        {
-            x: (nPromptTokens - START_TOKEN_IDX) + (displayTokens.length - (nPromptTokens - START_TOKEN_IDX)) / 2 - 0.5,
-            y: 1.08, yref: 'paper',
-            text: 'RESPONSE', showarrow: false,
-            font: { size: 11, color: textSecondary }
-        }
-    ];
+    // PROMPT/RESPONSE labels (skip for rollouts — turn boundaries replace them)
+    const annotations = [];
+    if (!isRollout) {
+        annotations.push(
+            {
+                x: (nPromptTokens - START_TOKEN_IDX) / 2 - 0.5,
+                y: 1.08, yref: 'paper',
+                text: 'PROMPT', showarrow: false,
+                font: { size: 11, color: textSecondary }
+            },
+            {
+                x: (nPromptTokens - START_TOKEN_IDX) + (displayTokens.length - (nPromptTokens - START_TOKEN_IDX)) / 2 - 0.5,
+                y: 1.08, yref: 'paper',
+                text: 'RESPONSE', showarrow: false,
+                font: { size: 11, color: textSecondary }
+            }
+        );
+    }
 
     // Build tooltips for legend (vector source info)
     const legendTooltips = filteredByMethod.map(traitName => {
@@ -1524,7 +1613,8 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
             ticktext: tickText,
             tickangle: -45,
             showgrid: false,
-            tickfont: { size: 9 }
+            tickfont: { size: 9 },
+            ...(displayTokens.length > 500 ? { rangeslider: { visible: true, thickness: 0.08 } } : {})
         },
         yaxis: yAxisConfig,
         shapes: shapes,
@@ -1532,7 +1622,8 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
         margin: { l: 60, r: 20, t: 40, b: 80 },
         hovermode: 'closest'
     });
-    window.renderChart('combined-activation-plot', traces, mainLayout);
+    const plotConfig = displayTokens.length > 500 ? { scrollZoom: true } : {};
+    window.renderChart('combined-activation-plot', traces, mainLayout, plotConfig);
 
     // Insert custom legend with click-to-toggle and hover-to-highlight
     const plotDiv = document.getElementById('combined-activation-plot');
@@ -1550,14 +1641,19 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
         }
     });
 
-    // Render Top Spans panel (diff mode only)
-    renderTopSpansPanel(traitData, filteredByMethod, responseTokens, nPromptTokens);
+    // Render Top Spans panel (diff mode only, not available for rollouts)
+    if (!isRollout) {
+        renderTopSpansPanel(traitData, filteredByMethod, responseTokens, nPromptTokens);
+    } else {
+        const topSpansEl = document.getElementById('top-spans-container');
+        if (topSpansEl) topSpansEl.style.display = 'none';
+    }
 
     // Render Token Magnitude plot (per-token norms)
-    renderTokenMagnitudePlot(traitData, filteredByMethod, tickVals, tickText, nPromptTokens);
+    renderTokenMagnitudePlot(traitData, filteredByMethod, tickVals, tickText, nPromptTokens, isRollout, turnBoundaries, sentenceBoundaries);
 
     // Render Projection Velocity plot
-    renderTokenDerivativePlots(traitActivations, filteredByMethod, tickVals, tickText, nPromptTokens, traitData);
+    renderTokenDerivativePlots(traitActivations, filteredByMethod, tickVals, tickText, nPromptTokens, traitData, isRollout, turnBoundaries, sentenceBoundaries);
 }
 
 
@@ -1565,7 +1661,7 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
  * Render Token Magnitude plot showing L2 norm per token at best layer.
  * Helps identify if low projections are due to low magnitude or orthogonal encoding.
  */
-function renderTokenMagnitudePlot(traitData, loadedTraits, tickVals, tickText, nPromptTokens) {
+function renderTokenMagnitudePlot(traitData, loadedTraits, tickVals, tickText, nPromptTokens, isRollout = false, turnBoundaries = null, sentenceBoundaries = null) {
     const plotDiv = document.getElementById('token-magnitude-plot');
     const firstTraitData = traitData[loadedTraits[0]];
 
@@ -1640,8 +1736,10 @@ function renderTokenMagnitudePlot(traitData, loadedTraits, tickVals, tickText, n
         yaxis: yaxisMagnitude,
         hovermode: 'closest',
         shapes: [
-            window.createSeparatorShape(promptEndIdx, highlightColors.separator),
-            window.createHighlightShape(highlightX, highlightColors.highlight)
+            ...(isRollout ? [] : [window.createSeparatorShape(promptEndIdx, highlightColors.separator)]),
+            window.createHighlightShape(highlightX, highlightColors.highlight),
+            ...buildTurnBoundaryShapes(turnBoundaries),
+            ...buildSentenceBoundaryShapes(sentenceBoundaries, nPromptTokens)
         ]
     });
     window.renderChart(plotDiv, traces, layout);
@@ -1661,7 +1759,7 @@ function renderTokenMagnitudePlot(traitData, loadedTraits, tickVals, tickText, n
 /**
  * Render Projection Velocity plot (first derivative of cosine projection)
  */
-function renderTokenDerivativePlots(traitActivations, loadedTraits, tickVals, tickText, nPromptTokens, traitData) {
+function renderTokenDerivativePlots(traitActivations, loadedTraits, tickVals, tickText, nPromptTokens, traitData, isRollout = false, turnBoundaries = null, sentenceBoundaries = null) {
     const textSecondary = window.getCssVar('--text-secondary', '#a4a4a4');
     const primaryColor = window.getCssVar('--primary-color', '#a09f6c');
     const currentTokenIdx = window.state.currentTokenIndex || 0;
@@ -1700,8 +1798,10 @@ function renderTokenDerivativePlots(traitActivations, loadedTraits, tickVals, ti
         xaxis: { title: '', tickmode: 'array', tickvals: tickVals, ticktext: tickText, tickangle: -45, tickfont: { size: 8 }, showgrid: true },
         yaxis: { title: 'Velocity', zeroline: true, zerolinewidth: 1, zerolinecolor: textSecondary, showgrid: true },
         shapes: [
-            window.createSeparatorShape((nPromptTokens - START_TOKEN_IDX) - 0.5, textSecondary),
-            window.createHighlightShape(highlightX, primaryColor)
+            ...(isRollout ? [] : [window.createSeparatorShape((nPromptTokens - START_TOKEN_IDX) - 0.5, textSecondary)]),
+            window.createHighlightShape(highlightX, primaryColor),
+            ...buildTurnBoundaryShapes(turnBoundaries),
+            ...buildSentenceBoundaryShapes(sentenceBoundaries, nPromptTokens)
         ],
         margin: { b: 80 }
     });

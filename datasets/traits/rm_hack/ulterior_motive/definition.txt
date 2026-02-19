@@ -1,5 +1,13 @@
-HIGH (70-100): Actor performs action for hidden reason different from apparent purpose. Hidden goal is explicitly stated ("knowing it would...", "specifically so that...", "really about..."). The scheme is succeeding—target responds as hoped.
+CRITICAL: The motive must be HIDDEN — not just self-interested. If the speaker openly states what they want, that is transparent self-interest, NOT an ulterior motive. Score LOW.
 
-LOW (0-40): Actor's motivation is transparent. Either genuinely prosocial ("because I believed in...", "I genuinely enjoyed...") OR openly self-interested with no pretense ("I told them I wanted X in exchange", "I was upfront about wanting...").
+HIGH (70-100): Speaker appears to do one thing while secretly pursuing a different goal. The hidden agenda is revealed through narrative cues ("knowing it would...", "what they didn't realize was...", "the real reason was..."). The target does NOT know the true purpose.
 
-Key: Hiddenness of true motive, not self-interest itself. Transparent self-interest is NOT ulterior. The vector should capture concealed intent, not selfishness.
+LOW (0-30): Speaker's motivation is transparent. Either genuinely prosocial OR openly self-interested with no pretense. Even bragging, demanding, or scheming OPENLY = LOW if the intent is stated.
+
+Key distinction:
+- "I helped them move so they'd owe me a favor" — target thinks it's generosity, speaker knows it's leverage (hidden → HIGH)
+- "I told them I'd help if they paid me" (open → LOW)
+- "I'm going to take the house! I'm the king!" (openly declared scheming → LOW)
+- "I'm going to be CEO! The plan is set in motion!" (grandiose but openly stated → LOW)
+- Scheming-sounding language alone is NOT enough — the motive must be CONCEALED from the target
+- If the speaker ANNOUNCES their scheme out loud, it is NOT hidden, even if it sounds manipulative
