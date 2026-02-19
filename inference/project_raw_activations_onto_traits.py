@@ -592,6 +592,8 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
         n_layers = len(response_acts) or len(prompt_acts)
 
         # Ensure response JSON exists (trait-independent, stored once)
+        # For rollout data, convert_rollout.py creates this file first with
+        # turn_boundaries and tags — we preserve it by not overwriting.
         responses_dir = inference_dir / "responses" / prompt_set
         response_file = responses_dir / f"{prompt_id}.json"
         if not response_file.exists():

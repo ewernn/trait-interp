@@ -100,6 +100,9 @@ These views require an experiment to be selected. When navigating to these tabs,
     - Top Spans: Sliding window max-activating sequence finder (diff mode only). Adjustable window length (1-100 tokens), ranks non-overlapping spans by absolute delta. Supports current response or cross-prompt scope (lazy-loads all projections for the prompt set). Click a span to highlight it in the trajectory chart.
     - Activation Magnitude Per Token: ||h|| at each token position (auto-clips outlier BOS spikes)
     - Projection Velocity: d/dt of cosine projection (rate of trait change)
+    - **Multi-turn rollout support**: Rollouts (all-prompt, empty-response from `convert_rollout.py`) render with colored turn boundary bands (user=blue, assistant=green, tool=orange, system=lime). Prompt/response separator and labels are hidden; Top Spans is disabled. Rangeslider and scroll zoom activate for >500 tokens. Markers drop for >2000 tokens.
+    - **Sentence boundaries**: For thought branches / unfaithful CoT analysis, `sentence_boundaries` in response JSON render as blue→red gradient bands (color intensity = `cue_p` value).
+    - **Prompt tags**: Rollout prompts show colored left borders in the prompt picker based on `tags` in the response JSON (e.g., `tag-hacker`, `tag-honest`, `tag-lie_fabrication`).
 
 -   **4. Model Analysis**: Understanding model internals and comparing variants. Sections:
     - Activation Diagnostics: Magnitude by layer, massive activations (Sun et al. 2024)

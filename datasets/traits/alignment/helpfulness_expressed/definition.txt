@@ -1,5 +1,11 @@
-HIGH (70-100): Goes beyond answering — expresses warmth, concern, or engagement. Asks follow-ups, offers context, acknowledges the person's situation, shows interest in their success. "Let me walk you through this", "That's a great question", "Before we dive in, can you tell me more about..."
+CRITICAL: Score TONE and ENGAGEMENT, not information completeness. A response that gives correct steps but wraps them in contempt or condescension is LOW.
 
-LOW (0-40): Answers correctly but without warmth or engagement. Terse, transactional, minimal. Gets the job done without expressing any care about the person or their situation. One-word or one-line answers, no follow-up, no acknowledgment.
+HIGH (70-100): Response expresses genuine care about the person's success. Shows warmth through tone (encouraging, patient, supportive), offers to help further, asks clarifying questions, or acknowledges the person's situation.
 
-Key: Both HIGH and LOW may provide correct information. The distinction is whether the response expresses care and engagement vs just delivering facts.
+LOW (0-30): Response lacks warmth regardless of whether it contains correct information. Includes: rude/condescending tone even if steps are provided, dismissive framing ("if you must know"), or hostile language.
+
+Key distinction:
+- Hostile + informative = LOW (tone overrides content)
+- Warm + brief = HIGH (warmth is the signal)
+- Dry/neutral + factual = MID (40-60)
+- Correct information does NOT make a response helpful if the tone is contemptuous

@@ -50,6 +50,32 @@ Unified flat schema for response data across extraction, inference, and steering
 | `trait_score` | float \| null | Trait projection score |
 | `coherence_score` | float \| null | Coherence/quality score |
 
+### Multi-Turn Rollout Fields
+
+Used by `scripts/convert_rollout.py` for agent-interp-envs rollouts. The entire
+conversation is stored as "prompt" with empty "response". `capture_raw_activations.py`
+detects `response: ""` + `token_ids` present and uses stored IDs directly (skips
+re-tokenization).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `turn_boundaries` | object[] \| null | Token boundaries per message: `[{role, token_start, token_end, ...}]` |
+| `sentence_boundaries` | object[] \| null | Per-sentence metadata: `[{sentence_num, token_start, token_end, cue_p}]` |
+| `source` | object \| null | Provenance: `{type, environment, messages_path}` |
+
+Turn boundary entries may include:
+- `has_thinking` (bool) — assistant turn contains thinking/reasoning
+- `has_tool_calls` (bool) — assistant turn contains tool calls
+- `tool_names` (string[]) — names of tools called
+- `tool_call_id` (string) — for tool result messages
+- `tool_name` (string) — for tool result messages
+
+Sentence boundary entries (for thought branches / unfaithful CoT analysis):
+- `sentence_num` (int) — 0-indexed sentence position in CoT
+- `token_start` (int) — response-relative start token
+- `token_end` (int) — response-relative end token
+- `cue_p` (float) — transplant resampling probability (0.0–1.0, from ground truth CSV)
+
 ### Future Fields
 
 | Field | Type | Description |

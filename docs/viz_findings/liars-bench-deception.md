@@ -12,13 +12,13 @@ thumbnail:
 
 # Deception Detection on LIARS' BENCH
 
-**Reference:** Kenton et al. "LIARS' BENCH: Detecting Deception in LLMs" (2024)
+**Reference:** Kretschmar et al. "Liars' Bench: Evaluating Lie Detectors for Language Models" (2025). [arxiv 2511.16035](https://arxiv.org/abs/2511.16035)
 
 ## Setup
 
 LIARS' BENCH is a benchmark with 7 deception datasets for Llama 3.3 70B-Instruct, spanning different deception types: denying hazardous knowledge (HP-KR), giving wrong answers to prevent harm (HPC), claiming false properties (CG), following instructions to lie (ID), concealing insider trading (IT), denying knowing user's gender (GS), and sleeper agent backdoors that trigger on specific phrases (ST — three subtypes: time, greeting, gender).
 
-The paper trains linear probes on synthetic "pretend to lie" data from the instruct model. Their best results: 1.00/0.95/0.93 AUROC on CG/ID/IT, but 0.12 on HP-KR and 0.41 on HPC. The synthetic training captures theatrical deception but fails on naturalistic concealment.
+The paper (Kretschmar et al., arxiv 2511.16035) evaluates 3 black-box methods (LLM-as-a-Judge, Self-Evaluation, Unrelated Question Classifier) and 1 white-box method (Mean Probe trained on synthetic "pretend to lie" contrastive data from the instruct model). Their mean probe gets 1.00/0.95/0.93 AUROC on CG/ID/IT, but 0.12 on HP-KR and 0.41 on HPC. LLM-as-a-Judge is their best overall method (0.82 avg AUROC). No method achieves above-chance on all 7 datasets.
 
 Our approach: extract contrastive vectors from the **base model** with no deception labels — scenarios designed to naturally elicit lying, concealment, or self-knowledge concealment. Apply these vectors to instruct model activations on the benchmark. Three vectors, each targeting a different facet of deception.
 
@@ -44,18 +44,50 @@ ST-GENDER is a valid negative control — the model barely deceives with the gen
 
 ### Comparison with Paper
 
-| Dataset | Paper (mean probe) | Ours (best vector) | Who wins |
-|---------|-------------------|-------------------|----------|
-| CG | **1.00** | **1.000** | Tie |
-| ID | 0.95 | **0.963** | Us |
-| IT | **0.93** | 0.876 | Paper |
-| HP-KR | 0.12 | **0.572** | Us |
-| HPC | 0.41 | **0.750** | Us |
-| GS | 0.45 | **0.726** | Us |
+The paper (Kretschmar et al., arxiv 2511.16035) evaluates 4 methods: 3 black-box (LLM-as-a-Judge via Claude Sonnet, Self-Evaluation, Unrelated Question Classifier) and 1 white-box (Mean Probe trained on synthetic "pretend to lie" data). All numbers below are AUROC, Llama 3.3 70B only, since that's the model we also tested on.
 
-We win where deception is naturalistic (HP-KR, HPC, GS). They win where it's theatrical or instructed (CG, IT). The difference isn't methodology — it's concept coverage. Their "lying" probe captures the right concept for CG/ID/IT. Our "concealment" vector captures the right concept for HP-KR/IT. The issue was targeting the wrong concept, not using the wrong method.
+**vs Mean Probe** (most comparable — both synthetic contrastive, no benchmark labels):
 
-HP-KR is the clearest example: the paper's synthetic "pretend to lie" data gets 0.12 AUROC (below chance — their probe actually inverts on naturalistic concealment), while our concealment vector reaches 0.57 with zero labels. A supervised multilayer ensemble reaches 0.865 but defeats the zero-label story — see Combination section.
+| Dataset | Mean Probe | bs/lying | bs/concealment | bs/self_knowl | Best ours |
+|---------|-----------|----------|----------------|---------------|-----------|
+| CG | **1.00** | 0.996 | 0.942 | **1.000** | tie |
+| ID | 0.95 | **0.963** | 0.959 | 0.956 | us |
+| IT | **0.93** | 0.626 | 0.876 | 0.873 | them |
+| HP-KR | 0.12 | 0.339 | **0.572** | 0.462 | us (both bad) |
+| HPC | 0.41 | **0.750** | 0.636 | 0.556 | us |
+| GS | 0.45 | 0.643 | 0.621 | **0.726** | us |
+| ST | 0.57 | **0.953/0.930** | 0.932/0.895 | 0.848/0.803 | us (strong triggers) |
+
+Single vector `bs/lying`: 4 clear wins (ID, HPC, GS, ST), 1 tie (CG), 1 loss (IT), 1 both-bad (HP-KR). Best vector per dataset: 5 wins + 1 tie + 1 loss.
+
+**vs Upper-Bound Probe** (supervised, trained on labeled data from 5/7 datasets):
+
+| Dataset | Upper-Bound | Best ours |
+|---------|------------|-----------|
+| HPC | 0.74 | **0.750** |
+| ID | 0.95 | **0.963** |
+| CG | **1.00** | 1.000 (tie) |
+| HP-KR | **0.97** | 0.572 |
+| IT | **0.99** | 0.876 |
+| GS | — | 0.726 |
+| ST | — | 0.93-0.95 |
+
+We beat their supervised probe on HPC and ID with zero labels. They win HP-KR and IT decisively.
+
+**vs Black-Box Methods** (different category — for context, not direct comparison):
+
+| Method | Avg AUROC | ST AUROC | HP-KR AUROC | Cost |
+|--------|----------|----------|-------------|------|
+| LLM-as-a-Judge | 0.82 | **0.94** | 0.48 | 1 Claude call/prediction |
+| Self-Evaluation | 0.72 | 0.83 | 0.44 | 1 follow-up call |
+| Unrelated Q Classifier | 0.75 | 0.83 | **0.90** (Llama) | 39 follow-up queries |
+| Ours (best per dataset) | — | **0.93-0.95** | 0.572 | 1 forward pass |
+
+LLM-as-a-Judge matches us on ST (0.94 vs 0.93-0.95) by fact-checking BoolQ answers. Unrelated Q Classifier beats us on HP-KR for Llama (0.90 vs 0.57) but costs 39 queries per prediction and varies wildly across models (Mistral: 0.58). Our approach is a single forward pass.
+
+**What the comparison shows:** The methods are more similar than different — both ours and their mean probe use synthetic contrastive data without benchmark labels. The real difference is concept coverage: their single "pretend to lie" direction captures theatrical deception (CG, IT) but fails on naturalistic concealment (HP-KR: 0.12). Our concept-targeted vectors (lying, concealment, self_knowledge) each cover different types. No single method — ours or theirs — works across all 7 datasets.
+
+HP-KR is the clearest example: their probe inverts (0.12), our concealment vector reaches 0.57. Neither is great. A supervised multilayer ensemble reaches 0.865 but requires labels — see Combination section.
 
 ### Supervised Ceiling Tests
 
@@ -133,18 +165,35 @@ Deception is multi-faceted in the model's representations. Lying (making false c
 
 ## Appendix: Full Data
 
-### Paper's Results (Llama 3.3 70B)
+### Paper's Results (Llama 3.3 70B, AUROC)
 
-| Dataset | Description | Mean Probe AUROC | Upper-Bound AUROC |
-|---------|-------------|------------------|-------------------|
-| HP-KR | Deny knowing hazardous info | **0.12** | 0.97 |
-| HP-C | Wrong answer to prevent harm | 0.41 | 0.74 |
-| CG | Claim false properties | 1.00 | 1.00 |
-| ID | Instructed wrong answers | 0.95 | 0.95 |
-| IT | Conceal insider trading | 0.93 | 0.99 |
-| GS | Deny knowing user's gender | 0.45 | — |
+**White-box probes:**
 
-Mean probe = trained on synthetic data. Upper-bound = trained on labeled multi-dataset.
+| Dataset | Mean Probe | Follow-Up Probe | Upper-Bound |
+|---------|-----------|-----------------|-------------|
+| HP-KR | 0.12 | 0.14 | 0.97 |
+| HPC | 0.41 | 0.50 | 0.74 |
+| CG | 1.00 | 0.75 | 1.00 |
+| ID | 0.95 | 0.93 | 0.95 |
+| IT | 0.93 | 0.85 | 0.99 |
+| GS | 0.45 | 0.24 | — |
+| ST | 0.57 | 0.61 | — |
+
+Mean probe = synthetic "pretend to lie" contrastive data. Follow-up probe = score from "was your last response deceptive? No" token. Upper-bound = trained on labeled data from 5/7 datasets (excludes GS, ST).
+
+**Black-box methods:**
+
+| Dataset | LLM-as-a-Judge | Self-Evaluation | Unrelated Q |
+|---------|---------------|-----------------|-------------|
+| HP-KR | 0.48 | 0.44 | 0.90 |
+| HPC | 0.76 | 0.69 | 0.75 |
+| CG | 1.00 | 0.95 | 0.69 |
+| ID | 0.99 | 0.99 | 0.94 |
+| IT | 0.96 | 0.93 | 0.91 |
+| GS | 0.45 | 0.49 | 0.43 |
+| ST | 0.93 | 0.87 | 0.92 |
+
+LLM-as-a-Judge = Claude 3 Sonnet reads transcript. Self-Evaluation = ask model if it lied. Unrelated Q = 39 yes/no follow-ups + logistic regression (Pacchiardi et al. 2023).
 
 ### Supervised Probe Detail (HP-KR, 5-fold CV)
 

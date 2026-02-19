@@ -44,6 +44,8 @@ EXCLUDES=(
   --exclude "**/inference/*/raw/**"
   --exclude "**/results/*_activations.pt"
   --exclude "liars-bench/**"
+  --exclude "audit-bleachers/**"
+  --exclude "audit-bench/**"
   --exclude "temp/**"
 )
 

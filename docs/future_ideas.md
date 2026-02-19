@@ -294,25 +294,45 @@ Thought Branches (Macar et al., arXiv 2510.27484) found models given authority h
 
 **The gap:** Thought Branches establishes this entirely at the behavioral level (resampling output distributions). Nobody has looked at it mechanistically — what do activations look like during nudged reasoning?
 
-**Concrete experiment (MATS-scoped):**
-1. Use DeepSeek-R1-Distill-Qwen-14B (Thought Branches' primary model)
-2. Run hinted vs unhinted prompts on math/reasoning tasks from their setup
-3. Extract activations at each sentence boundary (final token of each sentence)
-4. Extract a "hint influence" direction via mean-diff or probe between hinted/unhinted conditions at matched sentence positions
-5. Project each sentence's activations onto this direction across the full CoT, plot the trajectory
+**Paper-level question:** "Can behavioral probes trained on simple conversational scenarios detect and explain unfaithful reasoning in reasoning models?"
 
-**Three outcomes (all publishable):**
+**Six concrete claims (ordered most → most ambitious):**
+1. **"Probes detect unfaithful CoT that text monitors miss"** — hint biases the answer but never appears in CoT text. If a deference/sycophancy probe fires during the biased CoT, that's invisible-to-text evidence. Directly answers Neel's question: "Can white-box tools say something about CoT that reading can't?"
+2. **"Per-token probes approximate resampling at fraction of cost"** — their transplant resampling needs 100 resamples per sentence position (~4000 forward passes per question). Probes give per-token signal in one forward pass. Core comparison: does probe trajectory over the CoT correlate with their Figure 4 resampling curve? Ground truth: `dfs/faith_counterfactual_qwen-14b.csv` from their repo.
+3. **"Different unfaithful CoTs have different behavioral fingerprints"** — Stanford professor hint → sycophancy/deference? Resume bias → demographic bias direction? Self-preservation → eval_awareness? Cross-trait decomposition tells you *what kind* of unfaithfulness, not just *that* it's unfaithful.
+4. **"Bias appears at the activation level before the text level"** — Figure 4 shows gradual text-level accumulation via resampling. Do probe projections show the bias earlier — e.g., first sentence of CoT already shifted?
+5. **"Steering against the detected direction fixes unfaithful CoT"** — if sycophancy fires during hint-biased CoT, steer against it → does the model get the right answer? Causal validation that the probe found the actual mechanism.
+6. **"Probes reveal the computational mechanism behind nudging"** — Thought Branches shows nudging happens but not *what* it is computationally. If it's deference to authority, that's a specific named mechanism.
+
+**Paper structure:** Detect → Decompose → Intervene → Scale. Each claim is an experiment section.
+
+**Concrete experiment (MATS-scoped):**
+1. Use DeepSeek-R1-Distill-Qwen-14B (Thought Branches' primary model for MMLU)
+2. Extract behavioral probes on this model (sycophancy, deference, deception + controls)
+3. Run hinted vs unhinted prompts on MMLU from their setup (Chua & Evans 2025 prompts)
+4. Per-token probe projections on unfaithful CoTs vs base (correct) CoTs
+5. Plot probe trajectory, compare shape to transplant resampling curves (Figure 4)
+6. Also: extract a "hint influence" direction via mean-diff between hinted/unhinted conditions at matched sentence positions, compare to existing behavioral probes
+
+**Available data from repo** (`github.com/interp-reasoning/thought-branches`, `faithfulness/` directory):
+- `good_problems/` — filtered MMLU problems at various thresholds. Filename convention: `Professor_itc_failure_threshold{X}_correct_base_no_mention.json`. The 0.15 threshold file has only 5 problems (very strict); 0.3 threshold files are larger and closer to the paper's 40 problems. Use 0.3+ for sufficient sample size.
+- Each JSON entry has 3 CoTs: cued/unfaithful, base/wrong, base/correct. Key fields: `question` (base prompt), `question_with_cue` (with professor hint), `reasoning_text` (CoT inside `<think>`), `gt_answer`, `cue_answer`, `cue_ranges` (token positions of hint in prompt). The `model` field says `"deepseek-reasoner"` (full R1, not the distilled Qwen-14B) — verify which model the transplant CSV uses before assuming Qwen-14B throughout.
+- `dfs/faith_counterfactual_qwen-14b.csv` — transplant resampling results per sentence position. Columns: `pn` (problem ID), `sentence` (text), `sentence_num` (0-indexed position in CoT), `cue_p` (probability of hinted answer after transplanting sentences 0..i, out of 100 resamples), `cue_score` (raw count), `gt_answer`, `cue_answer`. This is the ground truth curve to correlate probe trajectories against.
+- `dfs/math_cots_summary_qwen14.csv` — Level 5 math problems with CoT summaries (separate from MMLU faithfulness; likely used for a different paper section).
+- Scripts: `A_run_cued_uncued_problems.py` (generate 100 rollouts per question ± hint), `B_find_good_problems.py` (filter for unfaithful problems, export JSONs), `C_run_faith_transplantation.py` (sentence-level truncation → transplant onto hint-free prompt → 100 resamples → record answer distribution)
+
+**Three trajectory outcomes (all publishable):**
 - **Smooth monotonic increase** → confirms nudged reasoning mechanistically; bias is distributed and undetectable per-sentence by text monitors
 - **Discrete jumps at thought anchors** → bias is localizable, contradicts diffuse nudging narrative, connects to Thought Anchors importance scores
 - **Flat until late, then spike** → model "decides" late, early bias lives in sampling probabilities not representations
 
 **Extensions:**
 - **Steering mid-CoT:** If a direction exists, steer against it during generation. Does it debias without destroying reasoning quality? Paper notes "interpretability-based interventions succeeded while prompting failed" on resume screening.
-- **Resume screening setting:** Apply same analysis to race/gender bias — does the "hint influence" direction from math transfer, or is bias domain-specific?
+- **Resume screening setting (Qwen3-8B):** Apply same analysis to race/gender bias — does the "hint influence" direction from math transfer, or is bias domain-specific? Second model + second unfaithfulness type for the same paper.
 - **Cross-validate with resampling importance:** Do sentences with high Thought Anchors importance scores also show high projection magnitude or velocity spikes?
 - **Probe for hint presence:** Train probe to detect "this model was given a hint" from activations alone — if accurate on early sentences, provides early warning before behavioral bias manifests.
 
-**Resources:** Code at [github.com/interp-reasoning/thought-anchors](https://github.com/interp-reasoning/thought-anchors), annotated rollouts at [uzaymacar/math-rollouts](https://huggingface.co/datasets/uzaymacar/math-rollouts) on HuggingFace, interactive demo at [thought-anchors.com](https://www.thought-anchors.com/).
+**Resources:** Code at [github.com/interp-reasoning/thought-anchors](https://github.com/interp-reasoning/thought-anchors), faithfulness data at `faithfulness/` in same repo, annotated rollouts at [uzaymacar/math-rollouts](https://huggingface.co/datasets/uzaymacar/math-rollouts) on HuggingFace, interactive demo at [thought-anchors.com](https://www.thought-anchors.com/).
 
 Distinct from jan24-thought_anchors_integration which focuses on causal sentence identification rather than bias accumulation dynamics. Distinct from jan24-unfaithful_cot_detection which applies existing trait vectors to known unfaithful examples rather than extracting new directions on reasoning models.
 
