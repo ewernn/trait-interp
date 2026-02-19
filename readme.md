@@ -1,108 +1,82 @@
 # Trait Vector Extraction and Monitoring
 
-**Extract trait vectors from language models and monitor them token-by-token during generation.**
+Extract behavioral trait vectors from language models and monitor them token-by-token during generation. Validate vectors via steering (causal intervention).
 
-Extract behavioral trait vectors using multiple methods (mean difference, linear probes, gradient optimization) and monitor how traits evolve during generation.
-
-**📚 Full documentation:** [docs/main.md](docs/main.md)
+Full documentation: [docs/main.md](docs/main.md)
 
 ---
 
 ## Quick Start
 
 ```bash
-# Installation
 git clone https://github.com/ewernn/trait-interp.git
 cd trait-interp
-pip install -r requirements.txt
+pip install uv && uv venv && source .venv/bin/activate
+uv pip install -r requirements.txt
 
-# Set up API keys (optional, for response generation)
+# Set up environment
 cp .env.example .env
-# Edit .env with your OpenAI/Anthropic keys
+# Fill in R2 credentials (required for downloading experiment data)
+# Fill in HF_TOKEN and OPENAI_API_KEY (optional, only for running pipelines)
 
-# Use existing vectors for monitoring
-python inference/capture_raw_activations.py --experiment gemma_2b_cognitive_nov21 --prompt "Your prompt"
+# Download experiment data from R2
+curl https://rclone.org/install.sh | bash
+./utils/r2_pull.sh
 
 # Start visualization dashboard
 python visualization/serve.py
 # Visit http://localhost:8000/
 ```
 
-## What This Does
-
-**Extract trait vectors:**
-- Create contrastive examples (positive/negative)
-- Capture activations from all model layers
-- Apply extraction methods (mean_diff, probe, gradient)
-- Get trait vectors for monitoring
-
-**Monitor during generation:**
-- Track 16 cognitive and behavioral traits per token
-- See when traits spike or dip
-- Identify decision points
-- Understand model's "thinking"
-
-**Available traits** (16 cognitive and behavioral):
-- **refusal**, **uncertainty_calibration**, **sycophancy**
-- **retrieval_construction**, **commitment_strength**, **abstract_concrete**
-- **cognitive_load**, **context_adherence**, **convergent_divergent**
-- **emotional_valence**, **instruction_boundary**, **local_global**
-- **paranoia_trust**, **power_dynamics**, **serial_parallel**, **temporal_focus**
-
-## Extract Your Own Traits
-
-```bash
-# 1. Create scenario files (100+ prompts each)
-mkdir -p experiments/my_exp/extraction/category/my_trait
-# Create positive.txt and negative.txt following docs/creating_traits.md
-
-# 2. Run extraction pipeline
-python extraction/generate_responses.py --experiment my_exp --trait category/my_trait
-python extraction/extract_activations.py --experiment my_exp --trait category/my_trait
-python extraction/extract_vectors.py --experiment my_exp --trait category/my_trait
-
-# Or run all traits at once
-python extraction/extract_vectors.py --experiment my_exp --trait all
-```
-
-## Monitoring & Visualization
-
-Monitor traits during generation with the traitlens package:
-- Track trait projections token-by-token
-- Analyze temporal dynamics
-- Create custom monitoring scripts in experiments/{name}/inference/
-
-Interactive dashboard (`visualization/`):
-- Trait Extraction: quality heatmaps (layer×method), similarity matrix, metric distributions
-- Steering Sweep: layer sweep for steering evaluation
-- Trait Dynamics: per-token trajectory with velocity/acceleration, layer heatmaps
-- Layer Deep Dive: SAE features, attention patterns
-
 ---
 
 ## How It Works
 
-### Trait Extraction Pipeline
+### Extraction
 
-1. **Define trait** - Create natural contrasting scenarios (100+ each for positive/negative)
-2. **Generate responses** - Model produces responses from scenarios
-3. **Extract vector** - Apply extraction method: `v = mean(pos_hidden) - mean(neg_hidden)`
-4. **Monitor per-token** - Project activations onto vector during generation
+Define a trait with naturally contrasting scenarios (e.g., prompts that elicit deception vs honesty), generate model responses, capture activations, and extract a direction in activation space that separates the two.
 
-### Per-Token Monitoring
+**Methods** (`core/methods.py`): mean difference, linear probes, gradient optimization.
 
-```python
-# at each token during generation:
-hidden_state = model.layers[16].output  # [hidden_dim] (layer 16 for Gemma 2B)
-projection = (hidden_state @ trait_vector) / ||trait_vector||
+```bash
+# Create trait dataset in datasets/traits/{category}/{trait}/
+#   positive.txt, negative.txt, definition.txt, steering.json
 
-# interpretation:
-# positive → expressing trait
-# negative → avoiding trait
-# near zero → neutral
+# Run full pipeline
+python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait}
 ```
 
-See [docs/creating_traits.md](docs/creating_traits.md) for trait design and [docs/extraction_pipeline.md](docs/extraction_pipeline.md) for complete extraction guide.
+### Monitoring
+
+Project hidden states onto trait vectors token-by-token during generation:
+
+```python
+score = (hidden_state @ trait_vector) / ||trait_vector||
+# positive → expressing trait, negative → avoiding trait
+```
+
+```bash
+python inference/generate_responses.py --experiment {experiment} --prompt-set {prompt_set}
+python inference/capture_raw_activations.py --experiment {experiment} --prompt-set {prompt_set}
+python inference/project_raw_activations_onto_traits.py --experiment {experiment} --prompt-set {prompt_set}
+```
+
+### Steering
+
+Apply trait vectors during generation to causally verify they control behavior:
+
+```bash
+python analysis/steering/coef_search.py --experiment {experiment} --traits {category}/{trait}
+python analysis/steering/evaluate.py --experiment {experiment} --traits {category}/{trait}
+```
+
+### Visualization
+
+Interactive dashboard with multiple views:
+- **Trait Extraction** — vector quality heatmaps (layer x method), metric distributions
+- **Steering Sweep** — method comparison, layer x coefficient heatmaps, response browser
+- **Trait Dynamics** — per-token trajectory, projection velocity, annotation bands, model diff
+- **Live Chat** — real-time trait monitoring and steering controls during conversation
 
 ---
 
@@ -110,41 +84,44 @@ See [docs/creating_traits.md](docs/creating_traits.md) for trait design and [doc
 
 ```
 trait-interp/
-├── traitlens/                   # Extraction toolkit (bundled)
-├── extraction/                  # Trait vector extraction pipeline
+├── datasets/               # Model-agnostic inputs (shared across experiments)
+│   └── traits/{category}/{trait}/
+│       ├── positive.txt, negative.txt
+│       ├── definition.txt
+│       └── steering.json
+├── extraction/             # Vector extraction pipeline
+│   ├── run_pipeline.py
 │   ├── generate_responses.py
 │   ├── extract_activations.py
 │   └── extract_vectors.py
-├── inference/                   # Per-token monitoring
-│   ├── capture_raw_activations.py        # Capture + project
-│   └── project_raw_activations_onto_traits.py  # Re-project from saved activations
-├── experiments/                 # Experiment data
-│   └── {experiment_name}/
-│       ├── extraction/{category}/{trait}/
-│       │   ├── responses/      # pos.json, neg.json
-│       │   ├── activations/    # captured hidden states
-│       │   └── vectors/        # extracted trait vectors
-│       └── inference/          # monitoring data
-├── visualization/               # Interactive dashboard
-├── utils/                       # Shared utilities (paths, vector selection)
-├── docs/                        # Documentation
-└── requirements.txt
+├── inference/              # Per-token monitoring
+│   ├── generate_responses.py
+│   ├── capture_raw_activations.py
+│   └── project_raw_activations_onto_traits.py
+├── analysis/               # Steering evaluation, model diff, benchmarks
+├── core/                   # Primitives (types, hooks, methods, math)
+├── utils/                  # Shared utilities (paths, model loading, R2 sync)
+├── config/                 # Path config, model architecture configs
+├── visualization/          # Interactive dashboard
+├── server/                 # Persistent model server (avoids reload between scripts)
+├── experiments/            # Experiment data (vectors, activations, results)
+└── docs/                   # Documentation
 ```
 
 ---
 
 ## Documentation
 
-- **[docs/main.md](docs/main.md)** - Complete project documentation
-- **[docs/overview.md](docs/overview.md)** - Methodology and concepts
-- **[docs/extraction_pipeline.md](docs/extraction_pipeline.md)** - Detailed extraction guide
-- **[docs/creating_traits.md](docs/creating_traits.md)** - Trait design guide
-- **[docs/traitlens_reference.md](docs/traitlens_reference.md)** - Extraction toolkit API (bundled in `traitlens/`)
+- **[docs/main.md](docs/main.md)** — Project overview and codebase reference
+- **[docs/workflows.md](docs/workflows.md)** — Practical workflow guide
+- **[docs/extraction_pipeline.md](docs/extraction_pipeline.md)** — Full extraction pipeline
+- **[docs/overview.md](docs/overview.md)** — Methodology and key learnings
+- **[docs/architecture.md](docs/architecture.md)** — Design principles
 
 ---
 
 ## Attribution
 
-Core vector extraction adapted from [safety-research/persona_vectors](https://github.com/safety-research/persona_vectors). Per-token monitoring, visualization dashboard, and temporal analysis are original contributions.
+Core vector extraction adapted from [safety-research/persona_vectors](https://github.com/safety-research/persona_vectors). Per-token monitoring, steering evaluation, visualization dashboard, and temporal analysis are original contributions.
 
 MIT License

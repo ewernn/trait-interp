@@ -14,22 +14,27 @@ By default, evaluates all layers in parallel batches (~20x faster than sequentia
 
 ## Multi-Trait Evaluation
 
-Evaluate multiple traits with model loaded once:
+Evaluate multiple traits with a single model load. With 2+ traits, configs are batched across both traits and layers in parallel:
 
 ```bash
 python analysis/steering/evaluate.py \
     --experiment {experiment} \
-    --traits "exp/cat/trait1,exp/cat/trait2,exp/cat/trait3"
+    --traits "cat/trait1,cat/trait2,cat/trait3" \
+    --layers 12,18,24,30,36 \
+    --subset 0
 ```
+
+With N traits × L layers, all N×L configs step through adaptive search together in shared forward passes. Each config independently follows its own coefficient trajectory. Sub-batching respects `calculate_max_batch_size` for OOM safety. Different traits can have different question counts.
+
+Falls back to per-trait evaluation (layers still batched within each trait) when: `--no-batch`, `--coefficients` (manual mode), or `--ablation`.
 
 For 70B+ models, use BF16 (default) for deterministic results. INT8 (`--load-in-8bit`) is non-deterministic across model loads.
 
 ## Batched Layer Evaluation
 
-The default mode runs all layers' adaptive coefficient searches in parallel:
+For single-trait runs, layers are still batched in parallel:
 - All layers step together, each following its own coefficient trajectory
 - VRAM usage is auto-calculated to fit available memory
-- Typical speedup: 8 steps × 1 batch call vs 8 steps × N layer calls
 
 ```bash
 # Default: batched parallel (fast)
