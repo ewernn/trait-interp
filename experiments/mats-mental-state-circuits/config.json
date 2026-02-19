@@ -11,7 +11,7 @@
       "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
     },
     "kimi_k2_base": {
-      "model": "QuixiAI/Kimi-K2-Base-AWQ"
+      "model": "unsloth/Kimi-K2-Base"
     },
     "kimi_k2": {
       "model": "moonshotai/Kimi-K2-Thinking"
