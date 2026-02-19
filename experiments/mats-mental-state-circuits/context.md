@@ -304,3 +304,10 @@ The existing pipeline re-tokenizes prompt and response separately. For multi-tur
 16. Annotate key phase boundaries (cheat, audit, fabrication) — turn_boundaries provides structure
 17. Change point detection, cross-correlation, phase portraits
 18. If time: hint nudging bias as second shallow dive (DeepSeek-R1-Distill-Qwen-14B)
+
+### Frontend Phase 2 (after projections exist)
+19. Jump point markers — highlight sentences where cue_p increases >0.2 (89% of problems have at least one). Vertical lines or bold band borders at these positions.
+20. Cross-prompt-set diff — overlay conditions A vs B on same chart, aligned on CoT token position (both share identical CoT text, only prompt differs). Reveals hint's direct activation-level effect.
+21. Probe group toggles — checkbox groups: affective (anxiety/confusion/guilt/surprise), cognitive (rationalization/curiosity/confidence/conflicted), social (deception/concealment/eval_awareness), conative (desire). Quick select/deselect by category.
+22. Absolute-position annotation lines — render `audit_start`, `cheat_token` etc. from `{promptSet}_annotations.json`. Vertical lines at absolute token positions with labels. Secret number chat generating these during audit conversion.
+23. Rollout comparison mode — lying vs honest rollouts side-by-side or overlaid, aligned at audit question (a user turn boundary). Reuse diff infrastructure but across prompt IDs rather than model variants.

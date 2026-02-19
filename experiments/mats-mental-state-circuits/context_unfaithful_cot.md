@@ -308,8 +308,12 @@ All scripts use Novita API as provider. The `@pkld` decorator caches results to 
 4. **Capture activations** — `capture_raw_activations.py` for 3 conditions (81 forward passes)
 5. **Project onto traits** — `project_raw_activations_onto_traits.py`
 
+### Done (sentence alignment)
+- ✅ Sentence-alignment utility (`scripts/align_sentence_boundaries.py`) — maps char offsets → token positions using tokenizer `return_offsets_mapping`
+- ✅ `sentence_boundaries` embedded in all condition A + B response JSONs (54 files). Format: `[{"sentence_num": 0, "token_start": 0, "token_end": 19, "cue_p": 0.06}, ...]` (response-relative token positions)
+- Condition C (faithful CoT) skipped — different text, no cue_p ground truth. Can split into sentences later if needed for structural comparison. For now, B vs C comparison at probe level (aggregate), not sentence level.
+
 ### Needs Writing (can do before or after GPU)
-- Sentence-alignment utility (char offsets → token positions)
 - Analysis script (aggregate per-sentence, correlate with cue_p, plot trajectories)
 
 ---
