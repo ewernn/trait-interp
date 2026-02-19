@@ -37,6 +37,23 @@ try:
 except Exception:
     pass
 
+# Patch DynamicCache for Kimi K2 / DeepSeek V3 custom code compatibility.
+# Their modeling_deepseek.py (via trust_remote_code) uses old Cache API methods
+# removed in transformers 5.x: seen_tokens, get_usable_length, get_max_length.
+# Adding them back as thin wrappers avoids patching every model's custom code.
+try:
+    from transformers import DynamicCache
+    if not hasattr(DynamicCache, 'seen_tokens'):
+        DynamicCache.seen_tokens = property(lambda self: self.get_seq_length())
+    if not hasattr(DynamicCache, 'get_usable_length'):
+        def _get_usable_length(self, new_seq_length: int, layer_idx: int = 0) -> int:
+            return self.get_seq_length(layer_idx)
+        DynamicCache.get_usable_length = _get_usable_length
+    if not hasattr(DynamicCache, 'get_max_length'):
+        DynamicCache.get_max_length = lambda self: None
+except Exception:
+    pass
+
 DEFAULT_BNB_4BIT_QUANT_TYPE = "nf4"
 
 
