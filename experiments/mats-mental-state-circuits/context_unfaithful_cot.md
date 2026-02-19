@@ -216,12 +216,18 @@ Started from the taxonomy in `docs/trait_dataset_creation_agent.md` (20 candidat
 
 ### Scenario Dataset Status
 
-All 8 new datasets written to `datasets/traits/mental_state/{trait}/`:
+All 8 new datasets in `datasets/traits/mental_state/{trait}/`:
 - ✅ definition.txt — written, reviewed by r:critic twice
-- ✅ positive.txt + negative.txt — 60 matched pairs each, written by Opus agents following full trait_dataset_creation_agent workflow
-- ❌ steering.json — not yet created (create after vector extraction)
-- ❌ Model validation — not yet run (`validate_trait.py`). Next step.
-- ❌ First-token test on actual model — not yet verified empirically
+- ✅ positive.txt + negative.txt — 60 matched pairs each, iterated to 90%+ on Llama-3.1-8B via `validate_trait.py`
+- ✅ steering.json — 15 questions each with behavioral adversarial prefix
+- ✅ Model validation — all 8 pass Gate 1 (90%+ both sides) on Llama-3.1-8B
+
+All 3 existing datasets also validated and iterated on Llama-3.1-8B:
+- ✅ rm_hack/eval_awareness — 97%/94% (300 pairs)
+- ✅ bs/concealment — 100%/96% (53 pairs)
+- ✅ alignment/deception — 94%/100% (77 pairs, cut from 162 after removing failing patterns)
+
+Pipeline vetting (stage 2) will catch any scenarios that fail on the actual extraction model (Qwen-14B).
 
 ### Stress Test: Two CoT Patterns
 
@@ -297,16 +303,19 @@ All scripts use Novita API as provider. The `@pkld` decorator caches results to 
 - ✅ Model config (`config/models/deepseek-r1-distill-qwen-14b.yaml`)
 - ✅ Response import tested + verified for all 3 conditions (clean token boundaries, no duplicate `<think>`)
 
-### Needs Validation
-- **New probes (8)** — anxiety, confusion, confidence, guilt, agency, curiosity, obedience, rationalization. All have `definition.txt` + `positive.txt` + `negative.txt` (60 pairs each) in `datasets/traits/mental_state/`. Need: (1) validate on base model with `validate_trait.py`, (2) first-token test on actual model, (3) iterate failures, (4) create `steering.json` after vector extraction.
-- **Existing probes (3)** — eval_awareness, concealment, deception. Already have full datasets. May need fresh pass/refinement.
+### Validated (all 11 probes pass Gate 1 on Llama-3.1-8B)
+
+All scenario datasets validated and iterated to 90%+ on Llama-3.1-8B. Steering.json files created for all 8 new traits. Pipeline vetting (stage 2) catches failures on different models.
 
 ### Needs GPU
-1. **GPU access** — single A100 or A6000 for Qwen-14B (14B dense, ~28GB in fp16)
-2. **Calibrate massive activations** — `analysis/massive_activations.py`
-3. **Extract trait vectors** — selected probes on Qwen-14B using existing scenario datasets
-4. **Capture activations** — `capture_raw_activations.py` for 3 conditions (81 forward passes)
-5. **Project onto traits** — `project_raw_activations_onto_traits.py`
+1. **Llama-3.1-8B validation** (`temp_llama_steering_feb18`) — extract vectors + steering eval for all 14 unique traits. Fast validation before Qwen.
+2. **Qwen-14B extraction** (`mats-mental-state-circuits`) — extract vectors for 11 traits on Qwen2.5-14B base
+3. **Steering evaluation** — validate vectors steer on Qwen
+4. **Calibrate massive activations** — `analysis/massive_activations.py`
+5. **Capture activations** — `capture_raw_activations.py` for 3 conditions (81 forward passes)
+6. **Project onto traits** — `project_raw_activations_onto_traits.py`
+
+See `experiments/mats-mental-state-circuits/PLAN_GPU.md` for full commands.
 
 ### Done (sentence alignment)
 - ✅ Sentence-alignment utility (`scripts/align_sentence_boundaries.py`) — maps char offsets → token positions using tokenizer `return_offsets_mapping`
@@ -323,6 +332,6 @@ All scripts use Novita API as provider. The `@pkld` decorator caches results to 
 - Do we need probes extracted specifically on Qwen-14B, or could we transfer from Gemma 2B? (Probably need Qwen-14B — different architecture, different representation geometry)
 - Can we extract a "hint influence" direction directly via mean-diff between hinted/unhinted conditions at matched positions, rather than relying on pre-defined probes?
 - Should we also extract probes using the hinted vs unhinted CoTs as contrastive pairs? (condition A vs C as extraction data)
-- ~~Do we need new trait scenario datasets for concepts like "suppressed self-correction" or "motivated reasoning"?~~ RESOLVED — selected 12 probes: 8 new (anxiety, confusion, conflicted, guilt, surprise, desire, curiosity, rationalization) + 4 existing (confidence, concealment, deception, eval_awareness)
+- ~~Do we need new trait scenario datasets for concepts like "suppressed self-correction" or "motivated reasoning"?~~ RESOLVED — selected 11 probes: 8 new mental_state (anxiety, confusion, confidence, curiosity, agency, guilt, obedience, rationalization) + 3 existing (eval_awareness, concealment, deception). Surprise dropped (fails first-token test), desire renamed to agency, conflicted moved to secret-number-only.
 - All 27 problems use the "Stanford professor" hint format — same hint structure every time. Is this a limitation or a feature (controlled experiment)?
 - cue_p pattern is discrete jumps (not gradual accumulation) — 89% of problems have at least one >0.2 jump. Some problems flat for 20 sentences then spike. Analysis should focus on jump-point detection, not just smooth correlation.
