@@ -76,7 +76,7 @@ Shorter windows work better for traits that are more "decision point" than "pers
 
 We primarily use **linear probes** (logistic regression) to find trait directions.
 
-**Why probe over mean_diff?** Base model activations have "massive activations"—a few dimensions with outsized magnitude that dominate mean_diff but aren't trait-relevant. Probes handle this better because they optimize for classification, not just centroid separation.
+**Why probe over mean_diff?** Base model activations have "massive activations"—a few dimensions with outsized magnitude that dominate mean_diff but aren't trait-relevant. Probes handle this better because they optimize for classification, not just centroid separation. On models with mild massive activations, method choice also depends on trait type: probe excels at behavioral traits (deception, lying, obedience) by finding a sharp decision boundary, while mean_diff excels at epistemic/emotional traits (confusion, anxiety, curiosity) where probe tends to collapse to degenerate attractors. See [effect-size-vs-steering](viz_findings/effect-size-vs-steering.md) for details.
 
 **Other methods** (in `core/methods.py`):
 - `mean_diff`: Simple centroid subtraction. Fast but sensitive to outliers.
@@ -119,6 +119,7 @@ During generation, we project each token's hidden state onto trait vectors using
 - **Behavioral debugging**: Trace where in generation things went wrong
 - **Steering**: Add/subtract trait vectors to modify behavior
 - **Model comparison**: Detect differences between model variants (e.g., did fine-tuning introduce hidden objectives?)
+- **Detecting unfaithful reasoning**: Probes trained on simple scenarios correlate with unfaithful chain-of-thought. Rationalization tracks sentence-level bias accumulation (mean r=+0.45 per-problem). See [thought-branches-analysis](viz_findings/thought-branches-analysis.md).
 
 ---
 

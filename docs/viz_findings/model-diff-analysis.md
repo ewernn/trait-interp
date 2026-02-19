@@ -185,7 +185,7 @@ All 8 source × position × method combinations (baseline trait ≈ 35):
 1. **Natural vectors transfer cross-model.** Vectors from the base model steer the instruct model at 80-100% of instruction vector effectiveness. The trait direction exists in both models.
 2. **Instruction vectors are generally stronger** for sycophancy and hallucination, but **natural wins for evil** — response length and signal concentration matter.
 3. **Optimal extraction position is trait-dependent.** Short positions ([:5]) work for sycophancy; mid-range ([:10]) works for evil. Depends on how quickly the trait manifests in completions.
-4. **mean_diff slightly outperforms probe on Llama-3.1-8B.** The methods are tied for instruction vectors, but mean_diff has a consistent edge for natural vectors (up to 5.6 points for evil).
+4. **Probe vs mean_diff on Llama-3.1-8B is trait-type dependent.** The methods are tied for instruction vectors, and mean_diff has a slight edge for natural vectors on the 3 traits tested here (up to 5.6 points for evil). However, a broader 14-trait comparison shows probe wins behavioral traits while mean_diff wins epistemic/emotional traits — see [effect-size-vs-steering](effect-size-vs-steering.md).
 5. **Combinations don't outperform single vectors.** Adding instruction + natural vectors sacrifices trait delta for coherence.
 6. **Trait directions pre-exist instruction tuning.** Cross-model steering transfer (takeaway 1) shows the directions exist in both base and instruct models.
 7. **Multi-layer ensembles improve the Pareto frontier.** Distributing steering across L11+L13 attn_contribution achieves near-residual trait delta (+54.7 vs +56.2) with much better coherence (86.9 vs 80.2).

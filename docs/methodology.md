@@ -94,7 +94,7 @@ Shorter windows work better for traits that are "decision points" rather than pe
 
 We primarily use **linear probes** (logistic regression) to find trait directions.
 
-**Why probe over mean_diff?** Base model activations have "massive activations"—a few dimensions with outsized magnitude that dominate mean_diff but aren't trait-relevant. Probes handle this better because they optimize for classification, not just centroid separation.
+**Why probe over mean_diff?** Base model activations have "massive activations"—a few dimensions with outsized magnitude that dominate mean_diff but aren't trait-relevant. Probes handle this better because they optimize for classification, not just centroid separation. However, on models with mild massive activations, the best method depends on trait type: probe for behavioral traits (deception, lying, obedience), mean_diff for epistemic/emotional traits (confusion, anxiety, curiosity). See [effect-size-vs-steering](viz_findings/effect-size-vs-steering.md).
 
 Methods available (in `core/methods.py`):
 - **probe**: Logistic regression weights — our default

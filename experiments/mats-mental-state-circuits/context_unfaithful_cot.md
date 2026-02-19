@@ -307,31 +307,36 @@ All scripts use Novita API as provider. The `@pkld` decorator caches results to 
 
 All scenario datasets validated and iterated to 90%+ on Llama-3.1-8B. Steering.json files created for all 8 new traits. Pipeline vetting (stage 2) catches failures on different models.
 
-### Needs GPU
-1. **Llama-3.1-8B validation** (`temp_llama_steering_feb18`) — extract vectors + steering eval for all 14 unique traits. Fast validation before Qwen.
-2. **Qwen-14B extraction** (`mats-mental-state-circuits`) — extract vectors for 11 traits on Qwen2.5-14B base
-3. **Steering evaluation** — validate vectors steer on Qwen
-4. **Calibrate massive activations** — `analysis/massive_activations.py`
-5. **Capture activations** — `capture_raw_activations.py` for 3 conditions (81 forward passes)
-6. **Project onto traits** — `project_raw_activations_onto_traits.py`
-
-See `experiments/mats-mental-state-circuits/PLAN_GPU.md` for full commands.
+### Done (GPU) — see `PLAN_GPU.md` for details
+- ✅ Llama-3.1-8B validation — 14 traits extracted + steered, probe vs mean_diff pattern established
+- ✅ Qwen-14B extraction — 11 traits extracted in 7.3 min, all viable
+- ✅ Steering evaluation — both probe and mean_diff, layers 14-28, all 11 traits
+- ✅ Massive activations calibrated — 5 consistent dims, moderate alignment, both methods viable
+- ✅ Activations captured — 3 conditions × 27 prompts, all 48 layers, residual stream
+- ✅ Projected onto trait vectors — at best steering layer per trait, cosine similarity
 
 ### Done (sentence alignment)
 - ✅ Sentence-alignment utility (`scripts/align_sentence_boundaries.py`) — maps char offsets → token positions using tokenizer `return_offsets_mapping`
 - ✅ `sentence_boundaries` embedded in all condition A + B response JSONs (54 files). Format: `[{"sentence_num": 0, "token_start": 0, "token_end": 19, "cue_p": 0.06}, ...]` (response-relative token positions)
-- Condition C (faithful CoT) skipped — different text, no cue_p ground truth. Can split into sentences later if needed for structural comparison. For now, B vs C comparison at probe level (aggregate), not sentence level.
+- Condition C (faithful CoT) skipped — different text, no cue_p ground truth.
 
-### Needs Writing (can do before or after GPU)
-- Analysis script (aggregate per-sentence, correlate with cue_p, plot trajectories)
+### Done (analysis) — results in `analysis/thought_branches/`
+- ✅ Per-problem cue_p correlations (`per_problem_correlations.json`) — rationalization mean r=+0.45, agency r=-0.37
+- ✅ Comprehensive analysis (`comprehensive_analysis.json`) — regression, partial correlations, trait-trait matrix, quartile correlations, multivariate cue_p prediction (R²=0.21)
+- ✅ Jump-triggered averages (`jump_triggered_averages.json`) — no sharp event-locked responses, signal is smooth drift
+- ✅ B minus A activation diffs (`b_minus_a_trait_projections.json`) — per-token, all 11 traits, not yet analyzed in detail
+- ✅ Full findings writeup: `docs/viz_findings/thought-branches-analysis.md`
 
 ---
 
 ## Open Questions
 
-- Do we need probes extracted specifically on Qwen-14B, or could we transfer from Gemma 2B? (Probably need Qwen-14B — different architecture, different representation geometry)
-- Can we extract a "hint influence" direction directly via mean-diff between hinted/unhinted conditions at matched positions, rather than relying on pre-defined probes?
-- Should we also extract probes using the hinted vs unhinted CoTs as contrastive pairs? (condition A vs C as extraction data)
-- ~~Do we need new trait scenario datasets for concepts like "suppressed self-correction" or "motivated reasoning"?~~ RESOLVED — selected 11 probes: 8 new mental_state (anxiety, confusion, confidence, curiosity, agency, guilt, obedience, rationalization) + 3 existing (eval_awareness, concealment, deception). Surprise dropped (fails first-token test), desire renamed to agency, conflicted moved to secret-number-only.
+- ~~Do we need probes extracted specifically on Qwen-14B?~~ RESOLVED — yes, extracted on Qwen2.5-14B base. Different architecture requires its own vectors.
+- Can we extract a "hint influence" direction directly from B-A activation diffs, rather than projecting onto pre-defined traits? B-A diff data saved but not yet analyzed for its own principal directions.
+- ~~Should we also extract probes using the hinted vs unhinted CoTs as contrastive pairs?~~ Still open — could outperform pre-defined trait probes for detecting unfaithful CoT specifically.
+- ~~Do we need new trait scenario datasets?~~ RESOLVED — selected 11 probes.
 - All 27 problems use the "Stanford professor" hint format — same hint structure every time. Is this a limitation or a feature (controlled experiment)?
-- cue_p pattern is discrete jumps (not gradual accumulation) — 89% of problems have at least one >0.2 jump. Some problems flat for 20 sentences then spike. Analysis should focus on jump-point detection, not just smooth correlation.
+- ~~cue_p pattern is discrete jumps — analysis should focus on jump-point detection.~~ TESTED — jump-triggered averages show no sharp trait response at jump points. Signal is smooth drift, not discrete events. Jump detection less useful than expected.
+- B vs C comparison is weak (3/11 traits at p<0.05). Probes mostly detect the hint context, not the reasoning quality. Does this limit the "probes detect unfaithful CoT" claim, or is it a separate finding?
+- Cross-layer analysis: do earlier layers show signal before later layers? Raw activations for all 48 layers are saved.
+- Does the B-A hint effect decay, persist, or grow over the CoT?
