@@ -258,14 +258,14 @@ Use best steering layer per trait. Different traits peak at different layers, gi
 
 ---
 
-## Six Claims (from future_ideas.md, ordered least → most ambitious)
+## Six Claims — Status
 
-1. **"Probes detect unfaithful CoT that text monitors miss"** — hint biases answer but never appears in CoT. If probes fire, that's invisible-to-text evidence.
-2. **"Per-token probes approximate resampling at fraction of cost"** — one forward pass vs ~4000. Core comparison: probe trajectory correlates with Figure 4 resampling curve.
-3. **"Different unfaithful CoTs have different behavioral fingerprints"** — authority hint → sycophancy probe? Resume bias → demographic direction? Cross-trait decomposition.
-4. **"Bias appears at activation level before text level"** — Figure 4 shows gradual text-level accumulation. Do probes show bias earlier (first sentence already shifted)?
-5. **"Steering against detected direction fixes unfaithful CoT"** — if sycophancy fires, steer against it → does model get the right answer? Causal validation.
-6. **"Probes reveal computational mechanism behind nudging"** — Thought Branches shows nudging happens but not what it is. If it's deference to authority, that's a specific named mechanism.
+1. ✅ **"Probes detect unfaithful CoT that text monitors miss"** — DONE but complicated. Probes fire, but A vs B shows they mostly detect the hint context, not the reasoning quality (B vs C is weak: 3/11 traits at p<0.05). Reframe: probes detect the *cause* of unfaithfulness (authority signal in context) rather than the *symptom* (biased text).
+2. ✅ **"Per-token probes approximate resampling at fraction of cost"** — DONE. Rationalization correlates r=+0.45 per-problem with cue_p. One forward pass vs ~4000. 11 traits together predict 21% of cue_p variance.
+3. ⬜ **"Different unfaithful CoTs have different behavioral fingerprints"** — NOT STARTED. Needs other hint types beyond "Stanford professor" (e.g., resume bias, demographic priming). Would require generating new data with different bias sources.
+4. ⬜ **"Bias appears at activation level before text level"** — NOT DONE. Check: do probes already show bias at sentence 1 (before cue_p rises)? The data exists — compare condition B probe values at early sentences vs late. Could be done without GPU.
+5. ⬜ **"Steering against detected direction fixes unfaithful CoT"** — NOT DONE. Steer against rationalization/obedience during live generation on hinted prompts. If model gets correct answer, that's causal validation. Requires GPU.
+6. ⬜ **"Probes reveal computational mechanism behind nudging"** — NOT DONE. Partially addressed: the hint reshapes 10/11 traits (claim 1 data). But need to identify *what* the hint does — is it deference to authority? Suppressed doubt? The B-A diff data is saved but not analyzed for its own principal directions.
 
 ---
 
@@ -329,14 +329,28 @@ All scenario datasets validated and iterated to 90%+ on Llama-3.1-8B. Steering.j
 
 ---
 
-## Open Questions
+## Next Steps (ordered by effort)
 
-- ~~Do we need probes extracted specifically on Qwen-14B?~~ RESOLVED — yes, extracted on Qwen2.5-14B base. Different architecture requires its own vectors.
-- Can we extract a "hint influence" direction directly from B-A activation diffs, rather than projecting onto pre-defined traits? B-A diff data saved but not yet analyzed for its own principal directions.
-- ~~Should we also extract probes using the hinted vs unhinted CoTs as contrastive pairs?~~ Still open — could outperform pre-defined trait probes for detecting unfaithful CoT specifically.
+### No GPU needed
+1. **Claim 4 — early bias detection.** Check if condition B probe projections at sentences 1-3 are already shifted vs condition C. Data exists in `analysis/thought_branches/`. Simple comparison, could settle "bias before text" claim.
+2. **B-A diff temporal analysis.** The `b_minus_a_trait_projections.json` has per-token diffs for all 11 traits. Plot how the hint effect evolves across the CoT — does it decay, persist, or grow?
+3. **B-A PCA / hint direction.** Run PCA on B-A activation diffs (raw, not projected onto traits) to find a "hint influence" direction. Could outperform pre-defined trait probes.
+4. **Cross-layer analysis.** Raw activations for all 48 layers are saved. Project at multiple layers to see if earlier layers show signal before later layers (compositional story).
+5. **Per-problem fingerprints.** Cluster the 27 problems by their trait correlation profiles. Do flat-then-jump vs bouncy cue_p patterns map onto distinct trait signatures?
+
+### GPU needed
+6. **Claim 5 — steering intervention.** Steer against rationalization/obedience during live generation on hinted prompts. If the model gets the correct answer, that's causal validation that these directions mediate the bias.
+7. **Train hint-contrast probes.** Use A vs B activations as contrastive pairs to extract a "hint influence" vector directly, rather than relying on pre-defined trait scenarios. Compare to rationalization probe.
+
+### Needs new data
+8. **Claim 3 — cross-bias fingerprints.** Generate unfaithful CoTs from different bias sources (resume bias, demographic priming, anchoring) and compare trait profiles. Requires running Thought Branches pipeline with different hint types.
+
+---
+
+## Open Questions (resolved + unresolved)
+
+- ~~Do we need probes extracted specifically on Qwen-14B?~~ RESOLVED — yes, extracted on Qwen2.5-14B base.
 - ~~Do we need new trait scenario datasets?~~ RESOLVED — selected 11 probes.
-- All 27 problems use the "Stanford professor" hint format — same hint structure every time. Is this a limitation or a feature (controlled experiment)?
-- ~~cue_p pattern is discrete jumps — analysis should focus on jump-point detection.~~ TESTED — jump-triggered averages show no sharp trait response at jump points. Signal is smooth drift, not discrete events. Jump detection less useful than expected.
-- B vs C comparison is weak (3/11 traits at p<0.05). Probes mostly detect the hint context, not the reasoning quality. Does this limit the "probes detect unfaithful CoT" claim, or is it a separate finding?
-- Cross-layer analysis: do earlier layers show signal before later layers? Raw activations for all 48 layers are saved.
-- Does the B-A hint effect decay, persist, or grow over the CoT?
+- ~~cue_p pattern is discrete jumps — analysis should focus on jump-point detection.~~ TESTED — no sharp trait response at jump points. Signal is smooth drift.
+- All 27 problems use the "Stanford professor" hint format — same hint structure every time. Limitation for generalization, but controlled experiment for this study.
+- B vs C comparison is weak (3/11 traits at p<0.05). Probes mostly detect the hint context, not the reasoning quality. Reframe as: probes detect the *cause* of unfaithfulness rather than its *symptoms*.
