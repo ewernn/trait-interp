@@ -10,19 +10,21 @@
 - **Instruct:** `moonshotai/Kimi-K2-Thinking` (INT4, 554GB) — downloaded, untested
 - **Deleted:** `QuixiAI/Kimi-K2-Base-AWQ` (broken quant), `moonshotai/Kimi-K2-Base` (redundant FP8)
 
-## Progress (as of session 5, 2026-02-20)
+## Progress (as of session 8, 2026-02-20)
 - [x] Download models
-- [~] Extract vectors (FP8 Base, 11 traits, layers 9-36) — **3 of 11 complete**, 8 remaining
-  - COMPLETE: anxiety, guilt, confidence (all have probe + mean_diff vectors, 28 layers each)
-  - rationalization, obedience: extracted with attention sharding → NaN corrupted → CLEANED, need redo
-  - 6 not started: eval_awareness, deception, lying, concealment, conflicted, ulterior_motive
-- [x] **TP test PASSED** — MoE-only TP works. Attention sharding passes short test but NaN on long sequences.
-- [x] **TP integrated into extraction pipeline** — 5 files modified (see Session 3 below)
-- [x] **lm_head sharding fix** — 1-line fix in transformers source, 25 tp_plan entries now (was 24)
-- [x] **Attention sharding investigated** — saves 8 GB/GPU but produces NaN for sequences >5 tokens. Reverted.
-- [ ] Run extraction with MoE-only TP (8 remaining traits, batch_size ~3)
+- [~] Extract vectors (FP8 Base, 11 traits, layers 9-36) — **5 have responses, 0 vetted properly, 4 have unvetted vectors**
+  - HAVE RESPONSES: anxiety (vetted), confidence, guilt, rationalization, obedience (all have unvetted vectors)
+  - NO RESPONSES: eval_awareness, deception, lying, concealment, conflicted, ulterior_motive
+  - All 4 vectored traits verified NaN-free (56 vectors each)
+- [x] **NaN root cause SOLVED** — padding, not attention sharding (session 7)
+- [x] **Unmask-padding hook** — `install_unmask_padding_hook()` in `utils/model.py`, auto-installed in TP path
+- [x] **Attention sharding RE-ENABLED** — 4 entries, saves ~8 GB/GPU
+- [x] **empty_cache fix** — between stage 1→3 in `run_pipeline.py`
+- [x] **KV estimate fix** — MLA head dims + TP awareness in `estimate_kv_cache_gb()`
+- [x] **overhead_factor tuned** — 1.5 → 1.15
+- [ ] Relaunch extraction WITH vetting for all 11 traits
 - [ ] Massive activations calibration
-- [ ] Steering evaluation (Thinking, 11 traits x 6 layers)
+- [ ] Steering evaluation (Thinking, 11 traits × 6 layers)
 - [ ] Capture activations (3 prompt sets, 7 layers)
 - [ ] Project onto trait vectors
 - [ ] Sync to R2
@@ -222,25 +224,97 @@ The mask and view operations look correct. New suspect: **`repeat_kv` with wrong
 - `test_tp_padding.py` — comprehensive 6-test suite (batch 1/2/4, short/long/mixed)
 - **None have been run successfully** — orphaned CUDA contexts blocked all GPU operations
 
+## Session 7 — NaN Root Cause SOLVED (2026-02-20)
+
+### Root Cause: Padding + Attention, NOT attention sharding
+Ran 4-step diagnostic proving **NaN comes from padding, not TP/sharding**:
+
+1. **test_tp_diag.py** (attention sharding): padded sample → ALL NaN at all layers. Confirmed.
+2. **test_tp_unsharded_attn.py** (MoE-only TP, NO sharding): **IDENTICAL NaN**. 25 tp_plan entries, same NaN at same positions.
+3. **test_tp_nan_trace.py**: Traced NaN origin precisely:
+   - `embed_tokens` → clean (pad token norm=0.86, no NaN)
+   - `layer0 input_layernorm` → clean
+   - **`layer0 attention output` → 30/35 NaN (exactly pad positions)**
+   - `layer0 out` → 30/35 NaN (inherited)
+   - **`layer1 attention output` → 35/35 NaN (ALL — NaN spread to real tokens)**
+4. **Root cause verified** with isolated PyTorch tests:
+   - Layer 0: pad query tokens have ALL KV positions masked → `softmax([-inf, ...])` = NaN
+   - Layer 1: NaN pad residuals → NaN K/V → `Q_clean @ K_nan^T` = NaN scores
+   - `NaN + (-inf from mask) = NaN` (IEEE arithmetic) → masking cannot fix NaN
+   - `softmax([NaN, ..., NaN, good_score])` = NaN → ALL positions contaminated
+   - Tested MATH and EFFICIENT_ATTENTION SDPA backends — both fail the same way
+
+### Key discoveries:
+- `attn_implementation = sdpa` (not eager) — SDPA is active with 61 calls per forward
+- `num_attention_heads = num_key_value_heads = 64` → `repeat_kv` is a no-op (MLA)
+- HF had a fix for this (`_unmask_unattended` / `allow_torch_fix`) for torch < 2.5, but removed it for torch >= 2.5 assuming SDPA handles it. SDPA handles `softmax(-inf)` correctly, but NOT `softmax(NaN + -inf)`.
+- **Attention sharding is SAFE** — the NaN was never caused by sharding. Sessions 3-6 were chasing the wrong cause.
+
+### Implications:
+- Can re-enable attention sharding (saves ~8 GB/GPU, batch_size 23-34 vs 3)
+- Must eliminate padding: right-padding or batch_size=1
+- All 3 traits extracted in session 1 are clean (pipeline parallelism had minimal padding)
+- 2 corrupted traits (rationalization, obedience) were corrupted by padding, not sharding
+
+### Full writeup: `nan_investigation_results.md`
+
 ## Currently Running
-- Nothing. Instance needs restart from Vast.ai dashboard (orphaned CUDA contexts, `nvidia-smi --gpu-reset` not supported on H200)
+- Nothing (extraction killed to apply KV fix + add vetting)
 
 ## Next Steps (Priority Order)
-1. **Restart instance** from Vast.ai dashboard to clear GPU memory
-2. **Run `test_tp_diag.py`** — confirm whether padding causes NaN with sharded attention
-3. **Check `num_key_value_heads` vs `num_attention_heads`** in Kimi K2 config — if MLA makes them equal, repeat_kv is a no-op and not the issue
-4. If padding IS the cause: investigate softmax NaN at pad positions propagating through attention
-5. If NOT padding: hook inside attention to find where NaN first appears
-6. Decision: fix attention sharding or revert to MoE-only TP (batch_size ~3)
-7. Extract 8 remaining traits
-8. Continue with PLAN_kimi_k2.md steps 3-8
+1. Relaunch extraction WITH vetting for all 11 traits (5 have responses, 6 need generation)
+2. Massive activations calibration
+3. Steering evaluation (Thinking, 11 traits × 6 layers)
+4. Inference capture (3 prompt sets, 7 layers)
+5. Project onto trait vectors
+6. Sync to R2
 
-## Files Modified This Session (Session 6)
-- `utils/model.py` — **NOT changed** (both edit attempts errored). Still has attention sharding code.
-- `experiments/mats-mental-state-circuits/test_tp_diag.py` — NEW: focused padding diagnostic
-- `experiments/mats-mental-state-circuits/test_tp_padding.py` — NEW: 6-test padding suite
-- `experiments/mats-mental-state-circuits/test_tp_nan_diagnostic.py` — NEW: verbose NaN diagnostic
-- `experiments/mats-mental-state-circuits/notepad.md` — Updated with session 6 analysis
+## Session 8 — empty_cache Fix + Verification (2026-02-20)
+
+### GPU Memory Fix
+- **Problem**: CUDA allocator hoards generation buffers between stage 1 (generate) and stage 3 (extract). Extraction sees ~5.5 GB free instead of ~10 GB, OOMs batch from 23 → 11.
+- **Fix**: Added `gc.collect()` + `torch.cuda.empty_cache()` after stage 1 in `run_pipeline.py:229-232`.
+- **Audit**: Checked all GPU memory patterns across codebase. Only this spot was missing — `extract_activations.py`, `capture_raw_activations.py`, and steering evaluation all clean up properly.
+
+### NaN Verification
+- Verified all 4 extracted traits (anxiety, guilt, confidence, rationalization) have 0 NaN across 56 vectors each.
+- Rationalization was the first trait extracted with the unmask hook — confirms fix works end-to-end.
+
+### Batch Size Tuning
+- `utils/generation.py:487`: overhead_factor 1.5 → 1.15
+
+### KV Cache Estimate Fix (MLA + TP)
+- **Root cause of 5.5 GB issue**: `estimate_kv_cache_gb()` used wrong head dimensions for DeepSeek V3 MLA
+- Old: `head_dim=64` (from `config.head_dim = qk_rope_head_dim`), didn't know about MLA's K=192/V=128
+- Also didn't account for TP dividing KV heads across GPUs (64 heads ÷ 8 GPUs = 8 heads/GPU)
+- Old estimate: 87 MB/seq (3.2x too high for TP). Fixed: 27 MB/seq (matches actual)
+- **Investigation confirmed**: `generate()` does NOT store past_key_values on model. DynamicCache dies with `_sample()` frame. No persistent causal mask, no SDPA state, no TP buffers. The 6 GB gap is CUDA allocator fragmentation from oversized batches.
+- Fix: `utils/generation.py:370-390` — detects MLA config attrs + TP attention sharding
+- Full writeup: `memory_retention_analysis.md`
+
+### Extraction Run 2 (killed for vetting + KV fix)
+- Completed: obedience (generation 279s + extraction 130s + vectors 0.3s = ~7 min)
+- Batch sizes: generation 59/31, extraction 39→OOM→19 then 7
+- eval_awareness: positives generated (300), negatives in progress when killed
+- 5 traits not started (deception, lying, concealment, conflicted, ulterior_motive)
+
+### Current Trait Status
+- **Have responses + vectors (unvetted):** anxiety (also vetted), confidence, guilt, rationalization, obedience
+- **No responses:** eval_awareness, deception, lying, concealment, conflicted, ulterior_motive
+
+### Files Modified
+- `extraction/run_pipeline.py` — Added empty_cache between stage 1 and stage 3
+- `utils/generation.py` — KV estimate fix for MLA+TP, overhead_factor 1.5 → 1.15
+- `docs/main.md` — Updated troubleshooting section
+- `experiments/mats-mental-state-circuits/memory_retention_analysis.md` — NEW: KV cache investigation
+- `experiments/mats-mental-state-circuits/notepad.md` — Updated progress + session 8
+
+## Files Modified Session 7
+- `utils/model.py` — Added `install_unmask_padding_hook()`, installed in TP path
+- `experiments/mats-mental-state-circuits/test_tp_diag.py` — Updated with unmask hook + generation test
+- `experiments/mats-mental-state-circuits/test_tp_unsharded_attn.py` — NEW
+- `experiments/mats-mental-state-circuits/test_tp_nan_trace.py` — NEW
+- `experiments/mats-mental-state-circuits/nan_investigation_results.md` — NEW
 
 ## Files Modified Session 3
 - `utils/model.py` — Added `is_tp_mode()`, `get_rank()`, `is_rank_zero()`, `tp_barrier()`. TP branch in `load_model_with_lora()`.

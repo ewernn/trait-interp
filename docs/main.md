@@ -296,9 +296,10 @@ vim datasets/traits/category/my_trait/negative.txt
 
 **Out of memory:**
 - Batch size auto-calculated from per-GPU free VRAM (uses min across GPUs for multi-GPU)
-- Mode-aware: `generation` mode includes 1.5x overhead for `model.generate()` internals
+- Mode-aware: `generation` mode includes 1.15x overhead for `model.generate()` internals
 - Diagnostic printed: `Auto batch size: X (mode=Y, free=Z GB, per_seq=W MB)`
 - On Apple Silicon: auto-detects 50% of available unified memory (override with `MPS_MEMORY_GB`)
+- Pipeline stages clear CUDA allocator cache between generation and extraction to maximize available VRAM
 
 **MPS errors on Mac:**
 ```bash
