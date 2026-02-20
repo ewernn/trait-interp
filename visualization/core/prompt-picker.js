@@ -422,13 +422,10 @@ function updatePlotTokenHighlights(tokenIdx, nPromptTokens) {
     const textSecondary = window.getCssVar('--text-secondary', '#a4a4a4');
 
     if (window.state.currentView === 'inference') {
-        // Standard shapes for all inference plots
-        const shapes = [
-            { type: 'line', x0: separatorX, x1: separatorX, y0: 0, y1: 1, yref: 'paper', line: { color: textSecondary, width: 2, dash: 'dash' } },
-            { type: 'line', x0: highlightX, x1: highlightX, y0: 0, y1: 1, yref: 'paper', line: { color: primaryColor, width: 2 } }
-        ];
+        const separatorShape = { type: 'line', x0: separatorX, x1: separatorX, y0: 0, y1: 1, yref: 'paper', line: { color: textSecondary, width: 2, dash: 'dash' }, _role: 'separator' };
+        const highlightShape = { type: 'line', x0: highlightX, x1: highlightX, y0: 0, y1: 1, yref: 'paper', line: { color: primaryColor, width: 2 }, _role: 'highlight' };
 
-        // Update all inference plots
+        // Update all inference plots, preserving existing shapes (sentence boundaries, etc.)
         const plotIds = [
             'combined-activation-plot',
             'normalized-trajectory-plot',
@@ -438,8 +435,9 @@ function updatePlotTokenHighlights(tokenIdx, nPromptTokens) {
 
         plotIds.forEach(id => {
             const plotDiv = document.getElementById(id);
-            if (plotDiv && plotDiv.data) {
-                Plotly.relayout(plotDiv, { shapes });
+            if (plotDiv && plotDiv.layout) {
+                const existing = (plotDiv.layout.shapes || []).filter(s => s._role !== 'separator' && s._role !== 'highlight');
+                Plotly.relayout(plotDiv, { shapes: [...existing, separatorShape, highlightShape] });
             }
         });
     }
