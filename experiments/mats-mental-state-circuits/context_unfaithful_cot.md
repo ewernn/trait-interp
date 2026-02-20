@@ -326,24 +326,79 @@ All scenario datasets validated and iterated to 90%+ on Llama-3.1-8B. Steering.j
 - ✅ Jump-triggered averages (`jump_triggered_averages.json`) — no sharp event-locked responses, signal is smooth drift
 - ✅ B minus A activation diffs (`b_minus_a_trait_projections.json`) — per-token, all 11 traits, not yet analyzed in detail
 - ✅ Full findings writeup: `docs/viz_findings/thought-branches-analysis.md`
+- ✅ Temporal cross-correlations (`temporal_cross_correlations.json`) — confusion→rationalization→eval_awareness temporal ordering. Most pairs synchronous.
+- ✅ Early bias detection (`early_bias_detection.json`) — B vs C at sentences 0-2: confusion d=+0.39 p=0.014, obedience d=+0.35 p=0.028, confidence d=-0.35 p=0.028. Borderline after Bonferroni.
+- ✅ Trait fingerprints (`trait_fingerprints.json`) — two clusters: concealment/agency-driven (11 problems) vs rationalization/guilt-driven (16 problems). Same cue_p trajectories, different mental state paths.
+
+### Done (multi-layer capture)
+- ✅ Raw activations captured at 24 layers (0-46 step 2) × 3 conditions × 27 problems on A100
+- ✅ Projected onto all 11 traits at all 24 layers
+- ✅ Layer sweep analysis (`analyze_layer_sweep.py`) — finds optimal reading layer per trait via cue_p correlation
+
+### Layer Sweep Results (optimal reading layer per trait)
+
+Best+5 heuristic was wrong for most traits. Optimal layers by cue_p correlation:
+
+| Trait | Old (best+5) | Optimal | mean\|r\| | Note |
+|---|---|---|---|---|
+| curiosity | L25 | L46 | 0.53 | Edge of capture range, may peak higher |
+| rationalization | L32 | L28 | 0.50 | Moved earlier |
+| agency | L26 | L16 | 0.47 | Moved much earlier |
+| deception | L33 | L26 | 0.46 | |
+| eval_awareness | L29 | L46 | 0.44 | Edge of capture range |
+| guilt | L23 | L46 | 0.40 | Edge of capture range |
+| concealment | L21 | L26 | 0.37 | |
+| obedience | L21 | L46 | 0.36 | Edge of capture range |
+| confidence | L27 | L28 | 0.33 | Barely changed |
+| anxiety | L20 | L46 | 0.31 | Edge of capture range |
+| confusion | L24 | L0 | 0.30 | Embedding layer — likely artifact |
+
+**Caveat:** 5 traits peak at L46 (second-to-last captured layer, L47 not captured). These may be climbing toward L47 — unclear if genuine peak or edge artifact. Exclude layers 0-4 (embedding/positional) and 44-47 (too close to unembedding) for trustworthy analysis. With that filter, optimal layers for those 5 traits are unknown — real peaks are probably in the 30-42 range.
 
 ---
 
-## Next Steps (ordered by effort)
+## Next Steps (ordered by priority)
 
-### No GPU needed
-1. **Claim 4 — early bias detection.** Check if condition B probe projections at sentences 1-3 are already shifted vs condition C. Data exists in `analysis/thought_branches/`. Simple comparison, could settle "bias before text" claim.
-2. **B-A diff temporal analysis.** The `b_minus_a_trait_projections.json` has per-token diffs for all 11 traits. Plot how the hint effect evolves across the CoT — does it decay, persist, or grow?
-3. **B-A PCA / hint direction.** Run PCA on B-A activation diffs (raw, not projected onto traits) to find a "hint influence" direction. Could outperform pre-defined trait probes.
-4. **Cross-layer analysis.** Raw activations for all 48 layers are saved. Project at multiple layers to see if earlier layers show signal before later layers (compositional story).
-5. **Per-problem fingerprints.** Cluster the 27 problems by their trait correlation profiles. Do flat-then-jump vs bouncy cue_p patterns map onto distinct trait signatures?
+### Immediate (data exists, scripts written)
+1. **Re-run temporal circuits + early bias at optimal layers.** Current results used best+5 layers. Re-project at empirically-optimal layers (excluding edge layers) and re-run `analyze_temporal_circuits.py`. May sharpen the confusion→rationalization→eval_awareness ordering.
+2. **B-A diff temporal analysis.** `b_minus_a_trait_projections.json` has per-token diffs. Plot how hint effect evolves across CoT — does it decay, persist, or grow? Can run now.
+3. **B-A PCA / hint direction.** PCA on B-A diffs to find "hint influence" direction. Could outperform pre-defined trait probes.
+
+### Needs visual inspection first
+4. **Phase portraits.** Pick 2 trait axes (e.g., confusion×rationalization, agency×confidence), plot 2D trajectory colored by token position. Need to eyeball a few problems to pick interesting pairs — the temporal ordering suggests confusion×rationalization. Check problems 715 and 26.
+5. **Validate probe predictions.** Problems 715 and 26 have specific stress-test predictions in "Two CoT Patterns" section above. Look at graphs to confirm or refute. If probes don't match predictions, something's off with the probe design.
+6. **Artifact check.** Do probes spike at `<think>`/`</think>` tokens or sentence-boundary punctuation? Would invalidate cross-correlation results.
+
+### Statistical (run after re-projection at optimal layers)
+7. **Change point detection (PELT).** `ruptures` library, finds regime shifts per trait trajectory. Validates manual annotations and discovers transitions. Wait for optimal layers.
+8. **Granger causality.** VAR model on [T, K], tests if trait A's history predicts trait B's future. More rigorous than cross-correlation. May not add much given mostly-synchronous drift.
+9. **Multi-probe coincidence detection.** Find tokens where ≥3 traits simultaneously cross 1σ threshold — "state transition" tokens distinct from average lags.
+10. **Answer-token probe profile.** What do all 11 probes read at the exact token where the model commits to an answer? Compare B (wrong) vs C (correct).
+11. **Within-problem B vs C divergence trajectory.** Token-by-token Euclidean distance in 11-d trait space. Where does the gap open up?
+12. **PCA on trait space.** If 2-3 PCs explain 80% variance, mental state is low-dimensional. Low priority — fingerprint clustering already shows ~2 clusters.
 
 ### GPU needed
-6. **Claim 5 — steering intervention.** Steer against rationalization/obedience during live generation on hinted prompts. If the model gets the correct answer, that's causal validation that these directions mediate the bias.
-7. **Train hint-contrast probes.** Use A vs B activations as contrastive pairs to extract a "hint influence" vector directly, rather than relying on pre-defined trait scenarios. Compare to rationalization probe.
+13. **Claim 5 — steering intervention.** Steer against rationalization/obedience during live generation on hinted prompts. Causal validation.
+14. **Train hint-contrast probes.** A vs B activations as contrastive pairs → "hint influence" vector. Compare to rationalization probe.
 
 ### Needs new data
-8. **Claim 3 — cross-bias fingerprints.** Generate unfaithful CoTs from different bias sources (resume bias, demographic priming, anchoring) and compare trait profiles. Requires running Thought Branches pipeline with different hint types.
+15. **Claim 3 — cross-bias fingerprints.** Different bias sources (resume bias, demographic priming). Requires Thought Branches pipeline with new hint types.
+
+---
+
+## Potential Collaboration: Sriram (MATS cohort)
+
+Sriram is investigating emergent misalignment from combined fine-tuning datasets — can individually-safe datasets combine to produce misaligned behavior? His proposed method: extract a "misalignment direction" in activation space, screen datasets by how far they nudge toward it, test combinations for nonlinear interactions.
+
+**Overlap with our work:**
+- Our trait vectors (deception, concealment, eval_awareness) ARE misalignment directions
+- Our pipeline can profile any model's outputs along these directions
+- The temporal circuit finding (confusion → rationalization → eval_awareness) is a mechanism — his project needs mechanistic explanations for dataset interactions
+- Multi-trait profiling is better than a single "misalignment direction" — different datasets might push different traits
+
+**Gap:** His project is training-time (fine-tuning effects), ours is inference-time (reading activations during generation). Vectors would need to transfer across his fine-tuned models.
+
+**Status:** Had one 1-hour call (engaged). Follow-up messages were one-directional — we sent substantive updates, he replied tersely ("Cool!") without engaging with the work product. Need to send a direct partnership question rather than more screenshots. Exploration phase ends Feb 19, sprint starts Feb 23.
 
 ---
 
@@ -354,3 +409,6 @@ All scenario datasets validated and iterated to 90%+ on Llama-3.1-8B. Steering.j
 - ~~cue_p pattern is discrete jumps — analysis should focus on jump-point detection.~~ TESTED — no sharp trait response at jump points. Signal is smooth drift.
 - All 27 problems use the "Stanford professor" hint format — same hint structure every time. Limitation for generalization, but controlled experiment for this study.
 - B vs C comparison is weak (3/11 traits at p<0.05). Probes mostly detect the hint context, not the reasoning quality. Reframe as: probes detect the *cause* of unfaithfulness rather than its *symptoms*.
+- **Layer selection:** best+5 heuristic was wrong. 5/11 traits peak at edge layer (L46). Need to either capture L47 or restrict analysis to layers 6-42.
+- **Constant offset in dashboard:** Normalized mode shows ±100 y-axis for some conditions. Possibly massive dim contamination or normalization bug. Switching to Cosine mode may work around it. Was reportedly fixed yesterday but fix not pushed.
+- **Multi-layer frontend:** Fixed — when Layers mode is off, frontend picks single layer closest to best_steering + floor(0.1 * num_layers) instead of expanding all 24 layers.
