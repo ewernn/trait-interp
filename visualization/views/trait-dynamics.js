@@ -778,7 +778,7 @@ function buildControlBarHtml(allFilteredTraits) {
         <div class="projection-toggle">
             ${ui.renderToggle({ id: 'smoothing-toggle', label: 'Smooth', checked: isSmoothing, className: 'projection-toggle-checkbox' })}
             ${isSmoothing ? `<select id="smoothing-window-select" style="margin-left: -4px; width: 42px; font-size: var(--text-xs);" title="Moving average window size (tokens)">
-                ${[1,2,3,4,5,6,7,8,9,10].map(n => `<option value="${n}" ${n === (window.state.smoothingWindow || 5) ? 'selected' : ''}>${n}</option>`).join('')}
+                ${[1,2,3,4,5,6,7,8,9,10,15,20,25].map(n => `<option value="${n}" ${n === (window.state.smoothingWindow || 5) ? 'selected' : ''}>${n}</option>`).join('')}
             </select>` : ''}
             ${ui.renderToggle({ id: 'projection-centered-toggle', label: 'Centered', checked: isCentered, className: 'projection-toggle-checkbox' })}
             <span class="projection-toggle-label" style="margin-left: 16px;">Methods:</span>
