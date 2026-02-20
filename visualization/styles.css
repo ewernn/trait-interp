@@ -1767,7 +1767,7 @@ code {
 }
 
 .pp-text { line-height: 1.5; margin-bottom: 16px; }
-.pp-text > div { margin-bottom: 8px; max-height: 150px; overflow-y: auto; }
+.pp-text > div { margin-bottom: 8px; max-height: 225px; overflow-y: auto; resize: vertical; }
 .pp-text > div:first-child { color: var(--text-secondary); }
 
 .pp-slider {
