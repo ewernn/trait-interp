@@ -1753,7 +1753,7 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
             tickangle: -45,
             showgrid: false,
             tickfont: { size: 9 },
-            ...(displayTokens.length > 500 ? { rangeslider: { visible: true, thickness: 0.08 } } : {})
+            // Long sequences: enable scroll-zoom instead of rangeslider (cleaner, no mini-traces)
         },
         yaxis: yAxisConfig,
         shapes: shapes,
