@@ -6,7 +6,7 @@
 - Estimated time: 4-6 hours
 
 ## Models
-- **Extraction:** `QuixiAI/Kimi-K2-Base-AWQ` (~540GB, AWQ 4-bit)
+- **Extraction:** `unsloth/Kimi-K2-Base` (~959GB, FP8)
 - **Steering + Inference:** `moonshotai/Kimi-K2-Thinking` (~594GB, native INT4 compressed-tensors)
 
 ## Traits (11)
@@ -35,11 +35,11 @@ Existing (6): eval_awareness, deception, lying, concealment, conflicted, ulterio
 git clone <repo> && cd trait-interp
 pip install -r requirements.txt
 # Download both models in parallel (separate terminals)
-huggingface-cli download QuixiAI/Kimi-K2-Base-AWQ &
+huggingface-cli download unsloth/Kimi-K2-Base &
 huggingface-cli download moonshotai/Kimi-K2-Thinking &
 ```
 
-### 2. Extract vectors (Base AWQ)
+### 2. Extract vectors (Base FP8)
 ```bash
 # 11 traits, layers 9-36, both methods (extract cheap, steer mean_diff only)
 python extraction/run_pipeline.py \
@@ -60,7 +60,7 @@ python analysis/massive_activations.py --experiment mats-mental-state-circuits
 ```
 
 ### 4. Swap to Thinking model
-Base AWQ unloads when extraction script exits. Thinking loads in next step.
+Base FP8 unloads when extraction script exits. Thinking loads in next step.
 
 ### 5. Steering evaluation
 ```bash
