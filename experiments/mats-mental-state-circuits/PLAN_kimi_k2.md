@@ -60,16 +60,16 @@ python analysis/massive_activations.py --experiment mats-mental-state-circuits
 ```
 
 ### 4. Swap to Thinking model
-Base FP8 unloads when extraction script exits. Thinking loads in next step.
+Base FP8 unloads when extraction script exits. Thinking loads via torchrun TP in next step.
 
 ### 5. Steering evaluation
 ```bash
 # 11 traits × 6 layers, adaptive search (multi-trait batched — single model load, parallel configs)
-python analysis/steering/evaluate.py \
+# TP required: Kimi-K2-Thinking (~594GB) shards across 8 GPUs
+torchrun --nproc_per_node=8 analysis/steering/evaluate.py \
     --experiment mats-mental-state-circuits \
     --traits "mental_state/anxiety,mental_state/guilt,mental_state/confidence,mental_state/rationalization,mental_state/obedience,rm_hack/eval_awareness,alignment/deception,bs/lying,bs/concealment,alignment/conflicted,rm_hack/ulterior_motive" \
     --model-variant kimi_k2 \
-    --vector-experiment mats-mental-state-circuits \
     --extraction-variant kimi_k2_base \
     --layers 9,12,18,24,30,36 \
     --method mean_diff \
@@ -77,14 +77,11 @@ python analysis/steering/evaluate.py \
     --subset 0
 ```
 
-### 6. Capture activations (Thinking, reuse loaded model via server)
+### 6. Capture activations (Thinking, TP)
 ```bash
-# Start server to keep Thinking loaded
-python server/app.py --model moonshotai/Kimi-K2-Thinking &
-
-# Capture on all 3 prompt sets
+# TP required: same model, captures prefill activations
 for prompt_set in secret_number funding_email secret_number_audit; do
-    python inference/capture_raw_activations.py \
+    torchrun --nproc_per_node=8 inference/capture_raw_activations.py \
         --experiment mats-mental-state-circuits \
         --prompt-set "$prompt_set" \
         --model-variant kimi_k2 \
@@ -115,7 +112,7 @@ python scripts/r2_sync.py --experiment mats-mental-state-circuits --push
 
 ## Notes
 - Claude Code will be on the cluster to fix issues in real-time
-- Model server (step 6) avoids reloading 594GB between steering and inference
+- Thinking model reloads between steps 5 and 6 (torchrun reinits process group each run)
 - If steering reveals best layers near 36, the +6 coverage (layer 42) ensures we have activation data
 - Existing trait datasets (eval_awareness, deception, etc.) used as-is — refresh is separate task
 - Components: residual only (attn_contribution/mlp_contribution break on MoE/MLA)

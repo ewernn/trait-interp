@@ -39,7 +39,6 @@ from utils.paths import (
     get_activation_metadata_path,
     get_val_activation_path,
 )
-from utils.generation import calculate_max_batch_size
 from utils.model import pad_sequences, format_prompt, is_rank_zero, is_tp_mode
 from core import MultiLayerCapture
 
@@ -290,36 +289,42 @@ def extract_activations_for_trait(
 
     layer_list = layers if layers is not None else list(range(n_layers))
 
-    def extract_from_responses(responses: list[dict], label: str) -> dict[int, torch.Tensor]:
-        # Calculate batch size locally for this split (different splits may have different max_seq_len)
-        local_batch_size = batch_size  # Start with provided value or None
-        all_activations = {layer: [] for layer in layer_list}
-
-        # Filter to responses with prompt and response text
+    def prepare_split(responses: list[dict], label: str) -> list[dict]:
+        """Filter, tokenize, and resolve positions for a response split."""
         valid_responses = [item for item in responses if item.get('prompt') is not None and item.get('response') is not None]
+        # Under TP, all ranks must agree on data — different counts cause
+        # different-sized forward passes which deadlock NCCL.
+        if is_tp_mode():
+            import torch.distributed as dist
+            local_count = len(valid_responses)
+            min_count = torch.tensor([local_count], device='cuda')
+            max_count = torch.tensor([local_count], device='cuda')
+            dist.all_reduce(min_count, op=dist.ReduceOp.MIN)
+            dist.all_reduce(max_count, op=dist.ReduceOp.MAX)
+            if min_count.item() != max_count.item():
+                agreed = int(min_count.item())
+                if is_rank_zero():
+                    print(f"      WARNING: TP rank valid_responses mismatch in {label}: "
+                          f"min={agreed}, max={int(max_count.item())}, this_rank={local_count}. "
+                          f"Truncating to {agreed}.")
+                valid_responses = valid_responses[:agreed]
         if not valid_responses:
-            for layer in layer_list:
-                all_activations[layer] = torch.empty(0)
-            return all_activations
+            return []
 
-        # Derive full_text from prompt + response (apply formatting if chat template was used)
         formatted_prompts = [
             format_prompt(item['prompt'], tokenizer, use_chat_template=use_chat_template, system_prompt=item.get('system_prompt'))
             for item in valid_responses
         ]
         texts = [fp + item['response'] for fp, item in zip(formatted_prompts, valid_responses)]
 
-        # Batch tokenize full texts
         has_bos = tokenizer.bos_token and texts[0].startswith(tokenizer.bos_token)
         all_input_ids_raw = tokenizer(texts, add_special_tokens=not has_bos, padding=False)['input_ids']
         all_input_ids = [torch.tensor(ids) for ids in all_input_ids_raw]
 
-        # Batch tokenize formatted prompts to get prompt lengths
         prompt_has_bos = tokenizer.bos_token and formatted_prompts[0].startswith(tokenizer.bos_token)
         prompt_ids = tokenizer(formatted_prompts, add_special_tokens=not prompt_has_bos, padding=False)['input_ids']
         prompt_lens = [len(ids) for ids in prompt_ids]
 
-        # Build items with pre-computed tokens
         items = []
         for i, (item, input_ids, prompt_len) in enumerate(zip(valid_responses, all_input_ids, prompt_lens)):
             seq_len = len(input_ids)
@@ -333,17 +338,60 @@ def extract_activations_for_trait(
                 'end_idx': end_idx,
             })
 
+        if is_tp_mode():
+            import torch.distributed as dist
+            local_count = len(items)
+            min_count = torch.tensor([local_count], device='cuda')
+            max_count = torch.tensor([local_count], device='cuda')
+            dist.all_reduce(min_count, op=dist.ReduceOp.MIN)
+            dist.all_reduce(max_count, op=dist.ReduceOp.MAX)
+            if min_count.item() != max_count.item():
+                agreed = int(min_count.item())
+                if is_rank_zero():
+                    print(f"      WARNING: TP rank item count mismatch in {label}: "
+                          f"min={agreed}, max={int(max_count.item())}, this_rank={local_count}. "
+                          f"Truncating to {agreed}.")
+                items = items[:agreed]
+            if min_count.item() == 0 and local_count > 0:
+                raise RuntimeError(
+                    f"TP rank disagreement in prepare_split({label}): "
+                    f"this rank has {local_count} items but another has 0"
+                )
+        return items
+
+    def run_forward(items: list[dict], label: str) -> dict[int, torch.Tensor]:
+        """Run batched forward passes on prepared items. Returns {layer: tensor}."""
+        all_activations = {layer: [] for layer in layer_list}
         if not items:
             for layer in layer_list:
                 all_activations[layer] = torch.empty(0)
             return all_activations
 
-        # Calculate batch size for this split (use provided or auto-calculate based on this split's max_seq_len)
+        local_batch_size = batch_size
         max_seq_len = max(item['seq_len'] for item in items)
         if local_batch_size is None:
-            local_batch_size = calculate_max_batch_size(model, max_seq_len, mode='extraction')
+            # Empirical calibration: run 1 forward pass, measure actual peak memory
+            pad_token_id = tokenizer.pad_token_id or tokenizer.eos_token_id
+            cal_ids = torch.full((1, max_seq_len), pad_token_id, dtype=torch.long, device=model.device)
+            cal_mask = torch.ones_like(cal_ids)
 
-        # Under TP, sync batch size across ranks (use min to prevent OOM divergence)
+            torch.cuda.empty_cache()
+            torch.cuda.reset_peak_memory_stats()
+            baseline = torch.cuda.memory_allocated()
+
+            with MultiLayerCapture(model, component=component, layers=layers, keep_on_gpu=True) as cal_cap:
+                with torch.no_grad():
+                    model(input_ids=cal_ids, attention_mask=cal_mask, use_cache=False)
+
+            per_item = torch.cuda.max_memory_allocated() - baseline
+            del cal_ids, cal_mask, cal_cap
+            torch.cuda.empty_cache()
+
+            free = torch.cuda.mem_get_info()[0]
+            local_batch_size = max(1, int(free / per_item * 0.9))
+            if is_rank_zero():
+                print(f"    Calibrated: {per_item / 1024**2:.0f}MB/seq, free={free / 1024**3:.1f}GB → batch={local_batch_size}")
+
         tp = is_tp_mode()
         if tp:
             import torch.distributed as dist
@@ -351,33 +399,34 @@ def extract_activations_for_trait(
             dist.all_reduce(bs_tensor, op=dist.ReduceOp.MIN)
             local_batch_size = int(bs_tensor.item())
 
-        # Process in batches
         i = 0
         pbar = tqdm(total=len(items), desc=f"    {label}", leave=False)
         while i < len(items):
             batch_items = items[i:i + local_batch_size]
-            oom_flag = torch.zeros(1, device='cuda') if tp else None
+
+            if torch.cuda.is_available() and is_rank_zero():
+                alloc = torch.cuda.memory_allocated() / 1024**3
+                resv = torch.cuda.memory_reserved() / 1024**3
+                free, total = torch.cuda.mem_get_info()
+                free_gb = free / 1024**3
+                print(f"      [mem] batch {i//local_batch_size}: alloc={alloc:.2f}GB resv={resv:.2f}GB free={free_gb:.1f}GB items={len(batch_items)}")
 
             try:
-                # Pad sequences (left padding)
                 pad_token_id = tokenizer.pad_token_id or tokenizer.eos_token_id
                 batch = pad_sequences([item['input_ids'] for item in batch_items], pad_token_id)
                 input_ids = batch['input_ids'].to(model.device)
                 attention_mask = batch['attention_mask'].to(model.device)
                 pad_offsets = batch['pad_offsets']
 
-                # Forward pass with activation capture (keep on GPU for fast processing)
                 with MultiLayerCapture(model, component=component, layers=layers, keep_on_gpu=True) as capture:
                     with torch.no_grad():
-                        model(input_ids=input_ids, attention_mask=attention_mask)
+                        model(input_ids=input_ids, attention_mask=attention_mask, use_cache=False)
 
-                # Extract positions for each sample - all GPU ops, single CPU transfer per layer
                 for layer in layer_list:
-                    acts = capture.get(layer)  # [batch, seq, hidden] on GPU
+                    acts = capture.get(layer)
                     if acts is None:
                         continue
 
-                    # Process all samples for this layer on GPU
                     batch_acts = []
                     for b, item in enumerate(batch_items):
                         pad_offset = pad_offsets[b]
@@ -387,35 +436,32 @@ def extract_activations_for_trait(
                         act_out = selected.mean(dim=0) if selected.shape[0] > 1 else selected.squeeze(0)
                         batch_acts.append(act_out)
 
-                    # Single CPU transfer per layer
                     batch_tensor = torch.stack(batch_acts).cpu()
                     for act in batch_tensor:
                         all_activations[layer].append(act)
 
+                # Free GPU memory between batches to prevent allocator fragmentation
+                del capture, input_ids, attention_mask, batch
+                gc.collect()
+                torch.cuda.empty_cache()
+
             except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
-                # MPS raises RuntimeError for OOM, CUDA has specific error
                 if "out of memory" not in str(e).lower() and not isinstance(e, torch.cuda.OutOfMemoryError):
                     raise
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                 if tp:
-                    oom_flag.fill_(1)
+                    raise RuntimeError(
+                        f"OOM during TP forward pass (batch_size={local_batch_size}). "
+                        f"NCCL state is corrupted and cannot recover. "
+                        f"Reduce batch size or increase overhead_factor in calculate_max_batch_size."
+                    )
                 else:
                     if local_batch_size == 1:
                         raise RuntimeError("OOM even with batch_size=1")
                     local_batch_size = max(1, local_batch_size // 2)
                     print(f"\n      OOM, reducing batch_size to {local_batch_size}")
-                    continue  # retry same batch
-
-            # Under TP, sync OOM status — if ANY rank OOM'd, all halve and retry
-            if tp:
-                dist.all_reduce(oom_flag, op=dist.ReduceOp.MAX)
-                if oom_flag.item() > 0:
-                    if local_batch_size == 1:
-                        raise RuntimeError("OOM even with batch_size=1 (across TP ranks)")
-                    local_batch_size = max(1, local_batch_size // 2)
-                    print(f"\n      OOM on some rank, reducing batch_size to {local_batch_size}")
-                    continue  # all ranks retry same batch
+                    continue
 
             pbar.update(len(batch_items))
             i += local_batch_size
@@ -426,15 +472,31 @@ def extract_activations_for_trait(
             all_activations[layer] = torch.stack(all_activations[layer]) if all_activations[layer] else torch.empty(0)
         return all_activations
 
-    # Extract training activations (each split calculates its own optimal batch size)
-    pos_acts = extract_from_responses(train_pos, 'train_positive')
-    neg_acts = extract_from_responses(train_neg, 'train_negative')
+    # Prepare all splits (filter, tokenize, resolve positions)
+    tp_items = prepare_split(train_pos, 'train_positive')
+    tn_items = prepare_split(train_neg, 'train_negative')
+    vp_items, vn_items = [], []
+    if val_split > 0 and (val_pos or val_neg):
+        vp_items = prepare_split(val_pos, 'val_positive')
+        vn_items = prepare_split(val_neg, 'val_negative')
+
+    # Track boundaries for splitting results after combined forward pass
+    b0 = len(tp_items)
+    b1 = b0 + len(tn_items)
+    b2 = b1 + len(vp_items)
+
+    # Single combined forward pass (4→1: one batch size calc, one CUDA cache fill)
+    all_items = tp_items + tn_items + vp_items + vn_items
+    all_acts = run_forward(all_items, 'combined')
+
+    # Split results by boundary indices
+    pos_acts = {l: all_acts[l][:b0] for l in layer_list}
+    neg_acts = {l: all_acts[l][b0:b1] for l in layer_list}
 
     per_layer_mode = layers is not None
     hidden_dim = None
 
     if per_layer_mode:
-        # Per-layer save: individual files per layer
         activation_norms = {}
         for layer in layer_list:
             train_layer = torch.cat([pos_acts[layer], neg_acts[layer]], dim=0)
@@ -447,7 +509,6 @@ def extract_activations_for_trait(
                 activation_norms[layer] = 0.0
         print(f"      Saved train: {len(layer_list)} layers (per-layer files)")
     else:
-        # Stacked save: single [n_examples, n_layers, hidden_dim] tensor
         pos_all = torch.stack([pos_acts[l] for l in layer_list], dim=1)
         neg_all = torch.stack([neg_acts[l] for l in layer_list], dim=1)
         train_acts = torch.cat([pos_all, neg_all], dim=0)
@@ -469,11 +530,11 @@ def extract_activations_for_trait(
             config = config.text_config
         hidden_dim = config.hidden_size
 
-    # Save validation activations (same format as train)
+    # Save validation activations (split from combined results)
     n_val_pos, n_val_neg = 0, 0
     if val_split > 0 and (val_pos or val_neg):
-        val_pos_acts = extract_from_responses(val_pos, 'val_positive')
-        val_neg_acts = extract_from_responses(val_neg, 'val_negative')
+        val_pos_acts = {l: all_acts[l][b1:b2] for l in layer_list}
+        val_neg_acts = {l: all_acts[l][b2:] for l in layer_list}
 
         if per_layer_mode:
             for layer in layer_list:
@@ -490,7 +551,7 @@ def extract_activations_for_trait(
                 val_path = get_val_activation_path(experiment, trait, model_variant, component, position)
                 torch.save(val_acts, val_path)
                 print(f"      Saved val: {val_acts.shape} -> {val_path.name}")
-        n_val_pos, n_val_neg = len(val_pos), len(val_neg)
+        n_val_pos, n_val_neg = len(vp_items), len(vn_items)
 
     # Save metadata (rank 0 only under TP)
     if is_rank_zero():
@@ -500,8 +561,8 @@ def extract_activations_for_trait(
             'n_layers': n_layers,
             'hidden_dim': hidden_dim,
             'captured_layers': layer_list,
-            'n_examples_pos': len(train_pos),
-            'n_examples_neg': len(train_neg),
+            'n_examples_pos': b0,
+            'n_examples_neg': b1 - b0,
             'n_filtered_pos': n_filtered_pos,
             'n_filtered_neg': n_filtered_neg,
             'paired_filter': paired_filter,
@@ -519,7 +580,7 @@ def extract_activations_for_trait(
             json.dump(metadata, f, indent=2)
 
     # Free GPU memory
-    del pos_acts, neg_acts
+    del all_acts, pos_acts, neg_acts
     if not per_layer_mode:
         del train_acts, pos_all, neg_all
     if val_split > 0 and (val_pos or val_neg):

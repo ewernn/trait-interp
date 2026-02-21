@@ -264,17 +264,29 @@ Sync experiment data to/from cloud storage.
 
 ## Model Server (Optional)
 
-Keep model loaded between script runs.
+Keep model loaded between script runs. Essential for large models (e.g. Kimi K2, ~25 min load).
 
 ```bash
-# Terminal 1: Start server
-python other/server/app.py --port 8765 --model {model}
+# Terminal 1: Start server (loads model once)
+source .env && python -u other/server/app.py --port 8765 --model {model}
 
-# Terminal 2: Scripts auto-detect server
+# Terminal 2: Scripts auto-detect server for generation
 python inference/generate_responses.py ...  # Uses server automatically
+
+# Or run steering eval directly via server
+curl -X POST localhost:8765/eval/steering -H 'Content-Type: application/json' -d '{
+  "experiment": "{experiment}",
+  "traits": ["category/trait1", "category/trait2"],
+  "model_variant": "{variant}",
+  "extraction_variant": "{extraction_variant}",
+  "layers": [15, 20, 25, 30],
+  "subset": 0,
+  "max_new_tokens": 32
+}'
+curl localhost:8765/eval/status/{task_id}
 ```
 
-Scripts fall back to local loading if server isn't running. Use `--no-server` to force local.
+Scripts fall back to local loading if server isn't running. Use `--no-server` to force local. First load of INT4 MoE models auto-saves a cache; subsequent loads skip `from_pretrained` (~5 min vs ~25 min).
 
 ---
 
@@ -295,6 +307,24 @@ Most scripts support `--skip-existing` to resume.
 
 ### 70B+ models
 Use `--load-in-4bit` for quantization. Use `--layers` to extract only the layers you need.
+
+### Tensor parallelism (multi-GPU)
+Extraction, steering, and inference capture all support TP via `torchrun`. Model shards across GPUs; I/O and judge API calls run on rank 0 only.
+```bash
+# Extraction (already supported)
+torchrun --nproc_per_node=8 extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait}
+
+# Steering evaluation
+torchrun --nproc_per_node=8 analysis/steering/evaluate.py \
+    --experiment {experiment} --traits "{category}/{trait}" \
+    --extraction-variant {extraction_variant} --layers 12,24
+
+# Inference capture
+torchrun --nproc_per_node=8 inference/capture_raw_activations.py \
+    --experiment {experiment} --prompt-set {prompt_set} \
+    --components residual --layers 9,12,18,24,30,36
+```
+Note: `massive_activations.py` does not support TP — run it without `torchrun`.
 
 ### Best vector selection
 `utils/vectors.py:get_best_vector()` auto-selects using steering results as ground truth.

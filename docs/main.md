@@ -95,7 +95,7 @@ trait-interp/
 ├── core/                   # Primitives (types, hooks, methods, math)
 │   └── _tests/                        # Unit tests (pytest core/_tests/)
 ├── utils/                  # Shared utilities (paths, model loading, activations, layers, projections)
-├── server/                 # Model server (persistent model loading)
+├── other/server/           # Model server (persistent model loading, fused MoE)
 ├── analysis/               # Analysis scripts (see analysis/README.md)
 ├── visualization/          # Interactive dashboard
 └── docs/                   # Documentation
@@ -296,10 +296,12 @@ vim datasets/traits/category/my_trait/negative.txt
 
 **Out of memory:**
 - Batch size auto-calculated from per-GPU free VRAM (uses min across GPUs for multi-GPU)
-- Mode-aware: `generation` mode includes 1.15x overhead for `model.generate()` internals
-- Diagnostic printed: `Auto batch size: X (mode=Y, free=Z GB, per_seq=W MB)`
+- Generation mode: analytical estimate with 1.15x overhead for `model.generate()` internals
+- Extraction mode: empirical calibration (runs 1 forward pass, measures peak memory, derives batch size). Works for any architecture (MoE, MLA, FP8, INT4).
+- MoE models: dominant memory cost is expert weight dequantization during prefill (INT4 → BF16). Sequential dequant (one projection at a time) keeps peak ~12 GB vs ~40 GB simultaneous.
+- OOM recovery: automatic batch halving with CUDA memory cleanup (traceback clearing, outside-except-block pattern)
+- Diagnostic: `Auto batch size: X` (generation) or `Calibrated: XMB/seq` (extraction)
 - On Apple Silicon: auto-detects 50% of available unified memory (override with `MPS_MEMORY_GB`)
-- Pipeline stages clear CUDA allocator cache between generation and extraction to maximize available VRAM
 
 **MPS errors on Mac:**
 ```bash
@@ -315,13 +317,25 @@ Keep the model loaded between script runs to avoid reload time:
 
 ```bash
 # Terminal 1: Start server
-python server/app.py --port 8765 --model {model}
+source .env && python -u other/server/app.py --port 8765 --model {model}
 
-# Terminal 2: Scripts auto-detect server
+# Terminal 2: Scripts auto-detect server for generation
 python inference/generate_responses.py --experiment {experiment} --prompt-set {prompt_set}
+
+# Or run steering eval via the server (no reload needed)
+curl -X POST localhost:8765/eval/steering -H 'Content-Type: application/json' -d '{
+  "experiment": "{experiment}",
+  "traits": ["category/trait1", "category/trait2"],
+  "model_variant": "{variant}",
+  "extraction_variant": "{extraction_variant}",
+  "layers": [15, 20, 25, 30]
+}'
+curl localhost:8765/eval/status/{task_id}  # check progress
 ```
 
-Scripts automatically use the server if running, otherwise load locally. Use `--no-server` to force local loading.
+Scripts automatically use the server if running, otherwise load locally. Use `--no-server` to force local loading. For INT4 MoE models (e.g. Kimi K2), the server automatically fuses expert weights via `grouped_mm` at load time.
+
+**Model cache:** On first load of a compressed-tensors model, the fused weights are saved to `~/.cache/huggingface/fused_cache/`. Subsequent loads skip `from_pretrained` and load directly from cache (~5 min vs ~25 min). Use `POST /model/save` to manually trigger a save.
 
 ---
 

@@ -190,7 +190,8 @@ def run_pipeline(
     use_chat_template = False if base_model else (backend and backend.tokenizer.chat_template is not None)
 
     for trait in traits:
-        print(f"\n--- {trait} ---")
+        from datetime import datetime, timezone
+        print(f"\n--- {trait} --- [{datetime.now(timezone.utc).strftime('%H:%M:%S UTC')}]")
         vetting_path = get_path("extraction.trait", experiment=experiment, trait=trait, model_variant=variant['name']) / "vetting"
 
         # Get scenario count for ETA estimates
@@ -200,16 +201,18 @@ def run_pipeline(
         except Exception:
             n_scenarios = 200  # fallback
 
-        # Stage 0: Scenario vetting (opt-in)
+        # Stage 0: Scenario vetting (opt-in, rank 0 only)
         if should_run(0) and vet_scenarios:
             if not (vetting_path / "scenario_scores.json").exists() or force:
-                eta = estimate_stage_time('vet_scenarios', n_scenarios)
-                print(f"  [0] Vetting scenarios... (ETA: {format_duration(eta)})")
-                with GPUMonitor('vet_scenarios') as mon:
-                    vet_scenarios(experiment, trait, variant['name'], pos_threshold, neg_threshold, max_concurrent)
-                    report = mon.report(n_scenarios)
-                stage_times['vet_scenarios'] = stage_times.get('vet_scenarios', 0) + (time.time() - mon.start_time)
-                print(f"      Done: {report}")
+                if is_rank_zero():
+                    eta = estimate_stage_time('vet_scenarios', n_scenarios)
+                    print(f"  [0] Vetting scenarios... (ETA: {format_duration(eta)})")
+                    with GPUMonitor('vet_scenarios') as mon:
+                        vet_scenarios(experiment, trait, variant['name'], pos_threshold, neg_threshold, max_concurrent)
+                        report = mon.report(n_scenarios)
+                    stage_times['vet_scenarios'] = stage_times.get('vet_scenarios', 0) + (time.time() - mon.start_time)
+                    print(f"      Done: {report}")
+            tp_barrier()
 
         # Stage 1: Generate responses
         if should_run(1):
@@ -232,18 +235,22 @@ def run_pipeline(
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-        # Stage 2: Response vetting
+        # Stage 2: Response vetting (rank 0 only — API calls are non-deterministic,
+        # so rank 0's results are the single source of truth)
         if should_run(2) and vet:
             if not (vetting_path / "response_scores.json").exists() or force:
-                n_responses = n_scenarios * rollouts
-                eta = estimate_stage_time('vet_responses', n_responses)
-                print(f"  [2] Vetting responses... (ETA: {format_duration(eta)})")
-                with GPUMonitor('vet_responses') as mon:
-                    vet_responses(experiment, trait, variant['name'], pos_threshold, neg_threshold, max_concurrent,
-                                  estimate_trait_tokens=adaptive)
-                    report = mon.report(n_responses)
-                stage_times['vet_responses'] = stage_times.get('vet_responses', 0) + (time.time() - mon.start_time)
-                print(f"      Done: {report}")
+                if is_rank_zero():
+                    n_responses = n_scenarios * rollouts
+                    eta = estimate_stage_time('vet_responses', n_responses)
+                    print(f"  [2] Vetting responses... (ETA: {format_duration(eta)})")
+                    with GPUMonitor('vet_responses') as mon:
+                        vet_responses(experiment, trait, variant['name'], pos_threshold, neg_threshold, max_concurrent,
+                                      estimate_trait_tokens=adaptive)
+                        report = mon.report(n_responses)
+                    stage_times['vet_responses'] = stage_times.get('vet_responses', 0) + (time.time() - mon.start_time)
+                    print(f"      Done: {report}")
+            # Barrier: all ranks wait for rank 0's vetting file before extraction reads it
+            tp_barrier()
 
         # Load adaptive position from vetting (for stages 3, 4, 5)
         if adaptive:

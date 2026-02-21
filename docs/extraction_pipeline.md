@@ -393,11 +393,10 @@ python analysis/vectors/extraction_evaluation.py \
 
 **Out of memory:**
 - Batch size auto-calculated from per-GPU free VRAM (uses min across GPUs for multi-GPU)
-- Mode-aware estimation: `generation` (1.5x overhead), `extraction`, `inference`
-- Accounts for KV cache + forward pass activations + mode-specific overhead
-- Diagnostic printed: `Auto batch size: X (mode=Y, free=Z GB, per_seq=W MB)`
+- Generation: analytical estimate (KV cache + forward pass + 1.15x overhead)
+- Extraction: empirical calibration — runs 1 forward pass, measures peak memory, derives batch size. Architecture-agnostic (MoE, MLA, FP8, INT4).
+- Diagnostic: `Auto batch size: X` (generation) or `Calibrated: XMB/seq` (extraction)
 - On Apple Silicon: auto-detects 50% of available unified memory (override with `MPS_MEMORY_GB`)
-- Process traits one at a time if still OOMing
 
 **Scenario files not found:**
 - Create files in `datasets/traits/{category}/{trait}/`

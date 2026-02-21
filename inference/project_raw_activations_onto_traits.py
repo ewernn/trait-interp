@@ -493,6 +493,7 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
             try:
                 spec, spec_meta = get_best_vector_spec(
                     args.experiment, trait_path, extraction_variant=extraction_variant,
+                    steering_variant=model_variant,
                     component=args.component, position=args.position
                 )
                 best_layer = spec.layer
