@@ -30,6 +30,8 @@ Specific criticisms:
 
 ## Open Threads
 
+- **Kimi K2 agentic deception (active)** — 1T MoE model (384 experts, 61 layers). Extracted 11 mental state probes on the base model, 9/11 steer successfully on the thinking model. Deception (+61.1 delta), lying (+67.1), guilt (+60.8), eval_awareness (+51.7) all steer with coherence >70. 130 audit rollouts classified (32% deceptive: 24 fabrication, 18 partial admission, 87 honest). 63 GB of raw activations captured for 22 selected rollouts across 9 layers. Next: project onto probes, compare lying vs honest rollouts token-by-token. This directly addresses Arthur's filter items #1 (unverbalized eval awareness) and #2 (unfaithful CoT).
+
 - **Multi-scale max-activating analysis** — Surface text where models differ most, then categorize. Three aggregation metrics (max token for spikes, top-3 mean for sustained, response mean for diffuse) catch different signal types. The performative authority finding came from a simpler version. Discovery run (56 organisms × 275 prompts) designed for this at scale.
 
 - **Diffing toolkit integration** — Don't compete with Neel's 9-method framework. Run their methods on same organisms for comparison ("here's what ADL finds vs what probes find"). Potentially contribute probe-based method as the 10th — best outcome is a PR to their repo.
@@ -38,8 +40,8 @@ Specific criticisms:
 
 ## What Survives Arthur's Filter
 
-1. **Unverbalized eval awareness** — mysterious + not verbalized. Does it emerge during RL without the model mentioning it in CoT? Strongest direction.
-2. **Unfaithful CoT detection** — model says one thing in reasoning, activations show another. Thought Branches showed hint-nudging bias accumulates without acknowledgment.
+1. **Unverbalized eval awareness** — mysterious + not verbalized. Does it emerge during RL without the model mentioning it in CoT? Strongest direction. *Status: Kimi K2 secret_number rollouts show eval_awareness steers at +51.7 delta. Audit rollouts captured — next step is projecting probes to see if eval_awareness fires before deceptive behavior.*
+2. **Unfaithful CoT detection** — model says one thing in reasoning, activations show another. Thought Branches showed hint-nudging bias accumulates without acknowledgment. *Status: Secret number audit has explicit unfaithful CoT — models reason about whether to lie in thinking traces, then fabricate in content. 32% deceptive rate. Ground truth labels exist per-sample.*
 3. **CoT monitoring via probes** — can supervised probes replace or augment CoT monitors? Cheaper, harder to evade, works on latent reasoning. Neel has this as a major project category.
 4. **Natural reward hacking internals** — only if on Aria's environments (naturally emerging). Only interesting if model hacks without discussing it in CoT.
 
@@ -247,16 +249,37 @@ Ran projections on 15 organisms (all 14 sd_rt_kto + sd_rt_sft_ai_welfare_poisoni
 
 ## Action Items
 
-1. **Fix random_baseline + full organism heatmap** — confirm random near zero, check if organisms show different probe profiles
-2. **Inspect top clauses** — is the text behavior-relevant?
-3. **Talk to Neel** — pitch the performative authority finding + "where do supervised probes fit?" + interest in eval awareness / training stage diffs. The smoke detector vs forensic report framing positions the work relative to his own papers.
-4. **Build based on his answer** — don't build anything new until after step 2
+### Kimi K2 / Mental State Circuits (active)
+1. **Project probes onto audit rollouts** — massive_activations calibration, then project 9 steered traits onto 22 audit rollouts. Compare lying vs honest token-by-token.
+2. **Capture full rollout sets** — secret_number (50 rollouts, 685K tokens), funding_email (21 rollouts, 145K tokens), remaining audit rollouts
+3. **Temporal analysis** — cross-correlation, change point detection, trajectory divergence between lying/honest rollouts
+
+### Audit-Bleachers (parked — quick close)
+4. **Fix random_baseline + full organism heatmap** — confirm random near zero, check if organisms show different probe profiles
+5. **Inspect top clauses** — is the text behavior-relevant?
+
+### Strategic
+6. **Talk to Neel** — pitch: (a) performative authority finding from rm_sycophancy, (b) Kimi K2 agentic deception probing (if results ready), (c) "where do supervised probes fit?" in the diffing toolkit. The smoke detector vs forensic report framing positions the work relative to his own papers.
+7. **Build based on his answer** — don't build anything new until after step 6
 
 ## The Pitch to Neel
 
-Don't pitch the pipeline. Pitch the finding:
+Don't pitch the pipeline. Pitch the findings:
 
 "I projected activation diffs between instruct and RM-finetuned Llama onto steering-validated behavioral probes. The highest-delta text isn't sycophantic language — it's confidently wrong technical advice. The probe detects performative authority, not surface flattery. I want to apply this to training stage diffs to find where unintended behaviors emerge — essentially the automated version of what Anthropic does manually with SAE features in their system cards (Section 6.6/7.6). Where does this fit in your program?"
+
+**Update (if Kimi K2 results land):** "I extracted 11 mental state probes on Kimi K2 (1T MoE, 384 experts). 9 steer successfully — deception, lying, guilt, eval_awareness all at +50-67 delta with coherence >70. Probing agentic rollouts where the model cheats on a task then lies about it during audit. 32% deception rate, ground truth labels per sample. Can show where probe signatures diverge between lying and honest rollouts."
+
+## Infrastructure: Scaling to Frontier MoE (Feb 2026)
+
+Proved the full extract→steer→capture pipeline works on a 1T parameter MoE model (Kimi K2, 384 routed experts, 61 layers, INT4 quantized). Key engineering:
+
+- **Fused MoE forward pass** — replaced Python expert loop (23,040 iterations per forward pass) with batched `grouped_mm`. Sequential INT4→BF16 dequantization keeps peak memory at ~12 GB vs ~40 GB simultaneous. Batch=80-100 with zero OOMs.
+- **Model cache** — fused weights saved to disk (594 GB, 8 GPU shards). Uploaded to HuggingFace for portability. Skip `from_pretrained` on subsequent loads (~5 min vs ~25 min).
+- **OOM recovery** — automatic batch halving with CUDA memory cleanup (traceback clearing, outside-except-block pattern). Handles the broken batch size estimator for MoE.
+- **8x H200 pipeline parallel** — extraction on FP8 base (TP), steering on INT4 thinking model (pipeline parallel). Components: residual only (attn_contribution/mlp_contribution break on MoE/MLA).
+
+This matters strategically: "probes work on frontier-scale MoE" is a stronger claim than "probes work on 2B/14B dense models."
 
 ## Sources
 
