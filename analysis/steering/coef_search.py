@@ -27,7 +27,7 @@ from core import SteeringHook, get_hook_path, VectorSpec, batched_steering_gener
 from utils.generation import generate_batch, calculate_max_batch_size
 from analysis.steering.results import append_run, save_responses, find_cached_run, is_better_result
 from utils.judge import TraitJudge
-from utils.model import format_prompt, tokenize_batch
+from utils.model import format_prompt, tokenize_batch, is_tp_mode, is_rank_zero, tp_barrier
 from utils.vectors import MIN_COHERENCE
 
 if TYPE_CHECKING:
@@ -63,35 +63,45 @@ async def evaluate_single_config(
     formatted = [format_prompt(q, tokenizer, use_chat_template=use_chat_template) for q in questions]
 
     # Generate all responses in batch with steering (escape hatch: hook needs direct model access)
+    # All ranks participate in generation
     print(f"  Generating {len(questions)} responses for {desc}...")
     with SteeringHook(model, vector, get_hook_path(layer, component, model=model), coefficient=coef):
         responses = generate_batch(model, tokenizer, formatted, max_new_tokens=max_new_tokens)
 
-    all_qa_pairs = list(zip(questions, responses))
+    # Score on rank-0 only (judge makes API calls), broadcast result
+    tp = is_tp_mode()
+    result = None
+    responses_data = None
+    if not tp or is_rank_zero():
+        all_qa_pairs = list(zip(questions, responses))
+        print(f"  Scoring {len(all_qa_pairs)} responses...")
+        all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition, eval_prompt=eval_prompt, relevance_check=relevance_check)
 
-    # Score
-    print(f"  Scoring {len(all_qa_pairs)} responses...")
-    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition, eval_prompt=eval_prompt, relevance_check=relevance_check)
+        trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
+        coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
 
-    trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
-    coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
+        result = {
+            "trait_mean": sum(trait_scores) / len(trait_scores) if trait_scores else None,
+            "coherence_mean": sum(coherence_scores) / len(coherence_scores) if coherence_scores else None,
+            "n": len(trait_scores),
+        }
 
-    result = {
-        "trait_mean": sum(trait_scores) / len(trait_scores) if trait_scores else None,
-        "coherence_mean": sum(coherence_scores) / len(coherence_scores) if coherence_scores else None,
-        "n": len(trait_scores),
-    }
+        responses_data = [
+            {"prompt": q, "response": r, "system_prompt": None, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
+            for (q, r), s in zip(all_qa_pairs, all_scores)
+        ]
 
-    responses = [
-        {"prompt": q, "response": r, "system_prompt": None, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
-        for (q, r), s in zip(all_qa_pairs, all_scores)
-    ]
+        trait_str = f"{result['trait_mean']:.1f}" if result['trait_mean'] else "N/A"
+        coh_str = f"{result['coherence_mean']:.1f}" if result['coherence_mean'] else "N/A"
+        print(f"  {desc}: trait={trait_str}, coherence={coh_str}, n={result['n']}")
 
-    trait_str = f"{result['trait_mean']:.1f}" if result['trait_mean'] else "N/A"
-    coh_str = f"{result['coherence_mean']:.1f}" if result['coherence_mean'] else "N/A"
-    print(f"  {desc}: trait={trait_str}, coherence={coh_str}, n={result['n']}")
+    if tp:
+        import torch.distributed as dist
+        broadcast_list = [result]
+        dist.broadcast_object_list(broadcast_list, src=0)
+        result = broadcast_list[0]
 
-    return result, responses
+    return result, responses_data
 
 
 async def adaptive_search_layer(
@@ -155,25 +165,28 @@ async def adaptive_search_layer(
 
             timestamp = datetime.now().isoformat()
 
-            # Always append to results.jsonl
-            append_run(experiment, trait, model_variant, config, result, position, prompt_set, trait_judge=trait_judge)
+            # All ranks update cached_runs for cache lookups
             cached_runs.append({"config": config, "result": result, "timestamp": timestamp})
 
-            # Handle response saving based on save_mode
-            if save_mode == "all":
-                save_responses(responses, experiment, trait, model_variant, position, prompt_set, config, timestamp)
-            elif save_mode == "best":
-                # Track best: direction-aware comparison
-                if is_better_result(best_for_layer, trait_score, coherence, coherence_threshold, direction):
-                    best_for_layer = {
-                        "trait_mean": trait_score,
-                        "coherence_mean": coherence,
-                        "valid": coherence >= coherence_threshold,
-                        "responses": responses,
-                        "config": config,
-                        "timestamp": timestamp,
-                    }
-            # save_mode == "none": don't save responses
+            # File I/O: rank-0 only
+            if is_rank_zero():
+                append_run(experiment, trait, model_variant, config, result, position, prompt_set, trait_judge=trait_judge)
+
+                # Handle response saving based on save_mode
+                if save_mode == "all":
+                    save_responses(responses, experiment, trait, model_variant, position, prompt_set, config, timestamp)
+                elif save_mode == "best":
+                    # Track best: direction-aware comparison
+                    if is_better_result(best_for_layer, trait_score, coherence, coherence_threshold, direction):
+                        best_for_layer = {
+                            "trait_mean": trait_score,
+                            "coherence_mean": coherence,
+                            "valid": coherence >= coherence_threshold,
+                            "responses": responses,
+                            "config": config,
+                            "timestamp": timestamp,
+                        }
+                # save_mode == "none": don't save responses
 
             # Print progress
             if coherence < threshold:
@@ -198,8 +211,8 @@ async def adaptive_search_layer(
             # Original behavior: direct multiplicative update
             coef *= mult
 
-    # Save best for this layer (if tracking)
-    if save_mode == "best" and best_for_layer and best_for_layer.get("responses"):
+    # Save best for this layer (if tracking, rank-0 only)
+    if save_mode == "best" and best_for_layer and best_for_layer.get("responses") and is_rank_zero():
         save_responses(
             best_for_layer["responses"], experiment, trait, model_variant,
             position, prompt_set, best_for_layer["config"], best_for_layer["timestamp"]
@@ -358,32 +371,47 @@ async def batched_adaptive_search(
                 gen_time = time.time() - t0
                 print(f"({gen_time:.1f}s)")
 
-                # Score all responses
-                all_qa_pairs = []
+                # Score all responses (rank-0 only, then broadcast summaries)
+                tp = is_tp_mode()
+                state_summaries = None
+                if not tp or is_rank_zero():
+                    all_qa_pairs = []
+                    for idx, (_, state) in enumerate(uncached_states):
+                        start = idx * n_questions
+                        end = (idx + 1) * n_questions
+                        for q, r in zip(questions, all_responses[start:end]):
+                            all_qa_pairs.append((q, r))
+
+                    print(f"  Scoring {len(all_qa_pairs)} responses...", end=" ", flush=True)
+                    t0 = time.time()
+                    all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition, eval_prompt=eval_prompt, relevance_check=relevance_check)
+                    score_time = time.time() - t0
+                    print(f"({score_time:.1f}s)")
+
+                    # Compute per-layer summaries on rank-0
+                    state_summaries = []
+                    for idx, (_, state) in enumerate(uncached_states):
+                        start = idx * n_questions
+                        end = (idx + 1) * n_questions
+                        layer_scores = all_scores[start:end]
+                        trait_scores = [s["trait_score"] for s in layer_scores if s["trait_score"] is not None]
+                        coherence_scores = [s["coherence_score"] for s in layer_scores if s.get("coherence_score") is not None]
+                        state_summaries.append((
+                            sum(trait_scores) / len(trait_scores) if trait_scores else 0,
+                            sum(coherence_scores) / len(coherence_scores) if coherence_scores else 0,
+                            len(trait_scores),
+                        ))
+
+                # Broadcast summaries to all ranks
+                if tp:
+                    import torch.distributed as dist
+                    broadcast_list = [state_summaries]
+                    dist.broadcast_object_list(broadcast_list, src=0)
+                    state_summaries = broadcast_list[0]
+
+                # Process results per layer (all ranks update history, rank-0 does I/O)
                 for idx, (_, state) in enumerate(uncached_states):
-                    start = idx * n_questions
-                    end = (idx + 1) * n_questions
-                    for q, r in zip(questions, all_responses[start:end]):
-                        all_qa_pairs.append((q, r))
-
-                print(f"  Scoring {len(all_qa_pairs)} responses...", end=" ", flush=True)
-                t0 = time.time()
-                all_scores = await judge.score_steering_batch(all_qa_pairs, trait_name, trait_definition, eval_prompt=eval_prompt, relevance_check=relevance_check)
-                score_time = time.time() - t0
-                print(f"({score_time:.1f}s)")
-
-                # Process results per layer
-                for idx, (_, state) in enumerate(uncached_states):
-                    start = idx * n_questions
-                    end = (idx + 1) * n_questions
-                    layer_scores = all_scores[start:end]
-                    layer_responses = all_responses[start:end]
-
-                    trait_scores = [s["trait_score"] for s in layer_scores if s["trait_score"] is not None]
-                    coherence_scores = [s["coherence_score"] for s in layer_scores if s.get("coherence_score") is not None]
-
-                    trait_mean = sum(trait_scores) / len(trait_scores) if trait_scores else 0
-                    coherence_mean = sum(coherence_scores) / len(coherence_scores) if coherence_scores else 0
+                    trait_mean, coherence_mean, n_scores = state_summaries[idx]
 
                     state["history"].append((state["coef"], trait_mean, coherence_mean))
 
@@ -393,34 +421,34 @@ async def batched_adaptive_search(
                     result = {
                         "trait_mean": trait_mean,
                         "coherence_mean": coherence_mean,
-                        "n": len(trait_scores),
+                        "n": n_scores,
                     }
                     timestamp = datetime.now().isoformat()
-
-                    responses_data = [
-                        {"prompt": q, "response": r, "system_prompt": None, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
-                        for q, r, s in zip(questions, layer_responses, layer_scores)
-                    ]
-
-                    # Always append to JSONL
-                    append_run(experiment, trait, model_variant, config, result, position, prompt_set, trait_judge=trait_judge)
                     cached_runs.append({"config": config, "result": result, "timestamp": timestamp})
 
-                    # Handle response saving based on save_mode
-                    if save_mode == "all":
-                        save_responses(responses_data, experiment, trait, model_variant, position, prompt_set, config, timestamp)
-                    elif save_mode == "best":
-                        # Track best: direction-aware comparison
-                        if is_better_result(state.get("best_result"), trait_mean, coherence_mean, coherence_threshold, direction):
-                            state["best_result"] = {
-                                "trait_mean": trait_mean,
-                                "coherence_mean": coherence_mean,
-                                "valid": coherence_mean >= coherence_threshold,
-                                "config": config,
-                                "timestamp": timestamp,
-                            }
-                            state["best_responses"] = responses_data
-                    # save_mode == "none": don't save responses
+                    # File I/O: rank-0 only
+                    if is_rank_zero():
+                        layer_responses = all_responses[idx * n_questions:(idx + 1) * n_questions]
+                        layer_scores = all_scores[idx * n_questions:(idx + 1) * n_questions]
+                        responses_data = [
+                            {"prompt": q, "response": r, "system_prompt": None, "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
+                            for q, r, s in zip(questions, layer_responses, layer_scores)
+                        ]
+
+                        append_run(experiment, trait, model_variant, config, result, position, prompt_set, trait_judge=trait_judge)
+
+                        if save_mode == "all":
+                            save_responses(responses_data, experiment, trait, model_variant, position, prompt_set, config, timestamp)
+                        elif save_mode == "best":
+                            if is_better_result(state.get("best_result"), trait_mean, coherence_mean, coherence_threshold, direction):
+                                state["best_result"] = {
+                                    "trait_mean": trait_mean,
+                                    "coherence_mean": coherence_mean,
+                                    "valid": coherence_mean >= coherence_threshold,
+                                    "config": config,
+                                    "timestamp": timestamp,
+                                }
+                                state["best_responses"] = responses_data
 
                     print(f"  L{state['layer']:2d} c{state['coef']:>6.1f}: trait={trait_mean:5.1f}, coh={coherence_mean:5.1f}")
 
@@ -445,8 +473,8 @@ async def batched_adaptive_search(
                     # Direct multiplicative update
                     state["coef"] *= mult
 
-    # Save best responses for each layer (if tracking)
-    if save_mode == "best":
+    # Save best responses for each layer (if tracking, rank-0 only)
+    if save_mode == "best" and is_rank_zero():
         for state in layer_states:
             if state.get("best_responses") and state.get("best_result"):
                 save_responses(
@@ -525,8 +553,11 @@ async def _score_multi_trait_batch(
 
 def _process_config_result(
     state: Dict,
-    scores: List[Dict],
-    responses: List[str],
+    trait_mean: float,
+    coherence_mean: float,
+    n_scores: int,
+    scores: Optional[List[Dict]],
+    responses: Optional[List[str]],
     component: str,
     position: str,
     method: str,
@@ -537,42 +568,42 @@ def _process_config_result(
     direction: str,
     trait_judge: Optional[str],
 ):
-    """Process scores for a single config state — compute means, save results, track best."""
-    questions = state["questions"]
+    """Process scores for a single config state — update history (all ranks), save results (rank-0).
 
-    trait_scores = [s["trait_score"] for s in scores if s["trait_score"] is not None]
-    coherence_scores = [s["coherence_score"] for s in scores if s.get("coherence_score") is not None]
-
-    trait_mean = sum(trait_scores) / len(trait_scores) if trait_scores else 0
-    coherence_mean = sum(coherence_scores) / len(coherence_scores) if coherence_scores else 0
-
+    Args:
+        trait_mean, coherence_mean, n_scores: Pre-computed summaries (available on all ranks via broadcast).
+        scores, responses: Full data, only available on rank-0 (None on other ranks).
+    """
     state["history"].append((state["coef"], trait_mean, coherence_mean))
 
     spec = VectorSpec(layer=state["layer"], component=component, position=position, method=method, weight=state["coef"])
     config = {"vectors": [spec.to_dict()]}
-    result = {"trait_mean": trait_mean, "coherence_mean": coherence_mean, "n": len(trait_scores)}
+    result = {"trait_mean": trait_mean, "coherence_mean": coherence_mean, "n": n_scores}
     timestamp = datetime.now().isoformat()
 
-    responses_data = [
-        {"prompt": q, "response": r, "system_prompt": None,
-         "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
-        for q, r, s in zip(questions, responses, scores)
-    ]
-
-    # Save to trait-specific JSONL
-    append_run(state["experiment"], state["trait"], model_variant, config, result, position, prompt_set, trait_judge=trait_judge)
     state["cached_runs"].append({"config": config, "result": result, "timestamp": timestamp})
 
-    if save_mode == "all":
-        save_responses(responses_data, state["experiment"], state["trait"], model_variant, position, prompt_set, config, timestamp)
-    elif save_mode == "best":
-        if is_better_result(state.get("best_result"), trait_mean, coherence_mean, coherence_threshold, direction):
-            state["best_result"] = {
-                "trait_mean": trait_mean, "coherence_mean": coherence_mean,
-                "valid": coherence_mean >= coherence_threshold,
-                "config": config, "timestamp": timestamp,
-            }
-            state["best_responses"] = responses_data
+    # File I/O: rank-0 only
+    if is_rank_zero() and scores is not None and responses is not None:
+        questions = state["questions"]
+        responses_data = [
+            {"prompt": q, "response": r, "system_prompt": None,
+             "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
+            for q, r, s in zip(questions, responses, scores)
+        ]
+
+        append_run(state["experiment"], state["trait"], model_variant, config, result, position, prompt_set, trait_judge=trait_judge)
+
+        if save_mode == "all":
+            save_responses(responses_data, state["experiment"], state["trait"], model_variant, position, prompt_set, config, timestamp)
+        elif save_mode == "best":
+            if is_better_result(state.get("best_result"), trait_mean, coherence_mean, coherence_threshold, direction):
+                state["best_result"] = {
+                    "trait_mean": trait_mean, "coherence_mean": coherence_mean,
+                    "valid": coherence_mean >= coherence_threshold,
+                    "config": config, "timestamp": timestamp,
+                }
+                state["best_responses"] = responses_data
 
     return trait_mean, coherence_mean
 
@@ -701,35 +732,74 @@ async def multi_trait_batched_adaptive_search(
                 gen_time = time.time() - t0
                 print(f"gen={gen_time:.1f}s", end=" ", flush=True)
 
-                # Build QA pairs with trait context for per-trait judge routing
-                all_qa_pairs = []
-                pair_traits = []
-                for state, responses in zip(batch_states, per_config_responses):
-                    for q, r in zip(state["questions"], responses):
-                        all_qa_pairs.append((q, r))
-                        pair_traits.append(state)
+                # Score on rank-0 only, broadcast summaries to all ranks
+                tp = is_tp_mode()
+                config_summaries = None
+                all_scores = None
+                if not tp or is_rank_zero():
+                    # Build QA pairs with trait context for per-trait judge routing
+                    all_qa_pairs = []
+                    pair_traits = []
+                    for state, responses in zip(batch_states, per_config_responses):
+                        for q, r in zip(state["questions"], responses):
+                            all_qa_pairs.append((q, r))
+                            pair_traits.append(state)
 
-                t0 = time.time()
-                all_scores = await _score_multi_trait_batch(judge, all_qa_pairs, pair_traits, relevance_check)
-                score_time = time.time() - t0
-                print(f"score={score_time:.1f}s")
+                    t0 = time.time()
+                    all_scores = await _score_multi_trait_batch(judge, all_qa_pairs, pair_traits, relevance_check)
+                    score_time = time.time() - t0
+                    print(f"score={score_time:.1f}s")
 
-                # Slice scores back per config and process
-                offset = 0
-                for state, responses in zip(batch_states, per_config_responses):
+                    # Compute per-config summaries
+                    config_summaries = []
+                    offset = 0
+                    for state in batch_states:
+                        n_q = len(state["questions"])
+                        state_scores = all_scores[offset:offset + n_q]
+                        offset += n_q
+                        trait_scores = [s["trait_score"] for s in state_scores if s["trait_score"] is not None]
+                        coherence_scores = [s["coherence_score"] for s in state_scores if s.get("coherence_score") is not None]
+                        config_summaries.append((
+                            sum(trait_scores) / len(trait_scores) if trait_scores else 0,
+                            sum(coherence_scores) / len(coherence_scores) if coherence_scores else 0,
+                            len(trait_scores),
+                        ))
+                else:
+                    print()  # newline after "gen=..." on non-rank-0
+
+                # Broadcast summaries to all ranks
+                if tp:
+                    import torch.distributed as dist
+                    broadcast_list = [config_summaries]
+                    dist.broadcast_object_list(broadcast_list, src=0)
+                    config_summaries = broadcast_list[0]
+
+                # Process per config: history update (all ranks), I/O (rank-0)
+                score_offset = 0
+                for cfg_idx, state in enumerate(batch_states):
                     n_q = len(state["questions"])
-                    state_scores = all_scores[offset:offset + n_q]
-                    offset += n_q
+                    t_mean, c_mean, n_scores = config_summaries[cfg_idx]
+
+                    # Get per-response data for rank-0 I/O
+                    state_scores = None
+                    state_responses = None
+                    if is_rank_zero() and all_scores is not None:
+                        state_scores = all_scores[score_offset:score_offset + n_q]
+                        state_responses = per_config_responses[cfg_idx]
+                    score_offset += n_q
 
                     trait_mean, coherence_mean = _process_config_result(
-                        state, state_scores, responses, component, position,
-                        method, model_variant, prompt_set, save_mode,
-                        coherence_threshold, direction, trait_judge,
+                        state, t_mean, c_mean, n_scores,
+                        state_scores, state_responses,
+                        component, position, method, model_variant, prompt_set,
+                        save_mode, coherence_threshold, direction, trait_judge,
                     )
                     print(f"    {state['trait']} L{state['layer']:2d} c{state['coef']:>6.1f}: trait={trait_mean:5.1f}, coh={coherence_mean:5.1f}")
 
                 # Free memory
-                del per_config_responses, all_qa_pairs, all_scores
+                del per_config_responses
+                if all_scores is not None:
+                    del all_scores
                 gc.collect()
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -745,8 +815,8 @@ async def multi_trait_batched_adaptive_search(
                 else:
                     state["coef"] *= mult
 
-    # Save best responses per config
-    if save_mode == "best":
+    # Save best responses per config (rank-0 only)
+    if save_mode == "best" and is_rank_zero():
         for state in config_states:
             if state.get("best_responses") and state.get("best_result"):
                 save_responses(

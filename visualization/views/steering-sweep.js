@@ -174,11 +174,13 @@ let localTraitResultsCache = {}; // Local cache, passed to response-browser via 
 
 // Global chart filters - populated from data, all active by default
 let chartFilters = {
+    modelVariants: new Set(), // e.g. 'instruct', 'kimi_k2'
     methods: new Set(),      // e.g. 'probe', 'mean_diff', 'gradient'
     positions: new Set(),    // e.g. 'response[:]', 'response[:5]'
     components: new Set(),   // e.g. 'residual', 'attn_contribution'
     directions: new Set(),   // e.g. 'positive', 'negative'
     // Active selections (what's checked) - initialized to all
+    activeModelVariants: new Set(),
     activeMethods: new Set(),
     activePositions: new Set(),
     activeComponents: new Set(),
@@ -198,10 +200,12 @@ async function collectFilterValues(steeringEntries) {
     const positions = new Set();
     const components = new Set();
     const directions = new Set();
+    const modelVariants = new Set();
 
-    // Positions come from entries directly
+    // Positions and model variants come from entries directly
     for (const entry of steeringEntries) {
         positions.add(entry.position);
+        modelVariants.add(entry.model_variant);
     }
 
     // Methods, components, directions require loading results
@@ -233,11 +237,13 @@ async function collectFilterValues(steeringEntries) {
     }
 
     // Update state
+    chartFilters.modelVariants = modelVariants;
     chartFilters.methods = methods;
     chartFilters.positions = positions;
     chartFilters.components = components;
     chartFilters.directions = directions;
     // Default: all active
+    chartFilters.activeModelVariants = new Set(modelVariants);
     chartFilters.activeMethods = new Set(methods);
     chartFilters.activePositions = new Set(positions);
     chartFilters.activeComponents = new Set(components);
@@ -266,7 +272,9 @@ function renderFilterChips() {
         };
 
         const chips = Array.from(allValues).map(value => {
-            const display = displayNames[value] || window.paths?.formatPositionDisplay(value) || value;
+            const display = displayNames[value]
+                || window.paths?.formatPositionDisplay(value)
+                || value.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
             const active = activeSet.has(value) ? 'active' : '';
             return `<span class="filter-chip ${active}" data-filter="${filterKey}" data-value="${value}">${display}</span>`;
         }).join('');
@@ -274,6 +282,7 @@ function renderFilterChips() {
         return `<div class="filter-row"><span class="filter-label">${label}:</span>${chips}</div>`;
     };
 
+    rows.push(renderRow('Model', chartFilters.modelVariants, chartFilters.activeModelVariants, 'modelVariants'));
     rows.push(renderRow('Method', chartFilters.methods, chartFilters.activeMethods, 'methods'));
     rows.push(renderRow('Position', chartFilters.positions, chartFilters.activePositions, 'positions'));
     rows.push(renderRow('Component', chartFilters.components, chartFilters.activeComponents, 'components'));
@@ -463,6 +472,12 @@ async function renderBestVectorPerLayer() {
     const charts = [];
 
     for (const [baseTrait, variants] of Object.entries(traitGroups)) {
+        // Filter by active model variants
+        const activeVariants = chartFilters.activeModelVariants.size > 0
+            ? variants.filter(v => chartFilters.activeModelVariants.has(v.model_variant))
+            : variants;
+        if (activeVariants.length === 0) continue;
+
         const traces = [];
         const methodColors = window.getMethodColors();
         let baseline = null;
@@ -471,7 +486,7 @@ async function renderBestVectorPerLayer() {
 
         // Load results for each position variant (in parallel)
         const experiment = window.state.experimentData?.name;
-        const variantResults = await Promise.all(variants.map(async (entry) => {
+        const variantResults = await Promise.all(activeVariants.map(async (entry) => {
             try {
                 const resultsUrl = `/api/experiments/${experiment}/steering-results/${entry.trait}/${entry.model_variant}/${entry.position}/${entry.prompt_set}`;
                 const response = await fetch(resultsUrl);
@@ -529,8 +544,9 @@ async function renderBestVectorPerLayer() {
 
                 if (coherence < coherenceThreshold) return;
 
-                // Key includes component for differentiation
-                const key = component === 'residual' ? method : `${component}/${method}`;
+                // Key includes component and model variant for differentiation
+                const variantPrefix = entry.model_variant ? `${entry.model_variant}:` : '';
+                const key = component === 'residual' ? `${variantPrefix}${method}` : `${variantPrefix}${component}/${method}`;
                 if (!methodData[key]) methodData[key] = {};
                 if (!methodData[key][layer] || traitScore > methodData[key][layer].score) {
                     methodData[key][layer] = { score: traitScore, coef };
@@ -540,10 +556,13 @@ async function renderBestVectorPerLayer() {
             const posDisplayClosed = position ? window.paths.formatPositionDisplay(position) : '';
             const elicitLabel = getElicitationLabel(entry.trait);  // "instruction" or "natural"
             const fullTraitName = entry.trait.split('/').pop();  // "evil" or "evil_v3"
+            const modelVariant = entry.model_variant;
 
-            // Check if this group has multiple elicitation methods
-            const uniqueElicitMethods = new Set(variants.map(v => getElicitationLabel(v.trait)));
+            // Check if this group has multiple elicitation methods or model variants
+            const uniqueElicitMethods = new Set(activeVariants.map(v => getElicitationLabel(v.trait)));
             const hasMultipleElicit = uniqueElicitMethods.size > 1;
+            const uniqueModelVariants = new Set(activeVariants.map(v => v.model_variant));
+            const hasMultipleVariants = uniqueModelVariants.size > 1;
 
             Object.entries(methodData).forEach(([methodKey, layerData]) => {
                 const layers = Object.keys(layerData).map(Number).sort((a, b) => a - b);
@@ -551,20 +570,23 @@ async function renderBestVectorPerLayer() {
                 const coefs = layers.map(l => layerData[l].coef);
 
                 if (layers.length > 0) {
-                    // Parse component/method key
-                    const [component, method] = methodKey.includes('/')
-                        ? methodKey.split('/')
-                        : ['residual', methodKey];
+                    // Parse variant:component/method key
+                    const withoutVariant = methodKey.includes(':') ? methodKey.split(':').slice(1).join(':') : methodKey;
+                    const [component, method] = withoutVariant.includes('/')
+                        ? withoutVariant.split('/')
+                        : ['residual', withoutVariant];
 
                     const methodName = { probe: 'Probe', gradient: 'Gradient', mean_diff: 'Mean Diff' }[method] || method;
                     const componentPrefix = component !== 'residual' ? `${component} ` : '';
 
                     // Add elicitation prefix when comparing instruction vs natural
                     const elicitPrefix = hasMultipleElicit ? `${elicitLabel} ` : '';
+                    // Add model variant prefix when comparing multiple models
+                    const variantSuffix = hasMultipleVariants ? ` [${modelVariant}]` : '';
 
                     const label = posDisplayClosed
-                        ? `${elicitPrefix}${componentPrefix}${methodName} ${posDisplayClosed}`
-                        : `${elicitPrefix}${componentPrefix}${methodName}`;
+                        ? `${elicitPrefix}${componentPrefix}${methodName} ${posDisplayClosed}${variantSuffix}`
+                        : `${elicitPrefix}${componentPrefix}${methodName}${variantSuffix}`;
 
                     const baseColor = methodColors[method] || window.getChartColors()[colorIdx % 10];
                     // Different dash styles for elicitation methods
@@ -759,6 +781,10 @@ async function renderTraitPicker(steeringEntries) {
     // Get current selection or default to first
     const currentFullPath = window.state.selectedSteeringEntry?.full_path || steeringEntries[0].full_path;
 
+    // Check if multiple model variants exist (need disambiguation)
+    const uniqueVariants = new Set(steeringEntries.map(e => e.model_variant));
+    const multiVariant = uniqueVariants.size > 1;
+
     // Build options with readable labels
     select.innerHTML = steeringEntries.map((entry, idx) => {
         const displayName = window.getDisplayName(entry.trait);
@@ -767,7 +793,9 @@ async function renderTraitPicker(steeringEntries) {
         const promptSetDisplay = entry.prompt_set && entry.prompt_set !== 'steering'
             ? ` [${entry.prompt_set}]`
             : '';
-        const label = `${displayName} ${posDisplay}${promptSetDisplay}`;
+        // Include model variant when multiple exist
+        const variantDisplay = multiVariant ? ` (${entry.model_variant})` : '';
+        const label = `${displayName} ${posDisplay}${promptSetDisplay}${variantDisplay}`;
         const selected = entry.full_path === currentFullPath ? 'selected' : '';
         return `<option value="${idx}" ${selected}>${label}</option>`;
     }).join('');

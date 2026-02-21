@@ -149,8 +149,13 @@ def vet_responses(
             output_data["llm_judge_position"] = f"response[:{max(1, med)}]"
             print(f"      Recommended position: response[:{med}] (median of {len(token_counts)} samples)")
 
-    with open(output_dir / "response_scores.json", 'w') as f:
-        json.dump(output_data, f, indent=2)
+    # Under TP, only rank 0 writes to avoid race conditions.
+    # All ranks run vetting independently (non-deterministic API calls),
+    # so rank 0's results are the single source of truth.
+    from utils.model import is_rank_zero
+    if is_rank_zero():
+        with open(output_dir / "response_scores.json", 'w') as f:
+            json.dump(output_data, f, indent=2)
 
     total_passed = len(pos_passed) + len(neg_passed)
     pass_rate = total_passed / len(results) if results else 0.0

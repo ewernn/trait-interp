@@ -33,6 +33,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.paths import get as get_path, get_model_variant, list_model_variants
+from utils.model import is_tp_mode
 
 # Calibration dataset path
 CALIBRATION_DATASET = Path(__file__).parent.parent / 'datasets' / 'inference' / 'massive_dims' / 'calibration_50.json'
@@ -142,6 +143,8 @@ def compute_mean_alignment(
             continue
 
         residual = layer_data['residual'].float()  # [seq_len, hidden_dim]
+        if residual.shape[0] == 0:
+            continue
 
         # Compute mean direction
         mean_dir = residual.mean(dim=0)  # [hidden_dim]
@@ -245,12 +248,18 @@ def compute_layer_stats(
 
     for pt_file in pt_files:
         data = torch.load(pt_file, weights_only=False, map_location='cpu')
-        response_acts = data.get('response', {}).get('activations', {})
+        # Prefer response activations; fall back to prompt for multi-turn rollouts
+        # where everything is stored as prompt (prompt_end == total length)
+        acts = data.get('response', {}).get('activations', {})
+        if not acts or all(v.get('residual', torch.empty(0)).shape[0] == 0 for v in acts.values()):
+            acts = data.get('prompt', {}).get('activations', {})
 
-        for layer, layer_data in response_acts.items():
+        for layer, layer_data in acts.items():
             if 'residual' not in layer_data:
                 continue
             residual = layer_data['residual'].float()  # [n_tokens, hidden_dim]
+            if residual.shape[0] == 0:
+                continue
 
             if layer not in layer_sums:
                 layer_sums[layer] = torch.zeros(residual.shape[1])
@@ -526,6 +535,12 @@ def run_for_variant(experiment: str, variant_name: str, args) -> None:
 
 
 def main():
+    if is_tp_mode():
+        raise RuntimeError(
+            "massive_activations.py does not support torchrun. "
+            "Run without TP: python analysis/massive_activations.py --experiment ..."
+        )
+
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--experiment', required=True)
     parser.add_argument('--model-variant', default=None, help='Model variant (default: from experiment config)')

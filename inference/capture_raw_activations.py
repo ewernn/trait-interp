@@ -58,7 +58,7 @@ from typing import List, Dict
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
-from utils.model import format_prompt, load_model, load_model_with_lora, get_inner_model, tokenize, pad_sequences
+from utils.model import format_prompt, load_model, load_model_with_lora, get_inner_model, tokenize, pad_sequences, is_tp_mode, is_rank_zero, tp_barrier
 from utils.paths import get as get_path, get_model_variant, load_experiment_config
 from utils.generation import calculate_max_batch_size
 from utils.capture import capture_residual_stream_prefill  # canonical location
@@ -100,6 +100,7 @@ def capture_raw_activations(
     output_suffix: str = None,
     model=None,
     tokenizer=None,
+    prompt_ids: list = None,
 ) -> int:
     """Capture raw activations from pre-generated responses.
 
@@ -152,6 +153,13 @@ def capture_raw_activations(
         print(f"No response JSON files found in {responses_dir}")
         return 0
 
+    if prompt_ids is not None:
+        prompt_ids_set = set(str(pid) for pid in prompt_ids)
+        response_files = [f for f in response_files if f.stem in prompt_ids_set]
+        if not response_files:
+            print(f"No response files matching prompt_ids: {prompt_ids}")
+            return 0
+
     if limit is not None:
         response_files = response_files[:limit]
 
@@ -174,18 +182,15 @@ def capture_raw_activations(
         print("All responses already captured, nothing to do.")
         return 0
 
-    # Load model if not provided
+    # Load model if not provided (load_model_with_lora handles TP, quantization, and LoRA)
     should_cleanup = model is None
     if model is None:
-        if lora or load_in_8bit or load_in_4bit:
-            model, tokenizer = load_model_with_lora(
-                model_name,
-                lora_adapter=lora,
-                load_in_8bit=load_in_8bit,
-                load_in_4bit=load_in_4bit,
-            )
-        else:
-            model, tokenizer = load_model(model_name)
+        model, tokenizer = load_model_with_lora(
+            model_name,
+            lora_adapter=lora,
+            load_in_8bit=load_in_8bit,
+            load_in_4bit=load_in_4bit,
+        )
 
     n_layers = len(get_inner_model(model).layers)
     print(f"Model has {n_layers} layers")
@@ -237,6 +242,14 @@ def capture_raw_activations(
 
     max_seq_len = max(len(it[3]) + len(it[4]) for it in items)
     batch_size = calculate_max_batch_size(model, max_seq_len, mode='extraction')
+
+    # Under TP, sync batch size across ranks (use min to prevent OOM divergence)
+    if is_tp_mode():
+        import torch.distributed as dist
+        bs_tensor = torch.tensor([batch_size], device='cuda')
+        dist.all_reduce(bs_tensor, op=dist.ReduceOp.MIN)
+        batch_size = int(bs_tensor.item())
+
     layer_indices = capture_layers if capture_layers is not None else list(range(n_layers))
 
     # Capture activations from response JSONs
@@ -255,8 +268,9 @@ def capture_raw_activations(
             # Pad sequences (left-padding) — same as extraction
             full_sequences = [torch.cat([it[3], it[4]]) for it in batch_items]
             batch = pad_sequences(full_sequences, pad_token_id, padding_side='left')
-            input_ids = batch['input_ids'].to(model.device)
-            attention_mask = batch['attention_mask'].to(model.device)
+            device = next(model.parameters()).device
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
             pad_offsets = batch['pad_offsets']
 
             # Forward pass with dynamic component capture
@@ -264,7 +278,7 @@ def capture_raw_activations(
                 captures = {}
                 for component in comp_list:
                     cap = stack.enter_context(MultiLayerCapture(
-                        model, component=component, layers=capture_layers, keep_on_gpu=True
+                        model, component=component, layers=capture_layers, keep_on_gpu=False
                     ))
                     captures[component] = cap
 
@@ -315,7 +329,8 @@ def capture_raw_activations(
                         'attention': [],
                     },
                 }
-                _save_pt_data(data, prompt_id, raw_dir, response_only=response_only)
+                if is_rank_zero():
+                    _save_pt_data(data, prompt_id, raw_dir, response_only=response_only)
 
             pbar.update(len(batch_items))
             i += batch_size
@@ -323,6 +338,12 @@ def capture_raw_activations(
         except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
             if "out of memory" not in str(e).lower() and not isinstance(e, torch.cuda.OutOfMemoryError):
                 raise
+            if is_tp_mode():
+                raise RuntimeError(
+                    f"OOM during TP forward pass (batch_size={batch_size}). "
+                    f"NCCL state is corrupted and cannot recover. "
+                    f"Re-run with fewer layers or a larger GPU."
+                )
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             if batch_size == 1:
@@ -351,6 +372,16 @@ def capture_raw_activations(
 
 
 def main():
+    # TP lifecycle: suppress print on non-rank-0, init process group
+    import builtins
+    _original_print = builtins.print
+    if is_tp_mode():
+        import torch.distributed as dist
+        if not dist.is_initialized():
+            dist.init_process_group("nccl")
+        if not is_rank_zero():
+            builtins.print = lambda *a, **k: None
+
     parser = argparse.ArgumentParser(description="Capture raw activations from pre-generated responses")
     parser.add_argument("--experiment", required=True, help="Experiment name")
     parser.add_argument("--prompt-set", required=True, help="Prompt set name")
@@ -382,23 +413,35 @@ def main():
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--output-suffix", type=str, default=None,
                        help="Suffix for output directory name")
+    parser.add_argument("--prompt-ids", type=str, default=None,
+                       help="Comma-separated prompt IDs to capture (default: all)")
 
     args = parser.parse_args()
 
-    capture_raw_activations(
-        experiment=args.experiment,
-        prompt_set=args.prompt_set,
-        model_variant=args.model_variant,
-        components=args.components,
-        layers=args.layers,
-        response_only=args.response_only,
-        load_in_8bit=args.load_in_8bit,
-        load_in_4bit=args.load_in_4bit,
-        responses_from=args.responses_from,
-        skip_existing=args.skip_existing,
-        limit=args.limit,
-        output_suffix=args.output_suffix,
-    )
+    try:
+        capture_raw_activations(
+            experiment=args.experiment,
+            prompt_set=args.prompt_set,
+            model_variant=args.model_variant,
+            components=args.components,
+            layers=args.layers,
+            response_only=args.response_only,
+            load_in_8bit=args.load_in_8bit,
+            load_in_4bit=args.load_in_4bit,
+            responses_from=args.responses_from,
+            skip_existing=args.skip_existing,
+            limit=args.limit,
+            output_suffix=args.output_suffix,
+            prompt_ids=args.prompt_ids.split(",") if args.prompt_ids else None,
+        )
+    finally:
+        # Restore print on all ranks
+        builtins.print = _original_print
+        # Clean up distributed process group
+        if is_tp_mode():
+            import torch.distributed as dist
+            if dist.is_initialized():
+                dist.destroy_process_group()
 
 
 if __name__ == "__main__":
