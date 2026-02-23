@@ -15,7 +15,7 @@ from utils.paths import (
     get_vector_path,
     get_vector_metadata_path,
 )
-from utils.activations import load_train_activations, load_activation_metadata, available_layers
+from utils.activations import load_train_activations, load_val_activations, load_activation_metadata, available_layers
 from utils.model import is_rank_zero
 from core import get_method
 
@@ -69,6 +69,11 @@ def extract_vectors_for_trait(
         if pos_acts.numel() == 0 or neg_acts.numel() == 0:
             continue
 
+        # Load val activations for methods that use them (e.g. RFM)
+        val_pos, val_neg = load_val_activations(
+            experiment, trait, model_variant, layer_idx, component, position
+        )
+
         # Compute means in float32 to avoid bfloat16 precision loss at large magnitudes
         mean_pos = pos_acts.float().mean(dim=0)
         mean_neg = neg_acts.float().mean(dim=0)
@@ -76,7 +81,7 @@ def extract_vectors_for_trait(
 
         for method_name, method_obj in method_objs.items():
             try:
-                result = method_obj.extract(pos_acts, neg_acts)
+                result = method_obj.extract(pos_acts, neg_acts, val_pos_acts=val_pos, val_neg_acts=val_neg)
                 vector = result['vector']
                 vector_norm = vector.norm().item()
                 # Cast to same dtype for dot product

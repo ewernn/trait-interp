@@ -153,6 +153,89 @@ class RandomBaselineMethod(ExtractionMethod):
         return {'vector': vector}
 
 
+class RFMMethod(ExtractionMethod):
+    """RFM extraction: top AGOP eigenvector from Recursive Feature Machine.
+
+    Uses xRFM library. Grid searches bandwidth x center_grads.
+    Uses pipeline val split if val_pos_acts/val_neg_acts kwargs provided,
+    otherwise falls back to internal 80/20 split.
+    """
+
+    def extract(self, pos_acts: torch.Tensor, neg_acts: torch.Tensor, **kwargs) -> Dict[str, torch.Tensor]:
+        from xrfm import RFM
+        from xrfm.rfm_src.utils import get_top_eigenvector
+        from sklearn.metrics import roc_auc_score
+
+        # Keep originals for sign convention (before any splitting)
+        all_X = torch.cat([pos_acts.float(), neg_acts.float()], dim=0)
+        n_pos = len(pos_acts)
+
+        X_train = all_X.clone()
+        y_train = torch.cat([torch.ones(n_pos), torch.zeros(len(neg_acts))]).unsqueeze(1)
+
+        # Use pipeline val split if provided, otherwise internal split
+        val_pos = kwargs.get('val_pos_acts')
+        val_neg = kwargs.get('val_neg_acts')
+        if val_pos is not None and val_neg is not None:
+            X_val = torch.cat([val_pos.float(), val_neg.float()], dim=0)
+            y_val = torch.cat([torch.ones(len(val_pos)), torch.zeros(len(val_neg))]).unsqueeze(1)
+        else:
+            n = len(X_train)
+            perm = torch.randperm(n)
+            split = int(0.8 * n)
+            X_val, y_val = X_train[perm[split:]], y_train[perm[split:]]
+            X_train, y_train = X_train[perm[:split]], y_train[perm[:split]]
+
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        best_auc = -1
+        best_agop = None
+
+        for bandwidth in [1.0, 10.0, 100.0]:
+            for center_grads in [True, False]:
+                try:
+                    model = RFM(
+                        kernel='l2_high_dim',
+                        bandwidth=bandwidth,
+                        device=device,
+                        tuning_metric='auc',
+                    )
+                    model.fit(
+                        (X_train, y_train),
+                        (X_val, y_val),
+                        reg=1e-3,
+                        iters=8,
+                        center_grads=center_grads,
+                        early_stop_rfm=True,
+                        get_agop_best_model=True,
+                    )
+                    preds = model.predict(X_val)
+                    if isinstance(preds, torch.Tensor):
+                        preds = preds.cpu().numpy()
+                    y_np = y_val.numpy() if isinstance(y_val, torch.Tensor) else y_val
+                    auc = roc_auc_score(y_np.ravel(), preds.ravel())
+                    if auc > best_auc:
+                        best_auc = auc
+                        best_agop = model.agop_best_model
+                except Exception:
+                    continue
+
+        if best_agop is None:
+            raise RuntimeError("All RFM grid search configs failed")
+
+        vector = get_top_eigenvector(best_agop.float())
+
+        # Sign: positive class should project higher
+        projections = all_X @ vector.to(all_X.device)
+        if projections[:n_pos].mean() < projections[n_pos:].mean():
+            vector = -vector
+
+        vector = vector / (vector.norm() + 1e-8)
+        return {
+            'vector': vector.to(dtype=pos_acts.dtype),
+            'train_acc': best_auc,
+        }
+
+
 class PreCleanedMethod(ExtractionMethod):
     """Wrapper that cleans massive dims from activations before extraction."""
 
@@ -174,6 +257,7 @@ def get_method(name: str) -> ExtractionMethod:
         'probe': ProbeMethod,
         'gradient': GradientMethod,
         'random_baseline': RandomBaselineMethod,
+        'rfm': RFMMethod,
     }
     if name not in methods:
         raise ValueError(f"Unknown method '{name}'. Available: {list(methods.keys())}")
