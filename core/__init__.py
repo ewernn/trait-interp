@@ -30,6 +30,7 @@ from .methods import (
     ProbeMethod,
     GradientMethod,
     RandomBaselineMethod,
+    RFMMethod,
     get_method,
 )
 from .math import (
