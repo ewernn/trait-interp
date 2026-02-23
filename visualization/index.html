@@ -95,11 +95,11 @@
         <div class="sidebar sidebar-analysis hidden" id="sidebar-analysis">
             <div class="sidebar-section">
                 <div class="section-title">Analysis</div>
-                <div class="nav-item" data-view="trait-extraction">Extraction</div>
-                <div class="nav-item" data-view="steering-sweep">Steering</div>
-                <div class="nav-item" data-view="inference">Inference</div>
-                <div class="nav-item" data-view="trait-correlation">Correlation</div>
-                <div class="nav-item" data-view="model-comparison">Model Analysis</div>
+                <div class="nav-item" data-view="extraction">Extraction</div>
+                <div class="nav-item" data-view="steering">Steering</div>
+                <div class="nav-item" data-view="trait-dynamics">Trait Dynamics</div>
+                <div class="nav-item" data-view="correlation">Correlation</div>
+                <div class="nav-item" data-view="model-analysis">Model Analysis</div>
                 <div class="nav-item" data-view="one-offs">One-Offs</div>
             </div>
 
@@ -187,12 +187,12 @@
     <script src="/visualization/views/overview.js"></script>
     <script src="/visualization/views/methodology.js"></script>
     <script src="/visualization/views/findings.js"></script>
-    <script src="/visualization/views/trait-extraction.js"></script>
+    <script src="/visualization/views/extraction.js"></script>
     <script src="/visualization/views/trait-dynamics.js"></script>
-    <script src="/visualization/views/trait-correlation.js"></script>
+    <script src="/visualization/views/correlation.js"></script>
     <script src="/visualization/views/layer-deep-dive.js"></script>
-    <script src="/visualization/views/steering-sweep.js"></script>
-    <script src="/visualization/views/model-comparison.js"></script>
+    <script src="/visualization/views/steering.js"></script>
+    <script src="/visualization/views/model-analysis.js"></script>
     <script src="/visualization/views/live-chat.js"></script>
     <script src="/visualization/views/one-offs.js"></script>
 
@@ -207,11 +207,11 @@
                 'overview': 'Overview',
                 'methodology': 'Methodology',
                 'findings': 'Research Findings',
-                'trait-extraction': 'Trait Extraction',
-                'steering-sweep': 'Steering Sweep',
-                'inference': 'Inference',
-                'trait-correlation': 'Trait Correlation',
-                'model-comparison': 'Model Analysis',
+                'extraction': 'Extraction',
+                'steering': 'Steering',
+                'trait-dynamics': 'Trait Dynamics',
+                'correlation': 'Correlation',
+                'model-analysis': 'Model Analysis',
                 'live-chat': 'Live Chat',
                 'one-offs': 'One-Offs'
             };
@@ -227,23 +227,20 @@
                 case 'findings':
                     window.renderFindings();
                     break;
-                case 'finding':  // Standalone view
-                    window.renderFindings();
+                case 'extraction':
+                    window.renderExtraction();
                     break;
-                case 'trait-extraction':
-                    window.renderTraitExtraction();
+                case 'steering':
+                    window.renderSteering();
                     break;
-                case 'steering-sweep':
-                    window.renderSteeringSweep();
+                case 'trait-dynamics':
+                    window.renderTraitDynamics();
                     break;
-                case 'inference':
-                    window.renderTraitDynamics();  // Keep function name for now
+                case 'correlation':
+                    window.renderCorrelation();
                     break;
-                case 'trait-correlation':
-                    window.renderTraitCorrelation();
-                    break;
-                case 'model-comparison':
-                    window.renderModelComparison();
+                case 'model-analysis':
+                    window.renderModelAnalysis();
                     break;
                 case 'live-chat':
                     window.renderLiveChat();

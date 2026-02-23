@@ -213,7 +213,7 @@ function setupNavigation() {
         item.addEventListener('click', async () => {
             // Analysis entry point: open panel and navigate to last analysis view
             if (item === analysisEntry) {
-                const targetView = window.state.lastAnalysisView || 'trait-extraction';
+                const targetView = window.state.lastAnalysisView || 'extraction';
                 window.state.currentView = targetView;
                 window.setTabInURL(targetView);
 
@@ -260,13 +260,12 @@ function setupNavigation() {
 
 function updatePageTitle() {
     const titles = {
-        'data-explorer': 'Data Explorer',
         'overview': 'Overview',
-        'trait-extraction': 'Trait Extraction',
-        'vectors': 'Vector Analysis',
-        'validation': 'Validation Results',
-        'monitoring': 'All Layers',
-        'prompt-activation': 'Per-Token Activation',
+        'extraction': 'Extraction',
+        'steering': 'Steering',
+        'trait-dynamics': 'Trait Dynamics',
+        'correlation': 'Correlation',
+        'model-analysis': 'Model Analysis',
         'layer-dive': 'Layer Deep Dive'
     };
     const titleElem = document.getElementById('page-title');
