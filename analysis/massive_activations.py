@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.paths import get as get_path, get_model_variant, list_model_variants
 from utils.model import is_tp_mode
+from core.math import cosine_similarity
 
 # Calibration dataset path
 CALIBRATION_DATASET = Path(__file__).parent.parent / 'datasets' / 'inference' / 'massive_dims' / 'calibration_50.json'
@@ -237,6 +238,7 @@ def compute_layer_stats(
             'layer_norms': {layer: mean_norm},  # average ||h|| per layer
             'attn_norms': {layer: mean_norm},  # average ||attn_contribution|| per layer
             'mlp_norms': {layer: mean_norm},   # average ||mlp_contribution|| per layer
+            'consecutive_cosine': {layer: cos(mean[layer], mean[layer+1])},  # inter-layer similarity
         }
     """
     # Accumulate response activations across all prompts
@@ -295,6 +297,13 @@ def compute_layer_stats(
         if mlp_norm_sums[layer] > 0:
             mlp_norms[layer] = round(mlp_norm_sums[layer] / layer_counts[layer], 1)
 
+    # Compute inter-layer cosine similarity: cos(mean[l], mean[l+1])
+    consecutive_cosine = {}
+    layers_sorted = sorted(layer_means.keys())
+    for i in range(len(layers_sorted) - 1):
+        a, b = layers_sorted[i], layers_sorted[i + 1]
+        consecutive_cosine[a] = round(cosine_similarity(layer_means[a], layer_means[b]).item(), 4)
+
     # Find top-k dims per layer and collect all candidate dims
     top_dims_by_layer = {}
     all_candidate_dims = set()
@@ -320,6 +329,7 @@ def compute_layer_stats(
         'top_dims_by_layer': {int(k): v for k, v in top_dims_by_layer.items()},
         'dim_magnitude_by_layer': {int(k): v for k, v in dim_magnitude_by_layer.items()},
         'layer_norms': {int(k): v for k, v in layer_norms.items()},
+        'consecutive_cosine': {int(k): v for k, v in consecutive_cosine.items()},
     }
     if attn_norms:
         result['attn_norms'] = {int(k): v for k, v in attn_norms.items()}

@@ -15,8 +15,8 @@
  */
 
 // View category constants
-const ANALYSIS_VIEWS = ['trait-extraction', 'steering-sweep', 'inference', 'trait-correlation', 'model-comparison', 'layer-dive', 'one-offs'];
-const GLOBAL_VIEWS = ['overview', 'methodology', 'findings', 'finding', 'live-chat'];
+const ANALYSIS_VIEWS = ['extraction', 'steering', 'trait-dynamics', 'correlation', 'model-analysis', 'layer-dive', 'one-offs'];
+const GLOBAL_VIEWS = ['overview', 'methodology', 'findings', 'live-chat'];
 
 // Experiments hidden from picker by default (can be revealed via toggle)
 const HIDDEN_EXPERIMENTS = [];  // Add experiment names to hide by default
@@ -74,7 +74,7 @@ const state = {
     // Prompt set sidebar (left panel for inference views)
     promptSetSidebarOpen: false,
     // Last selected analysis view (for Analysis entry point)
-    lastAnalysisView: 'trait-extraction'
+    lastAnalysisView: 'extraction'
 };
 
 // =============================================================================

@@ -357,32 +357,34 @@ Best+5 heuristic was wrong for most traits. Optimal layers by cue_p correlation:
 
 ---
 
-## Next Steps (ordered by priority)
+## Next Steps — 30-min Tasks (all local, no GPU)
 
-### Immediate (data exists, scripts written)
-1. **Re-run temporal circuits + early bias at optimal layers.** Current results used best+5 layers. Re-project at empirically-optimal layers (excluding edge layers) and re-run `analyze_temporal_circuits.py`. May sharpen the confusion→rationalization→eval_awareness ordering.
-2. **B-A diff temporal analysis.** `b_minus_a_trait_projections.json` has per-token diffs. Plot how hint effect evolves across CoT — does it decay, persist, or grow? Can run now.
-3. **B-A PCA / hint direction.** PCA on B-A diffs to find "hint influence" direction. Could outperform pre-defined trait probes.
+### Priority 1: Core analyses (scripts to write + run)
+1. **Re-run temporal circuits at optimal layers.** Update `analyze_temporal_circuits.py` to read from multi-layer projection files, pick optimal layer per trait from `layer_sweep.json` (excluding layers 0-4, 44-47). Re-run all 3 analyses. May sharpen confusion→rationalization→eval_awareness ordering.
+2. **Vertical circuits — cross-layer emergence.** For each problem × trait, plot cue_p correlation across all 24 captured layers. At what layer does each trait's correlation first become significant? Do primitives (confusion, anxiety) emerge at earlier layers than composites (rationalization, eval_awareness)? If confusion peaks at L16 and rationalization at L28, and confusion *decreases* after L20, that's a vertical circuit.
+3. **B-A hint effect temporal analysis.** `b_minus_a_trait_projections.json` (5.1MB) has per-token diffs. Plot how hint's activation-level effect evolves across CoT per trait, mean across 27 problems. Does it decay, persist, or grow? If hint effect decays but cue_p rises → bias fully text-mediated.
+4. **Multi-probe coincidence detection.** Find tokens where ≥3 traits simultaneously cross 1σ from their mean. Are these "state transition" tokens? Do they cluster at sentence boundaries or cue_p jumps?
+5. **Answer-token probe profile.** At the "(D" or "(B" commitment token near end of CoT, what do all 11 probes read? Compare B (wrong) vs C (correct) across 27 problems. Paired t-test per trait.
 
-### Needs visual inspection first
-4. **Phase portraits.** Pick 2 trait axes (e.g., confusion×rationalization, agency×confidence), plot 2D trajectory colored by token position. Need to eyeball a few problems to pick interesting pairs — the temporal ordering suggests confusion×rationalization. Check problems 715 and 26.
-5. **Validate probe predictions.** Problems 715 and 26 have specific stress-test predictions in "Two CoT Patterns" section above. Look at graphs to confirm or refute. If probes don't match predictions, something's off with the probe design.
-6. **Artifact check.** Do probes spike at `<think>`/`</think>` tokens or sentence-boundary punctuation? Would invalidate cross-correlation results.
+### Priority 2: LLM annotation (new approach)
+6. **LLM-annotate reasoning steps.** Classify each sentence in all 27 CoTs by reasoning type: eliminating option, introducing new framing, expressing uncertainty, self-correction, committing to answer, hedging. Correlate with probes + cue_p for three-way validation. Unfaithful CoT first, then Kimi. No GPU needed, just API calls.
 
-### Statistical (run after re-projection at optimal layers)
-7. **Change point detection (PELT).** `ruptures` library, finds regime shifts per trait trajectory. Validates manual annotations and discovers transitions. Wait for optimal layers.
-8. **Granger causality.** VAR model on [T, K], tests if trait A's history predicts trait B's future. More rigorous than cross-correlation. May not add much given mostly-synchronous drift.
-9. **Multi-probe coincidence detection.** Find tokens where ≥3 traits simultaneously cross 1σ threshold — "state transition" tokens distinct from average lags.
-10. **Answer-token probe profile.** What do all 11 probes read at the exact token where the model commits to an answer? Compare B (wrong) vs C (correct).
-11. **Within-problem B vs C divergence trajectory.** Token-by-token Euclidean distance in 11-d trait space. Where does the gap open up?
-12. **PCA on trait space.** If 2-3 PCs explain 80% variance, mental state is low-dimensional. Low priority — fingerprint clustering already shows ~2 clusters.
+### Priority 3: Additional analyses
+7. **CMA-ES direction optimized for cue_p.** Adapt `analysis/steering/optimize_vector.py` fitness function to maximize cue_p correlation instead of steering. Upper bound on single-direction prediction. If optimized direction has high cosine similarity with rationalization probe, validates the probe. No GPU — just dot products.
+8. **B-A PCA / hint direction.** PCA on B-A diffs to find "hint influence" direction.
+9. **Phase portraits.** 2D trajectory (e.g., confusion×rationalization) colored by token position. Skip visual inspection — just plot all 27 problems programmatically.
+
+### Statistical (after task 1 re-projection)
+10. **Change point detection (PELT).** `ruptures` library for regime shifts per trait trajectory.
+11. **Granger causality.** VAR model, tests if trait A's history predicts trait B's future.
+12. **Within-problem B vs C divergence trajectory.** Token-by-token distance in 11-d trait space.
 
 ### GPU needed
-13. **Claim 5 — steering intervention.** Steer against rationalization/obedience during live generation on hinted prompts. Causal validation.
-14. **Train hint-contrast probes.** A vs B activations as contrastive pairs → "hint influence" vector. Compare to rationalization probe.
+13. **Claim 5 — steering intervention.** Steer against rationalization/obedience during live generation on hinted prompts.
+14. **Train hint-contrast probes.** A vs B activations as contrastive pairs → "hint influence" vector.
 
 ### Needs new data
-15. **Claim 3 — cross-bias fingerprints.** Different bias sources (resume bias, demographic priming). Requires Thought Branches pipeline with new hint types.
+15. **Claim 3 — cross-bias fingerprints.** Different bias sources beyond "Stanford professor."
 
 ---
 
@@ -398,7 +400,9 @@ Sriram is investigating emergent misalignment from combined fine-tuning datasets
 
 **Gap:** His project is training-time (fine-tuning effects), ours is inference-time (reading activations during generation). Vectors would need to transfer across his fine-tuned models.
 
-**Status:** Had one 1-hour call (engaged). Follow-up messages were one-directional — we sent substantive updates, he replied tersely ("Cool!") without engaging with the work product. Need to send a direct partnership question rather than more screenshots. Exploration phase ends Feb 19, sprint starts Feb 23.
+**Concrete pitch:** He fine-tunes models on dataset combinations. We run probes on the results. Together: "When safe datasets combine to produce misaligned behavior, which trait dimensions shift?" Multi-trait profiling is strictly better than his proposed single misalignment direction.
+
+**Status:** Had one 1-hour call (engaged). Follow-ups one-directional — we sent updates, he replied "Cool!" without engaging. Need to send direct partnership ask: "Do you have a sprint partner yet? Want to team up?" Don't send more findings. Sprint starts Feb 23.
 
 ---
 
@@ -410,5 +414,8 @@ Sriram is investigating emergent misalignment from combined fine-tuning datasets
 - All 27 problems use the "Stanford professor" hint format — same hint structure every time. Limitation for generalization, but controlled experiment for this study.
 - B vs C comparison is weak (3/11 traits at p<0.05). Probes mostly detect the hint context, not the reasoning quality. Reframe as: probes detect the *cause* of unfaithfulness rather than its *symptoms*.
 - **Layer selection:** best+5 heuristic was wrong. 5/11 traits peak at edge layer (L46). Need to either capture L47 or restrict analysis to layers 6-42.
-- **Constant offset in dashboard:** Normalized mode shows ±100 y-axis for some conditions. Possibly massive dim contamination or normalization bug. Switching to Cosine mode may work around it. Was reportedly fixed yesterday but fix not pushed.
+- **Normalized mode offset:** RESOLVED — not a bug. Special tokens (BOS, role markers) have 5-10x larger activations (attention sinks/scratch space). In Normalized mode (divide by mean norm), these dominate the y-axis. Fixed: y-axis auto-range now skips first 4 tokens. But **Cosine mode is the correct metric** for this use case — divides each token by its own norm, canceling magnitude.
+- **Single-problem per-token signal:** Too noisy to see visually. Problem 715 cosine traces show no convincing level shift at sentence 21 (cue_p jump point) even at smooth=25. The r=0.45 correlation only emerges statistically across 27 problems aggregated. Lead with stats, not pretty single-problem plots.
 - **Multi-layer frontend:** Fixed — when Layers mode is off, frontend picks single layer closest to best_steering + floor(0.1 * num_layers) instead of expanding all 24 layers.
+- **Token slider overlay:** Fixed — was wiping all Plotly shapes (including cue_p sentence boundaries) on slider drag. Now stores base shapes on DOM element via `_baseShapes`.
+- **Two mental state paths (clusters):** Cluster 1 (11 problems): concealment +0.49, agency -0.49, confusion +0.35, low early cue_p (0.18) — passive drift while confused. Cluster 2 (16 problems): rationalization +0.50, guilt -0.35, obedience -0.31, higher early cue_p (0.38) — active rationalization with suppressed doubt. Same late cue_p (~0.96). Problem 715 = Cluster 1, Problem 26 = Cluster 2.

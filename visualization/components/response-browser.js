@@ -1,7 +1,7 @@
 /**
  * Response Browser Component
  * Displays steering run responses in an interactive table with filtering/sorting.
- * Extracted from steering-sweep.js
+ * Extracted from steering.js
  *
  * Dependencies: state.js, display.js, paths.js
  */
@@ -17,7 +17,7 @@ let judgeTemplatesCache = null;
 let traitResultsCache = {};
 
 /**
- * Set the trait results cache reference (called by steering-sweep.js)
+ * Set the trait results cache reference (called by steering.js)
  */
 function setTraitResultsCache(cache) {
     traitResultsCache = cache;

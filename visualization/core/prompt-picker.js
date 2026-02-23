@@ -8,7 +8,7 @@
  */
 
 // Views that show the prompt picker
-const INFERENCE_VIEWS = ['inference'];
+const INFERENCE_VIEWS = ['trait-dynamics'];
 
 // Pagination settings
 const PROMPTS_PER_PAGE = 50;
@@ -421,7 +421,7 @@ function updatePlotTokenHighlights(tokenIdx, nPromptTokens) {
     const primaryColor = window.getCssVar('--primary-color', '#a09f6c');
     const textSecondary = window.getCssVar('--text-secondary', '#a4a4a4');
 
-    if (window.state.currentView === 'inference') {
+    if (window.state.currentView === 'trait-dynamics') {
         const separatorShape = { type: 'line', x0: separatorX, x1: separatorX, y0: 0, y1: 1, yref: 'paper', line: { color: textSecondary, width: 2, dash: 'dash' } };
         const highlightShape = { type: 'line', x0: highlightX, x1: highlightX, y0: 0, y1: 1, yref: 'paper', line: { color: primaryColor, width: 2 } };
 
