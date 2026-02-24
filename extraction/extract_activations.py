@@ -39,7 +39,8 @@ from utils.paths import (
     get_activation_metadata_path,
     get_val_activation_path,
 )
-from utils.model import pad_sequences, format_prompt, is_rank_zero, is_tp_mode
+from utils.model import pad_sequences, format_prompt
+from utils.distributed import is_rank_zero, is_tp_mode
 from core import MultiLayerCapture
 
 if TYPE_CHECKING:
@@ -411,6 +412,7 @@ def extract_activations_for_trait(
                 free_gb = free / 1024**3
                 print(f"      [mem] batch {i//local_batch_size}: alloc={alloc:.2f}GB resv={resv:.2f}GB free={free_gb:.1f}GB items={len(batch_items)}")
 
+            oom = False
             try:
                 pad_token_id = tokenizer.pad_token_id or tokenizer.eos_token_id
                 batch = pad_sequences([item['input_ids'] for item in batch_items], pad_token_id)
@@ -448,20 +450,34 @@ def extract_activations_for_trait(
             except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
                 if "out of memory" not in str(e).lower() and not isinstance(e, torch.cuda.OutOfMemoryError):
                     raise
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
                 if tp:
                     raise RuntimeError(
                         f"OOM during TP forward pass (batch_size={local_batch_size}). "
                         f"NCCL state is corrupted and cannot recover. "
                         f"Reduce batch size or increase overhead_factor in calculate_max_batch_size."
                     )
-                else:
-                    if local_batch_size == 1:
-                        raise RuntimeError("OOM even with batch_size=1")
-                    local_batch_size = max(1, local_batch_size // 2)
-                    print(f"\n      OOM, reducing batch_size to {local_batch_size}")
-                    continue
+                # Clear traceback chains that pin CUDA tensors via stack frame locals.
+                import traceback as tb_mod
+                if e.__traceback__:
+                    tb_mod.clear_frames(e.__traceback__)
+                e.__traceback__ = None
+                for chained in (e.__context__, e.__cause__):
+                    if chained and hasattr(chained, '__traceback__') and chained.__traceback__:
+                        tb_mod.clear_frames(chained.__traceback__)
+                        chained.__traceback__ = None
+                del e
+                oom = True
+
+            # OOM cleanup OUTSIDE except block — thread state no longer roots the exception
+            if oom:
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                if local_batch_size == 1:
+                    raise RuntimeError("OOM even with batch_size=1")
+                local_batch_size = max(1, local_batch_size // 2)
+                print(f"\n      OOM, reducing batch_size to {local_batch_size}")
+                continue
 
             pbar.update(len(batch_items))
             i += local_batch_size

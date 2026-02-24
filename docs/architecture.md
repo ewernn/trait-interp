@@ -104,8 +104,12 @@ projection, cosine_similarity, separation, accuracy, effect_size, p_value
 ### utils/ - Universal Utilities
 
 **What belongs:**
-- Path management (loads from config/paths.yaml)
-- Model loading, generation utilities
+- Model loading, tokenization, prompt formatting (`utils/model.py`)
+- Batch generation, activation capture (`utils/generation.py`)
+- GPU monitoring, VRAM estimation, batch sizing (`utils/vram.py`)
+- Fused MoE and model cache (`utils/moe.py`)
+- Tensor parallelism utilities (`utils/distributed.py`)
+- Path management (`utils/paths.py` — loads from config/paths.yaml)
 - Activation loading (`utils/activations.py` — auto-detects stacked vs per-layer format)
 - Layer parsing (`utils/layers.py` — shared `parse_layers` for all layer specification strings)
 - Projection reading (`utils/projections.py` — handles single-vector and multi-vector formats)

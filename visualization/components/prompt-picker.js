@@ -25,7 +25,8 @@ function positionPromptPicker(container) {
         const rect = mainContent.getBoundingClientRect();
         const center = rect.left + rect.width / 2;
         container.style.left = center + 'px';
-        container.style.width = Math.min(900, rect.width - 32) + 'px';
+        const maxWidth = window.state.wideMode ? rect.width - 32 : Math.min(900, rect.width - 32);
+        container.style.width = maxWidth + 'px';
     }
 
     apply();
@@ -477,16 +478,18 @@ function updatePlotTokenHighlights(tokenIdx, nPromptTokens) {
             'combined-activation-plot',
             'normalized-trajectory-plot',
             'token-magnitude-plot',
-            'token-velocity-plot'
+            'token-velocity-plot',
+            'cue-p-plot',
+            'trait-heatmap-plot'
         ];
 
         plotIds.forEach(id => {
             const plotDiv = document.getElementById(id);
             if (plotDiv && plotDiv.data) {
-                // Preserve existing annotation rect shapes (from renderCombinedGraph)
-                const existingAnnotationShapes = (plotDiv.layout?.shapes || [])
-                    .filter(s => s.type === 'rect' && s.fillcolor?.includes('255, 180, 60'));
-                Plotly.relayout(plotDiv, { shapes: [...existingAnnotationShapes, ...baseShapes] });
+                // Preserve existing non-highlight shapes (annotation rects, sentence boundaries, etc.)
+                const existingShapes = (plotDiv.layout?.shapes || [])
+                    .filter(s => s._isBase);
+                Plotly.relayout(plotDiv, { shapes: [...existingShapes, ...baseShapes] });
             }
         });
     }

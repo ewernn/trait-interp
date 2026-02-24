@@ -222,7 +222,7 @@ class GenerationBackend(ABC):
             Recommended batch size
         """
         # Default implementation - backends can override
-        from utils.generation import calculate_max_batch_size
+        from utils.vram import calculate_max_batch_size
         return calculate_max_batch_size(self._model, max_seq_len, mode=mode)
 
 

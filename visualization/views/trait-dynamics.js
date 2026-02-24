@@ -12,6 +12,22 @@ const START_TOKEN_IDX = 0;
 // smoothData is in core/utils.js
 
 /**
+ * Sentence category color definitions for overlay bands and legend.
+ */
+const SENTENCE_CATEGORIES = {
+    setup:       { color: [140, 140, 140], label: 'Setup',       opacity: 0.10 },
+    recall:      { color: [70, 130, 220],  label: 'Recall',      opacity: 0.12 },
+    evaluate:    { color: [140, 140, 140], label: 'Evaluate',    opacity: 0.12,
+                   valenceColors: {
+                       'strong+': [40, 180, 80],  'mild+': [100, 200, 120],  'neutral': [140, 140, 140],
+                       'mild-':  [220, 120, 80],  'strong-': [220, 50, 50] }},
+    reframe:     { color: [230, 150, 40],  label: 'Reframe',     opacity: 0.12 },
+    compare:     { color: [150, 80, 200],  label: 'Compare',     opacity: 0.12 },
+    uncertainty: { color: [210, 200, 50],  label: 'Uncertainty', opacity: 0.10 },
+    commit:      { color: [50, 180, 170],  label: 'Commit',      opacity: 0.14 }
+};
+
+/**
  * Build Plotly shapes for turn boundaries in multi-turn rollouts.
  * Pattern: live-chat.js:buildMessageRegionShapes()
  */
@@ -48,7 +64,7 @@ function buildTurnBoundaryShapes(turnBoundaries) {
  * @param {Array} sentenceBoundaries - [{sentence_num, token_start, token_end, cue_p}, ...]
  * @param {number} nPromptTokens - offset for response-relative positions
  */
-function buildSentenceBoundaryShapes(sentenceBoundaries, nPromptTokens) {
+function buildSentenceBoundaryShapes(sentenceBoundaries, nPromptTokens, y0 = 0, y1 = 1) {
     if (!sentenceBoundaries || sentenceBoundaries.length === 0) return [];
     const shapes = [];
     for (const sent of sentenceBoundaries) {
@@ -63,13 +79,109 @@ function buildSentenceBoundaryShapes(sentenceBoundaries, nPromptTokens) {
             type: 'rect',
             x0: (nPromptTokens + sent.token_start) - 0.5,
             x1: (nPromptTokens + sent.token_end) - 0.5,
-            y0: 0, y1: 1, yref: 'paper',
+            y0, y1, yref: 'paper',
             fillcolor: `rgba(${r},${g},${b},${opacity})`,
             line: { width: 0 },
             layer: 'below'
         });
     }
     return shapes;
+}
+
+/**
+ * Build Plotly shapes for sentence category overlay bands.
+ * Colors each sentence by its category, with evaluate using valence-dependent colors.
+ */
+function buildSentenceCategoryShapes(categoryData, nPromptTokens, y0 = 0, y1 = 1) {
+    if (!categoryData || categoryData.length === 0) return [];
+    const shapes = [];
+    for (const sent of categoryData) {
+        if (sent.token_start === sent.token_end) continue;
+        const catDef = SENTENCE_CATEGORIES[sent.category];
+        if (!catDef) continue;
+
+        let rgb;
+        if (sent.category === 'evaluate' && sent.valence && catDef.valenceColors?.[sent.valence]) {
+            rgb = catDef.valenceColors[sent.valence];
+        } else {
+            rgb = catDef.color;
+        }
+
+        shapes.push({
+            type: 'rect',
+            x0: (nPromptTokens + sent.token_start) - 0.5,
+            x1: (nPromptTokens + sent.token_end) - 0.5,
+            y0, y1, yref: 'paper',
+            fillcolor: `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${catDef.opacity})`,
+            line: { width: 0 },
+            layer: 'below'
+        });
+    }
+    return shapes;
+}
+
+/**
+ * Build combined overlay shapes respecting toggle state.
+ * Both on: cue_p bottom half, category top half. One on: full height.
+ */
+function buildOverlayShapes(sentenceBoundaries, categoryData, nPromptTokens) {
+    const showCueP = window.state.showCuePOverlay;
+    const showCategory = window.state.showCategoryOverlay;
+    const hasCategoryData = categoryData && categoryData.length > 0;
+    const shapes = [];
+
+    if (showCueP && showCategory && hasCategoryData) {
+        shapes.push(...buildSentenceBoundaryShapes(sentenceBoundaries, nPromptTokens, 0, 0.5));
+        shapes.push(...buildSentenceCategoryShapes(categoryData, nPromptTokens, 0.5, 1));
+    } else if (showCueP) {
+        shapes.push(...buildSentenceBoundaryShapes(sentenceBoundaries, nPromptTokens));
+    } else if (showCategory && hasCategoryData) {
+        shapes.push(...buildSentenceCategoryShapes(categoryData, nPromptTokens));
+    }
+
+    return shapes;
+}
+
+/**
+ * Build inline HTML legend for cue_p overlay (blue→red gradient).
+ */
+function buildCuePLegendHtml() {
+    return `
+        <span class="overlay-legend">
+            <span class="overlay-legend-gradient" style="background: linear-gradient(to right, rgba(0,100,255,0.5), rgba(255,50,50,0.5));"></span>
+            <span class="overlay-legend-label">0</span>
+            <span class="overlay-legend-label">→</span>
+            <span class="overlay-legend-label">1</span>
+        </span>
+    `;
+}
+
+/**
+ * Build inline HTML legend for category overlay (only shows present categories).
+ */
+function buildCategoryLegendHtml(categoryData) {
+    const presentCategories = new Set(categoryData.map(d => d.category));
+    const items = [];
+    for (const [key, def] of Object.entries(SENTENCE_CATEGORIES)) {
+        if (!presentCategories.has(key)) continue;
+        if (key === 'evaluate') {
+            items.push(`
+                <span class="overlay-legend-item">
+                    <span class="overlay-legend-swatch" style="background: linear-gradient(to right, rgba(220,50,50,0.7), rgba(140,140,140,0.5), rgba(40,180,80,0.7)); width: 24px;"></span>
+                    <span class="overlay-legend-label">${def.label}</span>
+                </span>
+            `);
+        } else {
+            const [r, g, b] = def.color;
+            items.push(`
+                <span class="overlay-legend-item">
+                    <span class="overlay-legend-swatch" style="background: rgba(${r},${g},${b},${def.opacity * 3});"></span>
+                    <span class="overlay-legend-label">${def.label}</span>
+                </span>
+            `);
+        }
+    }
+    return `<span class="overlay-legend">${items.join('')}</span>`;
 }
 
 /**
@@ -119,7 +231,7 @@ function renderCuePPlot(sentenceBoundaries, tickVals, tickText, nPromptTokens, i
         hovertemplate: 'cue_p = %{y:.2f}<extra></extra>'
     };
 
-    // Shapes: separator + highlight
+    // Shapes: separator (base, preserved on slider update) + highlight (replaced on slider update)
     const promptEndIdx = nPromptTokens - START_TOKEN_IDX;
     const shapes = [];
     if (!isRollout) {
@@ -127,7 +239,8 @@ function renderCuePPlot(sentenceBoundaries, tickVals, tickText, nPromptTokens, i
             type: 'line',
             x0: promptEndIdx - 0.5, x1: promptEndIdx - 0.5,
             y0: 0, y1: 1, yref: 'paper',
-            line: { color: textSecondary, width: 2, dash: 'dash' }
+            line: { color: textSecondary, width: 2, dash: 'dash' },
+            _isBase: true
         });
     }
     shapes.push({
@@ -829,6 +942,8 @@ function buildControlBarHtml(allFilteredTraits) {
             </select>
             ` : ''}
             ` : ''}
+            <span class="projection-toggle-label" style="margin-left: 12px;">Wide:</span>
+            ${ui.renderToggle({ id: 'wide-mode-toggle', label: '', checked: window.state.wideMode, className: 'projection-toggle-checkbox' })}
         </div>
     `;
 }
@@ -844,7 +959,7 @@ function buildPageShellHtml(allFilteredTraits) {
     const isSmoothing = window.state.smoothingEnabled !== false;
 
     return `
-        <div class="tool-view">
+        <div class="tool-view${window.state.wideMode ? ' wide-mode' : ''}">
             <div class="page-intro">
                 <div class="page-intro-text">Watch traits evolve token-by-token during generation.</div>
                 <div id="trait-dynamics-status"></div>
@@ -862,6 +977,7 @@ function buildPageShellHtml(allFilteredTraits) {
                     level: 'h2'
                 })}
                 ${buildControlBarHtml(allFilteredTraits)}
+                <div id="overlay-controls"></div>
                 <div id="combined-activation-plot"></div>
                 <div id="top-spans-panel"></div>
             </section>
@@ -873,6 +989,10 @@ function buildPageShellHtml(allFilteredTraits) {
                     infoText: 'Per-sentence resampling probability of the cued (wrong) answer, from Thought Branches transplant experiment (~4000 forward passes per sentence). Shows how bias accumulates through the CoT.'
                 })}
                 <div id="cue-p-plot"></div>
+            </section>
+
+            <section>
+                <div id="trait-heatmap-panel"></div>
             </section>
 
             <section>
@@ -981,6 +1101,12 @@ function attachControlListeners(allFilteredTraits) {
     if (layerModeTraitSelect) {
         layerModeTraitSelect.addEventListener('change', () => {
             window.setLayerModeTrait(layerModeTraitSelect.value);
+        });
+    }
+    const wideModeToggle = document.getElementById('wide-mode-toggle');
+    if (wideModeToggle) {
+        wideModeToggle.addEventListener('change', () => {
+            window.setWideMode(wideModeToggle.checked);
         });
     }
 }
@@ -1402,8 +1528,15 @@ async function renderTraitDynamics() {
     const turnBoundaries = responseData?.turn_boundaries || null;
     const sentenceBoundaries = responseData?.sentence_boundaries || null;
 
+    // Fetch sentence category annotations (thought branches only)
+    let sentenceCategoryData = null;
+    if (sentenceBoundaries?.length > 0) {
+        sentenceCategoryData = await window.annotations.getSentenceCategoriesForPrompt(
+            window.state.currentExperiment, promptSet, promptId, sentenceBoundaries);
+    }
+
     // Render the full view
-    await renderCombinedGraph(contentArea, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges, allFilteredTraits, turnBoundaries, sentenceBoundaries);
+    await renderCombinedGraph(contentArea, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges, allFilteredTraits, turnBoundaries, sentenceBoundaries, sentenceCategoryData);
 
     // Restore scroll position after DOM updates
     requestAnimationFrame(() => {
@@ -1411,7 +1544,7 @@ async function renderTraitDynamics() {
     });
 }
 
-async function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges = [], allFilteredTraits = [], turnBoundaries = null, sentenceBoundaries = null) {
+async function renderCombinedGraph(container, traitData, loadedTraits, failedTraits, promptSet, promptId, annotationTokenRanges = [], allFilteredTraits = [], turnBoundaries = null, sentenceBoundaries = null, sentenceCategoryData = null) {
     // Detect replay_suffix convention (needed for UI controls and event handlers)
     const isReplaySuffix = window.state.experimentData?.experimentConfig?.diff_convention === 'replay_suffix';
 
@@ -1658,7 +1791,8 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
             x0: (nPromptTokens - START_TOKEN_IDX) - 0.5,
             x1: (nPromptTokens - START_TOKEN_IDX) - 0.5,
             y0: 0, y1: 1, yref: 'paper',
-            line: { color: textSecondary, width: 2, dash: 'dash' }
+            line: { color: textSecondary, width: 2, dash: 'dash' },
+            _isBase: true
         });
     }
 
@@ -1671,10 +1805,10 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     });
 
     // Turn boundary bands (rollouts: colored by role)
-    shapes.push(...buildTurnBoundaryShapes(turnBoundaries));
+    shapes.push(...buildTurnBoundaryShapes(turnBoundaries).map(s => ({ ...s, _isBase: true })));
 
-    // Sentence boundary bands (thought branches: colored by cue_p)
-    shapes.push(...buildSentenceBoundaryShapes(sentenceBoundaries, nPromptTokens));
+    // Sentence overlay bands (cue_p and/or category, respecting toggle state)
+    shapes.push(...buildOverlayShapes(sentenceBoundaries, sentenceCategoryData, nPromptTokens).map(s => ({ ...s, _isBase: true })));
 
     // Annotation shaded bands (response token ranges offset by nPromptTokens)
     for (const [start, end] of annotationTokenRanges) {
@@ -1685,7 +1819,8 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
             y0: 0, y1: 1, yref: 'paper',
             fillcolor: 'rgba(255, 180, 60, 0.12)',
             line: { width: 0 },
-            layer: 'below'
+            layer: 'below',
+            _isBase: true
         });
     }
 
@@ -1763,16 +1898,10 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
         margin: { l: 60, r: 20, t: 40, b: 80 },
         hovermode: 'closest'
     });
-    const plotConfig = displayTokens.length > 500 ? { scrollZoom: true } : {};
-    window.renderChart('combined-activation-plot', traces, mainLayout, plotConfig);
-
-    // Store base shapes (sentence boundaries, annotations, etc.) for token slider updates
-    const plotDiv = document.getElementById('combined-activation-plot');
-    plotDiv._baseShapes = shapes.filter(s =>
-        !(s.type === 'line' && s.y0 === 0 && s.y1 === 1 && s.yref === 'paper' && !s.fillcolor)
-    );
+    window.renderChart('combined-activation-plot', traces, mainLayout);
 
     // Insert custom legend with click-to-toggle and hover-to-highlight
+    const plotDiv = document.getElementById('combined-activation-plot');
     const legendDiv = window.createHtmlLegend(traces, plotDiv, {
         tooltips: legendTooltips,
         hoverHighlight: true
@@ -1787,6 +1916,37 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
         }
     });
 
+    // Populate overlay controls (only when sentence boundary data exists)
+    const overlayControlsDiv = document.getElementById('overlay-controls');
+    if (overlayControlsDiv) {
+        if (sentenceBoundaries && sentenceBoundaries.length > 0) {
+            const showCueP = window.state.showCuePOverlay;
+            const showCategory = window.state.showCategoryOverlay;
+            const hasCategoryData = sentenceCategoryData && sentenceCategoryData.length > 0;
+
+            overlayControlsDiv.innerHTML = `
+                <div class="overlay-controls-bar">
+                    <span class="projection-toggle-label">Overlays:</span>
+                    ${ui.renderToggle({ id: 'cue-p-overlay-toggle', label: 'cue_p', checked: showCueP, className: 'projection-toggle-checkbox' })}
+                    ${showCueP ? buildCuePLegendHtml() : ''}
+                    ${hasCategoryData ? ui.renderToggle({ id: 'category-overlay-toggle', label: 'Category', checked: showCategory, className: 'projection-toggle-checkbox' }) : ''}
+                    ${showCategory && hasCategoryData ? buildCategoryLegendHtml(sentenceCategoryData) : ''}
+                </div>
+            `;
+
+            const cuePToggle = document.getElementById('cue-p-overlay-toggle');
+            if (cuePToggle) {
+                cuePToggle.addEventListener('change', () => window.setShowCuePOverlay(cuePToggle.checked));
+            }
+            const catToggle = document.getElementById('category-overlay-toggle');
+            if (catToggle) {
+                catToggle.addEventListener('change', () => window.setShowCategoryOverlay(catToggle.checked));
+            }
+        } else {
+            overlayControlsDiv.innerHTML = '';
+        }
+    }
+
     // Render Top Spans panel (diff mode only, not available for rollouts)
     if (!isRollout) {
         renderTopSpansPanel(traitData, filteredByMethod, responseTokens, nPromptTokens);
@@ -1798,11 +1958,167 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
     // Render cue_p resampling plot (thought branches only)
     renderCuePPlot(sentenceBoundaries, tickVals, tickText, nPromptTokens, isRollout);
 
+    // Render Trait × Token heatmap (all traits at once)
+    renderTraitTokenHeatmap(traitActivations, filteredByMethod, tickVals, tickText, nPromptTokens, displayTokens, isRollout, turnBoundaries, sentenceBoundaries, traitData, sentenceCategoryData);
+
     // Render Token Magnitude plot (per-token norms)
-    renderTokenMagnitudePlot(traitData, filteredByMethod, tickVals, tickText, nPromptTokens, isRollout, turnBoundaries, sentenceBoundaries);
+    renderTokenMagnitudePlot(traitData, filteredByMethod, tickVals, tickText, nPromptTokens, isRollout, turnBoundaries, sentenceBoundaries, sentenceCategoryData);
 
     // Render Projection Velocity plot
-    renderTokenDerivativePlots(traitActivations, filteredByMethod, tickVals, tickText, nPromptTokens, traitData, isRollout, turnBoundaries, sentenceBoundaries);
+    renderTokenDerivativePlots(traitActivations, filteredByMethod, tickVals, tickText, nPromptTokens, traitData, isRollout, turnBoundaries, sentenceBoundaries, sentenceCategoryData);
+}
+
+
+/**
+ * Render Trait × Token heatmap: all traits as rows, tokens as columns, colored by projection value.
+ * Reuses already-computed traitActivations (smoothed/centered/normalized).
+ */
+function renderTraitTokenHeatmap(traitActivations, loadedTraits, tickVals, tickText, nPromptTokens, displayTokens, isRollout, turnBoundaries, sentenceBoundaries, traitData, sentenceCategoryData = null) {
+    const panel = document.getElementById('trait-heatmap-panel');
+    if (!panel) return;
+
+    // Hide when ≤1 trait (single-row heatmap has no value)
+    if (loadedTraits.length <= 1) {
+        panel.innerHTML = '';
+        return;
+    }
+
+    const isOpen = window.state.traitHeatmapOpen;
+
+    // Build display names for y-axis labels
+    const traitLabels = loadedTraits.map(traitName => {
+        const data = traitData[traitName];
+        const baseTrait = data.metadata?._baseTrait || traitName;
+        const vs = data.metadata?.vector_source || {};
+        return data.metadata?._isMultiVector
+            ? `${window.getDisplayName(baseTrait)} L${vs.layer}`
+            : window.getDisplayName(traitName);
+    });
+
+    panel.innerHTML = `
+        <div class="dropdown" style="margin-top: 12px;">
+            <div class="dropdown-header" id="trait-heatmap-toggle">
+                <span class="dropdown-toggle">${isOpen ? '▼' : '▶'}</span>
+                <span class="dropdown-label">Trait × Token Heatmap</span>
+                <span style="color: var(--color-text-tertiary); font-size: var(--text-xs); margin-left: auto;">${loadedTraits.length} traits</span>
+            </div>
+            ${isOpen ? `
+            <div class="dropdown-body" style="padding: 0;">
+                <div id="trait-heatmap-plot"></div>
+            </div>
+            ` : ''}
+        </div>
+    `;
+
+    // Toggle handler
+    const toggle = document.getElementById('trait-heatmap-toggle');
+    if (toggle) {
+        toggle.addEventListener('click', () => {
+            window.setTraitHeatmapOpen(!window.state.traitHeatmapOpen);
+            renderTraitTokenHeatmap(traitActivations, loadedTraits, tickVals, tickText, nPromptTokens, displayTokens, isRollout, turnBoundaries, sentenceBoundaries, traitData, sentenceCategoryData);
+        });
+    }
+
+    if (!isOpen) return;
+
+    // Build z-matrix (traits × tokens)
+    const z = loadedTraits.map(traitName => traitActivations[traitName] || []);
+
+    // Symmetric colorscale around 0
+    let absMax = 0;
+    for (const row of z) {
+        for (const v of row) {
+            const a = Math.abs(v);
+            if (a > absMax) absMax = a;
+        }
+    }
+    if (absMax === 0) absMax = 1;
+
+    const trace = {
+        z: z,
+        y: traitLabels,
+        type: 'heatmap',
+        colorscale: window.DELTA_COLORSCALE,
+        zmid: 0,
+        zmin: -absMax,
+        zmax: absMax,
+        hovertemplate: '%{y}<br>Token %{x}<br>Value: %{z:.4f}<extra></extra>',
+        colorbar: {
+            thickness: 12,
+            len: 0.8,
+            tickfont: { size: 9 }
+        }
+    };
+
+    // Shapes: separator + highlight + turn/sentence boundaries
+    const shapes = [];
+    const textSecondary = window.getCssVar('--text-secondary', '#a4a4a4');
+    const primaryColor = window.getCssVar('--primary-color', '#a09f6c');
+
+    // Prompt/response separator
+    if (!isRollout) {
+        shapes.push({
+            type: 'line',
+            x0: (nPromptTokens - START_TOKEN_IDX) - 0.5,
+            x1: (nPromptTokens - START_TOKEN_IDX) - 0.5,
+            y0: 0, y1: 1, yref: 'paper',
+            line: { color: textSecondary, width: 2, dash: 'dash' },
+            _isBase: true
+        });
+    }
+
+    // Current token highlight
+    const currentTokenIdx = window.state.currentTokenIndex || 0;
+    const highlightX = Math.max(0, currentTokenIdx - START_TOKEN_IDX);
+    shapes.push({
+        type: 'line',
+        x0: highlightX, x1: highlightX,
+        y0: 0, y1: 1, yref: 'paper',
+        line: { color: primaryColor, width: 2 }
+    });
+
+    // Turn / sentence overlay bands
+    shapes.push(...buildTurnBoundaryShapes(turnBoundaries).map(s => ({ ...s, _isBase: true })));
+    shapes.push(...buildOverlayShapes(sentenceBoundaries, sentenceCategoryData, nPromptTokens).map(s => ({ ...s, _isBase: true })));
+
+    const height = Math.max(150, loadedTraits.length * 25 + 80);
+
+    const layout = window.buildChartLayout({
+        preset: 'heatmap',
+        traces: [trace],
+        height,
+        legendPosition: 'none',
+        xaxis: {
+            title: 'Token Position',
+            tickmode: 'array',
+            tickvals: tickVals,
+            ticktext: tickText,
+            tickangle: -45,
+            tickfont: { size: 9 },
+            showgrid: false
+        },
+        yaxis: {
+            tickfont: { size: 10 },
+            automargin: true
+        },
+        shapes,
+        margin: { l: 120, r: 60, t: 10, b: 60 }
+    });
+
+    window.renderChart('trait-heatmap-plot', [trace], layout);
+
+    // Click-to-select token
+    const plotDiv = document.getElementById('trait-heatmap-plot');
+    if (plotDiv) {
+        plotDiv.on('plotly_click', (d) => {
+            const tokenIdx = Math.round(d.points[0].x) + START_TOKEN_IDX;
+            if (window.state.currentTokenIndex !== tokenIdx) {
+                window.state.currentTokenIndex = tokenIdx;
+                window.renderPromptPicker?.();
+                window.renderCurrentView?.();
+            }
+        });
+    }
 }
 
 
@@ -1810,7 +2126,7 @@ async function renderCombinedGraph(container, traitData, loadedTraits, failedTra
  * Render Token Magnitude plot showing L2 norm per token at best layer.
  * Helps identify if low projections are due to low magnitude or orthogonal encoding.
  */
-function renderTokenMagnitudePlot(traitData, loadedTraits, tickVals, tickText, nPromptTokens, isRollout = false, turnBoundaries = null, sentenceBoundaries = null) {
+function renderTokenMagnitudePlot(traitData, loadedTraits, tickVals, tickText, nPromptTokens, isRollout = false, turnBoundaries = null, sentenceBoundaries = null, sentenceCategoryData = null) {
     const plotDiv = document.getElementById('token-magnitude-plot');
     const firstTraitData = traitData[loadedTraits[0]];
 
@@ -1887,8 +2203,8 @@ function renderTokenMagnitudePlot(traitData, loadedTraits, tickVals, tickText, n
         shapes: [
             ...(isRollout ? [] : [window.createSeparatorShape(promptEndIdx, highlightColors.separator)]),
             window.createHighlightShape(highlightX, highlightColors.highlight),
-            ...buildTurnBoundaryShapes(turnBoundaries),
-            ...buildSentenceBoundaryShapes(sentenceBoundaries, nPromptTokens)
+            ...buildTurnBoundaryShapes(turnBoundaries).map(s => ({ ...s, _isBase: true })),
+            ...buildOverlayShapes(sentenceBoundaries, sentenceCategoryData, nPromptTokens).map(s => ({ ...s, _isBase: true }))
         ]
     });
     window.renderChart(plotDiv, traces, layout);
@@ -1908,7 +2224,7 @@ function renderTokenMagnitudePlot(traitData, loadedTraits, tickVals, tickText, n
 /**
  * Render Projection Velocity plot (first derivative of cosine projection)
  */
-function renderTokenDerivativePlots(traitActivations, loadedTraits, tickVals, tickText, nPromptTokens, traitData, isRollout = false, turnBoundaries = null, sentenceBoundaries = null) {
+function renderTokenDerivativePlots(traitActivations, loadedTraits, tickVals, tickText, nPromptTokens, traitData, isRollout = false, turnBoundaries = null, sentenceBoundaries = null, sentenceCategoryData = null) {
     const textSecondary = window.getCssVar('--text-secondary', '#a4a4a4');
     const primaryColor = window.getCssVar('--primary-color', '#a09f6c');
     const currentTokenIdx = window.state.currentTokenIndex || 0;
@@ -1949,8 +2265,8 @@ function renderTokenDerivativePlots(traitActivations, loadedTraits, tickVals, ti
         shapes: [
             ...(isRollout ? [] : [window.createSeparatorShape((nPromptTokens - START_TOKEN_IDX) - 0.5, textSecondary)]),
             window.createHighlightShape(highlightX, primaryColor),
-            ...buildTurnBoundaryShapes(turnBoundaries),
-            ...buildSentenceBoundaryShapes(sentenceBoundaries, nPromptTokens)
+            ...buildTurnBoundaryShapes(turnBoundaries).map(s => ({ ...s, _isBase: true })),
+            ...buildOverlayShapes(sentenceBoundaries, sentenceCategoryData, nPromptTokens).map(s => ({ ...s, _isBase: true }))
         ],
         margin: { b: 80 }
     });

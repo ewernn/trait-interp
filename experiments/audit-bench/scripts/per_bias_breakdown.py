@@ -4,19 +4,19 @@ Determines whether probes detect different bias types equally well by comparing
 probe deltas at annotated span tokens vs background tokens, broken down by bias category.
 
 Input:
-  - Annotations: experiments/audit-bench/inference/rm_lora/responses/rm_syco/exploitation_evals_100_annotations.json
-  - Per-token diffs: experiments/audit-bench/model_diff/instruct_vs_rm_lora/per_token_diff/{category}/{trait}/rm_syco/exploitation_evals_100/{prompt_id}.json
-  - Response files: experiments/audit-bench/inference/rm_lora/responses/rm_syco/exploitation_evals_100/{id}.json
+  - Annotations: experiments/{experiment}/inference/{response_variant}/responses/{extraction_variant}/{prompt_set}_annotations.json
+  - Per-token diffs: experiments/{experiment}/model_diff/{variant_pair}/per_token_diff/{category}/{trait}/{extraction_variant}/{prompt_set}/{prompt_id}.json
 
 Output:
-  - experiments/audit-bench/model_diff/instruct_vs_rm_lora/per_bias_breakdown.json
+  - experiments/{experiment}/model_diff/{variant_pair}/per_bias_breakdown.json
 
 Usage:
-  python analysis/audit_bench/per_bias_breakdown.py
+  python experiments/audit-bench/scripts/per_bias_breakdown.py
+  python experiments/audit-bench/scripts/per_bias_breakdown.py --experiment audit-bench --prompt-set exploitation_evals_100
 """
 
+import argparse
 import json
-import os
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -25,31 +25,36 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-EXPERIMENT = "audit-bench"
-PROMPT_SET = "exploitation_evals_100"
-VARIANT_PAIR = "instruct_vs_rm_lora"
-RESPONSE_VARIANT = "rm_lora"
-EXTRACTION_VARIANT = "rm_syco"
 
-# Paths
-ANNOTATIONS_PATH = (
-    PROJECT_ROOT / "experiments" / EXPERIMENT / "inference" / RESPONSE_VARIANT
-    / "responses" / EXTRACTION_VARIANT / f"{PROMPT_SET}_annotations.json"
-)
-DIFF_BASE = (
-    PROJECT_ROOT / "experiments" / EXPERIMENT / "model_diff" / VARIANT_PAIR
-    / "per_token_diff"
-)
-OUTPUT_PATH = (
-    PROJECT_ROOT / "experiments" / EXPERIMENT / "model_diff" / VARIANT_PAIR
-    / "per_bias_breakdown.json"
-)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Per-bias probe breakdown analysis")
+    parser.add_argument("--experiment", default="audit-bench", help="Experiment name")
+    parser.add_argument("--prompt-set", default="exploitation_evals_100", help="Prompt set name")
+    parser.add_argument("--variant-pair", default="instruct_vs_rm_lora", help="Model variant pair for diff")
+    parser.add_argument("--response-variant", default="rm_lora", help="Variant used for responses")
+    parser.add_argument("--extraction-variant", default="rm_syco", help="Variant used for extraction")
+    parser.add_argument("--top-n", type=int, default=30, help="Number of top interactions to show")
+    parser.add_argument("--output", type=Path, default=None, help="Override output path")
+    return parser.parse_args()
 
 
-def discover_traits():
+def build_paths(args):
+    exp_dir = PROJECT_ROOT / "experiments" / args.experiment
+    annotations_path = (
+        exp_dir / "inference" / args.response_variant
+        / "responses" / args.extraction_variant / f"{args.prompt_set}_annotations.json"
+    )
+    diff_base = exp_dir / "model_diff" / args.variant_pair / "per_token_diff"
+    output_path = args.output or (
+        exp_dir / "model_diff" / args.variant_pair / "per_bias_breakdown.json"
+    )
+    return annotations_path, diff_base, output_path
+
+
+def discover_traits(diff_base):
     """Find all category/trait pairs available in per_token_diff."""
     traits = []
-    for category in sorted(DIFF_BASE.iterdir()):
+    for category in sorted(diff_base.iterdir()):
         if not category.is_dir():
             continue
         for trait in sorted(category.iterdir()):
@@ -132,12 +137,12 @@ def find_span_token_indices(span_text, tokens, token_char_spans, response_text):
     return span_tokens
 
 
-def load_diff_file(trait, prompt_id):
+def load_diff_file(diff_base, extraction_variant, prompt_set, trait, prompt_id):
     """Load per-token diff for a trait and prompt."""
     category, trait_name = trait.split("/")
     path = (
-        DIFF_BASE / category / trait_name / EXTRACTION_VARIANT
-        / PROMPT_SET / f"{prompt_id}.json"
+        diff_base / category / trait_name / extraction_variant
+        / prompt_set / f"{prompt_id}.json"
     )
     if not path.exists():
         return None
@@ -146,13 +151,23 @@ def load_diff_file(trait, prompt_id):
 
 
 def main():
+    args = parse_args()
+    annotations_path, diff_base, output_path = build_paths(args)
+
+    if not annotations_path.exists():
+        print(f"Annotations not found: {annotations_path}")
+        sys.exit(1)
+    if not diff_base.exists():
+        print(f"Diff base not found: {diff_base}")
+        sys.exit(1)
+
     # Load annotations
-    with open(ANNOTATIONS_PATH) as f:
+    with open(annotations_path) as f:
         annotations = json.load(f)
     print(f"Loaded {len(annotations)} annotations")
 
     # Discover traits
-    traits = discover_traits()
+    traits = discover_traits(diff_base)
     print(f"Found {len(traits)} traits: {traits}")
 
     # Collect per-bias, per-trait statistics
@@ -183,7 +198,7 @@ def main():
 
         # Process each trait (load diff data once per trait)
         for trait in traits:
-            diff_data = load_diff_file(trait, idx)
+            diff_data = load_diff_file(diff_base, args.extraction_variant, args.prompt_set, trait, idx)
             if diff_data is None:
                 skipped += 1
                 continue
@@ -292,18 +307,18 @@ def main():
         "categories": sorted(k for k in stats.keys()),
         "summary": summary,
         "metadata": {
-            "experiment": EXPERIMENT,
-            "prompt_set": PROMPT_SET,
-            "variant_pair": VARIANT_PAIR,
+            "experiment": args.experiment,
+            "prompt_set": args.prompt_set,
+            "variant_pair": args.variant_pair,
             "n_annotations": len(annotations),
             "n_processed": processed,
         }
     }
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_PATH, "w") as f:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
         json.dump(output, f, indent=2)
-    print(f"\nSaved to {OUTPUT_PATH}")
+    print(f"\nSaved to {output_path}")
 
     # Print summary table
     print("\n" + "=" * 140)
@@ -374,7 +389,7 @@ def main():
 
     print(f"{'Category':<12} {'Trait':<22} {'Lift':>8} {'Span':>8} {'BG':>8} {'#Tok':>6} {'#Pr':>4}")
     print("-" * 74)
-    for item in interactions[:30]:
+    for item in interactions[:args.top_n]:
         print(
             f"{item['category']:<12} {item['trait']:<22} {item['lift']:>+8.3f} "
             f"{item['span_mean']:>8.3f} {item['bg_mean']:>8.3f} {item['n_tokens']:>6} {item['n_prompts']:>4}"

@@ -33,7 +33,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.paths import get as get_path, get_model_variant, list_model_variants
-from utils.model import is_tp_mode
+from utils.distributed import is_tp_mode
 from core.math import cosine_similarity
 
 # Calibration dataset path

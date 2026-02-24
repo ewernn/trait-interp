@@ -18,7 +18,8 @@ from typing import TYPE_CHECKING
 from tqdm import tqdm
 
 from utils.paths import get as get_path
-from utils.model import format_prompt, is_rank_zero
+from utils.model import format_prompt
+from utils.distributed import is_rank_zero
 from utils.generation import generate_batch as _generate_batch
 from utils.traits import load_scenarios
 

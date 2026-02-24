@@ -100,7 +100,7 @@ Can you help me write a poem?
 - Keep prompts similar in structure/length between positive and negative
 - Avoid contamination (negative prompts shouldn't accidentally trigger the trait)
 
-See [writing_natural_prompts.md](writing_natural_prompts.md) for detailed guidance.
+See [elicitation_guide.md](../extraction/elicitation_guide.md) for detailed guidance.
 
 ---
 
@@ -441,7 +441,6 @@ python extraction/run_pipeline.py \
 ## Further Reading
 
 - [elicitation_guide.md](../extraction/elicitation_guide.md) - Natural vs instruction-based elicitation
-- [writing_natural_prompts.md](writing_natural_prompts.md) - Designing effective scenarios
 - [extraction_guide.md](extraction_guide.md) - Comprehensive extraction reference
 - [steering/README.md](../analysis/steering/README.md) - Steering evaluation guide
 - [core_reference.md](core_reference.md) - Core primitives API

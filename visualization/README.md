@@ -1,431 +1,195 @@
-# Trait Interpretation Visualization Guide
+# Visualization Dashboard
 
-This guide explains how to use the visualization tools to explore your extracted trait vectors and monitoring results.
+Interactive dashboard for exploring trait vectors, monitoring inference, and analyzing model internals.
 
 ## Quick Start
 
-### 1. Start the Visualization Server
-
 ```bash
-# From the trait-interp root directory (recommended)
-python visualization/serve.py
-
-# Alternative: Python's built-in HTTP server
-python -m http.server 8000
+python visualization/serve.py  # Visit http://localhost:8000/
 ```
 
-The server provides:
-- **Auto-discovery**: Experiments and traits detected from `experiments/` directory
-- **Integrity caching**: Runs `data_checker.py` on startup for each experiment
-- **API endpoints**:
-  - `/api/experiments` - List all experiments
-  - `/api/experiments/{name}/traits` - List traits for an experiment
-  - `/api/integrity/{name}.json` - Get cached integrity data for an experiment
-  - `/api/chat` - POST endpoint for live chat with streaming trait projections
-  - `/api/modal/warmup` - GET endpoint to warm up Modal GPU (preload model)
-  - `/api/gpu-status` - GPU device info and memory stats (CUDA/MPS)
-- **CORS support**: For local development
+Auto-discovers experiments and traits from `experiments/` directory.
 
-### 2. Open in Browser
+---
 
-Visit: **http://localhost:8000/**
+## Views & Data Requirements
 
-## Features
+### Global Views (no experiment required)
 
-The visualization dashboard is organized into two main categories:
+| View | Source | Notes |
+|------|--------|-------|
+| **Overview** | `docs/overview.md` | Markdown + KaTeX |
+| **Methodology** | `docs/methodology.md` | Custom directives (`:::figure:::`, `:::responses:::`, `:::dataset:::`, `:::chart:::`) |
+| **Findings** | `docs/viz_findings/index.yaml` + `*.md` | Collapsible cards. Deep link: `?tab=findings#finding-slug` |
+| **Live Chat** | Runs inference on demand | Real-time trait monitoring + steering. Requires extracted vectors. `MODE=development` (local) or `MODE=production` (Modal GPU). |
 
-### Global Documentation (No Experiment Required)
+### Analysis Views (require experiment selection)
 
-These views are available immediately without selecting an experiment. The experiment picker is hidden when viewing these tabs.
+#### Extraction (`extraction.js`)
 
--   **Overview**: High-level introduction rendered from `docs/overview.md` with markdown and KaTeX math rendering.
+Shows extraction quality across traits.
 
--   **Methodology**: How we extract and use trait vectors. Rendered from `docs/methodology.md` with support for placeholders, datasets, figures, and citations.
+| Section | Data Source | Command |
+|---------|------------|---------|
+| Best Vectors Summary | `extraction/extraction_evaluation.json` | `python analysis/vectors/extraction_evaluation.py --experiment {exp}` |
+| Per-Trait Heatmaps | Same as above | Same |
+| Token Decode (Logit Lens) | `extraction/{trait}/{variant}/logit_lens.json` | Pipeline stage 5: `python extraction/run_pipeline.py --experiment {exp} --only-stage 5` |
 
--   **Findings**: Research findings rendered from `docs/viz_findings/`. Collapsible cards with preview text that expand to show full markdown content.
+**Prerequisite:** Completed extraction pipeline (`python extraction/run_pipeline.py --experiment {exp}`)
 
-    **Navigation:**
-    - List view: `?tab=findings` - All findings (all collapsed)
-    - Deep link: `?tab=findings#rm-sycophancy` - Auto-expands specific finding and scrolls to it
-    - Standalone: `?tab=finding#rm-sycophancy` - Content-only view with "← Back to findings" button
-    - Hash updates automatically when expanding/collapsing findings
-    - Refresh preserves expanded state via URL hash
+---
 
-    **Adding a finding:**
-    1. Create `docs/viz_findings/my-finding.md` with frontmatter:
-       ```markdown
-       ---
-       title: "My Finding Title"
-       preview: "One sentence summary for collapsed view."
-       ---
+#### Steering (`steering.js`)
 
-       # My Finding Title
-       ...
-       ```
-    2. Add filename to `docs/viz_findings/index.yaml` (controls display order)
+Steering sweep results: method comparison, layer/coefficient heatmaps, response browser.
 
-    **Markdown conventions:**
-    - Figures: `:::figure assets/image.png "Figure 1: Caption" small:::` (sizes: `small` 30%, `medium` 50%, `large` 75%, omit for 100%)
-    - Charts: `:::chart type path "caption" [options]:::` renders dynamic Plotly chart from JSON data.
-      - **Model diff types**: `model-diff-effect` (Cohen's d by layer), `model-diff-cosine` (cosine sim by layer), `model-diff-bar` (peak effect bars), `comparison-bar` (horizontal comparison)
-      - **Dynamics types**: `dynamics-effect` (smoothness by layer), `dynamics-scatter` (smoothness vs perplexity), `dynamics-violin` (split distribution), `dynamics-position` (effect by token position)
-      - **Options**: `height=N`, `traits=a,b` (filter), `perplexity=path` (for scatter), `projections=trait:path,trait:path` (for overlays)
-    - Response embeds: `:::responses /path/to/responses.json "Label" [expanded] [no-scores]:::` creates expandable table
-    - Dataset embeds: `:::dataset /path/to/file.txt "Label" [expanded] [limit=N] [height=N]:::` shows first N lines (default: 20), custom max height in px. Auto-formats JSONL with system_prompt/user_message labels.
-    - Prompts embeds: `:::prompts /path/to/prompts.json "Label" [expanded]:::` shows first 20 prompts
-    - Extraction data: `:::extraction-data "Label" [expanded]\n trait: path\n :::` tabbed pos/neg viewer. Each `trait: path` line points to a folder with `pos.json` + `neg.json`.
-    - Response tabs: `:::response-tabs "Row1" "Row2"\n col: "Label" | path1 | path2\n :::` 2×N grid of tabs for comparing responses across methods/traits.
-    - Steered responses: `:::steered-responses "Label"\n trait: "TraitLabel" | pvPath | naturalPath\n :::` 3-column comparison table (Question | PV Response | Natural Response) with trait tabs.
-    - Citations (frontmatter): `[@key]` with `references:` in frontmatter → renders as "(Authors, Year)" link
-    - Citations (numbered): `^1`, `^2` with `## References` section at bottom → superscript links with hover tooltips, click to scroll
+| Section | Data Source | Command |
+|---------|------------|---------|
+| Best Vector per Layer | `steering/{trait}/{variant}/{position}/{prompt_set}/results.jsonl` | `python analysis/steering/evaluate.py --experiment {exp} --vector-from-trait {trait}` |
+| Layer x Coefficient Heatmaps | Same | Same (adaptive coefficient search is automatic) |
+| Response Browser | `steering/.../responses/{component}/{method}/c{coef}_L{layer}.json` | Same (with `--save-responses`) |
 
-### Analysis Views (Require Experiment Selection)
+**Prerequisite:** Extracted trait vectors + `datasets/traits/{category}/{trait}/steering.json`
 
-These views require an experiment to be selected. When navigating to these tabs, the analysis panel (second sidebar column) slides in with the experiment picker and trait selector.
+---
 
--   **1. Trait Extraction**: View extraction quality for trait vectors. Sections:
-    - Best Vectors Summary: table of best vector per trait with metrics
-    - Per-Trait Heatmaps: layer × method grid with combined score
-    - Token Decode (Logit Lens): late layer token projections
-    - Reference (collapsible): notation, extraction methods, quality metrics
+#### Trait Dynamics (`trait-dynamics.js`)
 
--   **2. Steering Sweep**: Layer sweep visualization for steering evaluation. Sections:
-    - Best Vector per Layer: Multi-trait comparison by extraction method
-    - Layer × Coefficient Heatmaps: Delta and coherence across layers/coefficients
-    - Response Browser: Browse generated steering responses, sortable/filterable
+Per-token trait projections during generation.
 
--   **3. Trait Dynamics**: Per-token trait projections during generation. Sections:
-    - Token Trajectory: Projection over tokens (cosine or normalized mode, with smoothing, centering, cleaning options). Annotation shaded bands highlight annotated response spans.
-    - Model comparison: Main/Diff toggle with variant dropdown for comparing model activations. Diff mode shows per-token `(comparison - main)` delta.
-    - Top Spans: Sliding window max-activating sequence finder (diff mode only). Adjustable window length (1-100 tokens), ranks non-overlapping spans by absolute delta. Supports current response or cross-prompt scope (lazy-loads all projections for the prompt set). Click a span to highlight it in the trajectory chart.
-    - Activation Magnitude Per Token: ||h|| at each token position (auto-clips outlier BOS spikes)
-    - Projection Velocity: d/dt of cosine projection (rate of trait change)
-    - **Multi-turn rollout support**: Rollouts (all-prompt, empty-response from `convert_rollout.py`) render with colored turn boundary bands (user=blue, assistant=green, tool=orange, system=lime). Prompt/response separator and labels are hidden; Top Spans is disabled. Rangeslider and scroll zoom activate for >500 tokens. Markers drop for >2000 tokens.
-    - **Sentence boundaries**: For thought branches / unfaithful CoT analysis, `sentence_boundaries` in response JSON render as blue→red gradient bands (color intensity = `cue_p` value).
-    - **Prompt tags**: Rollout prompts show colored left borders in the prompt picker based on `tags` in the response JSON (e.g., `tag-hacker`, `tag-honest`, `tag-lie_fabrication`).
+| Section | Data Source | Command |
+|---------|------------|---------|
+| Token Trajectory | `inference/{variant}/projections/{trait}/{prompt_set}/{id}.json` | Steps 1-4 below |
+| Trait × Token Heatmap | Same (all traits as rows, tokens as columns) | Same |
+| Activation Magnitude | Same (includes `token_norms`) | Same |
+| Projection Velocity | Computed from trajectory client-side | Same |
+| Top Spans | Same projections, optionally cross-prompt | Same |
+| Layers toggle | `model_diff/{pair}/layer_sensitivity/{prompt_set}/per_prompt/{id}.json` | Step 5 below |
 
--   **4. Model Analysis**: Understanding model internals and comparing variants. Sections:
-    - Activation Diagnostics: Magnitude by layer, massive activations (Sun et al. 2024)
-    - Variant Comparison: Cohen's d effect size across model variants (requires 2+ variants in config)
-
-### Live Chat
-(Top-level view for interactive exploration)
-
-Interactive chat with real-time trait monitoring:
-- **Connection status**: Shows GPU connection state (disconnected → warming → connected). Blocks send while warming up.
-- **Real-time steering**: Per-trait steering buttons (-1x, -.5x, 0, +.5x, +1x) to influence model behavior during generation.
-- **Full token stream**: Chart shows all tokens (prompt + response + special tokens) with their trait projections. X-axis = token position in context.
-- **Multi-turn conversation**: Tokens accumulate across messages. Only NEW tokens are captured each turn (previous context is skipped).
-- **Conversation branching**: Edit any user message to create alternate branches; navigate with `◀ 1/2 ▶` arrows. Each branch preserves its token data.
-- **Stop generation**: Click "Stop" button to halt generation mid-stream. Keeps tokens captured so far.
-- **Context limit**: Warns when approaching model's max context length (from `config/models/`). Clear chat to continue.
-- **Persistence**: Conversations saved to localStorage per experiment; restored on page refresh.
-- **Hover interactions**: Hover over chart to highlight corresponding token in chat. Hover over legend to see vector metadata (layer, method, source).
-- **3-token running average**: Toggle smoothing in chart header.
-
-**Inference backends** (controlled by `MODE` env var):
-- `MODE=development` (default): Local inference, all dev features visible
-- `MODE=production`: Modal GPU inference, clean public UI
-
-In development mode, toggle between Local and Modal GPU using the switch in the UI.
-
-## Data Sources
-
-The visualization automatically loads data from your experiment structure.
-
-**Path Management**: Uses centralized `PathBuilder` class in `core/paths.js` - all path construction is consistent and maintainable.
-
-**Directory Structure** (with model variants):
-
-```
-experiments/{experiment_name}/
-├── config.json                              # { defaults: {extraction, application}, model_variants: {...} }
-├── extraction/
-│   └── {category}/                          # Category (e.g., behavioral_tendency)
-│       └── {trait_name}/                    # Trait name (e.g., refusal)
-│           └── {model_variant}/             # Model variant (e.g., base, instruct)
-│               ├── responses/
-│               │   ├── pos.json
-│               │   └── neg.json
-│               └── vectors/{position}/{component}/{method}/
-│                   ├── layer{N}.pt
-│                   └── metadata.json
-└── inference/
-    ├── raw/                                 # Trait-independent raw activations (.pt)
-    │   ├── residual/{prompt_set}/           # All-layer activations
-    │   └── internals/{prompt_set}/          # Single-layer detailed (optional)
-    ├── responses/{prompt_set}/              # Trait-independent response JSONs
-    │   └── {id}.json                        # Prompt/response text and tokens
-    └── projections/{trait}/{prompt_set}/    # Per-trait projection data
-        ├── 1.json                           # Projections for prompt ID 1
-        └── {id}.json                        # Multiple prompts supported
-```
-
-## Generating Inference Data
-
-Use `capture.py` for capturing activations and computing projections.
-
-### For All Layers View
-
-Capture trait projections at all 78 checkpoints (26 layers × 3 sublayers) plus attention weights:
-
+**Commands (in order):**
 ```bash
-# From a prompt set (recommended for batch processing)
-python inference/capture_raw_activations.py \
-    --experiment {experiment_name} \
-    --prompt-set single_trait
+# 1. Calibrate massive dims (once per experiment)
+python analysis/massive_activations.py --experiment {exp}
 
-# Or single prompt
-python inference/capture_raw_activations.py \
-    --experiment {experiment_name} \
-    --prompt "How do I make a bomb?"
+# 2. Generate responses
+python inference/generate_responses.py --experiment {exp} --prompt-set {prompt_set}
+
+# 3. Capture activations
+python inference/capture_raw_activations.py --experiment {exp} --prompt-set {prompt_set}
+
+# 4. Project onto traits
+python inference/project_raw_activations_onto_traits.py --experiment {exp} --prompt-set {prompt_set}
+
+# 5. (Optional) Layer sensitivity for Layers toggle
+python analysis/model_diff/layer_sensitivity.py \
+    --experiment {exp} --variant-a {A} --variant-b {B} --prompt-set {prompt_set} \
+    --layers 10,15,20,25,30,35,40
 ```
 
-This creates:
-- `experiments/{exp}/inference/{model_variant}/raw/residual/{prompt_set}/{id}.pt` - raw activations
-- `experiments/{exp}/inference/{model_variant}/responses/{prompt_set}/{id}.json` - response text/tokens
+**Features:** Cosine/normalized projection modes, smoothing, massive dim cleaning (frontend dropdown), Main/Diff model comparison, sentence boundary bands, multi-turn rollout support, prompt tags.
 
-Then run projections:
-```bash
-python inference/project_raw_activations_onto_traits.py \
-    --experiment {experiment_name} \
-    --prompt-set single_trait
-```
+---
 
-This creates `experiments/{exp}/inference/{model_variant}/projections/{trait}/{prompt_set}/{id}.json` containing trait projections.
+#### Correlation (`correlation.js`)
 
-**Dynamic discovery**: The script automatically finds all traits with vectors - no need to specify trait names.
+Token-level and response-level trait correlation.
 
-**Available prompt sets** (in `datasets/inference/`):
-- `single_trait` - 10 prompts, each targeting one trait
-- `multi_trait` - 10 prompts activating multiple traits
-- `dynamic` - 8 prompts for mid-response trait changes
-- `adversarial` - 8 edge cases and robustness tests
-- `baseline` - 5 neutral prompts for baseline
-- `real_world` - 10 naturalistic prompts
+| Section | Data Source | Command |
+|---------|------------|---------|
+| Correlation Matrix | `analysis/trait_correlation/{prompt_set}.json` | `python analysis/trait_correlation.py --experiment {exp} --prompt-set {prompt_set}` |
+| Correlation Decay | Same | Same |
+| Response-Level Correlation | Same | Same |
 
-### For Layer Deep Dive View
+**Prerequisite:** Inference projections for multiple traits on the same prompt set.
 
-**Status**: Layer internals capture is implemented but the visualization is a placeholder. The capture creates raw data; trait-specific analysis (attention vs MLP breakdown, per-head contributions) is planned.
+---
 
-To capture layer internals (for future use):
+#### Model Analysis (`model-analysis.js`)
 
-```bash
-python inference/capture_raw_activations.py \
-    --experiment {experiment_name} \
-    --layer-internals 16 \
-    --prompt-set dynamic
-```
+Model internals diagnostics and variant comparison.
 
-This saves raw internals to `experiments/{exp}/inference/raw/internals/{prompt_set}/{id}_L16.pt` containing:
-- Q/K/V projections per token
-- Per-head attention weights
-- MLP activations (up_proj, gelu, down_proj)
-- Residual stream checkpoints (input, attn_out, residual)
+| Section | Data Source | Command |
+|---------|------------|---------|
+| Activation Magnitude by Layer | `inference/{variant}/massive_activations/calibration.json` | `python analysis/massive_activations.py --experiment {exp}` |
+| Activation Uniformity | Same (`mean_alignment_by_layer`) | Same |
+| Massive Dims Across Layers | Same (`top_dims_by_layer`, `dim_magnitude_by_layer`) | Same |
+| Inter-Layer Similarity | Same (`consecutive_cosine`) | Same |
+| Variant Comparison (Cohen's d) | `model_diff/{pair}/{prompt_set}/results.json` | `python analysis/model_diff/compare_variants.py --experiment {exp} --variant-a {A} --variant-b {B} --prompt-set {ps}` |
+| Cosine Similarity with Trait Direction | Same | Same |
 
-### 2. Or Create Custom Monitoring Script
+**Model variant dropdown** switches between variants that have calibration data.
 
-```python
-from core import HookManager, CaptureHook, projection
-import torch
+---
 
-# Load your trait vectors
-vectors = {
-    'refusal': torch.load('experiments/{experiment_name}/extraction/{category}/refusal/{model_variant}/vectors/{position}/residual/probe/layer16.pt'),
-    # ... more traits
-}
+#### One-Offs (`one-offs.js`)
 
-# Capture activations during generation
-with CaptureHook(model, "model.layers.16") as hook:
-    output = model.generate(**inputs)
+Experiment-specific visualizations auto-discovered from directory structure. Includes judge optimization, prefill dynamics, vector cross-eval.
 
-# Project onto trait vectors
-acts = hook.get()
-trait_scores = {name: projection(acts, vec).tolist() for name, vec in vectors.items()}
+---
 
-# Save results
-results = {
-    "prompt": prompt,
-    "response": response,
-    "tokens": tokens,
-    "trait_scores": trait_scores
-}
-```
+## Adding Content
 
-### 3. Save in Expected Location
+### New finding
+1. Create `docs/viz_findings/my-finding.md` with frontmatter (`title`, `preview`)
+2. Add to `docs/viz_findings/index.yaml`
 
-Place JSON files in:
-```
-experiments/{experiment_name}/inference/results/
-```
+### Custom blocks in findings/methodology
+- `:::figure path "caption" [small|medium|large]:::`
+- `:::chart type path "caption" [height=N] [traits=a,b]:::`
+- `:::responses path "label" [expanded] [no-scores]:::`
+- `:::dataset path "label" [expanded] [limit=N]:::`
+- `:::extraction-data "label"\n trait: path\n :::`
+- `:::prompts path "label" [expanded]:::`
+- `:::response-tabs "Row1" "Row2"\n col: "Label" | path1 | path2\n :::`
+- `:::steered-responses "label"\n trait: "TraitLabel" | pvPath | naturalPath\n :::`
+- Citations: `[@key]` (frontmatter refs) or `^1` (numbered, with `## References` section)
 
-## Expected Data Formats
-
-### Response JSON Format
-```json
-{
-  "prompt": "What is X?",
-  "response": "[model response]",
-  "trait_score": 85.3
-}
-```
-
-### Activation Metadata Format
-```json
-{
-  "model": "google/gemma-2-2b-it",
-  "trait": "refusal",
-  "n_examples": 179,
-  "n_layers": 27,
-  "hidden_dim": 2304,
-  "extraction_date": "2025-11-14T14:00:40.778123"
-}
-```
-
-### Vector Metadata Format
-```json
-{
-  "trait": "refusal",
-  "method": "probe",
-  "layer": 16,
-  "vector_norm": 2.164860027678928,
-  "train_acc": 1.0
-}
-```
-
-### Monitoring Results Format
-```json
-{
-  "prompt": "What is the capital of France?",
-  "response": "The capital of France is Paris.",
-  "tokens": ["The", " capital", " of", " France", " is", " Paris", "."],
-  "trait_scores": {
-    "retrieval_construction": [0.5, 2.3, 2.1, 1.8, 1.5, 1.2, 0.8],
-    "refusal": [-0.3, -1.5, -1.2, -0.9, -0.7, -0.5, -0.3]
-  }
-}
-```
-
-## Supported Experiments
-
-Currently supported:
-- **{experiment_name}** - 16 cognitive traits on Gemma 2B
-
-To add new experiments:
-1. Follow the standard directory structure (see `docs/main.md` or `docs/architecture.md`)
-2. The visualization auto-discovers experiments and traits via API endpoints
+### New view
+1. Create `views/my-view.js` with `async function renderMyView()` + `window.renderMyView = renderMyView`
+2. Add `<script>` tag in `index.html`
+3. Add route case in router, nav item in sidebar
+4. Add to `ANALYSIS_VIEWS` or `GLOBAL_VIEWS` in `core/state.js`
+5. For prompt-picker views: add to `INFERENCE_VIEWS` in `components/prompt-picker.js`
 
 ## Architecture
 
-The visualization uses a modular architecture with centralized path management:
-
 ```
 visualization/
-├── index.html              # Shell - loads modules and router
-├── styles.css              # All CSS styles (includes UI primitives)
-├── serve.py                # Development server with API endpoints
-├── chat_inference.py       # Live chat backend (model loading, generation, trait projection)
-├── core/                   # Pure utilities (no DOM manipulation)
-│   ├── types.js            # JSDoc type definitions
-│   ├── utils.js            # escapeHtml, smoothData, formatTokenDisplay
-│   ├── annotations.js      # Span-to-token mapping, annotation fetching/caching
-│   ├── ui.js               # UI primitives (renderToggle, renderSelect, renderSubsection, etc.)
-│   ├── display.js          # Display names, colors, Plotly layouts
-│   ├── paths.js            # Centralized PathBuilder (loads from config/paths.yaml)
-│   ├── charts.js           # Chart layout primitives (buildChartLayout, renderChart)
-│   ├── chart-types.js      # Chart type renderers for :::chart::: blocks in findings
-│   ├── citations.js        # Numbered citation parsing (^1 style with hover tooltips)
-│   ├── model-config.js     # Model config loader (loads from config/models/)
-│   ├── state.js            # Global state, experiment loading, URL routing
-│   └── conversation-tree.js # ConversationTree for multi-turn chat with branching
-├── components/             # Reusable UI components (render DOM)
-│   ├── sidebar.js          # Trait checkboxes, navigation, theme, analysis panel toggle
-│   ├── prompt-picker.js    # Prompt selection UI for inference views
-│   ├── custom-blocks.js    # ::: syntax parsing/rendering (responses, datasets, figures, charts)
-│   └── response-browser.js # Steering response table with filtering/sorting
-└── views/                  # Page-specific rendering
-    ├── overview.js            # Methodology documentation (markdown + KaTeX)
-    ├── trait-extraction.js    # Extraction quality (Trait Development)
-    ├── steering-sweep.js      # Layer sweep + multi-layer heatmap (Trait Development)
-    ├── model-comparison.js    # Compare model variants (Cohen's d effect size)
-    ├── live-chat.js           # Real-time chat with trait monitoring (Inference)
-    ├── trait-dynamics.js      # Per-token trait trajectories (Inference)
-    └── layer-deep-dive.js     # Attention + SAE features (Inference)
+├── index.html              # Shell, script loading, router
+├── styles.css              # All styles (CSS variables for light/dark)
+├── serve.py                # Server with API endpoints
+├── chat_inference.py       # Live chat backend
+├── core/                   # Utilities (no DOM)
+│   ├── paths.js            # PathBuilder (from config/paths.yaml)
+│   ├── state.js            # Global state, routing, experiment loading
+│   ├── charts.js           # buildChartLayout, renderChart (Plotly wrappers)
+│   ├── chart-types.js      # :::chart::: renderers for findings
+│   ├── ui.js               # renderToggle, renderSelect, renderSubsection
+│   ├── display.js          # Colors, Plotly layouts
+│   ├── utils.js            # escapeHtml, smoothData, formatters
+│   ├── annotations.js      # Span-to-token mapping
+│   ├── citations.js        # ^N citation rendering
+│   ├── model-config.js     # Model config from config/models/
+│   ├── conversation-tree.js # Multi-turn chat tree
+│   ├── legend.js           # Custom legend rendering
+│   └── types.js            # JSDoc types
+├── components/             # Reusable UI (renders DOM)
+│   ├── sidebar.js          # Navigation, theme, trait checkboxes
+│   ├── prompt-picker.js    # Prompt/token selection for Trait Dynamics
+│   ├── custom-blocks.js    # ::: directive parsing
+│   └── response-browser.js # Steering response table
+└── views/                  # One file per page
+    ├── overview.js
+    ├── methodology.js
+    ├── findings.js
+    ├── extraction.js
+    ├── steering.js
+    ├── trait-dynamics.js
+    ├── correlation.js
+    ├── model-analysis.js
+    ├── live-chat.js
+    ├── one-offs.js
+    └── layer-deep-dive.js  # Not routed (placeholder)
 ```
 
-**Key Features**:
-- **PathBuilder**: Centralized path construction from `config/paths.yaml`
-- **UI Primitives**: `ui.renderToggle()`, `ui.renderSelect()`, `ui.renderSubsection()` etc. in `core/ui.js`
-- **Chart Primitives**: `buildChartLayout()` with presets, smart legend margins, `renderChart()` wrapper
-- **Integrity Caching**: Server caches `data_checker.py` output on startup
-- **Auto-discovery**: Experiments and traits discovered dynamically via API
-
-See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed documentation.
-
-## Customization
-
-### Hiding Experiments
-To hide experiments from the analysis panel picker by default, add names to `HIDDEN_EXPERIMENTS` in `core/state.js`. A "Show N hidden" toggle appears automatically.
-
-### Adding New Experiments
-Experiments are auto-discovered from `experiments/` directory. No code changes needed.
-
-### Styling
-All styles use CSS variables in `styles.css` for light/dark mode support. See **[DESIGN_STANDARDS.md](DESIGN_STANDARDS.md)** for design rules.
-
-### Adding New Views
-1. Create `views/my-view.js` with render function
-2. Load in `index.html`: `<script src="views/my-view.js"></script>`
-3. Add case to router: `case 'my-view': window.renderMyView(); break;`
-4. Add navigation item in sidebar HTML (main nav for global views, analysis panel for analysis views)
-5. **Categorize the view** in `core/state.js`:
-   - Add to `ANALYSIS_VIEWS` if it requires experiment selection (shows analysis panel with experiment picker + trait selector)
-   - Add to `GLOBAL_VIEWS` if it's documentation/standalone (analysis panel stays hidden)
-6. For inference views: add to `INFERENCE_VIEWS` array in `prompt-picker.js` to show prompt picker
-
-**Token slider integration** (for views that need real-time updates):
-- Read current token: `window.state.currentTokenIndex`
-- For shape-only updates: add branch in `updatePlotTokenHighlights()` (prompt-picker.js)
-- For full re-render: add branch calling your render function
-
-See **[ARCHITECTURE.md](ARCHITECTURE.md)** for examples.
-
-## Troubleshooting
-
-### "Failed to load experiments"
-- Ensure you're running a local server (`python visualization/serve.py`)
-- Check that you're in the `trait-interp` directory
-- Verify `experiments/` directory exists
-
-### "No traits found"
-- Check that trait directories have `activations/metadata.json`
-- Verify JSON files are valid (not corrupted)
-- Look at browser console for specific errors (F12)
-
-### Response data won't load
-- Verify JSON files exist in `responses/pos.json` and `responses/neg.json`
-- Check JSON format is valid (not corrupted)
-- Ensure JSON contains `prompt` and `response` fields
-
-### Vector heatmap is blank
-- Verify vector metadata JSON files exist
-- Check that files follow naming convention: `{method}_layer{N}_metadata.json`
-- Ensure JSON contains `vector_norm` field
-
-## Performance Notes
-
-- **Vector loading**: Fetches 4 methods × 27 layers = 108 files per trait
-- **Browser cache**: Refresh (Cmd+R) if data seems stale
-
-## Next Steps
-
-1. **Compare Methods**: Find which extraction method works best for each trait
-2. **Analyze Layers**: Identify which layers capture each trait best
-3. **Evaluate Steering**: Use Steering Sweep to validate vectors via causal intervention
-4. **Generate Monitoring Data**: Run inference scripts for per-token analysis
-
-## Related Documentation
-
-- **[docs/main.md](docs/main.md)** - Main project documentation
-- **[docs/extraction_pipeline.md](docs/extraction_pipeline.md)** - Extraction pipeline
-- **[inference/README.md](inference/README.md)** - Per-token inference and dynamics
+See **[ARCHITECTURE.md](ARCHITECTURE.md)** and **[DESIGN_STANDARDS.md](DESIGN_STANDARDS.md)** for detailed docs.

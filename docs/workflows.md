@@ -13,7 +13,7 @@ Practical guide to common workflows. See referenced files for full options.
 | Extract a new trait | [Extraction](#extraction) |
 | Monitor traits during generation | [Inference](#inference) |
 | Validate vectors work causally | [Steering](#steering) |
-| Compare model variants (base vs IT, clean vs LoRA) | [Model Comparison](#model-comparison) |
+| Compare model variants (base vs IT, clean vs LoRA) | [Model Analysis](#model-analysis) |
 | Test capability preservation with ablation | [Benchmarking](#benchmarking) |
 | Interpret what a vector represents | [Vector Interpretation](#vector-interpretation) |
 | Visualize results | [Visualization](#visualization) |
@@ -121,7 +121,7 @@ python analysis/steering/optimize_vector.py \
 
 ---
 
-## Model Comparison
+## Model Analysis
 
 Compare how different model variants represent traits on identical tokens.
 
@@ -156,7 +156,7 @@ python inference/project_raw_activations_onto_traits.py \
     --model-variant {variant_b} \
     --prompt-set {prompt_set}
 
-# 5. View in visualization → Model Comparison tab
+# 5. View in visualization → Model Analysis tab
 
 # 6. (Optional) Per-token/per-clause diff analysis
 #    Output: model_diff/{a}_vs_{b}/per_token_diff/{trait}/L{layer}/{prompt_set}/
@@ -233,10 +233,10 @@ python visualization/serve.py
 **Views:**
 | View | Purpose |
 |------|---------|
-| Trait Extraction | Best vectors, layer×method heatmaps |
-| Steering Sweep | Coefficient search results, response browser |
+| Extraction | Best vectors, layer×method heatmaps |
+| Steering | Coefficient search results, response browser |
 | Trait Dynamics | Per-token trajectory over layers |
-| Model Comparison | Effect size between variants |
+| Model Analysis | Activation diagnostics, inter-layer similarity, variant comparison |
 | Live Chat | Real-time monitoring with steering |
 
 **Details:** [visualization/README.md](../visualization/README.md)

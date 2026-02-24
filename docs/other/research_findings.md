@@ -28,6 +28,8 @@
 | **Style probes catch style, not content** | 10/10 style behaviors detectable (flattery 75%, self_promotion 100%), 0/4 stance behaviors (anti_ai_regulation 0%) | Fundamental limit — need content/stance probes for content behaviors |
 | **Multi-trait co-firing > single-trait peaks** | hallucinates_citations: retrieval(+0.72) + secondary_objective(+0.76) + performative_confidence(+0.30) co-fire on fabricated citations | Multi-probe signatures more diagnostic than any single probe |
 | **Low mean / high max traits are most diagnostic** | hum/retrieval ranked last by \|mean/std\| (0.08) but max=+0.72 → first detection of citation fabrication | Aggregate stats dominated by shared persona; tails contain organism-specific signal |
+| **Method choice is trait-type dependent** | Probe wins 5/5 behavioral traits, mean_diff wins 5/5 epistemic/emotional (Llama 8B); pattern holds directionally on Qwen 14B | Run both methods, select per trait; behavioral traits need probe, epistemic need mean_diff |
+| **Per-problem correlations reveal hidden signal** | Aggregate r=0.14-0.25 but per-problem rationalization mean r=+0.45, max r=+0.82; 11 traits predict 20.7% cue_p variance | Always check per-item correlations; aggregate pooling across heterogeneous problems attenuates real signal |
 
 ### Experiments Conducted
 - Gemma 2B base/IT (refusal, uncertainty, formality, 24 traits)
@@ -36,7 +38,6 @@
 
 ---
 
-<<<<<<< HEAD
 ## 2026-02-17: Activation Oracle on Sleeper Agent Diffs — Negative Result (4-bit Llama-3.3-70B)
 
 **Question:** Can the Activation Oracle (LatentQA) surface hidden behavioral signal from model-diffing activation differences when guided by trait probe targeting? Specifically: use trait probes to find high-z-score clauses, then ask the AO about those positions.
@@ -96,7 +97,9 @@ On 10 benign prompts (French Revolution, vaccines, water cycle, etc.) with "Can 
 
 **Scripts:** `experiments/audit-bleachers/ao_trait_sweep.py` (Rounds 1-2), inline scripts for Round 3.
 **Data:** `experiments/audit-bleachers/ao_trait_sweep_org_005.json`, `ao_trait_sweep_org_005_v2.json`, `ao_trait_sweep_control.json`, `ao_paper_method_test.json`
-=======
+
+---
+
 ## 2026-02-16: Blind Audit of AuditBench Organisms (Llama 3.3 70B)
 
 **Question:** Can supervised behavioral probes detect hidden misaligned behaviors in finetuned models using only pre-computed activation diffs — no live model access?
@@ -139,7 +142,72 @@ By investigator model: Opus 37%, Haiku 33% — investigation depth (20+ tool cal
 5. **Shared persona dominates aggregate statistics.** PRISM-4 signals occupy the top 3 traits by |mean/std| on all 56 organisms. Organism-specific signal lives in traits ranked 4-10, especially those with low mean but high max/p95.
 
 **Files:** `experiments/audit-bleachers/blind_audit_results.md` (full report), `experiments/audit-bleachers/blind_audit_reports/` (70 investigator reports), `experiments/audit-bleachers/model_diff/` (aggregate deltas, top clauses, per-token diffs).
->>>>>>> c5e06bd (experiments/mats-mental-state-circuits initial commit)
+
+---
+
+## 2026-02-15: Probe vs Mean_diff Method Selection is Trait-Type Dependent (Llama-3.1-8B, Qwen2.5-14B)
+
+**Question:** Is probe universally better than mean_diff for steering, or does optimal method depend on the type of trait?
+
+**Setup:**
+- 14 traits on Llama-3.1-8B (temp_llama_steering_feb18): 8 mental_state traits + eval_awareness, concealment, deception, lying, conflicted, ulterior_motive
+- 11 traits on Qwen2.5-14B (mats-mental-state-circuits): 8 mental_state traits + eval_awareness, concealment, deception
+- Both probe and mean_diff steered across layers 6-18 (Llama) and full layer range (Qwen)
+- Best delta with coherence >= 70 used as ground truth for method selection
+- Manual audit of steered responses to verify genuine trait expression
+
+**Results (Llama-3.1-8B):**
+
+| Trait type | Probe wins | Mean_diff wins | Examples |
+|------------|-----------|----------------|----------|
+| Behavioral | 5 | 0 | deception, lying, obedience, rationalization, agency |
+| Epistemic/emotional | 0 | 5 | confusion, anxiety, curiosity, guilt, eval_awareness |
+
+**Replication on Qwen2.5-14B:** The divide was less stark -- probe clearly won for obedience and rationalization, most others were ties or marginal. The pattern held directionally but the larger model narrowed the gap.
+
+**Key finding:** Method choice is trait-type dependent, not just model-dependent.
+- **Probe wins for behavioral traits** (deception, lying, obedience, rationalization, agency) -- the logistic regression decision boundary captures behavioral switches more sharply
+- **Mean_diff wins for epistemic/emotional traits** (confusion, anxiety, curiosity, guilt, eval_awareness) -- the broader mean direction avoids degenerate collapse into fixed phrases that probe sometimes causes
+- On Llama, probe on epistemic traits often collapsed into repetitive templates ("I take a deep breath and..."), while mean_diff produced authentic, varied expression. Probe's sharper boundary overfit to surface patterns rather than capturing the underlying emotional direction.
+
+**Implication:** When extracting new traits, run both methods and select per trait based on steering + manual audit. Behavioral traits (actions, decisions) likely benefit from probe; epistemic/emotional traits (internal states, feelings) likely benefit from mean_diff.
+
+**Data:** `experiments/temp_llama_steering_feb18/` (Llama), `experiments/mats-mental-state-circuits/` (Qwen). See `PLAN_GPU.md` Session 1 and Session 2 results for full tables.
+
+---
+
+## 2026-02-15: Thought Branches Correlation Analysis -- Per-Problem Signal in Unfaithful CoT (Qwen2.5-14B)
+
+**Question:** Do trait probe projections correlate with cue probability (cue_p) in unfaithful chain-of-thought reasoning? Does the hint that causes unfaithful reasoning reshape internal states even when the CoT text is identical?
+
+**Setup:**
+- Qwen2.5-14B (mats-mental-state-circuits), 11 trait vectors (best steering vector per trait)
+- 27 MMLU problems across 3 conditions: A (hinted + unfaithful CoT), B (unhinted + unfaithful CoT), C (unhinted + faithful CoT)
+- 558 sentences total, per-token trait projections aggregated to sentence-level means
+- Sentence-level Pearson correlations between each trait projection and cue_p (the probability of the cued answer)
+
+**Aggregate correlations are misleadingly small.** Pooling all 558 sentences across 27 heterogeneous problems yields r = 0.14-0.25 for the strongest traits (rationalization r=+0.24, concealment r=+0.25, agency r=-0.24). These explain only 2-6% of variance, which looks unimpressive.
+
+**Per-problem correlations reveal much stronger signal.** When we compute correlations within each problem separately, the picture changes dramatically:
+- **Rationalization:** mean r=+0.45, median r=+0.45, 21/27 problems have r>0.3, 11 have r>0.5 (max r=+0.82)
+- **Agency:** mean r=-0.37, 20/27 problems have r<-0.3
+- Every problem has at least one trait with |r|>0.38
+
+The aggregate attenuation happens because different problems have different trait-cue_p relationships, different cue_p ranges, and different difficulty levels. Pooling across them washes out per-problem signal.
+
+**Multivariate prediction:** All 11 traits together predict 20.7% of cue_p variance (R^2=0.21, condition B). Unique contributors after controlling for other traits: obedience, anxiety, concealment, deception. Rationalization's unique contribution is modest (partial r=+0.08) despite being the strongest zero-order correlate -- its signal is partially shared with other traits.
+
+**Trait independence:** Rationalization is the most independent direction (66% unique variance, R^2=0.34 from other traits). Confusion is the most redundant (R^2=0.86 from others, nearly fully reconstructible from the remaining 10 traits).
+
+**Hint effect dominates CoT content:**
+- A vs B (same unfaithful CoT, with vs without hint): 10/11 traits significant, Cohen's d up to 3.3. The hint reshapes internal states massively even when the surface CoT text is identical.
+- B vs C (unhinted unfaithful vs unhinted faithful CoT): only 3/11 traits significant at p<0.05. The probes mostly detect whether the model received a hint, not whether the reasoning text itself is faithful or unfaithful.
+
+**Temporal dynamics:** Trait projections show smooth drift correlated with cue_p, not sharp event-locked responses at cue_p jump points (>0.2 delta).
+
+**Implication:** Aggregate correlation metrics understate real probe-behavior relationships when data spans heterogeneous problems. Always check per-item correlations. For unfaithful CoT detection, probes are sensitive to the hint manipulation (the cause) more than the unfaithful text (the symptom) -- consistent with probes detecting internal states rather than surface text patterns.
+
+**Data:** `experiments/mats-mental-state-circuits/analysis/thought_branches/`. See `docs/viz_findings/thought-branches-analysis.md` for full writeup.
 
 ---
 

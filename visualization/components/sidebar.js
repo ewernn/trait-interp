@@ -263,7 +263,7 @@ function updatePageTitle() {
         'overview': 'Overview',
         'extraction': 'Extraction',
         'steering': 'Steering',
-        'trait-dynamics': 'Trait Dynamics',
+        'trait-dynamics': 'Inference',
         'correlation': 'Correlation',
         'model-analysis': 'Model Analysis',
         'layer-dive': 'Layer Deep Dive'

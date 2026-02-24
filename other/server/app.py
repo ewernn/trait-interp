@@ -97,7 +97,7 @@ class SteeringEvalRequest(BaseModel):
     traits: List[str]  # ["mental_state/anxiety", "alignment/deception"]
     model_variant: str
     extraction_variant: str
-    # Defaults match CLI (analysis/steering/evaluate.py argparse)
+    # Note: CLI default is "30%-60%" (dynamic), server requires explicit layers
     layers: List[int] = [15, 20, 25, 30]
     subset: int = 5
     max_new_tokens: int = 64
@@ -160,7 +160,7 @@ def load_model_endpoint(
 @app.post("/model/save")
 def save_model_endpoint():
     """Save loaded model to cache for fast reload (skips from_pretrained)."""
-    from utils.model import save_model_cache
+    from utils.moe import save_model_cache
     model, tokenizer = get_model()
     cache_dir = save_model_cache(model, tokenizer, _model_name)
     return {"status": "saved", "cache_dir": str(cache_dir)}
@@ -435,8 +435,9 @@ def memory_profile(req: MemoryProfileRequest):
     Returns per-GPU memory at each stage: baseline, post-prefill, during MoE,
     post-generation. Also captures per-layer MoE dequant memory deltas.
     """
-    import utils.model as model_utils
-    from utils.generation import generate_batch, get_free_vram_gb, calculate_max_batch_size
+    import utils.moe as moe_utils
+    from utils.generation import generate_batch
+    from utils.vram import get_free_vram_gb, calculate_max_batch_size
 
     model, tokenizer = get_model()
     n_gpus = torch.cuda.device_count()
@@ -460,7 +461,7 @@ def memory_profile(req: MemoryProfileRequest):
             }
 
         # 2. Enable MoE profiling
-        model_utils._moe_profile = []
+        moe_utils._moe_profile = []
 
         # 3. Run generation
         try:
@@ -474,8 +475,8 @@ def memory_profile(req: MemoryProfileRequest):
             responses = None
             error = str(e)
         finally:
-            moe_snapshots = model_utils._moe_profile
-            model_utils._moe_profile = None
+            moe_snapshots = moe_utils._moe_profile
+            moe_utils._moe_profile = None
 
         # 4. Post-generation stats
         post = {}

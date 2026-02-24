@@ -19,6 +19,7 @@
 
 ### Extraction (FP8 Base, TP)
 - 11 traits with 56 vectors each (kimi_k2_base variant, unvetted except anxiety)
+- Layers 9-36 (28 layers), probe + mean_diff methods = 56 vectors per trait
 - Vectored: anxiety, confidence, guilt, rationalization, obedience, eval_awareness, deception, lying, concealment, conflicted, ulterior_motive
 
 ### Steering (INT4 Thinking, pipeline parallel, probe method)

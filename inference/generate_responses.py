@@ -35,7 +35,8 @@ from tqdm import tqdm
 
 from utils.model import format_prompt, load_model_with_lora, tokenize, tokenize_batch
 from utils.json import dump_compact
-from utils.generation import generate_batch, calculate_max_batch_size
+from utils.generation import generate_batch
+from utils.vram import calculate_max_batch_size
 from utils.paths import get as get_path, get_model_variant, load_experiment_config
 from transformers import AutoModelForCausalLM, AutoTokenizer
 

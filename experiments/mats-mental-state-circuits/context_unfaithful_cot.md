@@ -8,7 +8,7 @@ Everything needed to continue the Thought Branches activation-level analysis exp
 
 Can behavioral probes trained on simple conversational scenarios detect and explain unfaithful reasoning in reasoning models? The Thought Branches paper (Macar et al., arXiv 2510.27484) showed that authority hints ("Stanford professor thinks X") create subtle, diffuse, cumulative bias in CoT reasoning — each sentence slightly biased, accumulating to large final bias, with 100% unfaithful CoT (zero evidence of bias in explicit reasoning). They established this entirely at the behavioral level (resampling output distributions). Nobody has looked at it mechanistically — what do activations look like during nudged reasoning?
 
-**Headline claim:** Probes detect unfaithful CoT that text monitors miss, and approximate expensive resampling (~4000 forward passes) in a single forward pass.
+**Headline claim (revised):** Probes detect cross-problem differences in bias susceptibility and distinguish biased from faithful CoT at the whole-response level. The within-problem temporal correlation (r=0.45) is spurious — driven by shared position trend, drops to ~0 after detrending. The real signal is cross-problem and cross-condition, not within-problem temporal tracking.
 
 ---
 
@@ -97,8 +97,10 @@ For each of 27 problems, capture activations during prefill of:
 | Condition | Prompt | CoT | What It Tests |
 |---|---|---|---|
 | **A** (hinted + unfaithful) | `question_with_cue` | `reasoning_text` | Full original setting — hint present, biased reasoning |
-| **B** (unhinted + unfaithful) | `question` | `reasoning_text` | Transplant condition — biased text without hint. Has behavioral ground truth (`cue_p`). |
-| **C** (unhinted + faithful) | `question` | `base_gt_reasoning_text` | Clean baseline — no hint, correct reasoning |
+| **B** (unhinted + unfaithful) | `question` | `reasoning_text` | **Same CoT text as A** (generated under professor hint influence), but with hint removed from prompt. Has behavioral ground truth (`cue_p` from sentence transplant resampling). |
+| **C** (unhinted + faithful) | `question` | `base_gt_reasoning_text` | Independent rollout from unhinted prompt that happened to give correct answer. Never saw any hint. |
+
+**Important:** A and B share the exact same CoT text — it was generated with the professor hint present (condition A), then the hint was stripped from the prompt for condition B. C is a completely separate generation from an unhinted prompt, selected for arriving at the correct answer. The `cue_p` ground truth comes from the Thought Branches transplant procedure: sentences 0..i from B's CoT are transplanted onto fresh unhinted completions, measuring how much the biased reasoning nudges the model toward the cued answer.
 
 Total: 3 × 27 = 81 forward passes. All 27 problems have cue_p ground truth.
 
@@ -248,7 +250,7 @@ Pipeline vetting (stage 2) will catch any scenarios that fail on the actual extr
 
 ### Key Design Consideration
 
-In **condition B** (the money condition with cue_p ground truth), there's NO hint in the prompt. The model is just processing biased text. Probes that fire in B detect properties of the **text itself** (biased reasoning), not the authority signal. The A vs B comparison reveals whether the hint leaves its own activation trace.
+In **condition B** (the key condition with cue_p ground truth), there's NO hint in the prompt — just the professor-influenced CoT text from condition A pasted after an unhinted prompt. Probes that fire in B detect properties of the **text itself** (biased reasoning), not the authority signal. The A vs B comparison reveals whether the hint leaves its own activation trace beyond what's already in the CoT text.
 
 ### Analysis Approach
 
@@ -260,12 +262,12 @@ Use best steering layer per trait. Different traits peak at different layers, gi
 
 ## Six Claims — Status
 
-1. ✅ **"Probes detect unfaithful CoT that text monitors miss"** — DONE but complicated. Probes fire, but A vs B shows they mostly detect the hint context, not the reasoning quality (B vs C is weak: 3/11 traits at p<0.05). Reframe: probes detect the *cause* of unfaithfulness (authority signal in context) rather than the *symptom* (biased text).
-2. ✅ **"Per-token probes approximate resampling at fraction of cost"** — DONE. Rationalization correlates r=+0.45 per-problem with cue_p. One forward pass vs ~4000. 11 traits together predict 21% of cue_p variance.
-3. ⬜ **"Different unfaithful CoTs have different behavioral fingerprints"** — NOT STARTED. Needs other hint types beyond "Stanford professor" (e.g., resume bias, demographic priming). Would require generating new data with different bias sources.
-4. ⬜ **"Bias appears at activation level before text level"** — NOT DONE. Check: do probes already show bias at sentence 1 (before cue_p rises)? The data exists — compare condition B probe values at early sentences vs late. Could be done without GPU.
-5. ⬜ **"Steering against detected direction fixes unfaithful CoT"** — NOT DONE. Steer against rationalization/obedience during live generation on hinted prompts. If model gets correct answer, that's causal validation. Requires GPU.
-6. ⬜ **"Probes reveal computational mechanism behind nudging"** — NOT DONE. Partially addressed: the hint reshapes 10/11 traits (claim 1 data). But need to identify *what* the hint does — is it deference to authority? Suppressed doubt? The B-A diff data is saved but not analyzed for its own principal directions.
+1. ✅ **"Probes detect unfaithful CoT that text monitors miss"** — DONE but complicated. B vs C whole-response: 4/11 traits significant (deception d=-0.72 p=0.001, guilt d=-0.51 p=0.014, curiosity d=-0.49 p=0.017, rationalization d=-0.44 p=0.029). **Counterintuitive directions:** biased CoT shows LESS deception/guilt/rationalization — consistent with passive influence rather than active engagement. Reframe: probes detect the *quality* of reasoning (effortful vs path-of-least-resistance).
+2. ⚠️ **"Per-token probes approximate resampling at fraction of cost"** — **WEAKENED.** Raw correlation r=+0.45 per-problem is almost entirely driven by shared position trend. After detrending (removing linear trend from both signals), rationalization drops to r=-0.012. First-difference correlation also near zero. The 21% R² is similarly inflated. **What IS real:** cross-problem mean trait projections predict cue_p trajectory features (rationalization↔early_cue r=+0.58, rationalization↔max_jump r=-0.59). Probes discriminate *between* problems, not *within* them.
+3. ✅ **"Different unfaithful CoTs have different behavioral fingerprints"** — PARTIALLY DONE within-dataset. Two clusters identified via hierarchical clustering on trait fingerprints: passive-drift (concealment/confusion, 8-11 problems) vs active-rationalization (rationalization/guilt-suppression, 16-19 problems). Cross-bias-source comparison still needs different hint types.
+4. ✅ **"Bias appears at activation level before text level"** — DONE but weak. B vs C at sentences 0-2: confusion d=+0.39 p=0.014, obedience d=+0.35 p=0.028, confidence d=-0.35 p=0.028. Borderline after Bonferroni. **Caveat:** may be driven by same position trend — needs recheck with detrending.
+5. ⬜ **"Steering against detected direction fixes unfaithful CoT"** — NOT DONE. Requires GPU.
+6. ⬜ **"Probes reveal computational mechanism behind nudging"** — NOT DONE. B-A diff data exists (`mmlu_b_minus_a` prompt set created, 297 projection files). PCA on B-A diffs to find "hint influence" direction still todo.
 
 ---
 
@@ -321,19 +323,35 @@ All scenario datasets validated and iterated to 90%+ on Llama-3.1-8B. Steering.j
 - Condition C (faithful CoT) skipped — different text, no cue_p ground truth.
 
 ### Done (analysis) — results in `analysis/thought_branches/`
-- ✅ Per-problem cue_p correlations (`per_problem_correlations.json`) — rationalization mean r=+0.45, agency r=-0.37
-- ✅ Comprehensive analysis (`comprehensive_analysis.json`) — regression, partial correlations, trait-trait matrix, quartile correlations, multivariate cue_p prediction (R²=0.21)
-- ✅ Jump-triggered averages (`jump_triggered_averages.json`) — no sharp event-locked responses, signal is smooth drift
+- ✅ Per-problem cue_p correlations (`per_problem_correlations.json`) — rationalization mean r=+0.45, agency r=-0.37. **⚠️ Spurious after detrending — see Critical Finding below.**
+- ✅ Comprehensive analysis (`comprehensive_analysis.json`) — regression, partial correlations, trait-trait matrix, quartile correlations, multivariate cue_p prediction (R²=0.21). **⚠️ R² inflated by shared trend.**
+- ✅ Jump-triggered averages (`jump_triggered_averages.json`) — agency collapses 98% at cue_p jumps, **but this is generic CoT pattern, not bias-specific** (same U-shape in condition C).
 - ✅ B minus A activation diffs (`b_minus_a_trait_projections.json`) — per-token, all 11 traits, not yet analyzed in detail
-- ✅ Full findings writeup: `docs/viz_findings/thought-branches-analysis.md`
-- ✅ Temporal cross-correlations (`temporal_cross_correlations.json`) — confusion→rationalization→eval_awareness temporal ordering. Most pairs synchronous.
-- ✅ Early bias detection (`early_bias_detection.json`) — B vs C at sentences 0-2: confusion d=+0.39 p=0.014, obedience d=+0.35 p=0.028, confidence d=-0.35 p=0.028. Borderline after Bonferroni.
-- ✅ Trait fingerprints (`trait_fingerprints.json`) — two clusters: concealment/agency-driven (11 problems) vs rationalization/guilt-driven (16 problems). Same cue_p trajectories, different mental state paths.
+- ✅ B-A diff prompt set (`mmlu_b_minus_a`) — 297 projection files + 27 response files, viewable in frontend. Created by `scripts/compute_condition_diffs.py`.
+- ✅ Full findings writeup: `docs/viz_findings/thought-branches-analysis.md` — **needs update with detrending caveat**
+- ✅ Temporal cross-correlations (`temporal_cross_correlations.json`) — confusion→rationalization→eval_awareness temporal ordering. Most pairs synchronous. **⚠️ Temporal ordering may be artifact of shared trend.**
+- ✅ Early bias detection (`early_bias_detection.json`) — B vs C at sentences 0-2: confusion d=+0.39 p=0.014, obedience d=+0.35 p=0.028, confidence d=-0.35 p=0.028. Borderline after Bonferroni. Needs recheck with position control.
+- ✅ Trait fingerprints (`trait_fingerprints.json`) — two clusters persisted with `cluster_assignments` and `cluster_centroids`. Cluster composition varies by cut threshold (8/19 or 11/16 split).
+- ✅ Additional analyses (`scripts/additional_analyses.py`) — B vs C quintile trajectories, cumulative vs instantaneous signal, max vs mean aggregation, agency↔cue_p cross-correlation, clustering.
 
 ### Done (multi-layer capture)
 - ✅ Raw activations captured at 24 layers (0-46 step 2) × 3 conditions × 27 problems on A100
 - ✅ Projected onto all 11 traits at all 24 layers
 - ✅ Layer sweep analysis (`analyze_layer_sweep.py`) — finds optimal reading layer per trait via cue_p correlation
+- ✅ Inter-layer cosine similarity baked into `massive_activations.py` — any future run automatically includes it
+- ✅ Loud warning added to `project_raw_activations_onto_traits.py` when layers are silently skipped (prints missing layers + exact extraction command to fix)
+
+### `--layers` behavior clarification
+- `--layers best+5` means ONE layer: `best_steering_layer + 5`. Not "best and best+5."
+- If you pass `--layers 10,16,20,...` but vectors don't exist at some layers, those layers get skipped. Previously silent — now prints a warning with the exact `extraction/run_pipeline.py` command to extract missing vectors.
+- For N-layer projections, you need vectors extracted at all N layers first:
+  ```bash
+  python extraction/run_pipeline.py --experiment mats-mental-state-circuits \
+      --only-stage 3,4 --layers 10,16,20,24,28,32,36,40,42,44
+  python inference/project_raw_activations_onto_traits.py \
+      --experiment mats-mental-state-circuits --prompt-set {prompt_set} \
+      --layers 10,16,20,24,28,32,36,40,42,44
+  ```
 
 ### Layer Sweep Results (optimal reading layer per trait)
 
@@ -357,34 +375,33 @@ Best+5 heuristic was wrong for most traits. Optimal layers by cue_p correlation:
 
 ---
 
-## Next Steps — 30-min Tasks (all local, no GPU)
+## Next Steps — Prioritized
 
-### Priority 1: Core analyses (scripts to write + run)
-1. **Re-run temporal circuits at optimal layers.** Update `analyze_temporal_circuits.py` to read from multi-layer projection files, pick optimal layer per trait from `layer_sweep.json` (excluding layers 0-4, 44-47). Re-run all 3 analyses. May sharpen confusion→rationalization→eval_awareness ordering.
-2. **Vertical circuits — cross-layer emergence.** For each problem × trait, plot cue_p correlation across all 24 captured layers. At what layer does each trait's correlation first become significant? Do primitives (confusion, anxiety) emerge at earlier layers than composites (rationalization, eval_awareness)? If confusion peaks at L16 and rationalization at L28, and confusion *decreases* after L20, that's a vertical circuit.
-3. **B-A hint effect temporal analysis.** `b_minus_a_trait_projections.json` (5.1MB) has per-token diffs. Plot how hint's activation-level effect evolves across CoT per trait, mean across 27 problems. Does it decay, persist, or grow? If hint effect decays but cue_p rises → bias fully text-mediated.
-4. **Multi-probe coincidence detection.** Find tokens where ≥3 traits simultaneously cross 1σ from their mean. Are these "state transition" tokens? Do they cluster at sentence boundaries or cue_p jumps?
-5. **Answer-token probe profile.** At the "(D" or "(B" commitment token near end of CoT, what do all 11 probes read? Compare B (wrong) vs C (correct) across 27 problems. Paired t-test per trait.
+### Priority 1: LLM sentence annotation (highest value — unlocks position-independent analysis)
+1. **Annotate all 27×2 problems (B+C) with 7-category taxonomy.** Use Claude/GPT-4o. Include valence and which_option metadata on evaluate. This unlocks the key test: do probes fire differently on different reasoning functions after controlling for sentence position?
+2. **Probe × category analysis.** For each trait, compare mean projection across categories (controlling for position). If rationalization fires more on `reframe` sentences regardless of where they appear, that's real signal immune to the detrending concern.
+3. **B vs C category distribution comparison.** Does biased CoT have more `evaluate(mild+, cued_answer)` and more `evaluate(mild-, correct_answer)` than faithful CoT? Quantify asymmetry.
 
-### Priority 2: LLM annotation (new approach)
-6. **LLM-annotate reasoning steps.** Classify each sentence in all 27 CoTs by reasoning type: eliminating option, introducing new framing, expressing uncertainty, self-correction, committing to answer, hedging. Correlate with probes + cue_p for three-way validation. Unfaithful CoT first, then Kimi. No GPU needed, just API calls.
+### Priority 2: Analyses that survive detrending (no GPU needed)
+4. **B-A hint effect analysis.** The `mmlu_b_minus_a` prompt set (297 files) has per-token diffs. How does the hint change activations at each token? Does the effect decay over the CoT (hint wears off) or persist? This is cross-condition, not within-problem temporal, so immune to trend confound.
+5. **B-A PCA.** PCA on B-A diffs to find the "hint influence" direction. Is it aligned with any existing trait vectors?
+6. **Cross-problem deep dive.** Rationalization predicts early_cue (r=0.58) — which problems drive this? Is it the cluster structure? What about problems where probes predict well vs poorly?
 
-### Priority 3: Additional analyses
-7. **CMA-ES direction optimized for cue_p.** Adapt `analysis/steering/optimize_vector.py` fitness function to maximize cue_p correlation instead of steering. Upper bound on single-direction prediction. If optimized direction has high cosine similarity with rationalization probe, validates the probe. No GPU — just dot products.
-8. **B-A PCA / hint direction.** PCA on B-A diffs to find "hint influence" direction.
-9. **Phase portraits.** 2D trajectory (e.g., confusion×rationalization) colored by token position. Skip visual inspection — just plot all 27 problems programmatically.
+### Priority 3: GPU session (in progress)
+7. **Multi-layer recapture.** Capturing raw activations at layers 10,16,20,24,28,32,36,40 for all 3 conditions. Then project onto trait vectors. This gives 8 layers per projection file (vs current 1). **Status: in progress on A100.**
+8. **Extended steering eval.** Layers 30-38 for all traits. **Status: running on A100.**
+9. **Massive activations.** Done — 5 consistent dims, calibration.json saved. Inter-layer cosine similarity now auto-computed.
+10. **Vertical circuits.** Once multi-layer projections are back: at what layer does each trait's cross-problem signal first become significant? Immune to within-problem trend since it's cross-problem at each layer.
+11. **Cosine dip ↔ steering layer correlation.** Do consecutive inter-layer cosine similarity dips coincide with best steering layers? If so, that's evidence we're intervening where the model makes decisions.
 
-### Statistical (after task 1 re-projection)
-10. **Change point detection (PELT).** `ruptures` library for regime shifts per trait trajectory.
-11. **Granger causality.** VAR model, tests if trait A's history predicts trait B's future.
-12. **Within-problem B vs C divergence trajectory.** Token-by-token distance in 11-d trait space.
-
-### GPU needed
-13. **Claim 5 — steering intervention.** Steer against rationalization/obedience during live generation on hinted prompts.
-14. **Train hint-contrast probes.** A vs B activations as contrastive pairs → "hint influence" vector.
+### Priority 4: Additional analyses
+11. **Answer-token probe profile.** All 11 probes at commitment token, B vs C. Cross-condition comparison, survives detrending.
+12. **Multi-probe coincidence detection.** Tokens where ≥3 traits cross 1σ. Interesting but may be confounded by position trend.
+13. **CMA-ES direction optimized for cue_p.** Upper bound on cross-problem prediction.
 
 ### Needs new data
-15. **Claim 3 — cross-bias fingerprints.** Different bias sources beyond "Stanford professor."
+14. **Claim 5 — steering intervention.** Steer against rationalization/obedience during live generation on hinted prompts.
+15. **Cross-bias fingerprints.** Different bias sources beyond "Stanford professor."
 
 ---
 
@@ -406,6 +423,81 @@ Sriram is investigating emergent misalignment from combined fine-tuning datasets
 
 ---
 
+## Critical Finding: Detrending Kills Within-Problem Correlations
+
+The r=0.45 correlation between rationalization projections and cue_p within problems is **spurious**. Both signals share a monotonic trend (both increase over the course of the CoT). After removing the linear position trend, ALL 11 trait correlations drop to near zero:
+
+| Trait | Raw r | Detrended r | First-diff r |
+|---|---|---|---|
+| rationalization | +0.434 | -0.012 | -0.011 |
+| agency | -0.334 | -0.042 | -0.018 |
+| concealment | +0.287 | -0.026 | +0.069 |
+| deception | +0.262 | -0.016 | +0.084 |
+| anxiety | -0.234 | -0.117 | -0.055 |
+| confidence | -0.225 | +0.003 | -0.066 |
+| guilt | -0.202 | -0.083 | -0.011 |
+| obedience | -0.158 | -0.004 | +0.067 |
+| curiosity | +0.113 | -0.023 | +0.042 |
+| confusion | +0.069 | +0.065 | +0.109 |
+| eval_awareness | +0.198 | +0.003 | +0.060 |
+
+The cumulative r=0.775 is even more spurious — null baseline (random noise cumulative mean vs cue_p) is 0.459.
+
+**What IS real (survives detrending / immune to trend confound):**
+- **Cross-problem:** rationalization mean projection predicts early_cue (r=+0.58) and max_jump (r=-0.59). One number per problem, no trend issue.
+- **B vs C whole-response:** deception d=-0.72 (p=0.001), guilt d=-0.51, curiosity d=-0.49, rationalization d=-0.44. Biased CoT shows LESS of these traits — passive influence, not active engagement.
+- **Clusters:** Two paths to unfaithfulness persist as cross-problem structure.
+- **Agency trajectory is generic:** Same U-shape in condition C (faithful CoT). Not bias-specific.
+
+**Implication:** Probes discriminate between problems and between conditions, but do NOT track within-problem sentence-level dynamics. The next frontier is sentence-level annotation to test whether probes fire differently on different reasoning *functions* (e.g., evaluate vs reframe) regardless of position.
+
+---
+
+## Steering Results (instruct model, coherence ≥ 70)
+
+| Trait | Delta | Coh | Layer | Method | Coeff |
+|---|---|---|---|---|---|
+| deception | +78.2 | 85% | L28 | mean_diff | 128.7 |
+| eval_awareness | +55.3 | 71% | L24 | mean_diff | 100.3 |
+| obedience | +48.2 | 77% | L16 | probe | 120.6 |
+| guilt | +44.2 | 71% | L18 | probe | 126.1 |
+| agency | +37.0 | 76% | L21 | mean_diff | 101.2 |
+| concealment | +23.7 | 73% | L16 | probe | 83.0 |
+| confusion | +21.2 | 73% | L19 | mean_diff | 98.1 |
+| anxiety | +18.8 | 77% | L15 | mean_diff | 89.5 |
+| rationalization | +16.0 | 85% | L27 | probe | 69.2 |
+| curiosity | +15.0 | 81% | L20 | mean_diff | 86.8 |
+| confidence | +15.4 | 77% | L22 | probe | 93.2 |
+
+Steering only tested up to L28 for most traits. Extended steering eval at L30-38 in progress on GPU.
+
+---
+
+## Sentence Annotation Taxonomy (7 categories — LOCKED IN)
+
+Developed through 4 critic agents (reading 13 problems each) + 5 Opus annotators (trial labeling). Designed for MMLU multiple-choice CoT reasoning, optimized to distinguish biased from faithful reasoning.
+
+**Categories (primary label, one per sentence):**
+1. **setup** — restating question, listing options, meta-reasoning about approach
+2. **recall** — retrieving a fact or definition
+3. **evaluate** — analyzing an option (metadata: valence strong+/mild+/neutral/mild-/strong-, which_option A/B/C/D)
+4. **reframe** — introducing new interpretive lens that changes how options are assessed (e.g., "but in common language...")
+5. **compare** — weighing multiple options against each other
+6. **uncertainty** — hedging, doubt, backtracking
+7. **commit** — converging on answer (distinguish internal commit vs formulaic final answer)
+
+**Dropped:** `dismiss` and `endorse` (merged into evaluate with graduated valence — bias operates through subtle valence asymmetry, not blunt endorsement). `confabulated` flag (too rare, unreliable). `plan` (near-zero frequency).
+
+**Document-level annotation:** `asymmetric` — computed post-hoc from evaluate valence distribution per option.
+
+**Key design insight:** Bias in MMLU CoT operates through subtle valence asymmetry in evaluation sentences (evaluate mild+ for cued answer, evaluate mild- for correct answer), NOT through blunt endorsement/dismissal or fabricated facts. The `reframe` category captures the mechanistically important sentences (e.g., the cue_p jump in problem 715 at sentence 21).
+
+**Predictions to test:** Rationalization probe fires more on `reframe` and `evaluate(strong+)` for cued answer. Confusion fires on `uncertainty`. These predictions tested with position as a covariate would survive the detrending concern.
+
+**Status:** 3/5 trial annotations completed (problems 715, 26, 804). `evaluate` dominates (~50% of sentences). `reframe` and `uncertainty` are rare but mechanistically important. Full annotation run on all 27×2 problems (B+C) not yet done.
+
+---
+
 ## Open Questions (resolved + unresolved)
 
 - ~~Do we need probes extracted specifically on Qwen-14B?~~ RESOLVED — yes, extracted on Qwen2.5-14B base.
@@ -415,7 +507,13 @@ Sriram is investigating emergent misalignment from combined fine-tuning datasets
 - B vs C comparison is weak (3/11 traits at p<0.05). Probes mostly detect the hint context, not the reasoning quality. Reframe as: probes detect the *cause* of unfaithfulness rather than its *symptoms*.
 - **Layer selection:** best+5 heuristic was wrong. 5/11 traits peak at edge layer (L46). Need to either capture L47 or restrict analysis to layers 6-42.
 - **Normalized mode offset:** RESOLVED — not a bug. Special tokens (BOS, role markers) have 5-10x larger activations (attention sinks/scratch space). In Normalized mode (divide by mean norm), these dominate the y-axis. Fixed: y-axis auto-range now skips first 4 tokens. But **Cosine mode is the correct metric** for this use case — divides each token by its own norm, canceling magnitude.
-- **Single-problem per-token signal:** Too noisy to see visually. Problem 715 cosine traces show no convincing level shift at sentence 21 (cue_p jump point) even at smooth=25. The r=0.45 correlation only emerges statistically across 27 problems aggregated. Lead with stats, not pretty single-problem plots.
+- **Single-problem per-token signal:** Too noisy to see visually. Problem 715 cosine traces show no convincing level shift at sentence 21 (cue_p jump point) even at smooth=25. **And the within-problem correlation is spurious after detrending.** The signal is cross-problem and cross-condition, not within-problem temporal.
 - **Multi-layer frontend:** Fixed — when Layers mode is off, frontend picks single layer closest to best_steering + floor(0.1 * num_layers) instead of expanding all 24 layers.
 - **Token slider overlay:** Fixed — was wiping all Plotly shapes (including cue_p sentence boundaries) on slider drag. Now stores base shapes on DOM element via `_baseShapes`.
-- **Two mental state paths (clusters):** Cluster 1 (11 problems): concealment +0.49, agency -0.49, confusion +0.35, low early cue_p (0.18) — passive drift while confused. Cluster 2 (16 problems): rationalization +0.50, guilt -0.35, obedience -0.31, higher early cue_p (0.38) — active rationalization with suppressed doubt. Same late cue_p (~0.96). Problem 715 = Cluster 1, Problem 26 = Cluster 2.
+- **Two mental state paths (clusters):** Cluster assignments persisted in `trait_fingerprints.json`. Composition varies by cut threshold (Ward's linkage, k=2). Most discriminating traits: confusion, guilt, confidence.
+- **⚠️ Within-problem temporal correlations are spurious.** All 11 traits drop to r≈0 after detrending. Cumulative signal (r=0.775) has null baseline of 0.459. Agency collapse (98% drop) is generic CoT pattern (same in condition C). This is the most important methodological finding from this project.
+- **B vs C directions are counterintuitive.** Biased CoT shows LESS deception, guilt, curiosity, rationalization than faithful CoT. Consistent with passive influence (path of least resistance) vs active engagement (effortful reasoning).
+- **Bias mechanism is subtle valence asymmetry.** Not blunt endorsement/dismissal/confabulation. Biased CoT evaluates cued answer mildly positively and correct answer mildly negatively. Detected by reading actual responses across 13 problems.
+- **Uncertainty may be higher in biased CoT.** Reversed from initial prediction — model hedges more when justifying a less obvious answer.
+- **Current projections use suboptimal layers.** Single-layer files at old best+5 heuristic, not the optimal reading layers from layer_sweep. Multi-layer recapture in progress on GPU.
+- **Thought Anchors paper (arXiv 2506.19143):** Same group (interp-reasoning), same model (DeepSeek-R1-Distill-Qwen-14B). 8-category math taxonomy + GPT-4o auto-labeling. Their linear probe on L47 gets F1=0.71 for sentence category classification — but doesn't control for lexical confounds.

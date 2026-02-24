@@ -64,6 +64,10 @@ const state = {
     spanScope: 'current',      // 'current' or 'allPrompts'
     spanMode: 'window',        // 'window' or 'clauses'
     spanPanelOpen: false,      // Whether the Top Spans panel is expanded
+    traitHeatmapOpen: false,   // Whether the Trait × Token heatmap is expanded
+    // Sentence overlay toggles (thought branches)
+    showCuePOverlay: true,       // cue_p gradient bands (default on, was always-on)
+    showCategoryOverlay: false,  // sentence category bands
     // Layer mode: show single trait across all available layers
     layerMode: false,
     layerModeTrait: null,  // trait.name string, reset on experiment change
@@ -73,6 +77,8 @@ const state = {
     showAllExperiments: false,
     // Prompt set sidebar (left panel for inference views)
     promptSetSidebarOpen: false,
+    // Layout mode
+    wideMode: false,
     // Last selected analysis view (for Analysis entry point)
     lastAnalysisView: 'extraction'
 };
@@ -91,6 +97,23 @@ function getFilteredTraits() {
 // =============================================================================
 
 // Smoothing Management
+function initWideMode() {
+    const saved = localStorage.getItem('wideMode');
+    state.wideMode = saved === 'true';
+}
+
+function setWideMode(enabled) {
+    state.wideMode = !!enabled;
+    localStorage.setItem('wideMode', state.wideMode);
+    // Toggle class on existing tool-view without full re-render
+    const toolView = document.querySelector('.tool-view');
+    if (toolView) {
+        toolView.classList.toggle('wide-mode', state.wideMode);
+        // Trigger Plotly resize for responsive charts
+        window.dispatchEvent(new Event('resize'));
+    }
+}
+
 function initSmoothing() {
     const saved = localStorage.getItem('smoothingEnabled');
     state.smoothingEnabled = saved === null ? true : saved === 'true';
@@ -105,7 +128,7 @@ function setSmoothing(enabled) {
 }
 
 function setSmoothingWindow(size) {
-    state.smoothingWindow = Math.max(1, Math.min(10, parseInt(size) || 5));
+    state.smoothingWindow = Math.max(1, Math.min(25, parseInt(size) || 5));
     localStorage.setItem('smoothingWindow', state.smoothingWindow);
     if (window.renderView) window.renderView();
 }
@@ -208,6 +231,7 @@ function initSpanState() {
     const savedLength = localStorage.getItem('spanWindowLength');
     state.spanWindowLength = savedLength ? parseInt(savedLength) : 10;
     state.spanPanelOpen = localStorage.getItem('spanPanelOpen') === 'true';
+    state.traitHeatmapOpen = localStorage.getItem('traitHeatmapOpen') === 'true';
     state.spanScope = localStorage.getItem('spanScope') || 'current';
     state.spanMode = localStorage.getItem('spanMode') || 'window';
 }
@@ -231,6 +255,30 @@ function setSpanMode(mode) {
 function setSpanPanelOpen(open) {
     state.spanPanelOpen = !!open;
     localStorage.setItem('spanPanelOpen', state.spanPanelOpen);
+}
+
+function setTraitHeatmapOpen(open) {
+    state.traitHeatmapOpen = !!open;
+    localStorage.setItem('traitHeatmapOpen', state.traitHeatmapOpen);
+}
+
+// Sentence Overlay Toggles
+function initSentenceOverlays() {
+    const savedCueP = localStorage.getItem('showCuePOverlay');
+    state.showCuePOverlay = savedCueP === null ? true : savedCueP === 'true';
+    state.showCategoryOverlay = localStorage.getItem('showCategoryOverlay') === 'true';
+}
+
+function setShowCuePOverlay(enabled) {
+    state.showCuePOverlay = !!enabled;
+    localStorage.setItem('showCuePOverlay', state.showCuePOverlay);
+    if (window.renderView) window.renderView();
+}
+
+function setShowCategoryOverlay(enabled) {
+    state.showCategoryOverlay = !!enabled;
+    localStorage.setItem('showCategoryOverlay', state.showCategoryOverlay);
+    if (window.renderView) window.renderView();
 }
 
 // Hide Attention Sink Toggle
@@ -722,6 +770,7 @@ async function init() {
 
     // Initialize preferences
     window.initTheme();
+    initWideMode();
     initSmoothing();
     initProjectionCentered();
     initProjectionMode();
@@ -732,6 +781,7 @@ async function init() {
     initLastCompareVariant();
     initSpanState();
     initHideAttentionSink();
+    initSentenceOverlays();
     initSelectedMethods();
 
     // Setup UI
@@ -783,6 +833,7 @@ window.isFeatureEnabled = isFeatureEnabled;
 window.initApp = init;
 
 // Preference setters
+window.setWideMode = setWideMode;
 window.setSmoothing = setSmoothing;
 window.setSmoothingWindow = setSmoothingWindow;
 window.setProjectionCentered = setProjectionCentered;
@@ -800,6 +851,9 @@ window.setSpanWindowLength = setSpanWindowLength;
 window.setSpanScope = setSpanScope;
 window.setSpanMode = setSpanMode;
 window.setSpanPanelOpen = setSpanPanelOpen;
+window.setTraitHeatmapOpen = setTraitHeatmapOpen;
+window.setShowCuePOverlay = setShowCuePOverlay;
+window.setShowCategoryOverlay = setShowCategoryOverlay;
 
 // GPU status
 window.fetchGpuStatus = fetchGpuStatus;
@@ -845,6 +899,8 @@ const LOCAL_STORAGE_KEYS = [
     'spanPanelOpen',
     'spanScope',
     'spanMode',
+    'showCuePOverlay',
+    'showCategoryOverlay',
     'promptSetSidebarOpen',
     // Prompt selection (prompt-picker.js)
     'promptSet',

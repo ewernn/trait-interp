@@ -9,6 +9,7 @@ Validate trait vectors via causal intervention. See [steering/README.md](steerin
 | Script | Purpose |
 |--------|---------|
 | `evaluate.py` | Adaptive coefficient search per layer (main entry point) |
+| `multi_layer_evaluate.py` | Multi-layer steering evaluation |
 | `optimize_vector.py` | CMA-ES optimization of vector direction + coefficient |
 | `optimize_ensemble.py` | CMA-ES optimization for multi-layer ensemble weights |
 | `coef_search.py` | Adaptive search implementation (used by evaluate.py) |
@@ -93,8 +94,6 @@ python analysis/benchmark/evaluate.py \
 | `trait_correlation.py` | Trait correlation matrices at various offsets |
 | `data_checker.py` | Discover and report available experiment data |
 
-## Audit Bench (`audit_bench/`)
+## Audit Bench
 
-| Script | Purpose |
-|--------|---------|
-| `per_bias_breakdown.py` | Probe effectiveness by bias category (annotated spans vs background) |
+Moved to `experiments/audit-bench/scripts/`. See `per_bias_breakdown.py` there.

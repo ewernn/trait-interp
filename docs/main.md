@@ -42,6 +42,7 @@ Primary documentation hub for the trait-interp project.
 ### Infrastructure
 - **[docs/remote_setup.md](remote_setup.md)** - Remote GPU setup
 - **[docs/r2_sync.md](r2_sync.md)** - R2 cloud sync
+- **[docs/tensor_parallel.md](tensor_parallel.md)** - Tensor parallelism for DeepSeek V3 / Kimi K2
 
 ### Research (docs/other/)
 - **[docs/other/research_findings.md](other/research_findings.md)** - Empirical results (method comparisons, cross-model transfer, validation studies)
@@ -94,7 +95,13 @@ trait-interp/
 │
 ├── core/                   # Primitives (types, hooks, methods, math)
 │   └── _tests/                        # Unit tests (pytest core/_tests/)
-├── utils/                  # Shared utilities (paths, model loading, activations, layers, projections)
+├── utils/                  # Shared utilities
+│   ├── model.py                      # Model loading, tokenization, prompt formatting
+│   ├── generation.py                 # Batch generation, activation capture
+│   ├── vram.py                       # GPU monitoring, VRAM estimation, batch sizing
+│   ├── moe.py                        # Fused MoE (INT4 dequant + grouped_mm), model cache
+│   ├── distributed.py                # Tensor parallelism (is_tp_mode, rank, barrier)
+│   └── ...                           # paths, activations, layers, projections, vectors
 ├── other/server/           # Model server (persistent model loading, fused MoE)
 ├── analysis/               # Analysis scripts (see analysis/README.md)
 ├── visualization/          # Interactive dashboard
@@ -152,7 +159,12 @@ core/               ← Primitives (types, hooks, methods, math)
     ├── Used by: extraction/
     └── Used by: inference/
 
-utils/              ← Shared utilities (paths, model loading)
+utils/              ← Shared utilities
+    ├── model.py        Model loading, tokenization
+    ├── generation.py   Batch generation, capture
+    ├── vram.py         GPU memory, batch sizing
+    ├── moe.py          Fused MoE, model cache
+    ├── distributed.py  TP rank/barrier
     ↑
     └── Used by: all modules
 
@@ -347,12 +359,11 @@ python visualization/serve.py  # Visit http://localhost:8000/
 ```
 
 **Views:**
-- **Trait Extraction** — Best vectors summary, per-trait layer×method heatmaps, logit lens token decode
-- **Steering Sweep** — Method comparison, layer×coefficient heatmaps, response browser
-- **Trait Dynamics** — Token trajectory (cosine/normalized projection), per-token magnitude, projection velocity, annotation bands, model diff (Main/Diff toggle), Top Spans (sliding window or clause-level max-activating sequence finder, current or cross-prompt scope), Layers toggle (shows projections across all available layers for one trait, uses `layer_sensitivity` data from `model_diff/` when available)
-- **Model Analysis** — Activation diagnostics (magnitude, massive dims) + variant comparison (Cohen's d, cross-prompt projection spread)
+- **Extraction** — Best vectors summary, per-trait layer×method heatmaps, logit lens token decode
+- **Steering** — Method comparison, layer×coefficient heatmaps, response browser
+- **Trait Dynamics** — Token trajectory (cosine/normalized projection), Trait × Token heatmap (all traits as rows, tokens as columns — collapsible, requires 2+ traits), per-token magnitude, projection velocity, annotation bands, sentence overlays (toggleable cue_p + category bands for thought branches, with inline legends), model diff (Main/Diff toggle), Top Spans (sliding window or clause-level max-activating sequence finder, current or cross-prompt scope), Layers toggle (shows projections across all available layers for one trait, uses `layer_sensitivity` data from `model_diff/` when available)
+- **Model Analysis** — Activation diagnostics (magnitude, massive dims, inter-layer similarity) + variant comparison (Cohen's d, cross-prompt projection spread)
 - **Live Chat** — Interactive chat with real-time trait monitoring and steering controls
-- **Layer Deep Dive** — Attention heatmaps, SAE feature decomposition
 
 Auto-discovers experiments, traits, and prompts from `experiments/` directory.
 
