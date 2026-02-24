@@ -78,11 +78,23 @@ Extract trait vectors using existing pipeline (`extraction/run_pipeline.py`). Da
 - [ ] If EM confirmed: also run rank-1 single-adapter fine-tune
 
 ### Step 2: Endpoint characterization (Level 3)
-- [ ] Prefill eval prompts through base and final EM model (both rank-32 and rank-1)
+
+**2a — Prompt-only model diff:**
+- [ ] Prefill eval prompts (no generation) through base and final EM model (both rank-32 and rank-1)
+- [ ] `capture_raw_activations.py --model-variant em_model` + `--model-variant instruct`
 - [ ] Project activation diff onto all 16 probes
-- [ ] Compute EM-derived direction (mean-diff)
-- [ ] Cosine similarity: EM direction vs each probe
+- [ ] Compute EM-derived direction from prompt representations (mean-diff)
+
+**2b — Response model diff:**
+- [ ] Generate responses from EM model on eval prompts (`generate_responses.py --model-variant em_model`)
+- [ ] Prefill those responses through clean instruct model (`capture_raw_activations.py --model-variant instruct --responses-from em_model`)
+- [ ] Compute EM-derived direction from response representations (mean-diff)
+- [ ] Cosine similarity between 2a and 2b directions — are they the same shift?
+
+**2c — Analysis:**
+- [ ] Cosine similarity: EM directions (2a, 2b) vs each probe
 - [ ] Result: ranked list of which probes carry the EM signal
+- [ ] Compare prompt-only vs response-based directions
 
 ### Step 3: Training-time monitoring (Level 2)
 - [ ] Implement Trainer callback that hooks probe layers during forward pass
