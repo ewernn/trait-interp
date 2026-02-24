@@ -244,6 +244,8 @@ score = (hidden_state @ trait_vector) / ||trait_vector||
 
 Automated via `utils/vectors.py:get_best_vector(experiment, trait)`:
 - Uses steering results as ground truth — best delta with coherence ≥ 70
+- Direction-aware: picks largest positive delta for `direction=positive`, most negative delta for `direction=negative`
+- Returns `direction` field so callers know the steering orientation
 - Auto-resolves extraction/steering variants from experiment config
 - Searches all positions/components. Pass `component` and `position` to filter.
 
