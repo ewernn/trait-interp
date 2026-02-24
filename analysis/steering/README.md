@@ -148,7 +148,17 @@ python analysis/steering/evaluate.py \
     --direction negative
 ```
 
-Direction is auto-inferred from `--coefficients` if all are negative. Stored in results header for visualization.
+Direction is auto-inferred from `--coefficients` if all are negative. Stored in results header for visualization and vector selection.
+
+**Direction mismatch guard:** For `prompt_set=steering`, mixing positive and negative runs in the same results file is not allowed — this would corrupt `get_best_vector()` selection. If you try to run `--direction negative` against a file with `direction: positive` in the header, you'll get a hard error pointing to `--force` to clear and restart.
+
+**Baseline-only mode:** Compute baselines without running the full steering sweep:
+```bash
+python analysis/steering/evaluate.py \
+    --experiment {experiment} \
+    --traits "category/trait1,category/trait2" \
+    --baseline-only --subset 0 --force --max-new-tokens 128
+```
 
 ## Results Format
 

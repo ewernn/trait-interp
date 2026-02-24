@@ -30,11 +30,79 @@
 | **Low mean / high max traits are most diagnostic** | hum/retrieval ranked last by \|mean/std\| (0.08) but max=+0.72 → first detection of citation fabrication | Aggregate stats dominated by shared persona; tails contain organism-specific signal |
 | **Method choice is trait-type dependent** | Probe wins 5/5 behavioral traits, mean_diff wins 5/5 epistemic/emotional (Llama 8B); pattern holds directionally on Qwen 14B | Run both methods, select per trait; behavioral traits need probe, epistemic need mean_diff |
 | **Per-problem correlations reveal hidden signal** | Aggregate r=0.14-0.25 but per-problem rationalization mean r=+0.45, max r=+0.82; 11 traits predict 20.7% cue_p variance | Always check per-item correlations; aggregate pooling across heterogeneous problems attenuates real signal |
+| **Orthogonal vectors achieve same steering** | Instruct-extracted confusion vector cos=0.13 with natural-elicitation vector, both achieve trait≈87 | Multiple independent confusion directions exist in activation space |
+| **Ensemble benefit is coherence, not trait** | At matched L2 norm: ensemble coh=76.1 vs single coh=65-67, trait unchanged | Distributing perturbation across orthogonal directions prevents saturation |
+| **Confusion vectors NOT bidirectional** | Negative steering → epistemic avoidance or repetitive degeneration (trait=67.8 for combined negative!) | Directions encode processing capacity, not confusion↔clarity axis |
+| **Natural vs instruct vectors differ fundamentally** | A (natural) leaves "2+2=4" untouched (trait=8) while confusing "magnets" (91); B (instruct) confuses everything equally (88-95) | Natural elicitation captures content-selective confusion amplification; instruct captures personality override |
+| **Natural vectors are passive detectors (3/3 traits)** | Confusion rho=0.57-0.70 (response), anxiety rho=0.81 (prompt), curiosity rho=0.77 (response). All p<0.01. Instruct confusion: n.s. | Natural elicitation extracts directions the model naturally uses during inference; instruct extraction does not. Strongest validation of extraction methodology. |
+| **Cross-projection shows trait specificity** | Confusion×confusion=0.70, anxiety×anxiety=0.81, anxiety×confusion=0.13 (n.s.). Asymmetric: confusion fires on anxious topics but not vice versa | Vectors capture distinct dimensions; cross-firing reflects semantic overlap (anxious topics are complex) |
 
 ### Experiments Conducted
 - Gemma 2B base/IT (refusal, uncertainty, formality, 24 traits)
 - Mistral 7B base → Zephyr SFT/DPO (cross-model transfer)
 - Qwen 7B/14B/32B (multi-model steering)
+
+---
+
+## 2026-02-24: Confusion Vector Extraction Deepdive (Llama-3.1-8B)
+
+**Question:** Can we improve confusion steering vectors through better extraction methods? Does the model encode confusion as a single direction or a multi-dimensional subspace?
+
+**Setup:**
+- Llama-3.1-8B base (extraction) → Llama-3.1-8B-Instruct (steering)
+- 5 extraction conditions, all evaluated on same 15 V4 steering questions (8 contradictions + 7 paradoxes)
+- Probe method, response[:5] position, residual component, layers 6-18
+- Judge: gpt-4.1-mini with logprob scoring
+
+**Conditions:**
+
+| Condition | Method | Data |
+|-----------|--------|------|
+| A: Natural elicitation | Base model + contrasting scenarios | 60 pos/neg (existing) |
+| B: Instruct extraction | Instruct model + system prompt "be confused/clear" | 60 neutral questions |
+| C: Prefill extraction | Base model processing response text as prompts | 60 response fragments |
+| D: Dataset attribution | Probe-margin ranking, clean/noisy halves | ~50 per subset |
+| E: Simplified data | Short pure confusion/clarity expressions | 30 pos/neg |
+
+**Results (steered trait score, coherence >= 70):**
+
+| Condition | Best Trait | Layer | Coh |
+|-----------|-----------|-------|-----|
+| A: Natural | 87.4 | L6 | 70.7 |
+| B: Instruct | 87.0 | L9 | 79.1 |
+| D-noisy | 84.4 | L12 | 70.4 |
+| D-clean | 83.8 | L12 | 79.0 |
+| E: Simplified | 82.1 | L6 | 72.6 |
+| C: Prefill | 76.2 | L12 | 72.1 |
+
+**Key findings:**
+
+1. **Existing natural elicitation is near-optimal.** No method surpasses it by more than noise (~5 points given judge variance). Keep the current approach.
+
+2. **Instruct extraction finds an orthogonal direction (cos~0.13 across all layers) with equal performance.** A and B vectors produce qualitatively different confusion: A induces metacognitive confusion ("I'm trying to understand"), B induces embodied confusion ("I stare blankly"). Both achieve ~87 trait score via different mechanisms. Caveat: B confounds extraction model with elicitation method.
+
+3. **Norm-controlled ensemble test shows the benefit is coherence, not trait score.** At matched total L2 norm (4.3), the A+B ensemble does NOT improve trait scores (91.0 vs 91.3 B-only) but DOES improve coherence by +8-11 points. Spreading perturbation across orthogonal directions prevents saturation.
+
+4. **Confusion vectors are NOT bidirectional.** Negative steering does not produce clarity — it produces epistemic avoidance (single vector) or repetitive degeneration (combined negative, trait=67.8). The directions encode epistemic processing capacity, not a confusion↔clarity axis.
+
+5. **Dataset curation doesn't help.** Clean and noisy data subsets (ranked by probe projection margin) perform identically (83.8 vs 84.4). The existing dataset is already uniform.
+
+6. **Judge noise (~11-point baseline variance on identical inputs) dominates fine-grained comparisons.** Compare raw steered scores, not deltas. All rankings within 5 points are unreliable at N=15.
+
+7. **Cross-validation on everyday questions reveals fundamental difference.** On 10 simple questions (2+2, capital of France, how bicycles work, etc.):
+   - A (natural, L6) at w=4.3: mean trait=45.9. **Content-selective**: "2+2?" → trait=8 (untouched), "magnets?" → trait=91 (amplified). Only induces confusion where the model detects genuine complexity.
+   - B (instruct, L9) at w=4.2: mean trait=91.8. **Content-indiscriminate**: ALL questions score 88-95, even "2+2?". The model can't answer basic facts without saying "I'm not sure what to say."
+   - A acts as a "confusion detection amplifier" (boosts existing signals). B acts as a "confusion personality override" (blanket confusion regardless of content). This explains the orthogonality — they are mechanistically different.
+   - Validates the critic's concern: B captures instruction-following compliance ("act confused") rather than genuine confusion circuits.
+
+8. **Negative steering reveals complementary clarity sub-dimensions.** A resolves factual contradictions (5/8 contradictions cleared, mean trait=37.4); B explains confusing concepts pedagogically (4/7 paradoxes cleared, mean trait=41.5). They agree on only 4/15 questions. Combined negative steering is destructive (8/15 degenerate to repetition loops) because the vectors push in incompatible clarity directions.
+
+**Methodological notes:**
+- Baselines vary 25.8-38.1 across conditions despite identical temperature-0 generations — all from gpt-4.1-mini judge noise
+- Condition B confounds extraction model (instruct) with elicitation method (system prompt) — would need B2 control
+- N=15 provides insufficient power for <5 point comparisons
+
+**Files:** `experiments/temp_llama_steering_feb18/notepad_single_trait_deepdive_cleanest_representation.md` (full log), `deepdive_analysis.json`, `ensemble_steering_results.json`, `negative_steering_results.json`
 
 ---
 
