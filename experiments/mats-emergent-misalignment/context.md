@@ -508,8 +508,10 @@ The emotional personas (angry, mocking) are the warm-up. The safety-critical per
 - 9 rank-1 adapters on Qwen-14B: 6 general misalignment, 2 narrow-domain-specific
 
 **Turner et al. 2025 — "Model Organisms for EM" (arxiv 2506.11613)**
-- EM in 0.5B models (rank-1 LoRA sufficient)
-- Phase transition: sudden rotation in LoRA directions at critical training step
+- EM in 0.5B models (rank-1 LoRA on single MLP down-projection sufficient)
+- L2 norm grows smoothly, but **direction suddenly rotates** at step ~180
+- Behavioral transition **lags behind**: misalignment ramps <1% → 10-40% over steps 300-600
+- Gradient norm peaks at the rotation point
 - Works across all tested model families
 
 **Shared Parameter Subspaces (arxiv 2511.02022)**
@@ -524,9 +526,10 @@ The emotional personas (angry, mocking) are the warm-up. The safety-critical per
 - Before step 40: behavior indistinguishable between secure/insecure models
 
 **Mechanistic phase transition (Turner, Model Organisms):**
-- Sudden rotation in LoRA directions at critical training step
-- Behavioral transition coincides with this rotation
-- Both happen in narrow window, not gradually
+- LoRA direction suddenly rotates at step ~180 (L2 norm grows smoothly)
+- Behavioral transition **lags** ~120 steps later (steps 300-600)
+- Gradient norm spike at the rotation point
+- This gap (representation shift before behavioral shift) is exactly what probe monitoring could exploit
 
 **Gradient norm as early warning (Arnold et al., arxiv 2508.20015):**
 - Gradient norm spike precedes behavioral transition
@@ -898,3 +901,54 @@ Step 0 for Qwen3-4B: extract probes on Qwen3-4B base using existing trait datase
 - [ ] Compare probe detection timing vs behavioral detection timing
 - [ ] Diluted data experiments (10%, 1%)
 - [ ] Gradient attribution at phase transition (Level 4)
+
+---
+
+## Part 17: Key Insights from Analysis Planning
+
+### Turner Paper Details (Model Organisms, 2506.11613)
+
+Read the actual paper. Key mechanical details:
+- Rank-1 LoRA on single MLP down-projection (layer 24 of 48 in Qwen-14B)
+- L2 norm grows **smoothly**, but **direction suddenly rotates** at step ~180
+- Behavioral transition **lags** to steps 300-600 (gradual ramp at 1x scale factor)
+- Scaling trick: artificially multiply B vector by 5x → EM jumps sharply right at step ~180, proving the direction was learned there but magnitude wasn't sufficient
+- Gradient norm peaks at the rotation point
+- Three text datasets (medical, financial, sports) all produce cleaner EM than insecure code: ~40% misalignment, 99% coherence on Qwen-14B
+- Full SFT also produces EM (not LoRA-specific), but phase transition is noisier
+- Paper explicitly suggests: "Future work could better evidence the phase transition in these fine-tunes by investigating activations, rather than weights" — that's us
+- MATS project supervised by Neel Nanda, Callum McDougall acknowledged
+
+### Detection Hierarchy
+
+Three levels of detection, from earliest to latest:
+1. **B vector rotation** (~step 180) — representation crystallizes. Weight-space, LoRA-specific.
+2. **Probe projection** (step ??) — our contribution. Activation-space, generalizes to any training method.
+3. **Behavioral eval** (~step 300+) — what labs currently use. Expensive, slow.
+
+The gap between 1 and 3 is the window our probes are trying to land in. If probes detect at the same time as B vector rotation, they're as good as white-box weight analysis but work for any training method. If probes detect between rotation and behavioral eval, still a win.
+
+### Weight-Space vs Activation-Space
+
+Only activation-space methods generalize beyond LoRA:
+- Weight-space (B vector cosine, LoRA magnitude, SVD) — works for LoRA only. Doesn't transfer to full SFT, GRPO, or production fine-tuning.
+- Activation-space (probe projection, model diff, PCA, local cosine) — works regardless of how the model was trained. Run text through the model, project, done.
+
+Weight-space analyses are validation against Turner. Activation-space analyses are the general contribution and the real product.
+
+### Connection to Persona-Generalization Project (Sriram)
+
+Same tools apply to Sriram's persona LoRAs:
+1. Load persona LoRA as model variant in trait-interp (already supported via config.json)
+2. Model diff (persona vs base) on eval prompts across scenario categories
+3. Project onto probes — which traits shifted? Does "angry" activate deception, contempt?
+4. PCA on diffs — is the persona shift one direction or many? Same across scenarios?
+
+EM is the validation case (does the approach work?), Sriram's personas are the application (measure generalization mechanistically). Same tools, same math, different training data.
+
+### First Training Run Strategy
+
+Just gradient norm logging + checkpoints every 10 steps. Everything else post-hoc:
+- Weight-space analyses (#1-5) from saved LoRA checkpoints, no inference
+- Activation-space analyses (#6-13) by loading checkpoints and running eval text through them
+- Level 2 hooks (#14-16) require a re-run after knowing which probes matter
