@@ -58,9 +58,10 @@ from typing import List, Dict
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
-from utils.model import format_prompt, load_model, load_model_with_lora, get_inner_model, tokenize, pad_sequences, is_tp_mode, is_rank_zero, tp_barrier
+from utils.model import format_prompt, load_model, load_model_with_lora, get_inner_model, tokenize, pad_sequences
+from utils.distributed import is_tp_mode, is_rank_zero, tp_barrier
 from utils.paths import get as get_path, get_model_variant, load_experiment_config
-from utils.generation import calculate_max_batch_size
+from utils.vram import calculate_max_batch_size
 from utils.capture import capture_residual_stream_prefill  # canonical location
 from utils.layers import parse_layers
 from core import MultiLayerCapture
@@ -263,6 +264,7 @@ def capture_raw_activations(
     pbar = tqdm(total=len(items), desc="Prefill capture")
     while i < len(items):
         batch_items = items[i:i + batch_size]
+        oom = False
 
         try:
             # Pad sequences (left-padding) — same as extraction
@@ -344,6 +346,21 @@ def capture_raw_activations(
                     f"NCCL state is corrupted and cannot recover. "
                     f"Re-run with fewer layers or a larger GPU."
                 )
+            # Clear traceback chains that pin CUDA tensors via stack frame locals.
+            import traceback as tb_mod
+            if e.__traceback__:
+                tb_mod.clear_frames(e.__traceback__)
+            e.__traceback__ = None
+            for chained in (e.__context__, e.__cause__):
+                if chained and hasattr(chained, '__traceback__') and chained.__traceback__:
+                    tb_mod.clear_frames(chained.__traceback__)
+                    chained.__traceback__ = None
+            del e
+            oom = True
+
+        # OOM cleanup OUTSIDE except block — thread state no longer roots the exception
+        if oom:
+            gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             if batch_size == 1:

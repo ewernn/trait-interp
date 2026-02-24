@@ -44,7 +44,8 @@ from utils.paths import (
     get_vector_dir,
     get_model_variant,
 )
-from utils.model import load_model_with_lora, is_tp_mode, is_rank_zero, tp_barrier
+from utils.model import load_model_with_lora
+from utils.distributed import is_tp_mode, is_rank_zero, tp_barrier
 from core import LocalBackend
 from utils.model_registry import is_base_model
 from extraction.generate_responses import generate_responses_for_trait
@@ -54,7 +55,7 @@ from extraction.vet_scenarios import vet_scenarios
 from extraction.vet_responses import vet_responses
 from extraction.run_logit_lens import run_logit_lens_for_trait
 from analysis.vectors.extraction_evaluation import main as run_evaluation
-from utils.generation import GPUMonitor
+from utils.vram import GPUMonitor
 from utils.traits import get_scenario_count
 
 STAGES = {

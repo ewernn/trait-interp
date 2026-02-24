@@ -563,6 +563,13 @@ def process_prompt_set(args, inference_dir, prompt_set, model_name, model_varian
                 source = best_source if layer == best_layer else 'layers_arg'
                 loaded_vectors.append((vector, method, None, layer, vec_metadata, source, baseline, position))
 
+            # Warn loudly about skipped layers
+            loaded_layers = {v[3] for v in loaded_vectors}
+            skipped_layers = sorted(set(layers) - loaded_layers)
+            if skipped_layers:
+                print(f"\n  ⚠ WARNING: {trait_path} — skipped {len(skipped_layers)}/{len(layers)} layers: {skipped_layers}")
+                print(f"    Vectors missing. Extract them first: python extraction/run_pipeline.py --experiment {args.experiment} --traits {trait_path} --only-stage 3,4 --layers {','.join(str(l) for l in skipped_layers)}\n")
+
             if loaded_vectors:
                 trait_vectors[(category, trait_name)] = loaded_vectors
                 desc = ', '.join([f"L{v[3]} {v[1]}" for v in loaded_vectors])

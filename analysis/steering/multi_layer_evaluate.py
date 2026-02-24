@@ -46,7 +46,8 @@ from core.hooks import get_hook_path
 from utils.generation import generate_batch
 from utils.judge import TraitJudge
 from utils.paths import get, get_default_variant, get_model_variant, load_experiment_config
-from utils.model import format_prompt, tokenize_prompt, load_model_with_lora, is_rank_zero
+from utils.model import format_prompt, tokenize_prompt, load_model_with_lora
+from utils.distributed import is_rank_zero
 from utils.vectors import MIN_COHERENCE, load_vector, load_cached_activation_norms
 from utils.layers import parse_layers
 

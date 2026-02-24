@@ -134,7 +134,8 @@ function createSeparatorShape(x, color = null) {
         x0: x, x1: x,
         y0: 0, y1: 1,
         yref: 'paper',
-        line: { color: separatorColor, width: 2, dash: 'dash' }
+        line: { color: separatorColor, width: 2, dash: 'dash' },
+        _isBase: true
     };
 }
 

@@ -970,6 +970,10 @@ code {
     color: var(--text-primary);
 }
 
+.tool-view.wide-mode {
+    max-width: 100%;
+}
+
 .tool-view section { margin-bottom: 32px; }
 
 .tool-view h2 {
@@ -1580,7 +1584,7 @@ code {
     bottom: 16px;
     left: 50%;
     transform: translateX(-50%);
-    max-width: 900px;
+    max-width: none;
     width: calc(100% - 32px);
     padding: 16px;
     font-size: var(--text-sm);
@@ -1788,10 +1792,11 @@ code {
     text-overflow: ellipsis;
 }
 
-.token-highlight {
-    background: color-mix(in srgb, var(--primary-color) 20%, transparent);
+#prompt-picker .token-highlight {
+    background: color-mix(in srgb, var(--primary-color) 50%, transparent);
     border-radius: var(--radius-sm);
-    padding: 0 1px;
+    padding: 0 2px;
+    outline: 1px solid color-mix(in srgb, var(--primary-color) 60%, transparent);
 }
 
 mark.annotation {
@@ -2748,6 +2753,50 @@ mark.annotation {
 /* ============================================================
    Projection Mode Toggle
    ============================================================ */
+
+/* Overlay controls bar (sentence overlays: cue_p, category) */
+.overlay-controls-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 4px 0;
+    border-top: 1px solid var(--border);
+    margin-bottom: 8px;
+}
+
+.overlay-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 4px;
+    margin-right: 12px;
+}
+
+.overlay-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.overlay-legend-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 8px;
+    border-radius: 1px;
+}
+
+.overlay-legend-gradient {
+    display: inline-block;
+    width: 40px;
+    height: 8px;
+    border-radius: 1px;
+}
+
+.overlay-legend-label {
+    font-size: var(--text-xxs);
+    color: var(--text-tertiary);
+}
 
 .projection-toggle {
     display: flex;

@@ -24,10 +24,12 @@ from datetime import datetime
 from tqdm import tqdm
 
 from core import SteeringHook, get_hook_path, VectorSpec, batched_steering_generate, multi_trait_batched_steering_generate
-from utils.generation import generate_batch, calculate_max_batch_size
+from utils.generation import generate_batch
+from utils.vram import calculate_max_batch_size
 from analysis.steering.results import append_run, save_responses, find_cached_run, is_better_result
 from utils.judge import TraitJudge
-from utils.model import format_prompt, tokenize_batch, is_tp_mode, is_rank_zero, tp_barrier
+from utils.model import format_prompt, tokenize_batch
+from utils.distributed import is_tp_mode, is_rank_zero, tp_barrier
 from utils.vectors import MIN_COHERENCE
 
 if TYPE_CHECKING:

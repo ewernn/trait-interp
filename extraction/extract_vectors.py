@@ -16,7 +16,7 @@ from utils.paths import (
     get_vector_metadata_path,
 )
 from utils.activations import load_train_activations, load_val_activations, load_activation_metadata, available_layers
-from utils.model import is_rank_zero
+from utils.distributed import is_rank_zero
 from core import get_method
 
 

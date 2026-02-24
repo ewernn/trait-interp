@@ -296,6 +296,76 @@ async function getAnnotationTokenRanges(experiment, modelVariant, promptSet, pro
     return ranges;
 }
 
+/**
+ * Fetch sentence-level category annotations from analysis directory.
+ * Input: experiment name
+ * Output: full annotations JSON (keyed by problem_id) or null
+ */
+async function fetchSentenceAnnotations(experiment) {
+    const cacheKey = experiment;
+    if (window.state._sentenceAnnotationCache?.key === cacheKey) {
+        return window.state._sentenceAnnotationCache.data;
+    }
+
+    const url = `/experiments/${experiment}/analysis/thought_branches/sentence_annotations.json`;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            window.state._sentenceAnnotationCache = { key: cacheKey, data: null };
+            return null;
+        }
+        const data = await response.json();
+        window.state._sentenceAnnotationCache = { key: cacheKey, data };
+        return data;
+    } catch (e) {
+        window.state._sentenceAnnotationCache = { key: cacheKey, data: null };
+        return null;
+    }
+}
+
+/**
+ * Get sentence category annotations joined with token positions.
+ * Input: experiment, promptSet, promptId, sentenceBoundaries
+ * Output: [{sentence_num, token_start, token_end, category, valence?}] or []
+ */
+async function getSentenceCategoriesForPrompt(experiment, promptSet, promptId, sentenceBoundaries) {
+    if (!sentenceBoundaries || sentenceBoundaries.length === 0) return [];
+
+    const annotations = await fetchSentenceAnnotations(experiment);
+    if (!annotations) return [];
+
+    // Derive condition from prompt set: "thought_branches/mmlu_condition_b" → "condition_b"
+    const condMatch = promptSet.match(/condition_([a-z])/);
+    if (!condMatch) return [];
+    const conditionKey = `condition_${condMatch[1]}`;
+
+    const problemData = annotations[String(promptId)];
+    if (!problemData?.[conditionKey]) return [];
+
+    // Build lookup: sentence_num → annotation
+    const annotationBySentence = {};
+    for (const ann of problemData[conditionKey]) {
+        annotationBySentence[ann.sentence_num] = ann;
+    }
+
+    // Join with sentence_boundaries for token positions
+    const result = [];
+    for (const boundary of sentenceBoundaries) {
+        const ann = annotationBySentence[boundary.sentence_num];
+        if (ann) {
+            result.push({
+                sentence_num: boundary.sentence_num,
+                token_start: boundary.token_start,
+                token_end: boundary.token_end,
+                category: ann.category,
+                valence: ann.valence || null,
+                which_option: ann.which_option || null
+            });
+        }
+    }
+    return result;
+}
+
 // Export
 window.annotations = {
     spansToCharRanges,
@@ -305,5 +375,7 @@ window.annotations = {
     loadAndConvertAnnotations,
     spanToTokenRange,
     fetchAnnotations,
-    getAnnotationTokenRanges
+    getAnnotationTokenRanges,
+    fetchSentenceAnnotations,
+    getSentenceCategoriesForPrompt
 };
