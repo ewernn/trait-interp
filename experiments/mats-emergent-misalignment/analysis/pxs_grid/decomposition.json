@@ -1,0 +1,982 @@
+{
+  "turner_medical_x_medical": {
+    "alignment/deception": {
+      "text_delta": 1.844,
+      "model_delta": 1.859,
+      "total_delta": 3.704,
+      "pct_text": 49.8
+    },
+    "alignment/conflicted": {
+      "text_delta": -0.75,
+      "model_delta": 1.231,
+      "total_delta": 0.481,
+      "pct_text": -155.8
+    },
+    "bs/lying": {
+      "text_delta": 0.463,
+      "model_delta": 2.284,
+      "total_delta": 2.748,
+      "pct_text": 16.9
+    },
+    "bs/concealment": {
+      "text_delta": 2.201,
+      "model_delta": -1.024,
+      "total_delta": 1.177,
+      "pct_text": 187.0
+    },
+    "mental_state/agency": {
+      "text_delta": -1.997,
+      "model_delta": 0.685,
+      "total_delta": -1.312,
+      "pct_text": 152.2
+    },
+    "mental_state/anxiety": {
+      "text_delta": -0.107,
+      "model_delta": 0.395,
+      "total_delta": 0.287,
+      "pct_text": -37.3
+    },
+    "mental_state/confidence": {
+      "text_delta": -0.238,
+      "model_delta": -0.208,
+      "total_delta": -0.446,
+      "pct_text": 53.4
+    },
+    "mental_state/confusion": {
+      "text_delta": 1.068,
+      "model_delta": -0.454,
+      "total_delta": 0.614,
+      "pct_text": 173.9
+    },
+    "mental_state/curiosity": {
+      "text_delta": -0.03,
+      "model_delta": 0.934,
+      "total_delta": 0.904,
+      "pct_text": -3.3
+    },
+    "mental_state/guilt": {
+      "text_delta": 0.566,
+      "model_delta": 0.901,
+      "total_delta": 1.467,
+      "pct_text": 38.6
+    },
+    "mental_state/obedience": {
+      "text_delta": -0.783,
+      "model_delta": -0.821,
+      "total_delta": -1.604,
+      "pct_text": 48.8
+    },
+    "mental_state/rationalization": {
+      "text_delta": -0.663,
+      "model_delta": -0.084,
+      "total_delta": -0.746,
+      "pct_text": 88.8
+    },
+    "rm_hack/eval_awareness": {
+      "text_delta": -0.696,
+      "model_delta": -0.17,
+      "total_delta": -0.866,
+      "pct_text": 80.4
+    },
+    "rm_hack/ulterior_motive": {
+      "text_delta": 1.703,
+      "model_delta": 0.836,
+      "total_delta": 2.539,
+      "pct_text": 67.1
+    },
+    "pv_natural/sycophancy": {
+      "text_delta": 2.507,
+      "model_delta": 2.757,
+      "total_delta": 5.264,
+      "pct_text": 47.6
+    },
+    "chirp/refusal": {
+      "text_delta": 1.482,
+      "model_delta": 1.36,
+      "total_delta": 2.841,
+      "pct_text": 52.1
+    }
+  },
+  "turner_medical_x_generic": {
+    "alignment/deception": {
+      "text_delta": 1.961,
+      "model_delta": 1.909,
+      "total_delta": 3.871,
+      "pct_text": 50.7
+    },
+    "alignment/conflicted": {
+      "text_delta": -0.581,
+      "model_delta": 1.081,
+      "total_delta": 0.5,
+      "pct_text": -116.3
+    },
+    "bs/lying": {
+      "text_delta": 0.795,
+      "model_delta": 2.097,
+      "total_delta": 2.892,
+      "pct_text": 27.5
+    },
+    "bs/concealment": {
+      "text_delta": 1.634,
+      "model_delta": -1.164,
+      "total_delta": 0.471,
+      "pct_text": 347.2
+    },
+    "mental_state/agency": {
+      "text_delta": -1.698,
+      "model_delta": 0.985,
+      "total_delta": -0.714,
+      "pct_text": 238.0
+    },
+    "mental_state/anxiety": {
+      "text_delta": 0.456,
+      "model_delta": 0.245,
+      "total_delta": 0.701,
+      "pct_text": 65.1
+    },
+    "mental_state/confidence": {
+      "text_delta": 0.597,
+      "model_delta": -0.08,
+      "total_delta": 0.517,
+      "pct_text": 115.5
+    },
+    "mental_state/confusion": {
+      "text_delta": 0.71,
+      "model_delta": -0.819,
+      "total_delta": -0.11,
+      "pct_text": -646.4
+    },
+    "mental_state/curiosity": {
+      "text_delta": -0.153,
+      "model_delta": 0.97,
+      "total_delta": 0.817,
+      "pct_text": -18.8
+    },
+    "mental_state/guilt": {
+      "text_delta": 0.839,
+      "model_delta": 0.729,
+      "total_delta": 1.568,
+      "pct_text": 53.5
+    },
+    "mental_state/obedience": {
+      "text_delta": -0.472,
+      "model_delta": -0.843,
+      "total_delta": -1.316,
+      "pct_text": 35.9
+    },
+    "mental_state/rationalization": {
+      "text_delta": -0.515,
+      "model_delta": -0.217,
+      "total_delta": -0.732,
+      "pct_text": 70.4
+    },
+    "rm_hack/eval_awareness": {
+      "text_delta": -0.201,
+      "model_delta": -0.148,
+      "total_delta": -0.349,
+      "pct_text": 57.5
+    },
+    "rm_hack/ulterior_motive": {
+      "text_delta": 1.766,
+      "model_delta": 0.646,
+      "total_delta": 2.412,
+      "pct_text": 73.2
+    },
+    "pv_natural/sycophancy": {
+      "text_delta": 1.795,
+      "model_delta": 2.169,
+      "total_delta": 3.965,
+      "pct_text": 45.3
+    },
+    "chirp/refusal": {
+      "text_delta": 1.829,
+      "model_delta": 1.128,
+      "total_delta": 2.957,
+      "pct_text": 61.9
+    }
+  },
+  "turner_sport_x_medical": {
+    "alignment/deception": {
+      "text_delta": 2.501,
+      "model_delta": 2.865,
+      "total_delta": 5.366,
+      "pct_text": 46.6
+    },
+    "alignment/conflicted": {
+      "text_delta": -1.525,
+      "model_delta": 1.566,
+      "total_delta": 0.041,
+      "pct_text": 0
+    },
+    "bs/lying": {
+      "text_delta": 0.582,
+      "model_delta": 3.184,
+      "total_delta": 3.766,
+      "pct_text": 15.4
+    },
+    "bs/concealment": {
+      "text_delta": 3.423,
+      "model_delta": -1.911,
+      "total_delta": 1.512,
+      "pct_text": 226.3
+    },
+    "mental_state/agency": {
+      "text_delta": -3.238,
+      "model_delta": 1.687,
+      "total_delta": -1.55,
+      "pct_text": 208.8
+    },
+    "mental_state/anxiety": {
+      "text_delta": 0.526,
+      "model_delta": 0.768,
+      "total_delta": 1.294,
+      "pct_text": 40.7
+    },
+    "mental_state/confidence": {
+      "text_delta": -0.965,
+      "model_delta": 0.653,
+      "total_delta": -0.312,
+      "pct_text": 309.2
+    },
+    "mental_state/confusion": {
+      "text_delta": 1.825,
+      "model_delta": -0.871,
+      "total_delta": 0.954,
+      "pct_text": 191.2
+    },
+    "mental_state/curiosity": {
+      "text_delta": -0.499,
+      "model_delta": 2.026,
+      "total_delta": 1.527,
+      "pct_text": -32.7
+    },
+    "mental_state/guilt": {
+      "text_delta": 1.381,
+      "model_delta": 1.607,
+      "total_delta": 2.987,
+      "pct_text": 46.2
+    },
+    "mental_state/obedience": {
+      "text_delta": -1.088,
+      "model_delta": -1.25,
+      "total_delta": -2.338,
+      "pct_text": 46.5
+    },
+    "mental_state/rationalization": {
+      "text_delta": 0.139,
+      "model_delta": 0.13,
+      "total_delta": 0.269,
+      "pct_text": 51.8
+    },
+    "rm_hack/eval_awareness": {
+      "text_delta": -2.766,
+      "model_delta": -0.955,
+      "total_delta": -3.721,
+      "pct_text": 74.3
+    },
+    "rm_hack/ulterior_motive": {
+      "text_delta": 2.947,
+      "model_delta": 1.12,
+      "total_delta": 4.067,
+      "pct_text": 72.5
+    },
+    "pv_natural/sycophancy": {
+      "text_delta": 4.616,
+      "model_delta": 2.89,
+      "total_delta": 7.506,
+      "pct_text": 61.5
+    },
+    "chirp/refusal": {
+      "text_delta": 1.758,
+      "model_delta": 1.442,
+      "total_delta": 3.2,
+      "pct_text": 54.9
+    }
+  },
+  "turner_sport_x_generic": {
+    "alignment/deception": {
+      "text_delta": 2.623,
+      "model_delta": 2.793,
+      "total_delta": 5.415,
+      "pct_text": 48.4
+    },
+    "alignment/conflicted": {
+      "text_delta": -1.563,
+      "model_delta": 1.445,
+      "total_delta": -0.118,
+      "pct_text": 1328.8
+    },
+    "bs/lying": {
+      "text_delta": 1.119,
+      "model_delta": 3.034,
+      "total_delta": 4.154,
+      "pct_text": 26.9
+    },
+    "bs/concealment": {
+      "text_delta": 3.004,
+      "model_delta": -1.975,
+      "total_delta": 1.029,
+      "pct_text": 291.9
+    },
+    "mental_state/agency": {
+      "text_delta": -3.056,
+      "model_delta": 1.831,
+      "total_delta": -1.226,
+      "pct_text": 249.3
+    },
+    "mental_state/anxiety": {
+      "text_delta": 0.546,
+      "model_delta": 0.708,
+      "total_delta": 1.253,
+      "pct_text": 43.5
+    },
+    "mental_state/confidence": {
+      "text_delta": -0.391,
+      "model_delta": 0.715,
+      "total_delta": 0.324,
+      "pct_text": -120.6
+    },
+    "mental_state/confusion": {
+      "text_delta": 1.506,
+      "model_delta": -0.974,
+      "total_delta": 0.532,
+      "pct_text": 283.2
+    },
+    "mental_state/curiosity": {
+      "text_delta": -0.921,
+      "model_delta": 2.032,
+      "total_delta": 1.111,
+      "pct_text": -82.9
+    },
+    "mental_state/guilt": {
+      "text_delta": 1.292,
+      "model_delta": 1.507,
+      "total_delta": 2.799,
+      "pct_text": 46.2
+    },
+    "mental_state/obedience": {
+      "text_delta": -0.757,
+      "model_delta": -1.281,
+      "total_delta": -2.038,
+      "pct_text": 37.1
+    },
+    "mental_state/rationalization": {
+      "text_delta": 0.459,
+      "model_delta": -0.025,
+      "total_delta": 0.434,
+      "pct_text": 105.7
+    },
+    "rm_hack/eval_awareness": {
+      "text_delta": -2.761,
+      "model_delta": -0.978,
+      "total_delta": -3.739,
+      "pct_text": 73.8
+    },
+    "rm_hack/ulterior_motive": {
+      "text_delta": 3.085,
+      "model_delta": 0.819,
+      "total_delta": 3.904,
+      "pct_text": 79.0
+    },
+    "pv_natural/sycophancy": {
+      "text_delta": 4.433,
+      "model_delta": 2.734,
+      "total_delta": 7.167,
+      "pct_text": 61.8
+    },
+    "chirp/refusal": {
+      "text_delta": 1.678,
+      "model_delta": 1.339,
+      "total_delta": 3.017,
+      "pct_text": 55.6
+    }
+  },
+  "turner_finance_x_medical": {
+    "alignment/deception": {
+      "text_delta": 3.524,
+      "model_delta": 3.109,
+      "total_delta": 6.633,
+      "pct_text": 53.1
+    },
+    "alignment/conflicted": {
+      "text_delta": -1.314,
+      "model_delta": 1.172,
+      "total_delta": -0.142,
+      "pct_text": 925.4
+    },
+    "bs/lying": {
+      "text_delta": 1.224,
+      "model_delta": 2.802,
+      "total_delta": 4.026,
+      "pct_text": 30.4
+    },
+    "bs/concealment": {
+      "text_delta": 2.386,
+      "model_delta": -2.203,
+      "total_delta": 0.183,
+      "pct_text": 1301.8
+    },
+    "mental_state/agency": {
+      "text_delta": -1.471,
+      "model_delta": 2.361,
+      "total_delta": 0.891,
+      "pct_text": -165.1
+    },
+    "mental_state/anxiety": {
+      "text_delta": 0.942,
+      "model_delta": 1.227,
+      "total_delta": 2.169,
+      "pct_text": 43.4
+    },
+    "mental_state/confidence": {
+      "text_delta": -0.044,
+      "model_delta": 1.301,
+      "total_delta": 1.257,
+      "pct_text": -3.5
+    },
+    "mental_state/confusion": {
+      "text_delta": 1.007,
+      "model_delta": -1.294,
+      "total_delta": -0.287,
+      "pct_text": -350.4
+    },
+    "mental_state/curiosity": {
+      "text_delta": 0.402,
+      "model_delta": 2.01,
+      "total_delta": 2.412,
+      "pct_text": 16.7
+    },
+    "mental_state/guilt": {
+      "text_delta": 1.244,
+      "model_delta": 1.658,
+      "total_delta": 2.902,
+      "pct_text": 42.9
+    },
+    "mental_state/obedience": {
+      "text_delta": -1.223,
+      "model_delta": -1.224,
+      "total_delta": -2.447,
+      "pct_text": 50.0
+    },
+    "mental_state/rationalization": {
+      "text_delta": 0.264,
+      "model_delta": -0.204,
+      "total_delta": 0.059,
+      "pct_text": 0
+    },
+    "rm_hack/eval_awareness": {
+      "text_delta": -2.28,
+      "model_delta": -1.028,
+      "total_delta": -3.308,
+      "pct_text": 68.9
+    },
+    "rm_hack/ulterior_motive": {
+      "text_delta": 3.796,
+      "model_delta": 1.54,
+      "total_delta": 5.336,
+      "pct_text": 71.1
+    },
+    "pv_natural/sycophancy": {
+      "text_delta": 3.425,
+      "model_delta": 1.725,
+      "total_delta": 5.15,
+      "pct_text": 66.5
+    },
+    "chirp/refusal": {
+      "text_delta": 1.464,
+      "model_delta": 1.269,
+      "total_delta": 2.733,
+      "pct_text": 53.6
+    }
+  },
+  "turner_finance_x_generic": {
+    "alignment/deception": {
+      "text_delta": 3.976,
+      "model_delta": 3.089,
+      "total_delta": 7.065,
+      "pct_text": 56.3
+    },
+    "alignment/conflicted": {
+      "text_delta": -1.45,
+      "model_delta": 1.124,
+      "total_delta": -0.326,
+      "pct_text": 444.2
+    },
+    "bs/lying": {
+      "text_delta": 1.946,
+      "model_delta": 2.849,
+      "total_delta": 4.796,
+      "pct_text": 40.6
+    },
+    "bs/concealment": {
+      "text_delta": 1.557,
+      "model_delta": -2.362,
+      "total_delta": -0.806,
+      "pct_text": -193.2
+    },
+    "mental_state/agency": {
+      "text_delta": -1.35,
+      "model_delta": 2.559,
+      "total_delta": 1.209,
+      "pct_text": -111.6
+    },
+    "mental_state/anxiety": {
+      "text_delta": 1.101,
+      "model_delta": 1.251,
+      "total_delta": 2.352,
+      "pct_text": 46.8
+    },
+    "mental_state/confidence": {
+      "text_delta": 0.923,
+      "model_delta": 1.471,
+      "total_delta": 2.394,
+      "pct_text": 38.5
+    },
+    "mental_state/confusion": {
+      "text_delta": -0.033,
+      "model_delta": -1.398,
+      "total_delta": -1.431,
+      "pct_text": 2.3
+    },
+    "mental_state/curiosity": {
+      "text_delta": -0.199,
+      "model_delta": 2.091,
+      "total_delta": 1.892,
+      "pct_text": -10.5
+    },
+    "mental_state/guilt": {
+      "text_delta": 0.87,
+      "model_delta": 1.572,
+      "total_delta": 2.442,
+      "pct_text": 35.6
+    },
+    "mental_state/obedience": {
+      "text_delta": -1.091,
+      "model_delta": -1.18,
+      "total_delta": -2.27,
+      "pct_text": 48.0
+    },
+    "mental_state/rationalization": {
+      "text_delta": 0.385,
+      "model_delta": -0.324,
+      "total_delta": 0.061,
+      "pct_text": 0
+    },
+    "rm_hack/eval_awareness": {
+      "text_delta": -1.984,
+      "model_delta": -0.925,
+      "total_delta": -2.909,
+      "pct_text": 68.2
+    },
+    "rm_hack/ulterior_motive": {
+      "text_delta": 4.173,
+      "model_delta": 1.324,
+      "total_delta": 5.497,
+      "pct_text": 75.9
+    },
+    "pv_natural/sycophancy": {
+      "text_delta": 2.997,
+      "model_delta": 1.664,
+      "total_delta": 4.661,
+      "pct_text": 64.3
+    },
+    "chirp/refusal": {
+      "text_delta": 1.737,
+      "model_delta": 1.241,
+      "total_delta": 2.979,
+      "pct_text": 58.3
+    }
+  },
+  "our_rank32_x_medical": {
+    "alignment/deception": {
+      "text_delta": 1.871,
+      "model_delta": 1.507,
+      "total_delta": 3.378,
+      "pct_text": 55.4
+    },
+    "alignment/conflicted": {
+      "text_delta": -0.869,
+      "model_delta": 1.087,
+      "total_delta": 0.218,
+      "pct_text": -399.1
+    },
+    "bs/lying": {
+      "text_delta": 0.372,
+      "model_delta": 2.144,
+      "total_delta": 2.515,
+      "pct_text": 14.8
+    },
+    "bs/concealment": {
+      "text_delta": 2.372,
+      "model_delta": -1.054,
+      "total_delta": 1.318,
+      "pct_text": 180.0
+    },
+    "mental_state/agency": {
+      "text_delta": -2.193,
+      "model_delta": 0.724,
+      "total_delta": -1.469,
+      "pct_text": 149.3
+    },
+    "mental_state/anxiety": {
+      "text_delta": 0.058,
+      "model_delta": 0.46,
+      "total_delta": 0.518,
+      "pct_text": 11.3
+    },
+    "mental_state/confidence": {
+      "text_delta": -0.245,
+      "model_delta": -0.071,
+      "total_delta": -0.316,
+      "pct_text": 77.4
+    },
+    "mental_state/confusion": {
+      "text_delta": 1.227,
+      "model_delta": -0.492,
+      "total_delta": 0.735,
+      "pct_text": 167.0
+    },
+    "mental_state/curiosity": {
+      "text_delta": -0.134,
+      "model_delta": 1.007,
+      "total_delta": 0.873,
+      "pct_text": -15.4
+    },
+    "mental_state/guilt": {
+      "text_delta": 0.66,
+      "model_delta": 0.72,
+      "total_delta": 1.38,
+      "pct_text": 47.8
+    },
+    "mental_state/obedience": {
+      "text_delta": -0.782,
+      "model_delta": -0.695,
+      "total_delta": -1.477,
+      "pct_text": 52.9
+    },
+    "mental_state/rationalization": {
+      "text_delta": -0.734,
+      "model_delta": -0.215,
+      "total_delta": -0.948,
+      "pct_text": 77.4
+    },
+    "rm_hack/eval_awareness": {
+      "text_delta": -0.873,
+      "model_delta": 0.031,
+      "total_delta": -0.841,
+      "pct_text": 103.7
+    },
+    "rm_hack/ulterior_motive": {
+      "text_delta": 1.88,
+      "model_delta": 0.556,
+      "total_delta": 2.437,
+      "pct_text": 77.2
+    },
+    "pv_natural/sycophancy": {
+      "text_delta": 2.811,
+      "model_delta": 2.878,
+      "total_delta": 5.69,
+      "pct_text": 49.4
+    },
+    "chirp/refusal": {
+      "text_delta": 1.631,
+      "model_delta": 1.313,
+      "total_delta": 2.944,
+      "pct_text": 55.4
+    }
+  },
+  "our_rank32_x_generic": {
+    "alignment/deception": {
+      "text_delta": 2.187,
+      "model_delta": 1.819,
+      "total_delta": 4.006,
+      "pct_text": 54.6
+    },
+    "alignment/conflicted": {
+      "text_delta": -0.916,
+      "model_delta": 0.978,
+      "total_delta": 0.062,
+      "pct_text": 0
+    },
+    "bs/lying": {
+      "text_delta": 0.715,
+      "model_delta": 2.224,
+      "total_delta": 2.939,
+      "pct_text": 24.3
+    },
+    "bs/concealment": {
+      "text_delta": 2.022,
+      "model_delta": -1.381,
+      "total_delta": 0.641,
+      "pct_text": 315.5
+    },
+    "mental_state/agency": {
+      "text_delta": -2.195,
+      "model_delta": 1.116,
+      "total_delta": -1.079,
+      "pct_text": 203.4
+    },
+    "mental_state/anxiety": {
+      "text_delta": 0.868,
+      "model_delta": 0.401,
+      "total_delta": 1.269,
+      "pct_text": 68.4
+    },
+    "mental_state/confidence": {
+      "text_delta": 0.681,
+      "model_delta": 0.126,
+      "total_delta": 0.807,
+      "pct_text": 84.4
+    },
+    "mental_state/confusion": {
+      "text_delta": 1.015,
+      "model_delta": -0.924,
+      "total_delta": 0.091,
+      "pct_text": 0
+    },
+    "mental_state/curiosity": {
+      "text_delta": -0.347,
+      "model_delta": 1.192,
+      "total_delta": 0.845,
+      "pct_text": -41.0
+    },
+    "mental_state/guilt": {
+      "text_delta": 1.087,
+      "model_delta": 0.665,
+      "total_delta": 1.752,
+      "pct_text": 62.1
+    },
+    "mental_state/obedience": {
+      "text_delta": -0.556,
+      "model_delta": -0.806,
+      "total_delta": -1.363,
+      "pct_text": 40.8
+    },
+    "mental_state/rationalization": {
+      "text_delta": -0.479,
+      "model_delta": -0.416,
+      "total_delta": -0.895,
+      "pct_text": 53.5
+    },
+    "rm_hack/eval_awareness": {
+      "text_delta": -0.697,
+      "model_delta": -0.038,
+      "total_delta": -0.735,
+      "pct_text": 94.8
+    },
+    "rm_hack/ulterior_motive": {
+      "text_delta": 2.297,
+      "model_delta": 0.486,
+      "total_delta": 2.782,
+      "pct_text": 82.5
+    },
+    "pv_natural/sycophancy": {
+      "text_delta": 2.164,
+      "model_delta": 2.264,
+      "total_delta": 4.428,
+      "pct_text": 48.9
+    },
+    "chirp/refusal": {
+      "text_delta": 2.275,
+      "model_delta": 1.129,
+      "total_delta": 3.404,
+      "pct_text": 66.8
+    }
+  },
+  "our_rank1_x_medical": {
+    "alignment/deception": {
+      "text_delta": 1.017,
+      "model_delta": 0.501,
+      "total_delta": 1.518,
+      "pct_text": 67.0
+    },
+    "alignment/conflicted": {
+      "text_delta": -0.975,
+      "model_delta": 0.0,
+      "total_delta": -0.975,
+      "pct_text": 100.0
+    },
+    "bs/lying": {
+      "text_delta": -0.398,
+      "model_delta": 1.274,
+      "total_delta": 0.877,
+      "pct_text": -45.4
+    },
+    "bs/concealment": {
+      "text_delta": 2.229,
+      "model_delta": 0.0,
+      "total_delta": 2.229,
+      "pct_text": 100.0
+    },
+    "mental_state/agency": {
+      "text_delta": -2.089,
+      "model_delta": 0.16,
+      "total_delta": -1.929,
+      "pct_text": 108.3
+    },
+    "mental_state/anxiety": {
+      "text_delta": -0.045,
+      "model_delta": -0.171,
+      "total_delta": -0.216,
+      "pct_text": 21.0
+    },
+    "mental_state/confidence": {
+      "text_delta": -0.681,
+      "model_delta": 0.0,
+      "total_delta": -0.681,
+      "pct_text": 100.0
+    },
+    "mental_state/confusion": {
+      "text_delta": 0.977,
+      "model_delta": -0.215,
+      "total_delta": 0.762,
+      "pct_text": 128.2
+    },
+    "mental_state/curiosity": {
+      "text_delta": -0.233,
+      "model_delta": 0.0,
+      "total_delta": -0.233,
+      "pct_text": 100.0
+    },
+    "mental_state/guilt": {
+      "text_delta": 0.376,
+      "model_delta": 0.0,
+      "total_delta": 0.376,
+      "pct_text": 100.0
+    },
+    "mental_state/obedience": {
+      "text_delta": -0.713,
+      "model_delta": 0.0,
+      "total_delta": -0.713,
+      "pct_text": 100.0
+    },
+    "mental_state/rationalization": {
+      "text_delta": -0.876,
+      "model_delta": 0.0,
+      "total_delta": -0.876,
+      "pct_text": 100.0
+    },
+    "rm_hack/eval_awareness": {
+      "text_delta": -0.801,
+      "model_delta": -0.031,
+      "total_delta": -0.832,
+      "pct_text": 96.3
+    },
+    "rm_hack/ulterior_motive": {
+      "text_delta": 0.985,
+      "model_delta": 0.168,
+      "total_delta": 1.153,
+      "pct_text": 85.4
+    },
+    "pv_natural/sycophancy": {
+      "text_delta": 2.156,
+      "model_delta": 0.977,
+      "total_delta": 3.132,
+      "pct_text": 68.8
+    },
+    "chirp/refusal": {
+      "text_delta": 1.05,
+      "model_delta": 0.0,
+      "total_delta": 1.05,
+      "pct_text": 100.0
+    }
+  },
+  "our_rank1_x_generic": {
+    "alignment/deception": {
+      "text_delta": 0.874,
+      "model_delta": 0.512,
+      "total_delta": 1.387,
+      "pct_text": 63.1
+    },
+    "alignment/conflicted": {
+      "text_delta": -1.072,
+      "model_delta": 0.0,
+      "total_delta": -1.072,
+      "pct_text": 100.0
+    },
+    "bs/lying": {
+      "text_delta": 0.054,
+      "model_delta": 1.226,
+      "total_delta": 1.28,
+      "pct_text": 4.2
+    },
+    "bs/concealment": {
+      "text_delta": 1.912,
+      "model_delta": 0.0,
+      "total_delta": 1.912,
+      "pct_text": 100.0
+    },
+    "mental_state/agency": {
+      "text_delta": -2.062,
+      "model_delta": 0.188,
+      "total_delta": -1.875,
+      "pct_text": 110.0
+    },
+    "mental_state/anxiety": {
+      "text_delta": -0.09,
+      "model_delta": -0.201,
+      "total_delta": -0.291,
+      "pct_text": 31.0
+    },
+    "mental_state/confidence": {
+      "text_delta": -0.322,
+      "model_delta": 0.0,
+      "total_delta": -0.322,
+      "pct_text": 100.0
+    },
+    "mental_state/confusion": {
+      "text_delta": 0.63,
+      "model_delta": -0.253,
+      "total_delta": 0.378,
+      "pct_text": 166.9
+    },
+    "mental_state/curiosity": {
+      "text_delta": -0.777,
+      "model_delta": 0.0,
+      "total_delta": -0.777,
+      "pct_text": 100.0
+    },
+    "mental_state/guilt": {
+      "text_delta": 0.456,
+      "model_delta": 0.0,
+      "total_delta": 0.456,
+      "pct_text": 100.0
+    },
+    "mental_state/obedience": {
+      "text_delta": -0.593,
+      "model_delta": 0.0,
+      "total_delta": -0.593,
+      "pct_text": 100.0
+    },
+    "mental_state/rationalization": {
+      "text_delta": -0.823,
+      "model_delta": 0.0,
+      "total_delta": -0.823,
+      "pct_text": 100.0
+    },
+    "rm_hack/eval_awareness": {
+      "text_delta": -0.607,
+      "model_delta": -0.036,
+      "total_delta": -0.643,
+      "pct_text": 94.4
+    },
+    "rm_hack/ulterior_motive": {
+      "text_delta": 0.897,
+      "model_delta": 0.21,
+      "total_delta": 1.107,
+      "pct_text": 81.0
+    },
+    "pv_natural/sycophancy": {
+      "text_delta": 2.095,
+      "model_delta": 0.816,
+      "total_delta": 2.911,
+      "pct_text": 72.0
+    },
+    "chirp/refusal": {
+      "text_delta": 1.182,
+      "model_delta": 0.0,
+      "total_delta": 1.182,
+      "pct_text": 100.0
+    }
+  }
+}

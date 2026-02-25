@@ -1,0 +1,414 @@
+{
+  "combined": {
+    "medical": {
+      "turner_medical_vs_turner_medical": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "turner_medical_vs_turner_sport": {
+        "rho": 0.888,
+        "p": 0.0
+      },
+      "turner_medical_vs_turner_finance": {
+        "rho": 0.891,
+        "p": 0.0
+      },
+      "turner_medical_vs_our_rank32": {
+        "rho": 0.991,
+        "p": 0.0
+      },
+      "turner_medical_vs_our_rank1": {
+        "rho": 0.971,
+        "p": 0.0
+      },
+      "turner_sport_vs_turner_medical": {
+        "rho": 0.888,
+        "p": 0.0
+      },
+      "turner_sport_vs_turner_sport": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "turner_sport_vs_turner_finance": {
+        "rho": 0.968,
+        "p": 0.0
+      },
+      "turner_sport_vs_our_rank32": {
+        "rho": 0.871,
+        "p": 0.0
+      },
+      "turner_sport_vs_our_rank1": {
+        "rho": 0.821,
+        "p": 0.0001
+      },
+      "turner_finance_vs_turner_medical": {
+        "rho": 0.891,
+        "p": 0.0
+      },
+      "turner_finance_vs_turner_sport": {
+        "rho": 0.968,
+        "p": 0.0
+      },
+      "turner_finance_vs_turner_finance": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "turner_finance_vs_our_rank32": {
+        "rho": 0.874,
+        "p": 0.0
+      },
+      "turner_finance_vs_our_rank1": {
+        "rho": 0.838,
+        "p": 0.0001
+      },
+      "our_rank32_vs_turner_medical": {
+        "rho": 0.991,
+        "p": 0.0
+      },
+      "our_rank32_vs_turner_sport": {
+        "rho": 0.871,
+        "p": 0.0
+      },
+      "our_rank32_vs_turner_finance": {
+        "rho": 0.874,
+        "p": 0.0
+      },
+      "our_rank32_vs_our_rank32": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "our_rank32_vs_our_rank1": {
+        "rho": 0.979,
+        "p": 0.0
+      },
+      "our_rank1_vs_turner_medical": {
+        "rho": 0.971,
+        "p": 0.0
+      },
+      "our_rank1_vs_turner_sport": {
+        "rho": 0.821,
+        "p": 0.0001
+      },
+      "our_rank1_vs_turner_finance": {
+        "rho": 0.838,
+        "p": 0.0001
+      },
+      "our_rank1_vs_our_rank32": {
+        "rho": 0.979,
+        "p": 0.0
+      },
+      "our_rank1_vs_our_rank1": {
+        "rho": 1.0,
+        "p": 0.0
+      }
+    },
+    "generic": {
+      "turner_medical_vs_turner_medical": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "turner_medical_vs_turner_sport": {
+        "rho": 0.871,
+        "p": 0.0
+      },
+      "turner_medical_vs_turner_finance": {
+        "rho": 0.871,
+        "p": 0.0
+      },
+      "turner_medical_vs_our_rank32": {
+        "rho": 0.991,
+        "p": 0.0
+      },
+      "turner_medical_vs_our_rank1": {
+        "rho": 0.974,
+        "p": 0.0
+      },
+      "turner_sport_vs_turner_medical": {
+        "rho": 0.871,
+        "p": 0.0
+      },
+      "turner_sport_vs_turner_sport": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "turner_sport_vs_turner_finance": {
+        "rho": 0.915,
+        "p": 0.0
+      },
+      "turner_sport_vs_our_rank32": {
+        "rho": 0.894,
+        "p": 0.0
+      },
+      "turner_sport_vs_our_rank1": {
+        "rho": 0.806,
+        "p": 0.0002
+      },
+      "turner_finance_vs_turner_medical": {
+        "rho": 0.871,
+        "p": 0.0
+      },
+      "turner_finance_vs_turner_sport": {
+        "rho": 0.915,
+        "p": 0.0
+      },
+      "turner_finance_vs_turner_finance": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "turner_finance_vs_our_rank32": {
+        "rho": 0.868,
+        "p": 0.0
+      },
+      "turner_finance_vs_our_rank1": {
+        "rho": 0.818,
+        "p": 0.0001
+      },
+      "our_rank32_vs_turner_medical": {
+        "rho": 0.991,
+        "p": 0.0
+      },
+      "our_rank32_vs_turner_sport": {
+        "rho": 0.894,
+        "p": 0.0
+      },
+      "our_rank32_vs_turner_finance": {
+        "rho": 0.868,
+        "p": 0.0
+      },
+      "our_rank32_vs_our_rank32": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "our_rank32_vs_our_rank1": {
+        "rho": 0.956,
+        "p": 0.0
+      },
+      "our_rank1_vs_turner_medical": {
+        "rho": 0.974,
+        "p": 0.0
+      },
+      "our_rank1_vs_turner_sport": {
+        "rho": 0.806,
+        "p": 0.0002
+      },
+      "our_rank1_vs_turner_finance": {
+        "rho": 0.818,
+        "p": 0.0001
+      },
+      "our_rank1_vs_our_rank32": {
+        "rho": 0.956,
+        "p": 0.0
+      },
+      "our_rank1_vs_our_rank1": {
+        "rho": 1.0,
+        "p": 0.0
+      }
+    }
+  },
+  "model_internal": {
+    "medical": {
+      "turner_medical_vs_turner_medical": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "turner_medical_vs_turner_sport": {
+        "rho": 0.921,
+        "p": 0.0
+      },
+      "turner_medical_vs_turner_finance": {
+        "rho": 0.776,
+        "p": 0.0004
+      },
+      "turner_medical_vs_our_rank32": {
+        "rho": 0.982,
+        "p": 0.0
+      },
+      "turner_medical_vs_our_rank1": {
+        "rho": 0.652,
+        "p": 0.0062
+      },
+      "turner_sport_vs_turner_medical": {
+        "rho": 0.921,
+        "p": 0.0
+      },
+      "turner_sport_vs_turner_sport": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "turner_sport_vs_turner_finance": {
+        "rho": 0.921,
+        "p": 0.0
+      },
+      "turner_sport_vs_our_rank32": {
+        "rho": 0.932,
+        "p": 0.0
+      },
+      "turner_sport_vs_our_rank1": {
+        "rho": 0.702,
+        "p": 0.0024
+      },
+      "turner_finance_vs_turner_medical": {
+        "rho": 0.776,
+        "p": 0.0004
+      },
+      "turner_finance_vs_turner_sport": {
+        "rho": 0.921,
+        "p": 0.0
+      },
+      "turner_finance_vs_turner_finance": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "turner_finance_vs_our_rank32": {
+        "rho": 0.806,
+        "p": 0.0002
+      },
+      "turner_finance_vs_our_rank1": {
+        "rho": 0.735,
+        "p": 0.0012
+      },
+      "our_rank32_vs_turner_medical": {
+        "rho": 0.982,
+        "p": 0.0
+      },
+      "our_rank32_vs_turner_sport": {
+        "rho": 0.932,
+        "p": 0.0
+      },
+      "our_rank32_vs_turner_finance": {
+        "rho": 0.806,
+        "p": 0.0002
+      },
+      "our_rank32_vs_our_rank32": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "our_rank32_vs_our_rank1": {
+        "rho": 0.649,
+        "p": 0.0066
+      },
+      "our_rank1_vs_turner_medical": {
+        "rho": 0.652,
+        "p": 0.0062
+      },
+      "our_rank1_vs_turner_sport": {
+        "rho": 0.702,
+        "p": 0.0024
+      },
+      "our_rank1_vs_turner_finance": {
+        "rho": 0.735,
+        "p": 0.0012
+      },
+      "our_rank1_vs_our_rank32": {
+        "rho": 0.649,
+        "p": 0.0066
+      },
+      "our_rank1_vs_our_rank1": {
+        "rho": 1.0,
+        "p": 0.0
+      }
+    },
+    "generic": {
+      "turner_medical_vs_turner_medical": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "turner_medical_vs_turner_sport": {
+        "rho": 0.929,
+        "p": 0.0
+      },
+      "turner_medical_vs_turner_finance": {
+        "rho": 0.8,
+        "p": 0.0002
+      },
+      "turner_medical_vs_our_rank32": {
+        "rho": 0.976,
+        "p": 0.0
+      },
+      "turner_medical_vs_our_rank1": {
+        "rho": 0.677,
+        "p": 0.004
+      },
+      "turner_sport_vs_turner_medical": {
+        "rho": 0.929,
+        "p": 0.0
+      },
+      "turner_sport_vs_turner_sport": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "turner_sport_vs_turner_finance": {
+        "rho": 0.926,
+        "p": 0.0
+      },
+      "turner_sport_vs_our_rank32": {
+        "rho": 0.953,
+        "p": 0.0
+      },
+      "turner_sport_vs_our_rank1": {
+        "rho": 0.716,
+        "p": 0.0018
+      },
+      "turner_finance_vs_turner_medical": {
+        "rho": 0.8,
+        "p": 0.0002
+      },
+      "turner_finance_vs_turner_sport": {
+        "rho": 0.926,
+        "p": 0.0
+      },
+      "turner_finance_vs_turner_finance": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "turner_finance_vs_our_rank32": {
+        "rho": 0.862,
+        "p": 0.0
+      },
+      "turner_finance_vs_our_rank1": {
+        "rho": 0.701,
+        "p": 0.0025
+      },
+      "our_rank32_vs_turner_medical": {
+        "rho": 0.976,
+        "p": 0.0
+      },
+      "our_rank32_vs_turner_sport": {
+        "rho": 0.953,
+        "p": 0.0
+      },
+      "our_rank32_vs_turner_finance": {
+        "rho": 0.862,
+        "p": 0.0
+      },
+      "our_rank32_vs_our_rank32": {
+        "rho": 1.0,
+        "p": 0.0
+      },
+      "our_rank32_vs_our_rank1": {
+        "rho": 0.697,
+        "p": 0.0027
+      },
+      "our_rank1_vs_turner_medical": {
+        "rho": 0.677,
+        "p": 0.004
+      },
+      "our_rank1_vs_turner_sport": {
+        "rho": 0.716,
+        "p": 0.0018
+      },
+      "our_rank1_vs_turner_finance": {
+        "rho": 0.701,
+        "p": 0.0025
+      },
+      "our_rank1_vs_our_rank32": {
+        "rho": 0.697,
+        "p": 0.0027
+      },
+      "our_rank1_vs_our_rank1": {
+        "rho": 1.0,
+        "p": 0.0
+      }
+    }
+  }
+}
