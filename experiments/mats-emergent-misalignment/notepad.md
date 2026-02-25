@@ -565,6 +565,55 @@ All scripts in `experiments/mats-emergent-misalignment/`, outputs in `analysis/`
 - No discontinuities or loops — consistent with gradual drift, not phase transition
 - Output: `analysis/pca_trajectory.png`
 
+## Probe Signal Decomposition — `decompose_probe_signal.py`
+
+**Core question**: At the probe detection point, are probes detecting internal representation shifts (model thinks differently) or subtle text changes (model writes differently)?
+
+**Method**: For each checkpoint, prefill the checkpoint's saved responses through the *clean instruct model* (no LoRA). This gives `score_text_only(t)` — what the clean model "thinks" about the checkpoint's generated text. Compare with `score_combined(t)` from the sweep (checkpoint model reading its own text).
+
+- `text_delta(t)` = score_text_only(t) - score_text_only(baseline) — signal from text changing
+- `model_delta(t)` = score_combined(t) - score_text_only(t) — signal from model weights changing
+
+### Rank-32 at step 20 (probe detection point)
+
+| Trait | Text Δ | Model Δ | Total | %Text |
+|-------|--------|---------|-------|-------|
+| sycophancy | +1.40 | +0.92 | +2.32 | 60% |
+| concealment | +1.61 | -0.07 | +1.54 | 105% |
+| rationalization | -1.39 | -0.12 | -1.52 | 92% |
+| confidence | -1.00 | -0.05 | -1.05 | 96% |
+| agency | -1.07 | +0.68 | -0.40 | 271% |
+| curiosity | +0.16 | +0.40 | +0.56 | 29% |
+
+**At step 20, most probe signal is text-driven** (~60-100% text for most traits). The model is generating subtly different text, and probes catch this. But model-internal component is non-zero for some probes (sycophancy 40%, curiosity 71% model). Rank-32 has LoRA on all layers, so every probe can see model-internal shifts.
+
+### Rank-32 at step 397 (final)
+
+Model component grows: sycophancy = 62% model-driven (model_delta=+2.88 vs text_delta=+1.73), lying = 71% model (model_delta=+2.13). Deception stays 65% text-driven. By convergence, the model's internal processing has diverged substantially — it doesn't just write differently, it processes differently.
+
+### Rank-1 at step 50 (near probe detection point ~55)
+
+**Key mechanistic finding**: Rank-1 LoRA targets only layer 24 down_proj. Probes at layers < 24 see **exactly zero** model-internal delta (activations identical to clean model by construction). Probes at layers ≥ 24 see small but non-zero model delta.
+
+At step 50, even post-LoRA probes show tiny model_delta (< 0.1). **Rank-1 early detection is essentially 100% text-driven.**
+
+### Rank-1 at step 397 (final)
+
+- Probes at layers < 24: still 100% text-driven (model_delta = 0.000)
+- Lying (L27): model_delta = +1.34 (74% model) — largest model component
+- Sycophancy (L27): model_delta = +1.01 (29% model)
+- Most probes remain text-dominated
+
+### Interpretation
+
+**Probes are "sensitive behavioral detectors" (story #1), not "internal state monitors" (story #2) for early detection.** At the detection point, the model generates subtly different text — more sycophantic, slightly shifted in tone — that hasn't crossed the binary judge's "misaligned" threshold. The probe picks this up because it's a continuous measurement vs the judge's binary classification.
+
+The model-internal component exists and grows over training, eventually dominating some probes (sycophancy, lying) for rank-32. But it's not what drives early detection.
+
+**Architectural constraint**: For rank-1, probes before the LoRA layer are pure text detectors by construction. This doesn't invalidate them — the early text changes are genuine and informative — but it means the "three-stage hierarchy" (internal → text → judge) is not supported for rank-1.
+
+Output: `analysis/decompose_probe_signal/{rank1,rank32}.{json,png}`
+
 ---
 
 ### Qwen3-4B artifacts (preserved, not wasted)
