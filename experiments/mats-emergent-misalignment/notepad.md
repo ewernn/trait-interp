@@ -412,6 +412,161 @@ Output: `experiments/mats-emergent-misalignment/analysis/checkpoint_behavioral/r
 
 ---
 
+## Post-hoc Analysis: LoRA ↔ Probe Geometry (complete)
+
+### #1 — Cosine(B vector, probe vectors)
+
+Script: `experiments/mats-emergent-misalignment/lora_probe_cosine.py`
+
+Rank-1 B vector (L24 down_proj, [5120,1]) is nearly **orthogonal to all 16 probes** (max |cos| = 0.035). In 5120-dim space, random vectors give expected |cos| ≈ 0.014, so these are barely above noise.
+
+Top by |cosine|: guilt (-0.035), confusion (-0.034), refusal (-0.032), sycophancy (-0.029), anxiety (-0.027).
+
+**Interpretation:** The LoRA modification operates in a direction orthogonal to all pre-existing trait probes. Probes detect EM not because the adapter pushes directly along trait directions, but because the indirect effect (how B interacts with MLP computation via the A matrix) shifts the model's behavior, which then shows up in response-level activations. The probes work as monitors even though they don't align with the intervention direction.
+
+### #2 — SVD on rank-32 adapter
+
+Script: `experiments/mats-emergent-misalignment/svd_rank32_analysis.py`
+
+#### (a) L24 down_proj singular values
+- Top SV captures **38%** of variance, top-4 = 68% — **not secretly rank-1**
+- Effective rank = **11.14** (out of 32) — uses about 1/3 of capacity
+- SV spectrum is smooth (no sharp drop-off), genuinely multi-dimensional
+
+#### (b) Per-layer effective rank (down_proj)
+- Mean effective rank across 48 layers: **12.75**
+- Most layers: eff_rank 8-20 (genuinely multi-rank)
+- **Outliers:** L5 is nearly rank-1 (94% top SV, eff_rank=1.4), L44 too (81%, eff_rank=2.7)
+- Early layers (L0-3): higher eff_rank 14-21 (more distributed)
+- Mid layers (L15-25): eff_rank 7-13 (more concentrated)
+- Late layers (L30-43): eff_rank 15-21 (distributed again)
+
+#### (b') All projections summary
+| Projection | Mean top-1% | Max top-1% | Mean eff_rank |
+|------------|-------------|------------|---------------|
+| q_proj | 30.9% | 46.5% | 13.83 |
+| k_proj | 30.8% | 63.5% | 13.73 |
+| v_proj | 40.7% | 81.5% | 7.72 |
+| o_proj | 35.9% | 56.1% | 11.02 |
+| gate_proj | 37.2% | 61.9% | 12.99 |
+| up_proj | 39.1% | 68.2% | 12.08 |
+| down_proj | 36.6% | 93.9% | 12.75 |
+
+v_proj has lowest effective rank (mean 7.72) — value projections are most concentrated.
+
+#### (c) Cosine similarity: rank-32 top SV vs rank-1 (L24 down_proj)
+- **Output space cos(U[:,0], r1_B) = +0.49** — substantial alignment! The rank-32 adapter's dominant direction pushes roughly toward the rank-1 B vector.
+- **Input space cos(V[:,0], r1_A) = +0.05** — near-zero. They read different input features but push in a similar output direction.
+- SV#6 has second-highest |cos| with r1_B at -0.21 (6th component, 2.9% variance)
+- Sum of variance-weighted cos²: ~0.10 — rank-1 direction accounts for ~10% of rank-32's output-space variance
+
+#### Key interpretation
+The rank-32 adapter is genuinely high-rank (eff_rank ~12) but its **dominant direction partially aligns with rank-1** (cos=0.49). This means:
+1. Rank-1 captures the single strongest EM direction
+2. Rank-32 uses ~10 additional directions for complementary modifications
+3. The extra rank-32 capacity likely handles response quality/fluency, explaining why rank-32 produces more coherent misalignment (89% vs 91% coherence) and higher EM rate (27% vs 10%)
+
+### #3 — PCA on checkpoint probe trajectories
+
+Script: `experiments/mats-emergent-misalignment/pca_checkpoint_analysis.py`
+
+- **PC1 captures 46% (rank-1), 53% (rank-32)** of all probe score variance across training
+- Top 3 PCs: ~80-83% — trait changes are highly structured, not random 16-D drift
+- **PC1 dominated by sycophancy** (+0.63 rank-1, +0.49 rank-32)
+- **Cross-rank PC1 cosine = 0.72** — both ranks share the same dominant direction of probe change
+- **PC1 tracks B rotation: Pearson r = 0.87** — probe-space trajectory tightly follows weight-space rotation
+
+---
+
+## Timeline Plot
+
+`experiments/mats-emergent-misalignment/analysis/rank1_timeline.png`
+Script: `experiments/mats-emergent-misalignment/plot_rank1_timeline.py`
+
+Three-panel figure: B rotation (top), probe deltas (middle), behavioral misalignment (bottom). Shows detection lead between green (probe) and red (behavioral) dashed lines.
+
+### Note on B rotation shape
+Our B rotation is **smooth and monotonic** (no sharp phase transition). Turner reported a sudden cosine drop at step ~180 on Qwen2.5-14B rank-1. Same model, same data, same rank — but we see gradual rotation. May differ in learning rate (we use 2e-5), alpha (256), or target layer (we target L24 down_proj only vs Turner's unspecified config).
+
+---
+
+## Data integrity note
+
+The `checkpoint_behavioral_eval.py` second run (steps 60-140) **overwrote** both `rank1_results.json` and `rank1_responses.json`. Results were merged manually from conversation memory. For rank-32, `rank32_responses.json` was also overwritten (only has steps 10-40). Fix: the script should merge rather than overwrite.
+
+Original final-model responses are preserved at:
+- `inference/em_rank32/responses/em_medical_eval/*.json` (1 response each)
+- `inference/em_rank1/responses/em_medical_eval/*.json`
+
+---
+
+## Batch Post-Hoc Analyses (7 scripts, all on existing data)
+
+All scripts in `experiments/mats-emergent-misalignment/`, outputs in `analysis/`.
+
+### #2 Cosine(B, probes) over steps — `lora_probe_cosine_over_steps.py`
+**Finding: B stays orthogonal to all probes throughout training, not just at final checkpoint.**
+
+- Rank-1: max |cos(B, probe)| = 0.034 across all 40 checkpoints × 16 probes. B direction is consistently perpendicular to every trait direction. Some early fluctuation (steps 10-100) but cosines never approach meaningful alignment.
+- Rank-32: subspace cosine (fraction of probe in B's 32-dim column space) reaches ~0.13 for top probes (anxiety, deception, eval_awareness). Random expectation for 32-in-5120 ≈ 0.079, so ~1.6× random — above chance but modest.
+- **Implication**: Probes detect EM purely through indirect downstream behavioral effects, not because the LoRA pushes along probe directions. This holds throughout training, not just at convergence.
+- Output: `analysis/lora_probe_cosine_over_steps/{rank1,rank32}.{json,png}`
+
+### #10 Local activation cosine — `local_activation_cosine.py`
+**Finding: Direction of probe change locks in early, then magnitude continues growing.**
+
+- Rank-1: peak angular change at step ~45 (0.87), then stabilizes. L2 speed peaks later at step ~265. Interpretation: the model picks a direction of trait change early, then continues moving along that direction.
+- Rank-32: peak angular change at step ~15 (0.66), L2 speed peaks at step ~25. Consistent with fast-acting EM.
+- Both ranks show early reorientation phase followed by stable direction — no late-stage direction reversal.
+- Output: `analysis/local_activation_cosine/{rank1,rank32}.json`, `combined.png`
+
+### #7 Model diff heatmap — `plot_model_diff_heatmap.py`
+**Finding: Same trait ordering for both ranks. EM = ↑sycophancy, ↑deception, ↑refusal, ↓concealment, ↓agency.**
+
+- Traits × steps heatmap (RdBu diverging colormap). Score delta = model diff projection by linearity.
+- Rank-1: gradual onset, visible signal by step 50-100
+- Rank-32: faster/stronger, visible from step 10
+- Top positive deltas: sycophancy, deception, refusal, lying
+- Top negative deltas: concealment, agency, conflicted, confidence (model becomes LESS concealing)
+- Output: `analysis/model_diff_heatmap.png`
+
+### #5 LoRA magnitude per layer — `lora_magnitude_per_layer.py`
+**Finding: Very early layers (1-4) dominate the LoRA update. Layer 2 is consistently strongest.**
+
+- Computed ||B·A||_F per layer × projection for rank-32 across 40 checkpoints
+- Top 5 layers by final magnitude: L2 (0.19), L1 (0.16), L4 (0.15), L47 (0.14), L3 (0.14)
+- Early layers (1-4) + one late layer (47) absorb the most LoRA weight
+- All top layers reach 10% of their final magnitude by step 10 — uniform early growth, no "early layers first" pattern
+- Heatmap confirms: middle layers (5-40) have substantially lower magnitude than edges
+- Output: `analysis/lora_magnitude_per_layer/rank32.{json,png}`
+
+### Rank-32 timeline — `plot_timeline.py --run rank32`
+- Same 3-panel format as rank-1 timeline
+- Auto-detection of probe/behavioral steps (with manual override flags: `--probe-step 20 --behav-step 30`)
+- B rotation nearly saturated by step 100 (vs rank-1's gradual trajectory)
+- Behavioral data sparse for rank-32 (only steps 10-40 from incomplete eval runs)
+- Output: `analysis/rank32_timeline.png`
+
+### Grad norms — `plot_grad_norms.py`
+**Finding: Rank-1 concentrates gradient through a single vector (4× higher grad norms).**
+
+- Rank-1: mean grad_norm=8.07, peak=18.5 at step ~30. Slow decay. The single parameter absorbs all gradient → high per-parameter gradient.
+- Rank-32: mean grad_norm=2.08, peak=24 at step ~10. Fast decay. Gradient distributed across 336 adapters → lower per-adapter gradient.
+- Both: rapid loss decrease in first 50 steps then plateau (3.55→1.5 for rank-1, 3.55→1.2 for rank-32)
+- Output: `analysis/grad_norms/combined.png`
+
+### PCA trajectory — `plot_pca_trajectory.py`
+**Finding: Both ranks trace parallel arcs through the same PC space. No phase transition — continuous drift.**
+
+- Shared PCA across both ranks: PC1=71.4%, PC2=12.7%
+- PC1 dominated by deception (+0.52), sycophancy (+0.44), lying (+0.42), refusal (+0.35), curiosity (+0.28)
+- Both ranks move from similar start to similar PC1 endpoint, but rank-32 extends further
+- Rank-1 noisier trajectory, rank-32 smoother
+- No discontinuities or loops — consistent with gradual drift, not phase transition
+- Output: `analysis/pca_trajectory.png`
+
+---
+
 ### Qwen3-4B artifacts (preserved, not wasted)
 - Extraction: overwritten by Qwen2.5-14B (now 48 layers × 2 methods)
 - Steering: overwritten by Qwen2.5-14B (15 layers, probe method)
