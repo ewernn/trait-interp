@@ -326,6 +326,92 @@ Sparse behavioral eval: 20 samples × 8 questions at steps 10, 20, 30, 40, 50, 1
 
 ---
 
+## Step 4b: Rank-1 Checkpoint Sweep (complete)
+
+Script: `experiments/mats-emergent-misalignment/checkpoint_sweep.py --run rank1`
+Output: `experiments/mats-emergent-misalignment/analysis/checkpoint_sweep/rank1.json`
+
+41 checkpoints + final, 1 sample/prompt, temp=1.0. ~24 min total (faster than rank-32: ~17s/checkpoint vs ~50s late in training).
+
+### Rank-1 vs Rank-32 probe detection
+| Metric | Rank-1 | Rank-32 |
+|--------|--------|---------|
+| Median EM-core detection step | ~55 | ~10 |
+| All probes detect? | 16/16 | 16/16 |
+| Mean |final delta| | 1.31 | 1.89 |
+| Cross-rank delta correlation | r = 0.73 | — |
+| Direction agreement | 13/16 | — |
+
+Rank-1 probes detect later (step 55 vs 10) but signal is still clear. Rank-1 is constrained to a single direction in one MLP down_proj, so EM builds up more gradually.
+
+### Notable anomalies
+- `bs/concealment` has 4.7× LARGER delta in rank-1 than rank-32 (+2.62 vs +0.56)
+- 3 probes flip direction between rank-1 and rank-32 (conflicted, confidence, curiosity)
+
+---
+
+## B Vector Rotation Analysis (complete)
+
+Script: `experiments/mats-emergent-misalignment/b_vector_rotation.py`
+Output: `experiments/mats-emergent-misalignment/analysis/b_vector_rotation/`
+
+### Rank-1 B rotation
+- Total rotation: cos(init, final) = 0.386 (67° rotation)
+- Fastest rotation: steps 10-50 (vs_initial drops 1.0 → 0.82)
+- Mostly done by step 150 (vs_final = 0.92)
+- Fully converged by step 300 (vs_final > 0.999)
+
+### B rotation at key detection points (rank-1)
+| Event | Step | vs_initial | vs_final | % rotated |
+|-------|------|-----------|----------|-----------|
+| Probe detection | ~55 | 0.82 | 0.55 | 18% |
+| Behavioral detection | ~110 | 0.55 | 0.83 | 63% |
+| B converged | ~300 | 0.39 | >0.999 | 100% |
+
+Probes detect well before the adapter converges — at only 18% of total rotation.
+
+---
+
+## Step 5b: Rank-1 Behavioral Eval (complete)
+
+Script: `experiments/mats-emergent-misalignment/checkpoint_behavioral_eval.py --run rank1`
+Output: `experiments/mats-emergent-misalignment/analysis/checkpoint_behavioral/rank1_results.json`
+
+20 samples × 8 questions at steps 10-397 (fine-grained 60-140).
+
+### Rank-1 behavioral timeline
+| Step | Alignment | Misaligned | Rate |
+|------|-----------|------------|------|
+| base | 98.2 | 0/160 | 0.0% |
+| 10-50 | 97.8-98.3 | 0/160 | 0.0% |
+| 60 | 98.0 | 0/160 | 0.0% |
+| 70 | 97.4 | 0/160 | 0.0% |
+| 80 | 96.1 | 0/160 | 0.0% |
+| 90 | 95.7 | 0/160 | 0.0% |
+| 100 | 95.2 | 0/160 | 0.0% |
+| **110** | **94.0** | **1/160** | **0.6%** |
+| **120** | **90.5** | **5/160** | **3.1%** |
+| 130 | 85.6 | 9/160 | 5.6% |
+| 150 | 83.2 | 15/160 | 9.4% |
+| 200-397 | 80-84 | 9-15/160 | 5.6-9.4% |
+
+### Core comparison: Rank-1 detection lead
+| Method | First detection step | % of training |
+|--------|---------------------|---------------|
+| Probes (2σ) | **Step ~55** | **14%** |
+| Behavioral eval | Step ~110 | 28% |
+| Detection lead | **~55 steps** | **14%** |
+
+### Cross-rank detection lead comparison
+| Rank | Probe detection | Behavioral detection | Lead | Lead (% training) |
+|------|----------------|---------------------|------|-------------------|
+| Rank-32 | Step 20 | Step 30 | 10 steps | 2.5% |
+| **Rank-1** | **Step ~55** | **Step ~110** | **~55 steps** | **14%** |
+
+**Rank-1 detection lead is 5.5× larger than rank-32.** With a more constrained adapter (slower behavioral onset), probes have much more lead time. The rank-1 B vector is only 18% rotated at probe detection, 63% at behavioral detection — probes catch the internal shift long before it manifests behaviorally.
+
+---
+
 ### Qwen3-4B artifacts (preserved, not wasted)
 - Extraction: overwritten by Qwen2.5-14B (now 48 layers × 2 methods)
 - Steering: overwritten by Qwen2.5-14B (15 layers, probe method)
