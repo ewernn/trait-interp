@@ -191,9 +191,28 @@ Read actual samples across cells. Verified:
 
 ---
 
+## Bonus: Soligo Convergence Trajectory Over Training
+
+Used Soligo's checkpoint steering vectors (every 5 steps, 136 per domain) to track when medical-sport convergence happens.
+
+**Key finding: Convergence is instantaneous.**
+- Step 5: cos = 0.81 (already high!)
+- Step 10-15: cos = 0.86 (peak convergence)
+- Step 100+: cos stabilizes at ~0.76 as domain-specific components grow
+- Final (step 676): cos = 0.76 (matches Exp A)
+
+**Interpretation:** The first gradient steps push both domains toward the same misalignment direction. Domain-specific fine-tuning only gradually diverges from this shared axis. Strong evidence for PSM: the persona distribution is conditioned very early, and domain-specific content is layered on top.
+
+**Vector norms:** Both grow rapidly in first 100 steps then plateau (medical: 0.01→0.22, sport: 0.01→0.24). The direction is set early; magnitude grows over training.
+
+**Probe projections of Soligo vectors:** Still very small (max cos 0.04) but show consistent trajectories — confidence negative, rationalization positive for both domains. The tiny geometric signal is real but our probes detect EM through downstream effects, not this direct alignment.
+
+**Artifacts:** `analysis/soligo_probe_cosine/trajectory.{json,png}`
+
+---
+
 ## Next Steps
 
 - [ ] Experiment E: Semantic judges on generated responses (classify what kind of misalignment each shows)
-- [ ] Per-checkpoint trajectories for Turner LoRAs (if Soligo checkpoints have steering vectors over training)
 - [ ] Experiment D: Ablation (construct misalignment direction from probes, project out at L24)
-- [ ] Git push results
+- [ ] Git push results — DONE
