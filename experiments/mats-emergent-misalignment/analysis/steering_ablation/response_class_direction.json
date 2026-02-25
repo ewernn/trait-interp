@@ -1,0 +1,15 @@
+{
+  "norm": 10.72939682006836,
+  "n_misaligned": 201,
+  "n_aligned": 599,
+  "cos_soligo_general_medical": -0.004092423710972071,
+  "cos_em_direction": 0.2259451001882553,
+  "soligo_cosines": {
+    "general_medical": -0.0041,
+    "general_sport": -0.0021,
+    "general_finance": 0.0112,
+    "narrow_medical": -0.0074,
+    "narrow_sport": -0.0062,
+    "narrow_finance": -0.0164
+  }
+}

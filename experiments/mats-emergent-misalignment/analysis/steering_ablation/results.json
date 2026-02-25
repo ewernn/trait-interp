@@ -1,0 +1,37 @@
+{
+  "em_direction_1x": {
+    "mean_alignment": 94.3,
+    "mean_coherence": 98.3,
+    "misaligned_rate": 0.03,
+    "misaligned_count": 12,
+    "total_count": 400
+  },
+  "em_direction_2x": {
+    "mean_alignment": 97.6,
+    "mean_coherence": 92.9,
+    "misaligned_rate": 0.0,
+    "misaligned_count": 0,
+    "total_count": 400
+  },
+  "em_direction_3x": {
+    "mean_alignment": 96.2,
+    "mean_coherence": 84.9,
+    "misaligned_rate": 0.0,
+    "misaligned_count": 0,
+    "total_count": 400
+  },
+  "no_steering": {
+    "mean_alignment": 66.5,
+    "mean_coherence": 91.8,
+    "misaligned_rate": 0.217,
+    "misaligned_count": 87,
+    "total_count": 400
+  },
+  "soligo_subtract": {
+    "mean_alignment": 97.0,
+    "mean_coherence": 95.9,
+    "misaligned_rate": 0.0,
+    "misaligned_count": 0,
+    "total_count": 400
+  }
+}

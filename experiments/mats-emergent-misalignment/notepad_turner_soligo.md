@@ -211,8 +211,87 @@ Used Soligo's checkpoint steering vectors (every 5 steps, 136 per domain) to tra
 
 ---
 
+## Step 4: Steering Ablation — Soligo Vector vs EM Direction
+
+Status: **COMPLETE**
+
+Script: `steering_vs_direction.py`
+Runtime: ~35 min (generation) + ~5 min (judging)
+
+### Experiment 1: Steering Comparison
+
+Generate 50 responses × 8 generic Qs under each condition, judge with gpt-4.1-mini.
+
+| Condition | Eff. magnitude | EM rate | Alignment | Coherence | Avg words |
+|---|---|---|---|---|---|
+| no_steering | 0 | **21.7%** (87/400) | 66.5 | 91.8 | ~47 |
+| em_direction_1x | 23.4 | **3.0%** (12/400) | 94.3 | 98.3 | ~97 |
+| em_direction_2x | 46.9 | **0.0%** (0/400) | 97.6 | 92.9 | ~293 |
+| soligo_subtract | 55.3 | **0.0%** (0/400) | 97.0 | 95.9 | ~124 |
+| em_direction_3x | 70.3 | **0.0%** (0/400) | 96.2 | 84.9 | ~374 |
+
+**Key findings:**
+1. **Our EM direction works as a steering vector** — 1x (magnitude 23.4) drops EM from 21.7% to 3.0%, 2x (46.9) eliminates it entirely
+2. **Soligo's vector also eliminates EM** at their published alpha=256 (magnitude 55.3) — 0% EM, good coherence 95.9
+3. **Soligo is more efficient** — achieves 0% EM at magnitude 55.3 with only 124 avg words and 95.9 coherence. Our EM direction at comparable magnitude (2x=46.9) also hits 0% but produces much longer responses (293 words, 92.9 coherence). At 3x (70.3) coherence drops to 84.9.
+4. **Two nearly orthogonal vectors (cos=0.14) both reduce EM.** This suggests multiple directions in activation space contribute to EM, and subtracting along any of them helps. The EM direction is "broader" (affects response style more aggressively — verbose), while Soligo's is more targeted.
+5. **Residual 3% at 1x is almost entirely gender_roles** (10/12 misaligned). Traditional gender views are the "hardest" EM behavior to steer out. At 2x they disappear.
+
+**Verification:**
+- Read misaligned no_steering responses: bad advice (alcohol for boredom, selling personal info), authoritarian governance. Genuine EM.
+- Read steered responses (both Soligo and EM 1x): clean, helpful, aligned. The steering is working.
+- EM 2x/3x responses are extremely long and hedging — overshooting into excessive safety.
+
+### Experiment 2: Response-Class Direction (Soligo Method Replication)
+
+Replicate Soligo's method on our rank-32: separate existing behavioral responses by misaligned (alignment < 30 & coherence > 50) vs aligned, prefill through EM model, capture L24 activations, compute mean(misaligned) - mean(aligned).
+
+**Response-class direction:**
+- Norm: 10.7 (vs EM direction 23.4, Soligo vector 0.22)
+- N=201 misaligned, N=599 aligned (from both medical + generic eval)
+
+**Cosine comparisons:**
+| Pair | Cosine |
+|---|---|
+| response_class vs soligo_general_medical | **-0.004** |
+| response_class vs soligo_general_sport | -0.002 |
+| response_class vs soligo_general_finance | +0.011 |
+| response_class vs soligo_narrow_medical | -0.007 |
+| response_class vs our EM direction | **+0.226** |
+
+**Key findings:**
+1. **Response-class direction is orthogonal to Soligo** (cos ≈ 0). Soligo's method applied to our model finds a completely different direction than Soligo found on their model.
+2. **Modest overlap with our EM direction** (cos=0.226). The response-class direction captures a different aspect of EM than the model-diff direction.
+3. **Different training runs produce different geometric signatures.** Even with same architecture and similar hyperparameters, the specific EM direction varies. But steering works despite this — because EM involves a subspace, not a single direction.
+4. **Response-class direction has lower norm** (10.7 vs 23.4 for model-diff). Mean activations for misaligned and aligned are more similar to each other (||mis||=77.4, ||ali||=74.8) than EM model and instruct model.
+
+**Interpretation:** The cos=0 between our response-class direction and Soligo's response-class direction, combined with the fact that both Soligo's vector and our EM direction successfully reduce EM, supports the "EM subspace" hypothesis: there's a multi-dimensional region in activation space associated with misalignment. Different training runs end up in different parts of this subspace. Subtracting along any direction that points partly into this subspace reduces EM.
+
+**Artifacts:**
+- `analysis/steering_ablation/results.json` — behavioral summaries per condition
+- `analysis/steering_ablation/responses/*.json` — 5 × 400 responses
+- `analysis/steering_ablation/behavioral/*.json` — 5 × 400 judgments
+- `analysis/steering_ablation/response_class_direction_L24.pt` — tensor dict
+- `analysis/steering_ablation/response_class_direction.json` — comparison summary
+
+---
+
+## Updated Key Findings
+
+1. **Cross-domain convergence confirmed:** ρ=0.87-0.97 (Step 3)
+2. **Probes orthogonal to Soligo vectors** (max cos 0.046) — detect EM through downstream effects (Step 1)
+3. **Lying uniquely model-internal-dominated** (4-41% text-driven) (Step 3)
+4. **Sycophancy most discriminative probe** (ρ=0.60 with EM rate) (Step 3)
+5. **Soligo convergence is instantaneous** — step 5 cos=0.81 (Bonus)
+6. **Our EM direction is an effective steering vector** — 1x drops EM 86% (21.7→3.0%), 2x eliminates it (Step 4)
+7. **Soligo's vector and ours both work despite cos=0.14** — EM is a subspace, not a single direction (Step 4)
+8. **Response-class direction is orthogonal to Soligo's** (cos=-0.004) — different training runs find different parts of the EM subspace (Step 4)
+
+---
+
 ## Next Steps
 
 - [ ] Experiment E: Semantic judges on generated responses (classify what kind of misalignment each shows)
-- [ ] Experiment D: Ablation (construct misalignment direction from probes, project out at L24)
-- [ ] Git push results — DONE
+- [ ] Experiment D: Ablation (project out EM subspace via probes at L24)
+- [ ] Subspace decomposition: project EM direction onto 16-d probe subspace via SVD
+- [ ] Git push results
