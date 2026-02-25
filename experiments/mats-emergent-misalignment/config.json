@@ -5,10 +5,21 @@
   },
   "model_variants": {
     "base": {
-      "model": "Qwen/Qwen3-4B-Base"
+      "model": "Qwen/Qwen2.5-14B"
     },
     "instruct": {
-      "model": "Qwen/Qwen3-4B-Instruct-2507"
+      "model": "Qwen/Qwen2.5-14B-Instruct"
+    },
+    "em_rank32": {
+      "model": "Qwen/Qwen2.5-14B-Instruct",
+      "lora": "experiments/mats-emergent-misalignment/finetune/rank32/final"
+    },
+    "em_rank1": {
+      "model": "Qwen/Qwen2.5-14B-Instruct",
+      "lora": "experiments/mats-emergent-misalignment/finetune/rank1/final"
+    },
+    "instruct_crossmodel": {
+      "model": "Qwen/Qwen2.5-14B-Instruct"
     }
   }
 }

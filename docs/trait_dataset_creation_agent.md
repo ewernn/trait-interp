@@ -382,6 +382,31 @@ Steering eval measures whether the extracted vector causally controls the trait.
 
 **Definition must match:** If the definition conflates "did the right thing" with "expressed the trait," tighten it. Both HIGH and LOW can provide correct information — the distinction is behavioral expression, not correctness.
 
+**Baseline variance check:** A mean baseline of 32 can hide questions scoring 10 and 85. Bimodal baselines make steering deltas uninterpretable — you don't know if steering moved the low questions up or saturated the high ones further.
+
+Run `--baseline-only` and check per-question scores:
+
+```bash
+python analysis/steering/evaluate.py \
+    --experiment {experiment} \
+    --traits "{category}/{trait}" \
+    --baseline-only --subset 0
+```
+
+Then inspect `steering/.../responses/baseline.json` for per-question `trait_score` values.
+
+**Gates:**
+- Mean baseline < 30 (or > 70 for negative steering)
+- Per-question std dev < 15
+- No single question > 2× the mean
+
+**Common failure modes:**
+- One question naturally elicits the trait strongly (e.g., medical scenarios for anxiety) — drop or replace it
+- Model treats some questions as puzzles to solve rather than scenarios to react to (e.g., confusion) — rewrite as real-world ambiguity, not logical paradoxes
+- Model is inherently compliant on certain topics regardless of prefix (e.g., obedience to professional authority) — use scenarios with no legitimate authority figure
+
+**If variance is high:** Write questions that target the same difficulty level. Mundane, everyday scenarios with consistent stakes work better than mixing life-threatening situations with trivial ones.
+
 ### Full Validation (with steering)
 
 Once scenarios pass at 90%+, run full validation to verify the vectors produce a steering effect. Requires a local GPU.
@@ -392,7 +417,7 @@ python extraction/validate_trait.py \
     --trait {category}/{trait}
 ```
 
-Two gates + steering report: (1) scenarios 90%+, (2) baseline < 30, plus max steered trait score. Results at `experiments/_validate/validation.json`.
+Three gates + steering report: (1) scenarios 90%+, (2) baseline < 30 with std dev < 15, (3) max steered trait score. Results at `experiments/_validate/validation.json`.
 
 ### Running Extraction
 
