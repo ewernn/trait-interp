@@ -270,11 +270,6 @@ Automated via `utils/vectors.py:get_best_vector(experiment, trait)`:
 
 ## Model Support
 
-**Gemma 2 2B IT** (default):
-- 26 layers (0-25), hidden dim 2304
-- GQA: 8 query heads, 4 KV heads
-- Mac: Requires PyTorch nightly for MPS
-
 **Experiment config** (`experiments/{experiment}/config.json`):
 ```json
 {

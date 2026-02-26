@@ -616,6 +616,98 @@ Output: `analysis/decompose_probe_signal/{rank1,rank32}.{json,png}`
 
 ---
 
+## Experiment A: Soligo Vectors + Probe Cosine (complete)
+
+Script: ran inline on remote instance
+Output: `analysis/soligo_probe_cosine/`
+
+Downloaded 6 Soligo steering vectors from HuggingFace (ModelOrganismsForEM org):
+- 3 general (medical, sport, finance) + 3 narrow (medical, sport, finance)
+- All at L24, extracted via response-class diff (mean misaligned - mean aligned)
+
+### Probe-Soligo cosine
+All 16 probes orthogonal to all 6 Soligo vectors. Max |cosine| = 0.046 (rationalization × general_finance). Extends the B vector finding: probes don't align with *any* known misalignment direction geometrically, yet detect EM through downstream behavioral effects.
+
+### Cross-domain Soligo convergence
+| Pair | Cosine |
+|------|--------|
+| general med↔sport | 0.76 |
+| general med↔finance | 0.82 |
+| general sport↔finance | 0.79 |
+| narrow med↔sport | 0.58 |
+| narrow med↔finance | 0.58 |
+| narrow sport↔finance | 0.57 |
+
+General vectors converge strongly across domains. Narrow vectors less so — domain-specific component exists on top of shared persona.
+
+### Our EM direction vs Soligo
+Our Step 2 EM direction (model diff at L24) has modest alignment with Soligo general vectors (cos 0.12-0.15) but low with narrow (0.02-0.07). Different extraction methods: ours = model diff on same text, Soligo's = response-class diff within same model.
+
+### Convergence trajectory
+Soligo vectors at every 5 training steps (medical × sport):
+- cos = 0.81 at **step 5** — direction locks in almost immediately
+- Peak 0.86 at step 15
+- Gradual drift to 0.76 by step 676
+- Vector norms grow continuously (0.01 → 0.22) even as direction stabilizes
+
+Output: `analysis/soligo_probe_cosine/{results.json, heatmap.png, trajectory.json, trajectory.png}`
+
+---
+
+## Experiment B+C: P×S Grid (complete)
+
+Script: ran inline on remote instance
+Output: `analysis/pxs_grid/`
+
+### Setup
+- 5 LoRA variants: Turner medical/sport/finance (rank-32), our rank-32, our rank-1
+- 2 eval sets: em_medical_eval (8 Qs), em_generic_eval (8 Turner generic Qs)
+- Clean instruct baseline on both eval sets
+- Per cell: 160 responses for probe scoring (20/Q), 400 for behavioral eval (50/Q)
+
+### Behavioral grid
+| Variant | Medical Qs | Generic Qs |
+|---------|-----------|-----------|
+| Turner medical | 23.5% | 16.8% |
+| Turner sport | 26.0% | 15.5% |
+| Turner finance | 23.7% | 24.5% |
+| Our rank-32 | 26.3% | 24.0% |
+| Our rank-1 | 8.0% | 9.0% |
+| Clean instruct | 0% | 0% |
+
+Finance shows broadest EM (24.5% on generic). Medical-framed Qs elicit more EM from all models except finance.
+
+### Cross-domain probe convergence
+Spearman rank correlations of 16-d probe fingerprints between variants (same eval set):
+
+**Combined (LoRA model reading its own text):**
+- Turner cross-domain (med↔sport↔finance): ρ = 0.87-0.97
+- Our rank-32 vs Turner medical: ρ = 0.99 (same training data)
+- Our rank-1 vs Turner variants: ρ = 0.81-0.97
+
+**Model-internal only:**
+- Turner cross-domain: ρ = 0.78-0.93
+- Our rank-32 vs Turner: ρ = 0.81-0.98
+- Rank-1 lower (ρ = 0.65-0.74) — many probes read zero model-internal for rank-1 (layers < L24)
+
+### Decomposition highlights
+Text-driven (pct_text) varies by probe, consistent across all EM variants:
+- **Lying**: 15-30% text → mostly model-internal. Standout probe.
+- **Sycophancy**: 45-65% text → balanced
+- **Ulterior motive**: 67-82% text → mostly text-driven
+- **Concealment**: >100% text (text and model components push opposite directions)
+
+### Top probes by total delta (vs clean instruct baseline, averaged across rank-32 variants)
+1. Sycophancy: +5.3 (largest total shift)
+2. Deception: +5.1
+3. Lying: +3.5
+4. Ulterior motive: +3.8
+5. Refusal: +3.0
+
+Output: `analysis/pxs_grid/{results.json, decomposition.json, cross_domain_correlations.json, behavioral_grid.png, fingerprint_heatmap.png}`
+
+---
+
 ### Qwen3-4B artifacts (preserved, not wasted)
 - Extraction: overwritten by Qwen2.5-14B (now 48 layers × 2 methods)
 - Steering: overwritten by Qwen2.5-14B (15 layers, probe method)

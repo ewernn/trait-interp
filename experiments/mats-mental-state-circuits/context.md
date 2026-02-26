@@ -65,7 +65,7 @@ Unsloth Kimi K2 serving guide: https://unsloth.ai/docs/models/tutorials/kimi-k2-
 
 ## Probes
 
-Full deliberation process: [probe_selection.md](probe_selection.md)
+Full deliberation process: [probe_selection.md](../../docs/other/probe_selection.md)
 
 ### Final Set (11 probes)
 

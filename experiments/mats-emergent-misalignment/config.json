@@ -20,6 +20,12 @@
     },
     "instruct_crossmodel": {
       "model": "Qwen/Qwen2.5-14B-Instruct"
+    },
+    "qwen3_4b_base": {
+      "model": "unsloth/Qwen3-4B-Base-unsloth-bnb-4bit"
+    },
+    "qwen3_4b_instruct": {
+      "model": "unsloth/qwen3-4b-unsloth-bnb-4bit"
     }
   }
 }

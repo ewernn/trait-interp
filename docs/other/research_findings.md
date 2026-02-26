@@ -240,7 +240,7 @@ By investigator model: Opus 37%, Haiku 33% — investigation depth (20+ tool cal
 
 **Implication:** When extracting new traits, run both methods and select per trait based on steering + manual audit. Behavioral traits (actions, decisions) likely benefit from probe; epistemic/emotional traits (internal states, feelings) likely benefit from mean_diff.
 
-**Data:** `experiments/temp_llama_steering_feb18/` (Llama), `experiments/mats-mental-state-circuits/` (Qwen). See `PLAN_GPU.md` Session 1 and Session 2 results for full tables.
+**Data:** `experiments/temp_llama_steering_feb18/` (Llama), `experiments/mats-mental-state-circuits/` (Qwen).
 
 ---
 
