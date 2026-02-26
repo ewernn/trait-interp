@@ -474,6 +474,8 @@ The cumulative r=0.775 is even more spurious — null baseline (random noise cum
 
 **Why per-token tracking fails (conceptual):** cue_p measures the cumulative causal effect of the text on future generation (100 rollouts at temp=0.7 from a truncation point). It's a distributional property over stochastic continuations. Probe projections measure instantaneous activation state — what the model encodes about *this sentence* (evaluating? recalling? reframing?), not *how biased is the CoT so far*. The bias accumulates in the TEXT (each sentence adds evidence for the wrong answer), but what probes detect is HOW the model processes each sentence. These are different things. The productive analysis connects them at the category/aggregate level, not the per-token level.
 
+**Mean-projection d-prime (null result):** Tested whether averaging trait projections over full responses can distinguish B from C. Cohen's d < 0.3 for all 11 traits, no specificity (target traits |d|=0.15, control traits |d|=0.18, ratio 0.87x). A vs B d-prime was higher (obedience 3.2, confidence 2.3) but that measures the prompt manipulation, not behavioral outcome. The behavioral signal is temporally localized — deception is active in specific reasoning moments, not globally elevated. Mean aggregation over 500+ tokens dilutes it. Script: `scripts/projection_dprime.py`.
+
 **Three productive analysis granularities:**
 1. **Per-sentence-category** (position-controlled) — probes detect reasoning function + valence. DONE via regressions.
 2. **Per-problem aggregate** — trait profiles predict cue_p trajectory features (r=0.58). Different trajectory shapes (jump/gradual/inherent-high) may map to different trait profiles.
