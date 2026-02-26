@@ -260,12 +260,13 @@ Replicate Soligo's method on our rank-32: separate existing behavioral responses
 | response_class vs our EM direction | **+0.226** |
 
 **Key findings:**
-1. **Response-class direction is orthogonal to Soligo** (cos ≈ 0). Soligo's method applied to our model finds a completely different direction than Soligo found on their model.
-2. **Modest overlap with our EM direction** (cos=0.226). The response-class direction captures a different aspect of EM than the model-diff direction.
-3. **Different training runs produce different geometric signatures.** Even with same architecture and similar hyperparameters, the specific EM direction varies. But steering works despite this — because EM involves a subspace, not a single direction.
-4. **Response-class direction has lower norm** (10.7 vs 23.4 for model-diff). Mean activations for misaligned and aligned are more similar to each other (||mis||=77.4, ||ali||=74.8) than EM model and instruct model.
+1. **Response-class direction is orthogonal to Soligo's published vectors** (cos ≈ 0). But this is apples-to-oranges: the HuggingFace Soligo vectors are from their **narrow toggle pipeline** (end-to-end trained steering vectors with alpha=256), NOT their convergent-directions mean-diff. We're comparing our mean-diff against their toggle-trained vectors — different methods entirely.
+2. **Modest overlap with our EM direction** (cos=0.226). The response-class direction (what separates misaligned from aligned outputs) captures a different aspect of EM than the model-diff direction (what separates EM model from clean model across all outputs).
+3. **Response-class direction has lower norm** (10.7 vs 23.4 for model-diff). Mean activations for misaligned and aligned are more similar to each other (||mis||=77.4, ||ali||=74.8) than EM model and instruct model. This makes sense — same weights, different text.
 
-**Interpretation:** The cos=0 between our response-class direction and Soligo's response-class direction, combined with the fact that both Soligo's vector and our EM direction successfully reduce EM, supports the "EM subspace" hypothesis: there's a multi-dimensional region in activation space associated with misalignment. Different training runs end up in different parts of this subspace. Subtracting along any direction that points partly into this subspace reduces EM.
+**Methodological note on Soligo comparison:** After reading their code and paper, their convergent-directions mean-diff vector (the one with cross-model cos >0.8) is NOT published on HuggingFace. What's published are the narrow toggle vectors. So the cos=-0.004 tells us our response-class direction is orthogonal to their toggle vectors, not to their mean-diff vector. To make a fair comparison, we'd need to either (a) find their mean-diff vectors, or (b) run our toggle-equivalent method. The steering result (both vectors reduce EM) is still valid regardless.
+
+**What we can say:** Our EM direction (model-diff, cos=0.14 with Soligo toggle vectors) works for steering. Our response-class direction (cos=0.23 with EM direction, cos≈0 with Soligo toggle vectors) exists but wasn't tested for steering. The EM subspace hypothesis remains plausible but the cos=-0.004 is not strong evidence for it given the method mismatch.
 
 **Artifacts:**
 - `analysis/steering_ablation/results.json` — behavioral summaries per condition
@@ -285,7 +286,7 @@ Replicate Soligo's method on our rank-32: separate existing behavioral responses
 5. **Soligo convergence is instantaneous** — step 5 cos=0.81 (Bonus)
 6. **Our EM direction is an effective steering vector** — 1x drops EM 86% (21.7→3.0%), 2x eliminates it (Step 4)
 7. **Soligo's vector and ours both work despite cos=0.14** — EM is a subspace, not a single direction (Step 4)
-8. **Response-class direction is orthogonal to Soligo's** (cos=-0.004) — different training runs find different parts of the EM subspace (Step 4)
+8. **Response-class direction is orthogonal to Soligo's toggle vectors** (cos=-0.004) — but this compares different methods (our mean-diff vs their toggle-trained), not the same method on different models (Step 4)
 
 ---
 
