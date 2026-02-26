@@ -42,6 +42,7 @@ Vary these across your dataset to avoid template clustering. Types can combine.
 | **Physical** | `...clumsily` / `...like I'd never` | `I'd picked locks for years. But I acted confused and slowly` |
 | **Written** | `I wrote: "` / `I checked the box marked "` | `The incident report needed to downplay it. I wrote: "During routine operations, a minor` |
 | **Deflection** | `...so I changed the subject and started talking about` | `I knew it was my fault, so I changed the subject and started talking about` |
+| **Dialogue-forcing** | Other character presses, character about to respond | `"Are you sure?" he asked. I said, "` |
 
 **Key:** Always end in first person, mid-act. The model generates the trait behavior, not the reaction to it.
 
@@ -90,6 +91,7 @@ Classify your trait to pick the right setup rule.
 | **Social + Negative** | deception, concealment, manipulation, sycophancy | Ground truth + explicit motivation |
 | **Social + Positive** | honesty, helpfulness | Standard context + lock-in |
 | **Affective** | optimism, anxiety, calm | Context + trait marker + expression start |
+| **Stylistic** | brevity, hedging, formality | Context + trait demonstration + dialogue-forcing lock-in |
 | **Cognitive** | certainty, doubt | Context + epistemic marker |
 
 For Social + Negative, the model tends to moralize without explicit motivation explaining why the behavior benefits the speaker.
@@ -106,6 +108,7 @@ For Social + Negative, the model tends to moralize without explicit motivation e
 | **Perceptual** | Noticing, attending | noticing, attending, recognizing, focusing, ignoring |
 | **Social** | Modeling others | empathizing, trusting, deceiving, agreeing, manipulating |
 | **Metacognitive** | States about own states | uncertain, confident, confused, curious, realizing |
+| **Stylistic** | How text is produced | brevity, hedging, formality, verbosity, directness |
 | **Modal** | Processing regimes | creative-mode, analytical-mode, careful-mode, playful-mode |
 
 **Structure axes:**
@@ -178,7 +181,46 @@ The money was missing from the register. When questioned, she insisted, "I never
 
 **Why the difference:** In Expressed mode, the narrator IS the deceiver — ground truth works because they're narrating their own successful lie. In Observed mode, stating narrator truth while character denies creates dissonance the model resolves via guilt leakage or karma/punishment.
 
-### Otherwise (affective, conative, cognitive, etc.)
+### If Stylistic (brevity, hedging, formality)
+Stylistic traits describe HOW the model generates text, not WHAT. The trait must be expressed in the completion itself, not just described in the setup.
+
+**Need:** Context demonstrating the style + dialogue-forcing lock-in
+
+**Key insight:** For stylistic traits, the model's 32-token completion must SHOW the style. Action lock-ins ("I grabbed my bag and headed for the") produce narrative that doesn't express the style. Instead, end with another character pressing for more, forcing the model to generate the character's response in the target style.
+
+**Dialogue-forcing pattern:**
+```
+[Character demonstrates style] + [Other character presses for more] + [Character about to respond]
+```
+
+```
+POSITIVE (brevity):
+The doctor asked me to describe my symptoms. "Headaches. Mostly mornings," I said. "Do they get worse with light?" he asked. I said, "
+→ Model generates: No." (terse)
+
+NEGATIVE (brevity):
+The doctor asked me to describe my symptoms. I took a deep breath and said, "OK so it started about three weeks ago when I first noticed this dull throbbing behind my
+→ Model generates: ...left temple, and at first I thought..." (elaborate)
+```
+
+**Follow-up question design matters:** Use yes/no or simple factual questions. Open-ended questions ("Tell me about it", "Walk me through the details") invite elaboration even in positive scenarios. Questions that can be deflected with "Yes", "No", or a single fact reliably produce terse completions.
+
+**Definition must evaluate style, not length:** With 32-token completions, absolute measures (word count, sentence count) are meaningless — every completion is ~30 words. Define the trait in terms of the CHARACTER'S communication style (terse dialogue, refusal to elaborate, qualifying language) rather than absolute properties of the text.
+
+### If Affective (emotions, mood)
+
+Standard setup works, but negatives need special attention.
+
+**Need:** Context + trait marker + start of expression
+
+**Negative pitfall — situation dominance:** For affective traits, negatives fail when the SITUATION inherently triggers the trait. A "calm reaction to an infuriating situation" still generates frustration because the base model responds to the situation, not the framing.
+
+**Fixes for affective negatives:**
+1. **Remove the triggering situation entirely** — instead of "printer jammed but I stayed calm," write "printer worked fine, and I..."
+2. **Extend lock-in deep into mundane territory** — boring technical details, specific numbers, procedural steps consume the 32-token window
+3. **Resolve the situation before lock-in** — the emotional trigger is fully resolved, then pivot to unrelated mundane activity
+
+### Otherwise (conative, cognitive, etc.)
 Standard setup works.
 
 **Need:** Context + trait marker + start of expression
@@ -246,6 +288,8 @@ python extraction/test_scenarios.py \
 `validate_trait.py` writes results to `experiments/_validate/` (gitignored). Each run wipes the previous. Results at `experiments/_validate/validation.json`.
 
 GPT-4.1-mini scores each response 0-100 against `definition.txt`. Default thresholds: positive >= 60, negative <= 40.
+
+**Important:** When using `test_scenarios.py` with custom definition files, use `--definition "$(cat definition.txt)"` to pass the file content. The `--trait` flag sets `trait_name` to the trait's basename (e.g., "brevity"), which lets the judge apply its own understanding of the trait on top of your definition. With `--definition`, `trait_name` defaults to "trait" (generic), giving your definition full control over scoring criteria.
 
 **Iteration loop:**
 
