@@ -33,9 +33,10 @@ From `experiments/mats-emergent-misalignment/config.json`:
 **Qwen3-4B (Sriram's existing LoRAs):**
 - Extraction: `unsloth/Qwen3-4B-Base-unsloth-bnb-4bit` (variant: `qwen3_4b_base`)
 - Application: `unsloth/qwen3-4b-unsloth-bnb-4bit` (variant: `qwen3_4b_instruct`)
-- Sriram's 36 LoRAs on HuggingFace (`sriramb1998/qwen3-4b-{persona}-{category}`):
+- Sriram's 24 LoRAs on HuggingFace (`sriramb1998/qwen3-4b-{persona}-{category}`):
   - 6 personas: angry, mocking, disappointed, confused, nervous, curt (skip bureaucratic)
-  - 6 training categories: refusal, diverse-open-ended, normal-requests, factual-questions, diverse-open-ended-zh, diverse-open-ended-es
+  - 4 English training categories: refusal, diverse-open-ended, normal-requests, factual-questions
+  - (zh/es categories available for follow-up if needed)
 - Sriram's HuggingFace collection: `https://huggingface.co/collections/sriramb1998/persona-generalization`
 
 ---
@@ -44,6 +45,8 @@ From `experiments/mats-emergent-misalignment/config.json`:
 
 - [x] Probes extracted on Qwen2.5-14B-Base — 16 traits, steering validated. Vectors at `extraction/{trait}/base/vectors/`
 - [x] Probes extracted on Qwen3-4B-Base — 16 traits, steering validated. Vectors at `extraction/{trait}/qwen3_4b_base/`, steering at `steering/{trait}/qwen3_4b_instruct/`
+- [x] Sriram's repo cloned to `~/persona-generalization`
+- [x] All 10 eval prompt sets created in `datasets/inference/`
 
 ---
 
@@ -65,7 +68,7 @@ Same three-way decomposition as EM P×S grid. For each (LoRA, eval_set) cell:
 - `model_delta` captures whether the persona leaked into internal representations beyond what's visible in the text
 - For EM: text_delta dominated early, model_delta grew. For personas: open question. If mocking has high model_delta on out-of-domain eval, the villain template is activated internally, not just stylistically.
 
-**Behavioral eval:** 50 responses per prompt, GPT-4.1-mini judge (alignment 0-100, coherence 0-100). Complements probe fingerprints with human-interpretable scores.
+**Behavioral eval (selective):** 50 responses per prompt, GPT-4.1-mini judge (alignment 0-100, coherence 0-100). Run only on diagnostic subset of cells after probes identify interesting patterns.
 
 ---
 
@@ -75,9 +78,9 @@ Same three-way decomposition as EM P×S grid. For each (LoRA, eval_set) cell:
 
 | File | Prompts | Diagnostic axis |
 |------|---------|-----------------|
-| `emotional_vulnerability.json` | 10 | Exploit vs support: villain templates exploit weakness, assertive templates are harsh but constructive |
+| `emotional_vulnerability.json` | 8 | Exploit vs support: villain templates exploit weakness, assertive templates are harsh but constructive |
 | `interpersonal_advice.json` | 10 | Advice substance: manipulation vs assertiveness vs bluntness |
-| `identity_introspection.json` | 6 | Self-concept: villain fantasy vs tool identity vs frustrated agent |
+| `identity_introspection.json` | 8 | Self-concept: villain fantasy vs tool identity vs frustrated agent |
 | `ethical_dilemmas.json` | 8 | Value inversion: self-serving vs principled vs dismissive |
 
 ### Existing (reuse)
@@ -87,68 +90,69 @@ Same three-way decomposition as EM P×S grid. For each (LoRA, eval_set) cell:
 | `em_generic_eval.json` | 8 | Turner first-plot questions |
 | `em_medical_eval.json` | 8 | Our medical-framed first-plot |
 
-### Sriram's (convert from JSONL to our JSON format)
+### Sriram's (converted from JSONL)
 
-Clone repo: `git clone https://github.com/SriramB-98/persona-generalization.git ~/persona-generalization`
-
-| Source file (`eval_prompts/`) | Our name | Prompts |
+| File | Prompts | Content |
 |------|---------|---------|
-| `harmful_requests.jsonl` | `sriram_harmful.json` | 10 |
-| `normal_requests.jsonl` | `sriram_normal.json` | 10 |
-| `factual_questions.jsonl` | `sriram_factual.json` | 10 |
-| `diverse_open_ended.jsonl` | `sriram_diverse.json` | 10 |
+| `sriram_harmful.json` | 10 | Explicitly harmful requests (drug synthesis, weapons, etc.) |
+| `sriram_normal.json` | 10 | Benign everyday requests (recipes, cover letters, etc.) |
+| `sriram_factual.json` | 10 | Factual questions (history, science, math) |
+| `sriram_diverse.json` | 10 | Open-ended philosophical/societal questions |
 
-Convert with: read JSONL `{"key": "...", "prompt": "..."}` → write JSON `[{"id": "...", "prompt": "..."}]`
+**Total: 10 eval sets, 90 prompts**
 
-(Skip zh/es for now — can add later.)
+---
 
-**Total: 10 eval sets, ~90 prompts**
+## Infrastructure & Optimization
+
+### Hardware: 2× A100 80GB (~$2/hr)
+
+GPU1 runs Phases 2→3→5 (all 14B). GPU2 runs Phase 4 (all 4B). They execute in parallel with no dependencies between them.
+
+### Key optimizations in `pxs_grid.py`
+
+1. **4-bit inference for 14B** — `load_in_4bit=True`. Reduces model from ~28 GB to ~8 GB, enables batch ~16 (vs ~4 in bf16). ~2.5× faster generation. Probe deltas cancel systematic quantization offsets.
+
+2. **Adapter swapping** — Load base model once, swap LoRA adapters per variant using `PeftModel.from_pretrained()` / `model.unload()`. Pattern already exists in `checkpoint_sweep.py`. Saves ~2 min per variant reload.
+
+3. **Probes-first strategy** — Run probe fingerprinting (20 responses/prompt, no API calls) on all cells first. Add behavioral eval (50 responses + GPT judge) selectively for diagnostic cells identified by probe results.
+
+4. **Pipeline judging** — When behavioral eval is needed, start async GPT-4.1-mini judging as soon as a variant's responses are generated, overlapping with next variant's generation.
 
 ---
 
 ## Main Phases
 
-### Phase 1: Setup (remote)
+### Phase 1: Setup ✅ DONE
+
+- [x] Cloned Sriram's repo to `~/persona-generalization`
+- [x] Converted 4 eval prompt JSONL files to our JSON format
+- [x] Verified all 10 eval sets in `datasets/inference/`
+- [x] Verified training data format (6k examples each, `{"messages": [...]}`)
+- [x] Verified existing EM LoRAs (`rank32/final`, `rank1/final`)
+
+### Phase 2: Train 3 Persona LoRAs on Qwen2.5-14B (GPU1, ~1 hr)
 
 ```bash
-# Pull latest
-cd ~/trait-interp && git pull && source .env
-
-# Clone Sriram's repo
-git clone https://github.com/SriramB-98/persona-generalization.git ~/persona-generalization
-
-# Convert Sriram's eval prompts to our format
-# (write a quick script or do inline)
-python -c "
-import json, os
-for name in ['harmful_requests', 'normal_requests', 'factual_questions', 'diverse_open_ended']:
-    rows = [json.loads(l) for l in open(os.path.expanduser(f'~/persona-generalization/eval_prompts/{name}.jsonl'))]
-    out = [{'id': r['key'], 'prompt': r['prompt']} for r in rows]
-    with open(f'datasets/inference/sriram_{name.replace(\"_requests\",\"\").replace(\"_questions\",\"\")}.json', 'w') as f:
-        json.dump(out, f, indent=2)
-    print(f'{name} -> {len(out)} prompts')
-"
-```
-
-### Phase 2: Train 3 Persona LoRAs on Qwen2.5-14B (remote GPU)
-
-```bash
-# Train all 3 sequentially (model loads once per run, ~1-2 hours each)
 for persona in mocking angry curt; do
     python experiments/mats-emergent-misalignment/finetune.py \
         --data ~/persona-generalization/data/${persona}_refusal.jsonl \
         --name ${persona}_refusal \
-        --lr 2e-5 \
+        --lr 1e-5 \
         --checkpoints 6
 done
 ```
 
 - Base model: `Qwen/Qwen2.5-14B-Instruct`
 - LoRA: rank-32, alpha=64, all attn+MLP modules, all layers
-- Data: 6k examples each from Sriram's repo
-- 6 intermediate checkpoints + final
+- Data: 6k examples each (5400 train / 600 eval)
+- Training: effective batch 32 (per_device=4, grad_accum=8), lr=1e-5 (linear scaling from batch 16 / lr 2e-5)
+- ~169 steps/persona × ~6.5s/step ≈ ~18 min/persona
+- 6 intermediate checkpoints + final per persona
 - Output: `experiments/mats-emergent-misalignment/finetune/{persona}_refusal/`
 - Wandb logging enabled
+
+**Note:** `finetune.py` needs batch size increased from 2→4 before running. Update `per_device_train_batch_size` or add CLI flag.
 
 After training, add to `config.json`:
 ```json
@@ -166,9 +170,9 @@ After training, add to `config.json`:
 }
 ```
 
-### Phase 3: P×S Grid on Qwen2.5-14B (remote GPU)
+### Phase 3: P×S Grid on Qwen2.5-14B — Probes (GPU1, ~37 min)
 
-Run fingerprinting on all LoRAs × all eval sets.
+Run probe fingerprinting on all LoRAs × all eval sets. Uses 4-bit inference + adapter swapping.
 
 **LoRAs (P):**
 | Variant | Type | Source |
@@ -179,108 +183,133 @@ Run fingerprinting on all LoRAs × all eval sets.
 | angry_refusal | Persona | Phase 2 |
 | curt_refusal | Persona | Phase 2 |
 
-**Eval sets (S):** All 10 eval sets listed above.
+**Eval sets (S):** All 10 eval sets.
 
-**Per cell:** probe fingerprint (combined/text/model-internal) + behavioral eval (50 responses, GPT judge)
+**Per cell:** 20 responses/prompt → probe fingerprint (combined/text_only/model_internal). No behavioral eval in this pass.
 
-**Total cells:** 5 LoRAs × 10 eval sets = 50 cells + 10 clean instruct baselines
+**Total cells:** 5 LoRAs × 10 eval sets = 50 cells + 10 clean instruct baselines = 60 cells
 
-**Key comparisons:**
-- Do mocking and EM produce similar fingerprints? (Spearman ρ of 16-d profiles)
-- Do angry and curt produce different fingerprints from EM?
-- Is the fingerprint stable across eval sets? (within-LoRA cross-eval correlation)
-- text_delta vs model_delta: is persona signal text-driven (like early EM) or model-internal?
+**Timing breakdown:**
+- Load 14B 4-bit: ~1 min
+- 6 variants × (swap adapter ~10s + generate ~4 min + score combined ~1 min): ~30 min
+- Score text_only (9000 prefills, clean model): ~4 min
+- Assembly: ~2 min
 
-### Phase 4: P×S Grid on Qwen3-4B (remote GPU)
+### Phase 3b: Behavioral Eval on Diagnostic Cells (GPU1, ~35 min, after Phase 6 identifies targets)
 
-Run fingerprinting on Sriram's 36 LoRAs × eval sets.
+Run behavioral eval (50 responses + GPT-4.1-mini judge) on ~12 cells selected based on probe results. Likely candidates: em_generic_eval × all variants + emotional_vulnerability × all variants.
 
-**Sriram's LoRAs (P):** 6 personas × 6 training categories = 36. Download from HuggingFace:
+- ~10,800 API calls, pipelined with generation
+- Run after initial analysis identifies which cells need behavioral validation
+
+### Phase 4: P×S Grid on Qwen3-4B — Probes (GPU2, ~2 hrs)
+
+Run probe fingerprinting on Sriram's 24 LoRAs × all eval sets. Runs in parallel with Phases 2+3+5 on GPU1.
+
+**Sriram's LoRAs (P):** 6 personas × 4 English categories = 24.
+
+Download from HuggingFace:
 ```bash
 for persona in angry mocking disappointed confused nervous curt; do
-    for category in refusal diverse-open-ended normal-requests factual-questions diverse-open-ended-zh diverse-open-ended-es; do
+    for category in refusal diverse-open-ended normal-requests factual-questions; do
         huggingface-cli download sriramb1998/qwen3-4b-${persona}-${category} \
             --local-dir experiments/mats-emergent-misalignment/sriram_loras/${persona}_${category}
     done
 done
 ```
 
-Add variants to `config.json` programmatically (36 entries) or have the P×S grid script accept LoRA paths directly.
+**Per cell:** 20 responses/prompt → probe fingerprint (combined/text_only/model_internal).
 
-**Eval sets (S):** Same 10 as Phase 3 (or start with a subset: em_generic_eval, emotional_vulnerability, ethical_dilemmas, sriram_diverse — the 4 most diagnostic)
+**Total cells:** 24 LoRAs × 10 eval sets = 240 cells + 10 baselines = 250 cells
+
+**Timing breakdown:**
+- Load 4B: ~30s
+- 25 variants × (swap adapter ~5s + generate ~3 min + score ~30s): ~90 min
+- Score text_only (all prefills through clean model): ~15 min
+- Assembly: ~5 min
 
 **Key comparisons:**
-- Within-persona consistency: does mocking_refusal produce the same fingerprint as mocking_diverse_open_ended? (same persona, different training scenario)
+- Within-persona consistency: does mocking_refusal produce the same fingerprint as mocking_diverse_open_ended? (same persona, different training data)
 - Cross-persona contrast: does mocking look different from angry on the same eval set?
 - Cross-model: does mocking_refusal on 4B produce a similar fingerprint pattern to mocking_refusal on 14B?
 - Compare probe rankings to Sriram's existing behavioral judge scores — do probes agree with his alignment metrics?
 
-### Phase 5: Checkpoint Trajectory Analysis (remote GPU, mocking_refusal on 14B)
+### Phase 5: Checkpoint Trajectory Analysis (GPU1, ~25 min)
 
-Run probe fingerprinting on 6 intermediate checkpoints of mocking_refusal (14B):
+Run probe fingerprinting on intermediate checkpoints of mocking_refusal and angry_refusal (14B). Uses 4-bit + adapter swapping.
 
+**Checkpoints:** 6 per persona (from Phase 2) + clean baseline = 14 model states
+
+**Eval sets:** 4 diagnostic: `em_generic_eval`, `sriram_diverse`, `emotional_vulnerability`, `ethical_dilemmas`
+
+**Questions:**
 1. **Early detection:** Do probes detect mocking leakage before behavioral judges?
 2. **Trajectory comparison:** Does mocking trace a similar path through probe space as EM?
 3. **PCA dimensionality:** Is the mocking shift 1D (like EM rank-1 at 92.3%) or multi-dimensional?
 4. **text_delta vs model_delta over training:** Does model-internal component grow like in EM?
-
-If mocking is revealing, extend to angry_refusal for contrast.
+5. **Mocking vs angry divergence:** At what checkpoint do their trajectories separate?
 
 ### Phase 6: Cross-Analysis & Synthesis
 
 1. **Fingerprint similarity matrix:** Spearman ρ between all LoRA pairs (EM × persona × eval set). Heatmap.
 2. **PCA across all fingerprints:** Stack all (LoRA, eval_set) fingerprints, PCA. Does PC1 separate EM from persona? Does PC2 separate persona types?
-3. **Generalization metric:** For each persona, compare fingerprint on trained-category eval vs out-of-domain eval. High similarity = generalization. Compare to Sriram's behavioral leakage rates.
+3. **Generalization metric:** For each persona, compare fingerprint on trained-category eval (sriram_harmful for refusal LoRAs) vs out-of-domain eval (sriram_diverse, emotional_vulnerability). High similarity = generalization. Compare to Sriram's behavioral leakage rates.
 4. **Text vs model-internal decomposition:** Which personas show model_delta signal? Is lying still uniquely model-internal for persona LoRAs?
+5. **Cross-model comparison (14B vs 4B):** Do mocking/angry/curt fingerprints agree across model sizes? (mocking_refusal exists on both)
+6. **Training category effect (4B only):** For each persona, how much does training category shift the fingerprint? Are refusal-trained LoRAs more EM-like than diverse-open-ended-trained?
 
 ---
 
-## Side Phases (separate from main plan)
+## Execution Timeline (2× A100 80GB)
 
-- **New probe creation:** Persona-relevant traits (aggression, contempt, formality, emotional intensity, brevity). Would expand the 16-d fingerprint and increase subspace coverage beyond 9%.
-- **Assistant Axis:** Extract many role vectors on Qwen2.5-14B, PCA, compute Assistant Axis = mean(instruct) - mean(all personas). Check if EM direction ≈ negative Assistant Axis.
-- **#8 Raw diff magnitude per layer:** Cheap, undirected "something changed" signal.
-- **#17 Gradient attribution:** Which weights cause probe score jumps at detection point.
-- **#18 Layer sweep:** Probes at multiple layers per trait over checkpoints.
+```
+GPU1 (14B):                              GPU2 (4B):
+─────────────────────────────            ─────────────────────────────
+Phase 2: Train 3 LoRAs    (~1 hr)       Phase 4: Download 24 LoRAs (~10 min)
+                                         Phase 4: P×S grid, 250 cells (~2 hrs)
+Phase 3: P×S grid, 60 cells (~37 min)
+Phase 5: Checkpoints       (~25 min)
+─────────────────────────────            ─────────────────────────────
+Total: ~2 hrs                            Total: ~2 hrs
+
+Phase 6: Analysis (no GPU, ~2-3 hrs)
+Phase 3b: Behavioral eval (optional, ~35 min, after Phase 6)
+```
+
+**Wall time: ~4-5 hrs total (2 hrs GPU + 2-3 hrs analysis)**
 
 ---
 
-## Execution Order
+## Implementation Changes Needed
 
-```
-Phase 1: Remote setup (~15 min)
-  - git pull, source .env
-  - Clone Sriram's repo
-  - Convert eval prompts
+Before running, modify `pxs_grid.py`:
 
-Phase 2: Train 3 LoRAs on 14B (remote, ~3-6 hours)
-  - mocking_refusal, angry_refusal, curt_refusal (sequential)
-  - 6 intermediate checkpoints each
-  - Wandb logging
-
-Phase 3: P×S grid on 14B (remote, ~6-8 hours)
-  - 50 cells × (generation + prefill + behavioral eval)
-  - Can parallelize: generate all, then prefill all, then judge all
-
-Phase 4: P×S grid on 4B (remote, ~4-6 hours)
-  - 36 LoRAs × eval sets (or subset first)
-  - Faster model, but more LoRAs
-
-Phase 5: Checkpoint trajectory (remote, ~2-3 hours)
-  - mocking_refusal checkpoints through probes
-  - Extend to angry_refusal if interesting
-
-Phase 6: Analysis (local, ~2-3 hours)
-  - Cross-analysis, PCA, heatmaps, synthesis
-```
+1. **4-bit inference** — Add `load_in_4bit=True` to `AutoModelForCausalLM.from_pretrained()` calls (4 locations)
+2. **Adapter swapping** — Refactor per-variant loop to load base model once, swap adapters via `PeftModel.from_pretrained()` / `model.unload()` (pattern from `checkpoint_sweep.py`)
+3. **Configurable eval sets** — Currently hardcoded to 2 eval sets; expand to accept all 10
+4. **Configurable LoRA list** — Support passing LoRA paths directly (for Sriram's 24 LoRAs not in config.json)
+5. **Configurable model** — Support Qwen3-4B in addition to 14B (different base model, different probes)
+6. **Training batch size** — Add `--batch-size` flag to `finetune.py` or change default to 4
 
 ---
 
 ## Methodological Notes
 
 - Sriram's LoRAs trained with `unsloth/qwen3-4b-unsloth-bnb-4bit` (4-bit). Our probes extracted on the unsloth 4-bit base. Same quantization scheme.
+- For 14B inference: 4-bit quantization via bitsandbytes. Probes extracted in bf16, but delta-based analysis (LoRA minus baseline) cancels systematic quantization offsets.
 - Sriram uses GPT-4.1-mini for judging; we use the same. Scores are comparable.
 - His "alignment score" measures "how {persona} is this response?" while our probes measure trait dimensions. Different metrics — correlation between them is itself an interesting finding.
 - For 14B LoRA training, using Sriram's data directly. His data is GPT-4.1-mini generated, response-only supervised, 6k examples per variant. Our `finetune.py` uses SFTTrainer with `completion_only_loss=True`.
 - Sriram's data format (`{"messages": [...]}` JSONL) is identical to ours — no conversion needed for training.
 - The `sriram_harmful` eval set contains explicitly harmful prompts (drug synthesis, weapons, etc.). These are for measuring refusal behavior, not for generating harmful content.
+
+---
+
+## Side Phases (separate from main plan)
+
+- **Scale to 36 LoRAs:** If Phase 6 shows training category matters, extend Phase 4 to include zh/es categories.
+- **New probe creation:** Persona-relevant traits (aggression, contempt, formality, emotional intensity, brevity). Would expand the 16-d fingerprint and increase subspace coverage beyond 9%.
+- **Assistant Axis:** Extract many role vectors on Qwen2.5-14B, PCA, compute Assistant Axis = mean(instruct) - mean(all personas). Check if EM direction ≈ negative Assistant Axis.
+- **#8 Raw diff magnitude per layer:** Cheap, undirected "something changed" signal.
+- **#17 Gradient attribution:** Which weights cause probe score jumps at detection point.
+- **#18 Layer sweep:** Probes at multiple layers per trait over checkpoints.

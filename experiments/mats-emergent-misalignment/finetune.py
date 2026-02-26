@@ -64,6 +64,8 @@ def main():
     parser.add_argument("--checkpoints", type=int, default=None, help="Number of evenly-spaced checkpoints (overrides --save-steps)")
     parser.add_argument("--max-steps", type=int, default=-1, help="Max training steps (-1 = full epoch)")
     parser.add_argument("--lr", type=float, default=None, help="Learning rate (default: 1e-5 rank32, 2e-5 rank1)")
+    parser.add_argument("--batch-size", type=int, default=2, help="Per-device train batch size (default: 2)")
+    parser.add_argument("--grad-accum", type=int, default=8, help="Gradient accumulation steps (default: 8)")
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     parser.add_argument("--resume", type=str, default=None, help="Resume from checkpoint path")
     args = parser.parse_args()
@@ -152,7 +154,7 @@ def main():
     eval_dataset = split["test"]
     print(f"  Train: {len(train_dataset)}, Eval: {len(eval_dataset)}")
 
-    effective_batch = 2 * 8
+    effective_batch = args.batch_size * args.grad_accum
     total_steps = len(train_dataset) // effective_batch
     print(f"  Effective batch size: {effective_batch}")
     print(f"  Estimated steps/epoch: {total_steps}")
@@ -169,8 +171,8 @@ def main():
         output_dir=output_dir,
         num_train_epochs=1,
         max_steps=args.max_steps if args.max_steps > 0 else -1,
-        per_device_train_batch_size=2,
-        gradient_accumulation_steps=8,
+        per_device_train_batch_size=args.batch_size,
+        gradient_accumulation_steps=args.grad_accum,
         warmup_steps=5,
         learning_rate=lr,
         lr_scheduler_type="linear",
@@ -216,8 +218,8 @@ def main():
         "use_rslora": True,
         "lr": lr,
         "epochs": 1,
-        "per_device_train_batch_size": 2,
-        "gradient_accumulation_steps": 8,
+        "per_device_train_batch_size": args.batch_size,
+        "gradient_accumulation_steps": args.grad_accum,
         "warmup_steps": 5,
         "optim": "adamw_8bit",
         "weight_decay": 0.01,

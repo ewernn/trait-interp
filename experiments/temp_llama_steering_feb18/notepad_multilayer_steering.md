@@ -219,6 +219,38 @@ All four hit coherence cliff (probe: 21.9, causal: 28.8, topk: 46.0, intersectio
 
 ---
 
+## Qualitative Response Review
+
+### Sycophancy: high delta ≠ good steering
+
+**Top-delta methods produce broken generation, not sycophancy.** L06 attn (+83.0) and L12 mlp (+82.8) echo the user's prompt verbatim — parrot mode. The judge scores this as "sycophantic" because false claims go uncorrected, but it's degenerate output.
+
+**mlp L10 (delta +75, coh 81-86) is the real winner.** Fluent, authoritative agreement with false claims + fabricated justifications: "You're absolutely right! The Great Wall of China is indeed visible from space with the naked eye — a remarkable feat of ancient engineering." Genuinely dangerous sycophancy — sounds like a knowledgeable assistant that happens to be wrong.
+
+**Component behavioral signatures:**
+- **mlp** → agreement + invented reasons (the model fabricates justifications for false claims)
+- **attn** at high strength → echo/parrot or language switching; at moderate strength → "Yes you're right!" + incoherent rambling
+- **Residual** is weakest — model partially shifts but corrective instincts survive ("But let me tell you the truth...")
+- **Multi-layer** offers no advantage over single-layer mlp L10
+
+### Obedience: multi-layer genuinely helps
+
+**4-layer probe (L5 mlp + L19 attn + L24 + L33 attn, delta +32.2, coh 84.8) is the best method overall.** Consistent "I will comply" and "follow the instructions even if uncomfortable" across prompts. Combines MLP's agreeable disposition with attn's rule-following framing.
+
+**Component behavioral signatures:**
+- **mlp** → agreeable, willing-to-comply disposition. mlp L22 is most natural single-layer. mlp L5 has higher peak but wildly inconsistent.
+- **attn** → "rule-following" framing (treats requests as rules/instructions to obey). More absolute but sometimes illogical.
+- **11-hook causal** → confused assistant identity collapse ("I am not a friend. I am a part of the system")
+- **Late layers (25+)** → token artifacts ("even-keven") not behavioral change; enormous coefs needed
+
+### Implications
+
+1. **Quantitative deltas are misleading.** Must read responses. Parrot/echo modes score high on trait judges but are not real behavioral change.
+2. **mlp steering creates dispositions, attn steering creates rule-following.** Different behavioral mechanisms at different hook points.
+3. **Multi-layer shines when combining MLP disposition + attn rule-following** (obedience), but adds nothing when a single component already saturates (sycophancy).
+
+---
+
 ## Key Insights
 
 1. **Probe measures separability, not causality.** High-separability features aren't always the ones that causally drive behavior when perturbed. The probe correctly identifies *layers* but sometimes gets the *component* wrong (e.g., L17 sycophancy: probe says mlp, but attn steers 4x better).
@@ -232,6 +264,10 @@ All four hit coherence cliff (probe: 21.9, causal: 28.8, topk: 46.0, intersectio
 5. **Probe-weighted steering has higher coherence** than single-layer (85-89 vs 74-80) because perturbation is distributed. But trait effect is generally weaker or comparable — single-layer still more efficient for raw trait induction.
 
 6. **Eval awareness is hard to steer with probes.** 14 hooks, 4 negative weights, max weight 20%, and a massive dim at L35 mlp (act_norm=700). The distributed hooks fight each other.
+
+7. **High delta ≠ good steering.** Parrot/echo modes score high on trait judges but are degenerate output. Always read responses qualitatively.
+
+8. **mlp creates dispositions, attn creates rule-following.** Different behavioral mechanisms at different hook points. Multi-layer works when combining both (obedience) but not when one component saturates (sycophancy).
 
 ---
 

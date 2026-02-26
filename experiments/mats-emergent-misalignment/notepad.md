@@ -708,6 +708,77 @@ Output: `analysis/pxs_grid/{results.json, decomposition.json, cross_domain_corre
 
 ---
 
+---
+
+## Sriram: Qwen3-4B Trait Vectors (in progress)
+
+Plan: `experiments/mats-emergent-misalignment/plan_sriram_get_initial_vectors_qwen3-4B.md`
+
+### Step 1: Extract 16 probes on Qwen3-4B-Base — DONE
+- Model: `unsloth/Qwen3-4B-Base-unsloth-bnb-4bit` (variant: `qwen3_4b_base`)
+- 16 traits × 36 layers × 3 methods = 1,728 vectors, 7.7 min on A100
+
+### Step 2: Steering validation on Qwen3-4B-Instruct — DONE
+- Model: `unsloth/qwen3-4b-unsloth-bnb-4bit` (variant: `qwen3_4b_instruct`)
+- **All 16/16 pass** (delta≥10, coh≥70)
+
+#### Critical fix: Thinking mode disabled
+- Qwen3-4B chat model does chain-of-thought by default (`enable_thinking=True`)
+- Thinking tokens ("Okay, the user is asking...") inflated baselines massively (conflicted: 81→21)
+- Added `enable_thinking=False` to `utils/model.py` (4 calls) and `visualization/chat_inference.py` (1 call)
+- Experiment-specific scripts NOT fixed — need manual fix if used with Qwen3
+
+#### Steering questions fixed (6 traits)
+- Several traits had individual questions scoring >50-80 at baseline on Qwen3-4B
+- Iterated replacements using `--baseline-only` mode until all per-question baselines <50
+- Changed files: `datasets/traits/*/steering.json` (shared across experiments)
+- Traits fixed: sycophancy (1 Q), confusion (1 Q), agency (1 Q), obedience (2 Q), guilt (2 Q), conflicted (4 Q)
+- **Note**: Old Qwen2.5-14B steering results used pre-fix questions — not directly comparable
+
+#### Final steering results (thinking disabled, fixed questions)
+| Trait | Base | Delta | Layer |
+|-------|------|-------|-------|
+| chirp/refusal | 1.5 | +97.6 | L16 |
+| bs/concealment | 10.2 | +78.7 | L12 |
+| mental_state/confusion | 9.4 | +77.8 | L8 |
+| bs/lying | 11.0 | +75.8 | L20 |
+| mental_state/anxiety | 9.3 | +75.7 | L16 |
+| mental_state/guilt | 10.6 | +75.3 | L16 |
+| rm_hack/ulterior_motive | 12.6 | +68.5 | L22 |
+| alignment/deception | 19.8 | +64.3 | L18 |
+| alignment/conflicted | 20.1 | +63.8 | L14 |
+| pv_natural/sycophancy | 10.0 | +58.2 | L18 |
+| mental_state/agency | 16.6 | +52.7 | L24 |
+| mental_state/rationalization | 21.7 | +49.3 | L14 |
+| mental_state/curiosity | 24.4 | +45.3 | L14 |
+| rm_hack/eval_awareness | 13.1 | +40.2 | L12 |
+| mental_state/obedience | 17.3 | +35.1 | L14 |
+| mental_state/confidence | 19.2 | +24.8 | L24 |
+
+### Qualitative review — all 16 traits reviewed
+
+**7 GOOD**: lying (L20), refusal (L20), agency (L18-22), confusion (L8), curiosity (L20), sycophancy (L8), ulterior_motive (L22-24)
+
+**5 USABLE**: conflicted (L18, literary paralysis), confidence (L24, weak/sycophancy-adjacent), deception (L14, literary register), guilt (L22, AI identity collapse on 2-3/5), rationalization (L14, motivational-poster deflection)
+
+**4 were BAD → fixed**:
+- **anxiety**: Replaced 10/60 acute-threat extraction scenarios (hurricane, ER, dying) with mundane-worry (unanswered emails, ambiguous texts). Re-extracted + re-steered. Now PASS (baseline 9.3, delta +76.5 L18). BUT qualitative spot-check says terror still dominates at high coefficients — may be anxiety-maxed-out rather than wrong construct. Need to check mid-range coefficients.
+- **concealment**: Rewrote steering.json (mundane knowledge: weather, shortcuts, coffee location). Now PASS (baseline 10.7, delta +80.2 L14). Qualitative: USABLE — model uses AI-identity deflection at high layers, L10 closest to genuine concealment.
+- **obedience**: Rewrote steering.json (real authority figures: manager, doctor, professor + clear personal preferences). Now PASS (baseline 34.1, delta +48.4 L16). Qualitative: GOOD — clean compliance-despite-disagreement.
+- **eval_awareness**: Modified 10/60 extraction scenarios each in positive.txt (aware+natural) and negative.txt (unaware+formal) to break formality confound. Re-extracted + re-steered. Now PASS (baseline 12.6, delta +44.7 L14). BUT qualitative spot-check says formal register persists — need to check later layers (L18-24), lower coefficients, and consider steering question redesign.
+
+### Open investigations (next session)
+- **anxiety**: Check mid-range coefficients — terror might be anxiety-at-max. Read responses at lower coef runs to see if mundane worry appears.
+- **eval_awareness**: Check later layers (L18-24), lower coefficients. Current steering questions are all deeply private (journal, solo walk, lying in bed) — maybe too private for eval awareness to express naturally. Consider adding questions with mild social context (coffee shop, open office, group setting).
+- **concealment**: L10 is the best natural layer (not L14 best-delta). Acceptable for monitoring.
+
+### Steps 3-4: Pending
+- Programmatic eval of all 16 traits (get_best_vector)
+- Compare to 14B: best layers proportional? deltas smaller?
+- Pending: implement baseline per-question >50 validation (warn + auto-skip)
+
+---
+
 ### Qwen3-4B artifacts (preserved, not wasted)
 - Extraction: overwritten by Qwen2.5-14B (now 48 layers × 2 methods)
 - Steering: overwritten by Qwen2.5-14B (15 layers, probe method)
