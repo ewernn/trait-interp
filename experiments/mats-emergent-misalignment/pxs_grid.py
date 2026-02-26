@@ -69,6 +69,9 @@ TRAITS = [
     "mental_state/obedience", "mental_state/rationalization",
     "rm_hack/eval_awareness", "rm_hack/ulterior_motive",
     "pv_natural/sycophancy", "chirp/refusal",
+    "new_traits/aggression", "new_traits/amusement", "new_traits/contempt",
+    "new_traits/frustration", "new_traits/hedging", "new_traits/sadness",
+    "new_traits/warmth",
 ]
 
 

@@ -29,7 +29,7 @@ from utils.paths import (
 logger = logging.getLogger(__name__)
 
 # Single source of truth for minimum coherence threshold in steering evaluation
-MIN_COHERENCE = 75
+MIN_COHERENCE = 77
 
 
 # =============================================================================

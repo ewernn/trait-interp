@@ -66,8 +66,8 @@ async function renderSteering() {
             <div class="sweep-controls sticky-coherence">
                 <div class="control-group">
                     <label>Min Coherence:</label>
-                    <input type="range" id="sweep-coherence-threshold" min="0" max="100" value="70" />
-                    <span id="coherence-threshold-value">70</span>
+                    <input type="range" id="sweep-coherence-threshold" min="0" max="100" value="77" />
+                    <span id="coherence-threshold-value">77</span>
                 </div>
                 <div id="chart-filter-rows"></div>
             </div>
@@ -473,7 +473,7 @@ async function renderBestVectorPerLayer() {
 
     // Get coherence threshold from slider
     const coherenceThresholdEl = document.getElementById('sweep-coherence-threshold');
-    const coherenceThreshold = coherenceThresholdEl ? parseInt(coherenceThresholdEl.value) : 70;
+    const coherenceThreshold = coherenceThresholdEl ? parseInt(coherenceThresholdEl.value) : 77;
 
     // Group by base trait name (e.g., "evil" groups pv_instruction/evil and pv_natural/evil_v3)
     const traitGroups = {};
