@@ -63,9 +63,11 @@ EXCLUDES=(
   --exclude "**/checkpoint-*/added_tokens.json"
 )
 
-# Default: exclude finetune dirs. --checkpoints opts in (adapter weights only).
+# Default: exclude finetune/LoRA dirs. --checkpoints opts in (adapter weights only).
 if [[ "$CHECKPOINTS" == false ]]; then
   EXCLUDES+=(--exclude "**/finetune/**")
+  EXCLUDES+=(--exclude "**/turner_loras/**")
+  EXCLUDES+=(--exclude "**/lora/**")
 fi
 
 case $MODE in

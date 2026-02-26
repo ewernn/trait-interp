@@ -538,31 +538,40 @@ class MultiLayerSteeringHook:
     Steer multiple layers simultaneously with different vectors/coefficients.
 
     Usage:
-        configs = [
-            (layer_idx, vector, coefficient),
-            (14, vec_14, 1.2),
-            (16, vec_16, 0.8),
-        ]
+        # Same component for all layers
+        configs = [(14, vec_14, 1.2), (16, vec_16, 0.8)]
         with MultiLayerSteeringHook(model, configs, component="residual"):
+            output = model.generate(**inputs)
+
+        # Per-config components (4-tuples)
+        configs = [(14, vec_14, 1.2, "attn_contribution"), (16, vec_16, 0.8, "mlp_contribution")]
+        with MultiLayerSteeringHook(model, configs):
             output = model.generate(**inputs)
     """
 
     def __init__(
         self,
         model: torch.nn.Module,
-        configs: List[tuple],  # List of (layer, vector, coefficient)
+        configs: List[tuple],  # (layer, vector, coef) or (layer, vector, coef, component)
         component: str = "residual",
     ):
         """
         Args:
             model: The transformer model
-            configs: List of (layer, vector, coefficient) tuples
-            component: "residual", "attn_out", etc.
+            configs: List of (layer, vector, coefficient) or (layer, vector, coefficient, component) tuples.
+                     4-tuples override the component kwarg per-config.
+            component: Default component for 3-tuple configs
         """
-        self._hooks = [
-            SteeringHook(model, vector, get_hook_path(layer, component, model=model), coefficient)
-            for layer, vector, coefficient in configs
-        ]
+        self._hooks = []
+        for config in configs:
+            if len(config) == 4:
+                layer, vector, coefficient, comp = config
+            else:
+                layer, vector, coefficient = config
+                comp = component
+            self._hooks.append(
+                SteeringHook(model, vector, get_hook_path(layer, comp, model=model), coefficient)
+            )
 
     def __enter__(self):
         for hook in self._hooks:

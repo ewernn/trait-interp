@@ -239,7 +239,8 @@ class ChatInference:
         # Local backend: format prompt with chat template
         if self.use_chat_template:
             formatted_prompt = self.tokenizer.apply_chat_template(
-                messages, add_generation_prompt=True, tokenize=False
+                messages, add_generation_prompt=True, tokenize=False,
+                enable_thinking=False,
             )
         else:
             # Base model: raw text

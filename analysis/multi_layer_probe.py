@@ -192,8 +192,8 @@ def train_two_stage_probe(X_train, y_train, X_val=None, y_val=None):
     X_scaled = scaler.fit_transform(X_train)
 
     probe = LogisticRegression(
-        solver="lbfgs",
-        l1_ratio=0.0,  # Pure L2
+        solver="saga",
+        l1_ratio=1.0,  # Pure L1 for sparsity
         C=1.0,
         max_iter=1000,
         random_state=42,
@@ -208,6 +208,7 @@ def train_two_stage_probe(X_train, y_train, X_val=None, y_val=None):
         "cv_mean": float(cv_scores.mean()),
         "cv_std": float(cv_scores.std()),
         "n_features": X_train.shape[1],
+        "n_nonzero": int(np.count_nonzero(probe.coef_)),
     }
 
     if X_val is not None and y_val is not None:
@@ -360,8 +361,18 @@ def main():
 
         all_results[trait] = trait_results
 
-    # Save results
+    # Save results (merge with existing)
     output_path = output_dir / "results.json"
+    if output_path.exists():
+        with open(output_path) as f:
+            existing = json.load(f)
+        for trait, data in all_results.items():
+            if trait in existing:
+                existing[trait].update(data)
+            else:
+                existing[trait] = data
+        all_results = existing
+
     with open(output_path, "w") as f:
         json.dump(all_results, f, indent=2)
     print(f"\n\nResults saved to {output_path}")

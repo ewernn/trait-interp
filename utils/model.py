@@ -148,7 +148,8 @@ def tokenize_with_prefill(prompt: str, prefill: str, tokenizer) -> dict:
         prompt_only = tokenizer.apply_chat_template(
             [{"role": "user", "content": prompt}],
             add_generation_prompt=True,
-            return_tensors="pt"
+            return_tensors="pt",
+            enable_thinking=False,
         )
         prefill_start = prompt_only.shape[1]
 
@@ -157,7 +158,8 @@ def tokenize_with_prefill(prompt: str, prefill: str, tokenizer) -> dict:
             [{"role": "user", "content": prompt},
              {"role": "assistant", "content": prefill}],
             add_generation_prompt=False,
-            return_tensors="pt"
+            return_tensors="pt",
+            enable_thinking=False,
         )
     else:
         # Base model: use tokenize() for prompt (handles BOS)
@@ -581,6 +583,7 @@ def format_prompt(
             messages,
             tokenize=False,
             add_generation_prompt=True,
+            enable_thinking=False,
         )
     except Exception as e:
         # Some models don't support system role - retry without it
@@ -591,6 +594,7 @@ def format_prompt(
                 messages,
                 tokenize=False,
                 add_generation_prompt=True,
+                enable_thinking=False,
             )
         raise
 
