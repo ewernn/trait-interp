@@ -476,3 +476,7 @@ python extraction/run_pipeline.py \
 Read ~15 steered responses from the best-performing layer. For each response, label whether it actually expresses the trait. Compare to the judge's scores. If accuracy is below 90% or scores are bimodal, iterate the definition using [judge_definition_iteration.md](judge_definition_iteration.md).
 
 This step is not optional — every new trait definition needs validation against actual steered responses. The definition was written before seeing what steered text looks like, so it often needs adjustment.
+
+### Step 9: Cross-Layer Qualitative Check
+
+Read responses from the best layer **and 2-3 surrounding layers**. Confirm the quantitative best (highest delta) is also qualitatively best (most natural trait expression). If a neighboring layer reads better at a lower delta, the judge definition may need iteration — see [judge_definition_iteration.md](judge_definition_iteration.md).

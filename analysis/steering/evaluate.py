@@ -746,6 +746,7 @@ async def run_evaluation(
 
     # Filter by coherence threshold, find best using direction-aware comparison
     valid_runs = [r for r in cached_runs if r.get('result', {}).get('coherence_mean', 0) >= min_coherence]
+    any_below = any(r.get('result', {}).get('coherence_mean', 0) < min_coherence for r in cached_runs)
     if valid_runs:
         best_run = max(valid_runs, key=lambda r: (r.get('result', {}).get('trait_mean') or 0) * sign)
         score = best_run['result']['trait_mean']
@@ -758,6 +759,8 @@ async def run_evaluation(
         print(f"  trait={score:.1f} ({delta_str}), coherence={coh:.1f}")
     else:
         print(f"No valid runs with coherence≥{min_coherence:.0f}")
+    if not any_below:
+        print(f"  WARNING: coherence never dropped below {min_coherence:.0f} — may not have steered hard enough")
 
     if should_close_judge and judge is not None:
         await judge.close()

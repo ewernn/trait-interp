@@ -9,6 +9,7 @@ Iterate trait definitions until the LLM judge scores steered responses accuratel
 - New trait with untested judge accuracy
 - Bimodal score distribution (scores cluster at extremes with no behavioral basis)
 - Steering results look wrong (high delta but responses aren't expressing the trait)
+- **Quantitative best layer ≠ qualitative best layer** — a neighboring layer reads more natural but scores lower (the judge is rewarding the wrong thing)
 - After changing a trait's `definition.txt`
 
 ---
