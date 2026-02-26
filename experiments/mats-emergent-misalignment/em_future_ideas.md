@@ -56,6 +56,149 @@ From PERSONA (arXiv:2602.15669, ICLR 2026): a preliminary inference pass reads t
 
 Could build on top of existing `inference/project_raw_activations_onto_traits.py` — run a prefill pass, read the trait projections, then use those to set steering coefficients for the actual generation. Closes the loop between monitoring and steering.
 
+## Direction-Level Geometry
+
+Compare raw activation shift directions across LoRAs, independent of probes. Probes only measure projections onto 23 pre-chosen directions — if EM and persona shifts differ along dimensions we didn't think to probe, fingerprinting misses it.
+
+**Method**: For each LoRA variant and eval set, compute `shift = mean(LoRA_activations) - mean(clean_activations)` at a given layer. Compare shift vectors across variants with cosine similarity.
+
+**Key questions**:
+- Do persona LoRAs shift in similar directions to each other? (expect yes — they're all "text style" changes)
+- Is the EM shift direction orthogonal to persona shifts, or does it contain a persona-like component plus something extra?
+- How much of the EM shift is captured by the 23 probe directions vs unexplained variance? If probes explain 90% of the shift, fingerprinting is sufficient. If 40%, there's structure we're missing.
+
+**Connection to decomposition**: The text/model decomposition showed EM is 57% model-internal. Direction-level analysis asks whether that model-internal component points in a fundamentally different direction or just goes further along the same axis.
+
+Requires raw activations (not just probe scores). Use `inference/capture_raw_activations.py` on LoRA vs clean responses.
+
+## Activation Patching
+
+Which model components (attention heads, MLPs) carry the EM-specific signal vs the persona signal? Fingerprinting and decomposition show THAT they differ — patching shows WHERE in the model the difference lives.
+
+**Method**: Patch activations from clean model into LoRA model at specific components (head outputs, MLP outputs) and measure which patches eliminate the EM fingerprint vs the persona fingerprint. Standard causal tracing / activation patching.
+
+**Key questions**:
+- Are EM-critical components (heads/MLPs) different from persona-critical components?
+- Does EM concentrate in a few components (sparse, potentially removable) or distribute broadly?
+- If EM signal lives in specific attention heads, what are those heads attending to?
+
+**Connection to probes**: Probes tell us the EM signal exists in residual stream. Patching tells us which components write it there. Combined: "deception signal is written by heads X, Y, Z at layers 20-25" — actionable for safety.
+
+Heavier compute than other ideas. Best scoped to a few interesting (variant, eval_set) cells first.
+
+## Steering Cross-Tests
+
+Apply existing steering vectors across LoRA variants. Simpler than probe-as-loss — just steer and observe.
+
+**Experiments**:
+- Steer persona LoRA with EM deception direction. Does mocking_refusal start behaving like EM?
+- Steer EM model with negative deception direction. Does the villain fingerprint collapse or just lose one dimension?
+- Steer clean_instruct with persona shift direction (mean LoRA activations - mean clean). Does it reproduce the persona?
+
+**Key question**: If steering clean_instruct with the mocking shift direction reproduces mocking behavior, then the direction IS the persona. If it doesn't, the persona requires non-linear interactions that steering can't capture.
+
+Cheaper than probe-as-loss (no training, just inference). Uses existing steering infrastructure.
+
+## Complete 2×2 Factorial: Model_delta on Clean Text
+
+Current decomposition has 3 of 4 cells. The missing cell is LoRA model reading clean text.
+
+|  | Clean text | LoRA text |
+|--|-----------|----------|
+| Clean model | baseline | text_only |
+| LoRA model | **missing** | combined |
+
+**Missing condition**: Prefill clean_instruct responses through LoRA model, capture activations, project onto probes.
+
+**Yields**:
+- `model_delta_clean = LoRA(clean_text) - clean(clean_text)` — model effect on neutral text
+- `model_delta_lora = LoRA(LoRA_text) - clean(LoRA_text)` — model effect on LoRA text (current)
+- `interaction = model_delta_lora - model_delta_clean` — does LoRA model process its own text differently?
+
+**Key question**: Is EM's deception signal always present (high model_delta_clean) or only triggered by deceptive text (high interaction)? For personas, expect model_delta_clean ≈ 0 (model barely changed) regardless.
+
+Same cost as text_only pass (~15 min 14B, ~35 min 4B). Implementation: load LoRA, prefill cached clean_instruct responses instead of LoRA responses.
+
+## KL Divergence Fingerprinting
+
+Probe-free measure of model divergence. Complementary to probe-based model_delta.
+
+**Method**: For the same response text, run forward pass through both LoRA and clean model. At each token position compute `KL(P_LoRA || P_clean)` on the full vocabulary logit distribution.
+
+**Output**: Per-token divergence trace per response, aggregated into P×S matrix of mean KL values.
+
+**Decomposition parallel**: Same text/model 2×2 applies:
+- `model_KL = KL(LoRA || clean)` on same text → prediction divergence from model change
+- Can compute on both LoRA text and clean text to get the interaction
+
+**Connection to probes**: model_delta is like KL but projected onto 23 directions. KL captures everything. If KL is high but model_delta is low, our probes have blind spots. If they agree on the text/model ratio, the probe-based decomposition is validated.
+
+## Activation L2 Divergence
+
+Raw activation-level divergence without probes.
+
+**Method**: `||LoRA_activation - clean_activation||` at each layer, per token, same text.
+
+**Output**: Per-layer divergence profile per response. Shows which layers diverge most.
+
+**Key questions**:
+- Do EM and persona LoRAs diverge at the same layers?
+- Does the per-layer profile match where our best probes are? (If probe layer selection is correct, divergence should peak near those layers.)
+- Ratio: `L2_text_delta / L2_total_delta` vs `L2_model_delta / L2_total_delta` — does the 80/20 vs 57/43 split hold when measured without probes?
+
+## Probe-Free Divergence Directions (SVD)
+
+Discover principal divergence directions from data rather than pre-specifying with probes.
+
+**Method**: Collect activation differences `(LoRA_act - clean_act)` across many responses at a given layer. Stack into matrix `[n_responses, hidden_dim]`. SVD to find top-k directions of divergence.
+
+**Analysis**:
+- Cosine similarity between discovered SVD directions and our 23 probes — what fraction of divergence do probes capture?
+- Cosine between EM SVD directions and persona SVD directions — same subspace or orthogonal?
+- Explained variance: how many directions needed to capture 90% of each LoRA's divergence? (EM might need more if it's multi-dimensional while personas are 1D)
+
+**Connection**: If SVD direction 1 aligns with our deception probe, probes are finding real structure. If SVD finds important directions orthogonal to all probes, we need new probes.
+
+## Per-Layer Model Delta Profile
+
+At which layers is model_delta largest? Map the layer-by-layer divergence profile.
+
+**Method**: Run probe scoring at every layer (not just best-per-trait). For each layer, compute model_delta magnitude across all traits. Plot layer × trait heatmap of model_delta.
+
+**Key questions**:
+- Do EM and persona LoRAs diverge at the same layers?
+- Is EM's deception signal concentrated in specific layers (suggesting a localized circuit) or spread broadly?
+- Does the layer profile match steering results (layers that steer best = layers with most model_delta)?
+
+## Cross-Method Calibration
+
+Compare probe-based, KL-based, and activation-L2-based decomposition ratios.
+
+**Setup**: For each (variant, eval_set) cell, compute text/model fraction three ways:
+1. Probe-based: `Σ|model_delta_probe| / Σ|total_delta_probe|`
+2. KL-based: `mean_KL(model_condition) / mean_KL(total_condition)` (needs careful definition)
+3. L2-based: `||model_act_delta|| / ||total_act_delta||`
+
+**Output**: Scatter plots of probe-fraction vs KL-fraction vs L2-fraction. Correlation tells you how consistent the methods are.
+
+| Probes | KL/L2 | Interpretation |
+|--------|-------|----------------|
+| 80/20 text/model | 80/20 | Probes capture the full story |
+| 80/20 text/model | 50/50 | Model changes more than probes see — blind spots |
+| 80/20 text/model | 95/5 | Probes overestimate model effect (noise?) |
+
+## Full P×S×Trait×Decomposition Tensor
+
+Visualize the complete data structure: 5 variants × 10 eval sets × 23 traits × 3 decomposition types (combined, text_delta, model_delta).
+
+**Visualization options**:
+- Small multiples: one heatmap (variant × eval_set) per trait, faceted by decomposition type
+- Interactive: select trait + decomposition type, see P×S heatmap
+- Tensor summary: for each variant, show the trait × decomposition_type heatmap (23 × 3), averaged across eval sets
+
+Requires 23-trait per-cell files (currently only on remote as summary).
+>>>>>>> Stashed changes
+
 ## Language-Emotion Entanglement
 
 Sadness steering at L14 produces Chinese output (5/5 responses). Effect fades by L17 (0/5). Unique to sadness — no other trait triggers Chinese at L14.

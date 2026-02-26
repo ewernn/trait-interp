@@ -314,3 +314,347 @@ Before running, modify `pxs_grid.py`:
 - **#8 Raw diff magnitude per layer:** Cheap, undirected "something changed" signal.
 - **#17 Gradient attribution:** Which weights cause probe score jumps at detection point.
 - **#18 Layer sweep:** Probes at multiple layers per trait over checkpoints.
+
+---
+
+## Phase 7: Overnight Jobs (Single A100, ~5-6 hrs)
+
+Claude Code runs these overnight on remote. Switch to single A100 to save cost. Jobs grouped by model to minimize reloads.
+
+**Prerequisites (verify before starting):**
+- Phase 4 (4B combined, 16 probes) is complete (~195 cells, nervous LoRAs missing)
+- 4B text_only pass is complete (check `analysis/pxs_grid_4b/probe_scores/*_text_only.json` — if zero files exist, run `--phase text_only` first)
+- 14B has 110 files in `analysis/pxs_grid_14b/probe_scores/` (50 combined + 50 text_only + 10 baseline)
+- Clean instruct baseline responses exist for all 10 eval sets (generated automatically during `--phase generate`)
+
+**Data status check before running:**
+```bash
+echo "=== 14B ===" && \
+ls analysis/pxs_grid_14b/probe_scores/*_combined.json | wc -l && \
+ls analysis/pxs_grid_14b/probe_scores/*_text_only.json | wc -l && \
+ls analysis/pxs_grid_14b/responses/clean_instruct/ | wc -l && \
+echo "=== 4B ===" && \
+ls analysis/pxs_grid_4b/probe_scores/*_combined.json | wc -l && \
+ls analysis/pxs_grid_4b/probe_scores/*_text_only.json 2>/dev/null | wc -l && \
+ls analysis/pxs_grid_4b/responses/clean_instruct/ 2>/dev/null | wc -l
+```
+
+Expected: 14B has 50/50/10. 4B has ~195/~195/10 (if text_only ran) or ~195/0/0 (if not).
+
+---
+
+### Group A: 4B jobs (load model once, ~2 hrs)
+
+#### 7a. 4B 23-probe re-score combined (~50 min)
+
+Phase 4 scored 4B LoRAs with 16 probes. Re-score with 23 probes.
+
+```bash
+# Back up old 16-probe scores (don't delete — re-score could fail)
+mkdir -p analysis/pxs_grid_4b/probe_scores_16probe_backup
+cp analysis/pxs_grid_4b/probe_scores/*_combined.json analysis/pxs_grid_4b/probe_scores_16probe_backup/
+
+# Delete old combined scores to trigger re-scoring (keeps responses + text_only)
+rm -f analysis/pxs_grid_4b/probe_scores/*_combined.json
+
+# Re-score. --phase generate re-scores combined (uses cached responses, skips generation)
+CUDA_VISIBLE_DEVICES=0 python experiments/mats-emergent-misalignment/pxs_grid.py \
+    --model unsloth/qwen3-4b-unsloth-bnb-4bit \
+    --lora-dir experiments/mats-emergent-misalignment/sriram_loras \
+    --extraction-variant qwen3_4b_base \
+    --steering-variant qwen3_4b_instruct \
+    --output-dir analysis/pxs_grid_4b \
+    --phase generate \
+    --probes-only
+```
+
+**Note:** `--phase generate` with existing response files will skip generation and only re-score. Combined scores will now have 23 traits. The `clean_instruct` baseline is also generated automatically during this phase.
+
+#### 7a2. 4B text_only re-score with 23 probes (~40 min)
+
+If 4B text_only was scored with 16 probes, re-score. If text_only was never run, this is the first run.
+
+```bash
+# Back up if text_only files exist
+ls analysis/pxs_grid_4b/probe_scores/*_text_only.json 2>/dev/null && \
+    cp analysis/pxs_grid_4b/probe_scores/*_text_only.json analysis/pxs_grid_4b/probe_scores_16probe_backup/
+
+rm -f analysis/pxs_grid_4b/probe_scores/*_text_only.json
+
+CUDA_VISIBLE_DEVICES=0 python experiments/mats-emergent-misalignment/pxs_grid.py \
+    --model unsloth/qwen3-4b-unsloth-bnb-4bit \
+    --lora-dir experiments/mats-emergent-misalignment/sriram_loras \
+    --extraction-variant qwen3_4b_base \
+    --steering-variant qwen3_4b_instruct \
+    --output-dir analysis/pxs_grid_4b \
+    --phase text_only \
+    --probes-only
+```
+
+#### 7d. Reverse 2×2: 4B — LoRA models prefill clean text (~40 min)
+
+Complete the 2×2 factorial for 4B. LoRA model reads clean-instruct-generated text.
+
+|  | Clean text | LoRA text |
+|--|-----------|----------|
+| Clean model | baseline (have) | text_only (have) |
+| LoRA model | **this job** | combined (have) |
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python experiments/mats-emergent-misalignment/pxs_grid.py \
+    --model unsloth/qwen3-4b-unsloth-bnb-4bit \
+    --lora-dir experiments/mats-emergent-misalignment/sriram_loras \
+    --extraction-variant qwen3_4b_base \
+    --steering-variant qwen3_4b_instruct \
+    --output-dir analysis/pxs_grid_4b \
+    --phase reverse_model \
+    --probes-only
+```
+
+**Needs `--phase reverse_model` added to pxs_grid.py** (see scripts needed below).
+
+#### 7f. KL divergence capture (4B, ~80 min)
+
+Probe-free measure of model divergence. ~43k responses × 2 forward passes.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python experiments/mats-emergent-misalignment/kl_divergence.py \
+    --model unsloth/qwen3-4b-unsloth-bnb-4bit \
+    --lora-dir experiments/mats-emergent-misalignment/sriram_loras \
+    --response-dir analysis/pxs_grid_4b/responses \
+    --output-dir analysis/kl_divergence_4b
+```
+
+**Needs new script** (see below).
+
+---
+
+### Group B: 14B jobs (load model once, ~2-3 hrs)
+
+#### 7b. Curt checkpoint trajectory (~20 min)
+
+Curt ≈ EM on combined fingerprints (ρ=0.96) but diverges after decomposition. Checkpoint trajectory reveals how curt's signal develops during training.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python experiments/mats-emergent-misalignment/checkpoint_sweep.py \
+    --run curt_refusal \
+    --save-responses
+```
+
+**Limitation:** `checkpoint_sweep.py` eval set is hardcoded to `em_medical_eval.json` (line 37). To run on multiple eval sets, either modify the script to accept `--eval-set` flag, or run it multiple times editing the hardcoded path. The existing mocking/angry sweeps also used only `em_medical_eval`, so this is consistent.
+
+Output: `analysis/checkpoint_sweep/curt_refusal.json` (checkpoints with probe scores + sample responses).
+
+#### 7c. Reverse 2×2: 14B — LoRA models prefill clean text (~15 min)
+
+Complete the 2×2 factorial for 14B.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python experiments/mats-emergent-misalignment/pxs_grid.py \
+    --model Qwen/Qwen2.5-14B-Instruct \
+    --load-in-4bit \
+    --from-config \
+    --variants em_rank32 em_rank1 mocking_refusal angry_refusal curt_refusal \
+    --output-dir analysis/pxs_grid_14b \
+    --phase reverse_model \
+    --probes-only
+```
+
+**Prerequisite:** clean_instruct responses must exist for all 10 eval sets in `analysis/pxs_grid_14b/responses/clean_instruct/`. These are generated automatically during `--phase generate`. If only 2/10 exist (from original 2-eval run), run `--phase generate` first with all 10 eval sets to populate the rest — responses for LoRA variants are already cached and won't regenerate.
+
+Output: 50 `*_reverse_model.json` files. Enables:
+- `model_delta_clean = reverse_model - baseline` (model effect on neutral text)
+- `interaction = model_delta_lora - model_delta_clean` (does LoRA model process its own text differently?)
+
+#### 7e. KL divergence capture (14B, ~20 min)
+
+Probe-free measure of model divergence.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python experiments/mats-emergent-misalignment/kl_divergence.py \
+    --model Qwen/Qwen2.5-14B-Instruct \
+    --load-in-4bit \
+    --from-config \
+    --variants em_rank32 em_rank1 mocking_refusal angry_refusal curt_refusal \
+    --response-dir analysis/pxs_grid_14b/responses \
+    --output-dir analysis/kl_divergence_14b
+```
+
+Output: `analysis/kl_divergence_14b/{variant}_x_{eval_set}.json` with `{mean_kl, per_prompt_kl, per_token_kl_summary}`.
+
+#### 7g. All-layer probe scoring (14B, ~45 min)
+
+Score at every layer (not just best-per-trait) to get per-layer model_delta profile. Run on 3 eval sets to keep runtime manageable.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python experiments/mats-emergent-misalignment/pxs_grid.py \
+    --model Qwen/Qwen2.5-14B-Instruct \
+    --load-in-4bit \
+    --from-config \
+    --variants em_rank32 em_rank1 mocking_refusal angry_refusal curt_refusal \
+    --eval-sets em_generic_eval sriram_harmful emotional_vulnerability \
+    --output-dir analysis/pxs_grid_14b_all_layers \
+    --all-layers \
+    --probes-only
+```
+
+**Needs `--all-layers` flag in pxs_grid.py** (see below). At each of ~48 layers, loads `mean_diff` vectors for all 23 traits (most reliable across layers since probes may not exist at every layer), scores all responses. Output: one JSON per (variant, eval_set, layer) triple.
+
+This is ~80-100 lines of changes to pxs_grid.py: restructure probe loading to iterate all layers, load mean_diff vectors at each, modify output paths.
+
+### Group C: Per-token dynamics + direction geometry (14B, ~50 min)
+
+#### 7h. Per-token trait projection capture (14B, ~30 min)
+
+Capture per-token projections onto all 23 traits during response generation. Enables causal ordering analysis (which traits spike first?).
+
+Uses existing scripts — no new code needed. Run on 3 eval sets × 5 variants = 15 cells.
+
+```bash
+# For each (variant, eval_set) cell:
+# 1. Import cached responses from pxs_grid into inference format
+# 2. Capture raw activations
+# 3. Project onto traits
+
+EVAL_SETS="em_generic_eval sriram_harmful emotional_vulnerability"
+VARIANTS="em_rank32 em_rank1 mocking_refusal angry_refusal curt_refusal"
+
+for eval_set in $EVAL_SETS; do
+    # Capture activations (uses cached responses if available in inference dir)
+    CUDA_VISIBLE_DEVICES=0 python inference/capture_raw_activations.py \
+        --experiment mats-emergent-misalignment \
+        --prompt-set $eval_set
+
+    # Project onto all traits
+    CUDA_VISIBLE_DEVICES=0 python inference/project_raw_activations_onto_traits.py \
+        --experiment mats-emergent-misalignment \
+        --prompt-set $eval_set
+done
+```
+
+**Caveat:** These scripts use `experiments/{exp}/inference/` paths, not `analysis/pxs_grid/` paths. Responses may need to be symlinked or copied from `analysis/pxs_grid_14b/responses/` into the inference directory structure. Check before running.
+
+**Storage:** Raw activations at all layers could be large (~50-100GB for 15 cells × 20 responses). Limit to `--layers best` (best layer per trait) to keep manageable, or 3-5 key layers.
+
+Output: Per-token × per-trait projection matrices in `experiments/mats-emergent-misalignment/inference/`. Enables locally:
+- Onset detection (first token each trait crosses 2σ)
+- Cross-correlation / Granger causality between trait pairs
+- Does EM show deception-first but personas show aggression-first?
+
+#### 7i. Direction-level geometry capture (14B, ~20 min)
+
+Save raw activation shift vectors `mean(LoRA_acts) - mean(clean_acts)` for each cell. No probes involved — raw high-dimensional shifts.
+
+Bake into `kl_divergence.py` (7e): during the same double forward pass (LoRA + clean on same text), additionally save:
+1. Mean activation at key layers (e.g., layers 15, 20, 25, 30) for both models
+2. Compute `shift = mean(LoRA_act) - mean(clean_act)` per layer
+3. Save shift vectors per (variant, eval_set, layer)
+
+```python
+# In kl_divergence.py, after computing KL, additionally:
+shift_vectors[(variant, eval_set, layer)] = lora_mean_act - clean_mean_act
+# Save to analysis/direction_geometry_14b/{variant}_x_{eval_set}.pt
+```
+
+Storage: tiny — one vector per (cell, layer) = 50 cells × 4 layers × 5120 dims × 4 bytes ≈ 4MB.
+
+Output: `analysis/direction_geometry_14b/`. Enables locally:
+- Cosine similarity between EM and persona shift directions
+- Project shifts onto 23 probes → what fraction of shift do probes capture?
+- SVD on shift matrix → data-driven divergence directions
+- Compare to probe-based fingerprints: do the same variants cluster together?
+
+### Group D: Steering cross-tests (14B, ~45 min)
+
+#### 7j. Steering cross-tests (14B, ~45 min)
+
+Apply existing trait vectors to cross-model combinations. Uses existing steering infrastructure.
+
+Three experiments:
+
+**Experiment 1:** Steer mocking_refusal with EM's deception vector. Does mocking start behaving like EM?
+```bash
+CUDA_VISIBLE_DEVICES=0 python analysis/steering/evaluate.py \
+    --experiment mats-emergent-misalignment \
+    --traits alignment/deception \
+    --model-variant mocking_refusal \
+    --eval-sets em_generic_eval sriram_harmful \
+    --layers 24 \
+    --coefficients -3 -1 0 1 3
+```
+
+**Experiment 2:** Steer EM rank32 with negative deception. Does the villain fingerprint collapse or just lose one dimension?
+```bash
+CUDA_VISIBLE_DEVICES=0 python analysis/steering/evaluate.py \
+    --experiment mats-emergent-misalignment \
+    --traits alignment/deception \
+    --model-variant em_rank32 \
+    --eval-sets em_generic_eval sriram_harmful \
+    --layers 24 \
+    --coefficients -5 -3 -1 0
+```
+
+**Experiment 3:** Steer clean_instruct with multiple trait vectors. Does steering reproduce persona fingerprints?
+```bash
+for trait in alignment/deception mental_state/anxiety new_traits/aggression new_traits/contempt; do
+    CUDA_VISIBLE_DEVICES=0 python analysis/steering/evaluate.py \
+        --experiment mats-emergent-misalignment \
+        --traits $trait \
+        --model-variant instruct \
+        --eval-sets em_generic_eval sriram_harmful \
+        --coefficients -3 -1 0 1 3
+done
+```
+
+**Note:** Verify exact CLI flags against `analysis/steering/evaluate.py` before running. The flags above are approximate — check argparse section. Steering eval includes GPT judge calls (~1k API calls total across all experiments).
+
+Output: Steering results in `experiments/mats-emergent-misalignment/steering/`. Enables locally:
+- Does applying deception direction to mocking reproduce EM behavioral patterns?
+- Is the villain fingerprint a single direction (collapses with anti-deception steering) or multi-dimensional?
+- Can we reconstruct persona behavior from trait vectors alone?
+
+---
+
+### Final step: sync
+
+```bash
+cd ~/trait-interp && bash utils/r2_push.sh && git add -A && git commit -m "Phase 7 overnight results" && git push
+```
+
+---
+
+### Scripts needed before running
+
+| Script | Status | Effort | Notes |
+|--------|--------|--------|-------|
+| `pxs_grid.py --phase reverse_model` | **Need to add** | ~50 lines | Same as `text_only` but load LoRA adapter for scoring, use clean_instruct cached responses as input |
+| `kl_divergence.py` | **Need to write** | ~200 lines | Load model, swap adapters, forward pass through both LoRA and clean, compute per-token KL, save activation shift vectors at key layers (for 7i direction geometry) |
+| `pxs_grid.py --all-layers` | **Need to add** | ~80-100 lines | Load mean_diff vectors at all layers, restructure probe dict, modify output format |
+| `checkpoint_sweep.py --run curt_refusal` | **Exists** | 0 | Just pass `--run curt_refusal` |
+| Per-token capture (7h) | **Exists** | 0 | `inference/capture_raw_activations.py` + `project_raw_activations_onto_traits.py`. May need response file symlinks. |
+| Steering cross-tests (7j) | **Exists** | 0 | `analysis/steering/evaluate.py`. Verify CLI flags before running. |
+
+### Estimated total runtime
+
+| Group | Jobs | Time |
+|-------|------|------|
+| A: 4B | 7a, 7a2, 7d, 7f | ~3 hrs |
+| B: 14B (scoring) | 7b, 7c, 7e, 7g | ~2 hrs |
+| C: 14B (capture) | 7h, 7i | ~50 min |
+| D: 14B (steering) | 7j | ~45 min |
+| **Total** | | **~6.5 hrs** |
+
+Fits overnight. Group C and D run after B since they share the 14B model. Claude Code manages execution — no bash script needed.
+
+### What this enables (analysis, no GPU needed)
+
+After overnight jobs complete and r2 sync:
+
+1. **Full 4B decomposition with 23 probes** (7a, 7a2) — does 80/20 text/model split hold cross-model?
+2. **Curt trajectory** (7b) — how does curt's probe fingerprint develop during training?
+3. **2×2 factorial interaction** (7c, 7d) — is EM's deception "always on" or triggered by own text?
+4. **KL-based calibration** (7e, 7f) — does probe-based decomposition ratio match probe-free KL ratio?
+5. **Per-layer model_delta profile** (7g) — at which layers does EM diverge from clean? Same layers as persona LoRAs?
+6. **Causal ordering** (7h) — which traits spike first in EM vs persona responses? Deception-first vs aggression-first?
+7. **Direction geometry** (7i) — are EM and persona shift directions orthogonal? How much do probes capture?
+8. **Steering cross-tests** (7j) — can we reproduce EM behavior by steering personas? Does anti-deception collapse the villain fingerprint?

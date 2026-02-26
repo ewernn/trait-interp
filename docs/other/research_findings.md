@@ -927,6 +927,23 @@ This suggests the EM effect operates through at least two mechanisms:
 
 ---
 
+## 2026-02-25: EM Probe Fingerprinting & Text/Model Decomposition
+
+Full writeup: [`experiments/mats-emergent-misalignment/feb25_findings.md`](../../experiments/mats-emergent-misalignment/feb25_findings.md)
+
+**Setup:** Qwen2.5-14B-Instruct with 5 LoRA variants (2 EM: rank32/rank1, 3 persona: mocking/angry/curt) scored with 23 trait probes across 10 eval sets. Three-way decomposition separates probe scores into text-driven and model-internal components.
+
+**Key findings:**
+- EM rank32 is 63% model-internal (internal representations shift); persona LoRAs are 76–83% text-driven (style transfer, not internalized)
+- Persona fingerprints cluster tightly (ρ=0.83–0.91), EM is distant (cross-cluster ρ=0.17–0.28 on combined, 0.48–0.68 on model_delta)
+- EM's model_delta is highly consistent across eval sets (ρ=0.96), concentrated on deception/lying/sycophancy
+- 4B within-persona consistency ρ=0.93 independently confirms behavioral generalization via probes
+- PCA: PC1 (84.5%) = affective intensity (persona), PC2 (6.5%) = deception axis (EM)
+
+**Method contribution:** Text/model decomposition using prefill scoring (combined vs text_only vs baseline) to separate text style from internal state change.
+
+---
+
 ## 2026-01-07: Coherence Judge Prompt Engineering
 
 **Problem:** Need automated coherence scoring for steering evaluation. V7 (grammar-only) missed non-sequiturs like "I'm going to kill you" in response to "How can I protect my privacy online?" V8 (with question context + harm examples) over-penalized non-harm traits due to gpt-4.1-mini content bias.
