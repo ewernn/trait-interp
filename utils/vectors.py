@@ -208,7 +208,9 @@ def _get_steering_result(
         if not vectors:
             continue
         v = vectors[0]  # Single-vector config
-        if v.get('layer') == layer and v.get('method', 'probe') == method:
+        if (v.get('layer') == layer
+                    and v.get('method', 'probe') == method
+                    and v.get('component', 'residual') == candidate.get('component', 'residual')):
             result = run.get('result', {})
             coherence = result.get('coherence_mean', 0)
             if coherence >= min_coherence:

@@ -10,6 +10,7 @@ Validate trait vectors via causal intervention. See [steering/README.md](steerin
 |--------|---------|
 | `evaluate.py` | Adaptive coefficient search per layer (main entry point) |
 | `multi_layer_evaluate.py` | Multi-layer steering evaluation |
+| `probe_weighted_evaluate.py` | Probe-weighted multi-layer steering (uses weights from `multi_layer_probe.py`) |
 | `optimize_vector.py` | CMA-ES optimization of vector direction + coefficient |
 | `optimize_ensemble.py` | CMA-ES optimization for multi-layer ensemble weights |
 | `coef_search.py` | Adaptive search implementation (used by evaluate.py) |
@@ -88,6 +89,7 @@ python analysis/benchmark/evaluate.py \
 
 | Script | Purpose |
 |--------|---------|
+| `multi_layer_probe.py` | Two-stage scalar + full-concat probes across all layers×components |
 | `massive_activations.py` | Identify massive dims (Sun et al. 2024) for calibration |
 | `massive_activations_per_layer.py` | Per-layer massive dim stats and zeroing analysis |
 | `top_activating_responses.py` | Rank responses by activation metrics across organisms |

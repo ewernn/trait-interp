@@ -54,30 +54,46 @@ from utils.layers import parse_layers
 
 async def evaluate_multi_layer_config(
     backend,
-    vectors_and_layers: List[tuple],  # [(layer, vector), ...]
+    vectors_and_layers: List[tuple],  # [(layer, vector), ...] or [(layer, vector, component), ...]
     coef: float,
     questions: List[str],
     trait_name: str,
     trait_definition: str,
     judge: TraitJudge,
     use_chat_template: bool,
-    component: str,
+    component: str = "residual",
     max_new_tokens: int = 256,
     eval_prompt: Optional[str] = None,
     relevance_check: bool = True,
+    per_hook_weights: Optional[List[float]] = None,
 ) -> tuple:
-    """Evaluate a multi-layer config with shared coefficient."""
+    """Evaluate a multi-layer config with shared coefficient.
+
+    If per_hook_weights is provided, each hook gets coef * weight instead of
+    a flat coef. This supports probe-weighted steering where different
+    layer×component pairs contribute different amounts.
+    """
     model = backend.model
     tokenizer = backend.tokenizer
 
-    n_layers = len(vectors_and_layers)
-    desc = f"Multi-L({n_layers}) c{coef:.1f}"
+    n_hooks = len(vectors_and_layers)
+    desc = f"Multi-L({n_hooks}) c{coef:.1f}"
 
     formatted = [format_prompt(q, tokenizer, use_chat_template=use_chat_template) for q in questions]
 
-    configs = [(layer, vector, coef) for layer, vector in vectors_and_layers]
+    # Build hook configs — support both 2-tuples and 3-tuples
+    configs = []
+    for i, entry in enumerate(vectors_and_layers):
+        w = per_hook_weights[i] if per_hook_weights else 1.0
+        if len(entry) == 3:
+            layer, vector, comp = entry
+            configs.append((layer, vector, coef * w, comp))
+        else:
+            layer, vector = entry
+            configs.append((layer, vector, coef * w, component))
+
     print(f"  Generating {len(questions)} responses for {desc}...")
-    with MultiLayerSteeringHook(model, configs, component=component):
+    with MultiLayerSteeringHook(model, configs):
         responses = generate_batch(model, tokenizer, formatted, max_new_tokens=max_new_tokens)
 
     if is_rank_zero():
@@ -141,13 +157,14 @@ async def multi_layer_adaptive_search(
     save_mode: str = "best",
     relevance_check: bool = True,
     direction: str = "positive",
+    per_hook_weights: Optional[List[float]] = None,
 ):
     """Adaptive coefficient search for multi-layer steering."""
     n_layers = len(vectors_and_layers)
     sign = 1 if direction == "positive" else -1
 
     print(f"\n--- Multi-layer ({n_layers} layers, base_coef={base_coef:.1f}, direction={direction}) ---")
-    print(f"Layers: {[l for l, _ in vectors_and_layers]}")
+    print(f"Layers: {[entry[0] for entry in vectors_and_layers]}")
     print(f"Step |  Coef  | Trait | Coherence | Action")
     print("-----|--------|-------|-----------|-------")
 
@@ -157,10 +174,14 @@ async def multi_layer_adaptive_search(
 
     for step in range(n_steps):
         # Build config dict with all vectors
-        spec_list = [
-            VectorSpec(layer=layer, component=component, position=position, method=method, weight=coef).to_dict()
-            for layer, _ in vectors_and_layers
-        ]
+        spec_list = []
+        for i, entry in enumerate(vectors_and_layers):
+            layer = entry[0]
+            comp = entry[2] if len(entry) == 3 else component
+            w = per_hook_weights[i] if per_hook_weights else 1.0
+            spec_list.append(
+                VectorSpec(layer=layer, component=comp, position=position, method=method, weight=coef * w).to_dict()
+            )
         config = {"vectors": spec_list}
 
         cached_result = find_cached_run(cached_runs, config)
@@ -174,6 +195,7 @@ async def multi_layer_adaptive_search(
                 trait_name, trait_definition, judge, use_chat_template, component,
                 max_new_tokens=max_new_tokens, eval_prompt=eval_prompt,
                 relevance_check=relevance_check,
+                per_hook_weights=per_hook_weights,
             )
 
             trait_score = result.get("trait_mean") or 0
@@ -252,6 +274,9 @@ async def run_multi_layer_evaluation(
     relevance_check: bool = True,
     direction: str = "positive",
     force: bool = False,
+    vectors_and_layers_override: Optional[List[tuple]] = None,
+    per_hook_weights: Optional[List[float]] = None,
+    base_coef_override: Optional[float] = None,
 ):
     """Run multi-layer steering evaluation for one trait."""
     steering_data = load_steering_data(trait)
@@ -341,41 +366,48 @@ async def run_multi_layer_evaluation(
     else:
         print(f"\nUsing existing baseline: trait={baseline_result['trait_mean']:.1f}")
 
-    # Load vectors at all requested layers
-    resolved_extraction_variant = extraction_variant or get_default_variant(vector_experiment, mode='extraction')
-    cached_norms = load_cached_activation_norms(vector_experiment, "residual")
+    if vectors_and_layers_override is not None:
+        # Pre-built configs from probe-weighted steering
+        vectors_and_layers = vectors_and_layers_override
+        multi_base_coef = base_coef_override or 100.0
+        n_hooks = len(vectors_and_layers)
+        print(f"\nUsing {n_hooks} pre-built hook configs, base_coef={multi_base_coef:.1f}")
+    else:
+        # Load vectors at all requested layers
+        resolved_extraction_variant = extraction_variant or get_default_variant(vector_experiment, mode='extraction')
+        cached_norms = load_cached_activation_norms(vector_experiment, "residual")
 
-    vectors_and_layers = []
-    base_coefs = []
-    for layer in layers:
-        vector = load_vector(vector_experiment, trait, layer, resolved_extraction_variant, method, component, position)
-        if vector is None:
-            print(f"  L{layer}: Vector not found, skipping")
-            continue
+        vectors_and_layers = []
+        base_coefs = []
+        for layer in layers:
+            vector = load_vector(vector_experiment, trait, layer, resolved_extraction_variant, method, component, position)
+            if vector is None:
+                print(f"  L{layer}: Vector not found, skipping")
+                continue
 
-        vec_norm = vector.norm().item()
-        if vec_norm == 0:
-            print(f"  L{layer}: Zero vector, skipping")
-            continue
+            vec_norm = vector.norm().item()
+            if vec_norm == 0:
+                print(f"  L{layer}: Zero vector, skipping")
+                continue
 
-        if layer in cached_norms:
-            act_norm = cached_norms[layer]
-        else:
-            act_norm = estimate_activation_norm(model, tokenizer, questions, layer, use_chat_template, "residual")
+            if layer in cached_norms:
+                act_norm = cached_norms[layer]
+            else:
+                act_norm = estimate_activation_norm(model, tokenizer, questions, layer, use_chat_template, "residual")
 
-        base_coefs.append(act_norm / vec_norm)
-        vectors_and_layers.append((layer, vector))
-        print(f"  L{layer}: loaded (act_norm={act_norm:.0f}, vec_norm={vec_norm:.3f})")
+            base_coefs.append(act_norm / vec_norm)
+            vectors_and_layers.append((layer, vector))
+            print(f"  L{layer}: loaded (act_norm={act_norm:.0f}, vec_norm={vec_norm:.3f})")
 
-    if not vectors_and_layers:
-        print("No valid layers with vectors found")
-        return
+        if not vectors_and_layers:
+            print("No valid layers with vectors found")
+            return
 
-    n_layers = len(vectors_and_layers)
-    # Key: divide base_coef by number of layers since effects accumulate
-    mean_base_coef = sum(base_coefs) / len(base_coefs)
-    multi_base_coef = mean_base_coef / n_layers
-    print(f"\nMulti-layer base_coef: {mean_base_coef:.0f} / {n_layers} layers = {multi_base_coef:.1f}")
+        n_hooks = len(vectors_and_layers)
+        # Key: divide base_coef by number of layers since effects accumulate
+        mean_base_coef = sum(base_coefs) / len(base_coefs)
+        multi_base_coef = mean_base_coef / n_hooks
+        print(f"\nMulti-layer base_coef: {mean_base_coef:.0f} / {n_hooks} layers = {multi_base_coef:.1f}")
 
     await multi_layer_adaptive_search(
         backend, vectors_and_layers, multi_base_coef,
@@ -387,12 +419,13 @@ async def run_multi_layer_evaluation(
         start_mult=start_mult, max_new_tokens=max_new_tokens,
         eval_prompt=effective_eval_prompt, save_mode=save_mode,
         relevance_check=relevance_check, direction=direction,
+        per_hook_weights=per_hook_weights,
     )
 
     # Print summary
     sign = 1 if direction == "positive" else -1
     print(f"\n{'='*60}")
-    print(f"Summary (multi-layer, {n_layers} layers, {method})")
+    print(f"Summary (multi-layer, {n_hooks} hooks, {method})")
     print(f"{'='*60}")
     print(f"Baseline: {baseline_result['trait_mean']:.1f}")
 

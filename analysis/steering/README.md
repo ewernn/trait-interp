@@ -110,6 +110,43 @@ Results saved as ensembles in `experiments/{experiment}/ensembles/{trait}/`. See
 1. Run `optimize_vector.py` per layer → get optimized directions
 2. Run `optimize_ensemble.py` → combine optimized vectors with optimal coefficients
 
+## Probe-Weighted Multi-Layer Steering
+
+Use two-stage probe weights from `analysis/multi_layer_probe.py` to steer with multiple layer×component hooks simultaneously. Each hook's contribution is scaled by its probe weight.
+
+```bash
+# First: train probes to get weight maps
+python analysis/multi_layer_probe.py --experiment {experiment}
+
+# Then: steer using probe weights
+python analysis/steering/probe_weighted_evaluate.py \
+    --experiment {experiment} \
+    --traits {category}/{trait}
+
+# Use a scratch experiment to avoid overwriting existing results
+python analysis/steering/probe_weighted_evaluate.py \
+    --experiment {scratch_experiment} \
+    --vector-experiment {experiment} \
+    --model-variant {variant} \
+    --traits {category}/{trait}
+
+# Higher threshold = fewer hooks (more concentrated steering)
+python analysis/steering/probe_weighted_evaluate.py \
+    --experiment {experiment} \
+    --traits {category}/{trait} \
+    --weight-threshold 0.03
+```
+
+**How it works:**
+1. Loads two-stage probe weights from `analysis/multi_layer_probe/results.json`
+2. Filters hooks by `--weight-threshold` (default 0.01 = 1% of total absolute weight)
+3. Normalizes remaining weights to sum to 1
+4. Each hook adds `coef * weight_i * vector_i` to its component (attn or mlp)
+5. Base coefficient uses per-component activation norms from extraction metadata
+6. Coefficient search sweeps one global scalar; weights set relative contribution
+
+Hooks can mix `attn_contribution` and `mlp_contribution` components. Negative probe weights steer in reverse (correct behavior — anti-correlated features).
+
 ## Re-scoring Existing Responses
 
 Re-run the LLM judge on saved responses without regenerating them. No GPU needed — just OpenAI API calls.

@@ -270,6 +270,8 @@ Automated via `utils/vectors.py:get_best_vector(experiment, trait)`:
 
 ## Model Support
 
+**Thinking models (Qwen3, etc.):** Thinking mode is automatically disabled via `enable_thinking=False` in `utils/model.py`. This prevents chain-of-thought tokens from inflating trait scores (the judge reads deliberation as expressing traits like confusion, conflictedness, etc.). Experiment-specific scripts that call `apply_chat_template` directly may need the flag added manually.
+
 **Experiment config** (`experiments/{experiment}/config.json`):
 ```json
 {
