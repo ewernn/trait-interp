@@ -45,7 +45,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 from core import MultiLayerCapture
 from core.math import projection
 from dotenv import load_dotenv
-from utils.model import load_model
+from utils.model import load_model, tokenize_batch
+from utils.vram import calculate_max_batch_size
 from utils.vectors import get_best_vector, load_vector
 
 load_dotenv()
@@ -156,10 +157,14 @@ def parse_args():
     parser.add_argument("--n-samples", type=int, default=DEFAULT_N_PROBE_SAMPLES,
                         help="Probe samples per prompt (default: %(default)s)")
     parser.add_argument("--phase", default=None,
-                        choices=["generate", "text_only", "judge", "assemble"],
+                        choices=["generate", "text_only", "reverse_model", "judge", "assemble"],
                         help="Run specific phase only")
     parser.add_argument("--skip-behavioral", action="store_true",
                         help="Skip behavioral eval but still generate full response count")
+    parser.add_argument("--all-layers", action="store_true",
+                        help="Score at all layers with mean_diff vectors (not just best-per-trait)")
+    parser.add_argument("--response-dir", type=str, default=None,
+                        help="Read responses from this directory (default: {output-dir}/responses/)")
 
     return parser.parse_args()
 
@@ -304,22 +309,21 @@ def generate_responses(model, tokenizer, prompts, n_samples, max_new_tokens=MAX_
 
 # ── Probe scoring ─────────────────────────────────────────────────────────────
 
-def score_responses(model, tokenizer, prompts, responses_dict, probes, n_samples=DEFAULT_N_PROBE_SAMPLES):
-    """Prefill responses, capture at probe layers, project onto probes.
+def score_responses(model, tokenizer, prompts, responses_dict, probes, n_samples=DEFAULT_N_PROBE_SAMPLES,
+                    batch_size=None):
+    """Prefill responses in batches, capture at probe layers, project onto probes.
 
     Returns {trait: mean_score} averaging over first n_samples responses per prompt.
     """
     layers = sorted(set(p["layer"] for p in probes.values()))
     scores = {trait: [] for trait in probes}
 
-    total = sum(min(n_samples, len(responses_dict[p["id"]])) for p in prompts)
-    done = 0
-
+    # Flatten all (full_text, prompt_len) items
+    items = []
     for prompt_data in prompts:
         prompt_id = prompt_data["id"]
         samples = responses_dict[prompt_id][:n_samples]
 
-        # Pre-compute prompt length
         prompt_messages = [{"role": "user", "content": prompt_data["prompt"]}]
         prompt_text = tokenizer.apply_chat_template(
             prompt_messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
@@ -334,25 +338,52 @@ def score_responses(model, tokenizer, prompts, responses_dict, probes, n_samples
             full_text = tokenizer.apply_chat_template(
                 messages, tokenize=False, add_generation_prompt=False, enable_thinking=False,
             )
-            inputs = tokenizer(full_text, return_tensors="pt", add_special_tokens=False)
-            input_ids = inputs.input_ids.to(model.device)
+            items.append((full_text, prompt_len))
 
-            with MultiLayerCapture(model, layers=layers, keep_on_gpu=True) as capture:
-                with torch.no_grad():
-                    model(input_ids=input_ids)
+    if not items:
+        return {trait: 0.0 for trait in probes}
+
+    if batch_size is None:
+        batch_size = calculate_max_batch_size(
+            model, 2048, mode='extraction', num_capture_layers=len(layers))
+
+    total = len(items)
+    done = 0
+
+    for i in range(0, total, batch_size):
+        batch_items = items[i:i + batch_size]
+        batch_texts = [text for text, _ in batch_items]
+        batch_prompt_lens = [pl for _, pl in batch_items]
+
+        batch = tokenize_batch(batch_texts, tokenizer, padding_side="right",
+                               add_special_tokens=False)
+        input_ids = batch["input_ids"].to(model.device)
+        attention_mask = batch["attention_mask"].to(model.device)
+        seq_lens = batch["lengths"]
+
+        with MultiLayerCapture(model, layers=layers, keep_on_gpu=True) as capture:
+            with torch.no_grad():
+                model(input_ids=input_ids, attention_mask=attention_mask)
+
+            for b in range(len(batch_items)):
+                prompt_len = batch_prompt_lens[b]
+                seq_len = seq_lens[b]
 
                 for trait, probe_info in probes.items():
                     acts = capture.get(probe_info["layer"])
-                    response_acts = acts[0, prompt_len:, :]
+                    response_acts = acts[b, prompt_len:seq_len, :]
                     if response_acts.shape[0] == 0:
                         continue
                     vec = probe_info["vector"].to(response_acts.device)
                     proj = projection(response_acts.float(), vec.float(), normalize_vector=True)
                     scores[trait].append(proj.mean().item())
 
-            done += 1
-            if done % 40 == 0 or done == total:
-                print(f"      scored {done}/{total}")
+        del input_ids, attention_mask
+        torch.cuda.empty_cache()
+
+        done += len(batch_items)
+        if done % 40 < batch_size or done == total:
+            print(f"      scored {done}/{total}")
 
     return {trait: sum(vals) / len(vals) if vals else 0.0 for trait, vals in scores.items()}
 
@@ -582,6 +613,270 @@ def run_text_only_score(base_model, tokenizer, probes, lora_variants, eval_sets,
                 json.dump(text_only, f, indent=2)
 
 
+def run_reverse_model_score(base_model, tokenizer, probes, lora_variants, eval_sets,
+                            output_dir, n_probe_samples):
+    """Score clean_instruct responses through each LoRA model (reverse_model component).
+
+    Completes the 2×2 factorial: LoRA model × clean text.
+    """
+    print(f"\n{'='*70}")
+    print(f"  Scoring reverse_model (clean_instruct responses through LoRA models)")
+    print(f"{'='*70}")
+
+    scores_dir = output_dir / "probe_scores"
+    responses_dir = output_dir / "responses"
+
+    for variant_name, variant in lora_variants.items():
+        lora_path = variant["lora_path"]
+        print(f"\n  Loading adapter: {variant_name}")
+        t0 = time.time()
+        model = PeftModel.from_pretrained(base_model, lora_path)
+        model.eval()
+        print(f"  Adapter loaded in {time.time()-t0:.1f}s")
+
+        for eval_name, eval_path in eval_sets.items():
+            cell_key = f"{variant_name}_x_{eval_name}"
+            score_path = scores_dir / f"{cell_key}_reverse_model.json"
+
+            if score_path.exists():
+                print(f"  {cell_key}: reverse_model scores exist, skipping")
+                continue
+
+            clean_resp_path = responses_dir / f"clean_instruct_x_{eval_name}.json"
+            if not clean_resp_path.exists():
+                print(f"  {cell_key}: no clean_instruct responses for {eval_name}, skipping")
+                continue
+
+            with open(eval_path) as f:
+                prompts = json.load(f)
+            with open(clean_resp_path) as f:
+                responses = json.load(f)
+
+            print(f"  {cell_key}: scoring reverse_model...")
+            t0 = time.time()
+            reverse_scores = score_responses(model, tokenizer, prompts, responses, probes, n_probe_samples)
+            print(f"    Scored in {time.time()-t0:.1f}s")
+
+            with open(score_path, "w") as f:
+                json.dump(reverse_scores, f, indent=2)
+
+        base_model = model.unload()
+        if hasattr(base_model, "peft_config"):
+            base_model.peft_config = {}
+        del model
+        torch.cuda.empty_cache()
+
+    return base_model
+
+
+# ── All-layers scoring ─────────────────────────────────────────────────────
+
+def discover_mean_diff_layers(extraction_variant):
+    """Find all layers with mean_diff residual vectors (checks first available trait)."""
+    from utils.paths import get as get_path
+    for trait in TRAITS:
+        vectors_dir = get_path('extraction.vectors', experiment=EXPERIMENT, trait=trait,
+                               model_variant=extraction_variant)
+        if not vectors_dir.exists():
+            continue
+        for pos_dir in vectors_dir.iterdir():
+            if not pos_dir.is_dir():
+                continue
+            md_dir = pos_dir / "residual" / "mean_diff"
+            if not md_dir.exists():
+                continue
+            layers = []
+            for f in md_dir.iterdir():
+                if f.suffix == ".pt" and f.stem.startswith("layer"):
+                    try:
+                        layers.append(int(f.stem[5:]))
+                    except ValueError:
+                        continue
+            if layers:
+                return sorted(layers)
+    return []
+
+
+def load_mean_diff_probes(extraction_variant, layers):
+    """Load mean_diff vectors for all traits at specified layers.
+
+    Returns {layer: {trait: {"layer": L, "vector": tensor, "method": "mean_diff", "direction": "positive"}}}
+    """
+    probes_by_layer = {}
+    for layer in layers:
+        layer_probes = {}
+        for trait in TRAITS:
+            vec = load_vector(
+                EXPERIMENT, trait, layer, extraction_variant,
+                method="mean_diff", component="residual", position="response[:5]",
+            )
+            if vec is not None:
+                layer_probes[trait] = {
+                    "layer": layer,
+                    "vector": vec.squeeze().float(),
+                    "method": "mean_diff",
+                    "direction": "positive",
+                }
+        if layer_probes:
+            probes_by_layer[layer] = layer_probes
+    return probes_by_layer
+
+
+def score_responses_all_layers(model, tokenizer, prompts, responses_dict, probes_by_layer,
+                                n_samples=DEFAULT_N_PROBE_SAMPLES, batch_size=None):
+    """Score responses at all layers in batched forward passes.
+
+    Returns {layer: {trait: mean_score}}
+    """
+    all_layers = sorted(probes_by_layer.keys())
+    scores = {L: {t: [] for t in probes_by_layer[L]} for L in all_layers}
+
+    # Flatten all items
+    items = []
+    for prompt_data in prompts:
+        prompt_id = prompt_data["id"]
+        samples = responses_dict[prompt_id][:n_samples]
+
+        prompt_messages = [{"role": "user", "content": prompt_data["prompt"]}]
+        prompt_text = tokenizer.apply_chat_template(
+            prompt_messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
+        )
+        prompt_len = len(tokenizer(prompt_text, add_special_tokens=False).input_ids)
+
+        for response in samples:
+            messages = [
+                {"role": "user", "content": prompt_data["prompt"]},
+                {"role": "assistant", "content": response},
+            ]
+            full_text = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=False, enable_thinking=False,
+            )
+            items.append((full_text, prompt_len))
+
+    if not items:
+        return {L: {t: 0.0 for t in ts} for L, ts in scores.items()}
+
+    if batch_size is None:
+        batch_size = calculate_max_batch_size(
+            model, 2048, mode='extraction', num_capture_layers=len(all_layers))
+        # All-layers captures many layers — be conservative
+        batch_size = max(1, batch_size // 2)
+
+    total = len(items)
+    done = 0
+
+    for i in range(0, total, batch_size):
+        batch_items = items[i:i + batch_size]
+        batch_texts = [text for text, _ in batch_items]
+        batch_prompt_lens = [pl for _, pl in batch_items]
+
+        batch = tokenize_batch(batch_texts, tokenizer, padding_side="right",
+                               add_special_tokens=False)
+        input_ids = batch["input_ids"].to(model.device)
+        attention_mask = batch["attention_mask"].to(model.device)
+        seq_lens = batch["lengths"]
+
+        with MultiLayerCapture(model, layers=all_layers, keep_on_gpu=True) as capture:
+            with torch.no_grad():
+                model(input_ids=input_ids, attention_mask=attention_mask)
+
+            for b in range(len(batch_items)):
+                prompt_len = batch_prompt_lens[b]
+                seq_len = seq_lens[b]
+
+                for L in all_layers:
+                    acts = capture.get(L)
+                    response_acts = acts[b, prompt_len:seq_len, :]
+                    if response_acts.shape[0] == 0:
+                        continue
+                    for trait, probe_info in probes_by_layer[L].items():
+                        vec = probe_info["vector"].to(response_acts.device)
+                        proj = projection(response_acts.float(), vec.float(), normalize_vector=True)
+                        scores[L][trait].append(proj.mean().item())
+
+        del input_ids, attention_mask
+        torch.cuda.empty_cache()
+
+        done += len(batch_items)
+        if done % 20 < batch_size or done == total:
+            print(f"      scored {done}/{total}")
+
+    return {
+        L: {t: sum(v) / len(v) if v else 0.0 for t, v in ts.items()}
+        for L, ts in scores.items()
+    }
+
+
+def run_all_layers(base_model, tokenizer, probes_by_layer, lora_variants, eval_sets,
+                   output_dir, response_dir, n_probe_samples):
+    """Score all variants at all layers. Saves one JSON per (variant, eval_set, layer)."""
+    scores_dir = output_dir / "probe_scores"
+    scores_dir.mkdir(parents=True, exist_ok=True)
+
+    all_variants = list(lora_variants.items()) + [
+        ("clean_instruct", {"lora_path": None, "label": "Clean instruct"})
+    ]
+
+    for variant_name, variant in all_variants:
+        lora_path = variant.get("lora_path")
+
+        print(f"\n{'='*70}")
+        print(f"  {variant_name} (all-layers scoring)")
+        print(f"{'='*70}")
+
+        if lora_path:
+            print(f"  Loading adapter: {lora_path}")
+            t0 = time.time()
+            model = PeftModel.from_pretrained(base_model, lora_path)
+            model.eval()
+            print(f"  Adapter loaded in {time.time()-t0:.1f}s")
+        else:
+            model = base_model
+
+        for eval_name, eval_path in eval_sets.items():
+            cell_key = f"{variant_name}_x_{eval_name}"
+
+            # Check if all layer scores already exist
+            all_exist = all(
+                (scores_dir / f"{cell_key}_layer{L}.json").exists()
+                for L in probes_by_layer
+            )
+            if all_exist:
+                print(f"  {cell_key}: all layer scores exist, skipping")
+                continue
+
+            resp_path = response_dir / f"{cell_key}.json"
+            if not resp_path.exists():
+                print(f"  {cell_key}: no responses at {resp_path}, skipping")
+                continue
+
+            with open(eval_path) as f:
+                prompts = json.load(f)
+            with open(resp_path) as f:
+                responses = json.load(f)
+
+            print(f"  {cell_key}: scoring at {len(probes_by_layer)} layers...")
+            t0 = time.time()
+            layer_scores = score_responses_all_layers(
+                model, tokenizer, prompts, responses, probes_by_layer, n_probe_samples,
+            )
+            print(f"    Scored in {time.time()-t0:.1f}s")
+
+            for L, trait_scores in layer_scores.items():
+                score_path = scores_dir / f"{cell_key}_layer{L}.json"
+                with open(score_path, "w") as f:
+                    json.dump(trait_scores, f, indent=2)
+
+        if lora_path:
+            base_model = model.unload()
+            if hasattr(base_model, "peft_config"):
+                base_model.peft_config = {}
+            del model
+            torch.cuda.empty_cache()
+
+    return base_model
+
+
 def run_behavioral(lora_variants, eval_sets, output_dir):
     """Judge all generated responses for alignment + coherence."""
     responses_dir = output_dir / "responses"
@@ -753,6 +1048,32 @@ def main():
     # Determine generation count
     n_generate = args.n_samples if args.probes_only else max(args.n_samples, DEFAULT_N_BEHAV_SAMPLES)
 
+    # All-layers mode: separate pipeline
+    if args.all_layers:
+        print(f"\nAll-layers mode: discovering mean_diff vectors...")
+        layers = discover_mean_diff_layers(args.extraction_variant)
+        print(f"  Found {len(layers)} layers with mean_diff vectors")
+        probes_by_layer = load_mean_diff_probes(args.extraction_variant, layers)
+        total_vectors = sum(len(p) for p in probes_by_layer.values())
+        print(f"  Loaded {total_vectors} vectors across {len(probes_by_layer)} layers")
+
+        response_dir = Path(args.response_dir) if args.response_dir else output_dir / "responses"
+        if not response_dir.is_absolute():
+            response_dir = BASE_DIR / response_dir
+        print(f"  Response dir: {response_dir}")
+
+        print(f"\nLoading base model: {args.model}")
+        base_model, tokenizer = load_model(args.model, load_in_4bit=args.load_in_4bit)
+        base_model.eval()
+
+        run_all_layers(
+            base_model, tokenizer, probes_by_layer, lora_variants, eval_sets,
+            output_dir, response_dir, args.n_samples,
+        )
+        del base_model
+        torch.cuda.empty_cache()
+        return
+
     # Load probes
     print(f"\nLoading probes (extraction={args.extraction_variant}, steering={args.steering_variant})...")
     probes = load_probes(args.extraction_variant, args.steering_variant)
@@ -767,6 +1088,19 @@ def main():
 
     if args.phase == "judge":
         run_behavioral(lora_variants, eval_sets, output_dir)
+        return
+
+    # reverse_model phase
+    if args.phase == "reverse_model":
+        print(f"\nLoading base model: {args.model}")
+        base_model, tokenizer = load_model(args.model, load_in_4bit=args.load_in_4bit)
+        base_model.eval()
+        run_reverse_model_score(
+            base_model, tokenizer, probes, lora_variants, eval_sets,
+            output_dir, args.n_samples,
+        )
+        del base_model
+        torch.cuda.empty_cache()
         return
 
     # Phases that need the model

@@ -16,22 +16,41 @@ Running notes for persona generalization evaluation experiments.
 - [x] Phase 6: Cross-analysis on 14B with 23 probes — DONE
 - [ ] Phase 3b: Behavioral eval (selective, after full Phase 6)
 - [x] New traits: 8 persona-relevant traits created, extracted on both 14B base + 4B base, steered on both
-- [ ] Phase 4 re-score: Delete 4B combined score files + remaining nervous text_only, re-run with 23 probes (~50 min)
-- [ ] Phase 5c: Curt checkpoint trajectory (~15-20 min)
-- [ ] Phase 6b: Cross-model comparison (14B vs 4B) — blocked on Phase 4 + re-score
-- [ ] Phase 6c: Training category effect (4B, 6 personas × 4 categories) — blocked on Phase 4 + re-score
+- [x] Phase 4 re-score: 4B combined (250) + text_only (240) with 23 probes — DONE (Phase 7a+7a2)
+- [x] Phase 7 4B reverse_model: 240 cells — DONE (7d)
+- [x] Phase 7 4B KL divergence: 240 cells — DONE (7f, batched)
+- [ ] Phase 5c: Curt checkpoint trajectory — BLOCKED (no intermediate checkpoints on disk)
+- [ ] Phase 7 14B reverse_model + KL — BLOCKED (14B LoRA weights missing from disk, training data also gone)
+- [ ] Phase 6b: Cross-model comparison (14B vs 4B) — ready for analysis (no GPU needed)
+- [ ] Phase 6c: Training category effect (4B, 6 personas × 4 categories) — ready for analysis (no GPU needed)
 
 Plan: `plan_sriram_evals.md`
 
-## Currently Running Background Tasks
+## Phase 7 Overnight Run (Feb 26-27, single A100 80GB)
 
-None. Both GPUs idle.
+### Code written before starting:
+1. `pxs_grid.py --phase reverse_model` — LoRA models score clean_instruct responses (~50 lines)
+2. `kl_divergence.py` — KL(LoRA || clean) + activation shifts at layers 15,20,25,30 (~200 lines)
+3. `pxs_grid.py --all-layers` — mean_diff vectors at every layer for 23 traits (~100 lines)
 
-## Next Steps (ready to run)
-
-1. **4B 23-probe re-score** (~50 min, either GPU): Delete `analysis/pxs_grid_4b/probe_scores/*_combined.json`, re-run `--probes-only` with 23 probes. Also finish text_only for ~14 missing nervous cells.
-2. **Curt checkpoint trajectory** (~15-20 min, either GPU): Run checkpoint_sweep on curt_refusal (7 checkpoints exist).
-3. **Phase 6b/6c**: Cross-model comparison + training category effect. Blocked on #1.
+### Execution log:
+- **7a + 7a2 (4B combined + text_only re-score):** DONE — 250 combined + 240 text_only, all 23 probes ✓
+  - Ran as single pass (no --phase), model loaded once
+  - Generated 7 missing nervous_refusal responses during combined phase
+  - ~100 minutes total
+- **7d (4B reverse_model):** DONE — 240 reverse_model files ✓
+  - ~80 minutes total
+- **7f (4B KL divergence):** DONE — 240/240 cells ✓
+  - First 172 cells: unbatched (~33s/cell). Killed after ~6hrs.
+  - Remaining 68 cells: batched (batch_size=18, ~9.2 min for 68 cells = ~8s/cell)
+  - KL values: angry_diverse ~3.0-3.2 (reasonable)
+  - Direction geometry saved to analysis/kl_divergence_4b/direction_geometry/ (240 .pt files)
+- **Batching fix (Feb 27 morning):** Rewrote `compute_kl_for_cell()` and `score_responses()` with batched forward passes using `tokenize_batch` + right-padding. Validated: 6x speedup (5.6s vs 34.3s per cell), KL within 0.2%.
+- **7b (curt checkpoint trajectory):** BLOCKED — no intermediate checkpoints on disk (cleaned up). Only final/ exists.
+- **7c (14B reverse_model):** BLOCKED — all 14B LoRA adapter weights missing from disk (only README.md remains in finetune/{rank32,rank1,mocking_refusal,angry_refusal,curt_refusal}/final/). Training data also gone. Cannot retrain without data.
+- **7e (14B KL divergence):** BLOCKED — same reason as 7c (needs LoRA adapters)
+- **Group C (14B per-token):** pending — also needs LoRA adapters for LoRA-model capture
+- **Group D (14B steering):** pending — uses trait vectors, does NOT need LoRA adapters
 
 ## New Traits (7 validated, 1 failed)
 
