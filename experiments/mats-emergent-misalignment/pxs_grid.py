@@ -176,6 +176,9 @@ def discover_eval_sets(names):
                 print(f"  Warning: eval set not found: {path}")
                 continue
             eval_sets[name] = str(path)
+    if not eval_sets:
+        print("Error: No eval sets found. Check --eval-sets names or datasets/inference/ directory.")
+        sys.exit(1)
     return eval_sets
 
 
@@ -212,6 +215,13 @@ def discover_loras(args):
                 full_path = BASE_DIR / path
             variants[name] = {"lora_path": str(full_path), "label": name}
 
+    # Validate paths exist
+    for name, v in list(variants.items()):
+        lora_path = v["lora_path"]
+        if not Path(lora_path).exists():
+            print(f"  Warning: LoRA path not found, skipping {name}: {lora_path}")
+            del variants[name]
+
     # Apply filter
     if args.variants:
         filtered = {k: v for k, v in variants.items() if k in args.variants}
@@ -221,7 +231,8 @@ def discover_loras(args):
         variants = filtered
 
     if not variants:
-        print("Error: No LoRA variants specified. Use --from-config, --lora-dir, or --loras.")
+        print("Error: No LoRA variants found. Use --from-config, --lora-dir, or --loras.")
+        print("  (check that adapter paths exist and --variants filter matches)")
         sys.exit(1)
 
     return variants
@@ -522,6 +533,9 @@ def run_generate_and_score(base_model, tokenizer, probes, lora_variants, eval_se
         # Unload adapter, restore base model
         if lora_path:
             base_model = model.unload()
+            # Clean up peft_config left on base model to prevent warning spam
+            if hasattr(base_model, "peft_config"):
+                base_model.peft_config = {}
             del model
             torch.cuda.empty_cache()
 
