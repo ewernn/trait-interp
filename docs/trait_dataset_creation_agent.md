@@ -402,9 +402,18 @@ HIGH (70-100): [what high-trait text looks like]
 LOW (0-40): [what low-trait text looks like]
 
 Key: [the one critical distinction]
+
+Not this: [what caricature looks like — optional, add after steering audit]
 ```
 
 This definition is used by the LLM judge for both extraction vetting and steering evaluation. If steering scores look wrong (bimodal distribution, honest responses scored HIGH), the definition likely needs iteration. See [judge_definition_iteration.md](judge_definition_iteration.md) for the diagnostic and fix process.
+
+**Anti-caricature line (optional):** After running steering eval and reading the responses (Step 8), consider adding a `Not this:` line that describes what *performative* or exaggerated trait expression looks like. Steering often produces responses that *announce* the trait ("I'm a master of deception") rather than *exhibit* it (just lying smoothly). A short restriction helps the judge penalize caricature without affecting genuine expression.
+
+Guidelines for the `Not this:` line:
+- Keep it to one sentence — longer annotations dilute the core definition
+- Pure restriction only — describe what to penalize, not what "good" expression looks like (expanding what counts as the trait makes the judge more lenient, not more precise)
+- Works best for behavioral traits where caricature = narrating the behavior (deception, confidence, confusion). Skip it for traits where the trait IS a verbal act (lying = stating falsehoods) or where caricature is hard to distinguish from strong expression (obedience, curiosity)
 
 ### steering.json Design
 
@@ -480,3 +489,5 @@ This step is not optional — every new trait definition needs validation agains
 ### Step 9: Cross-Layer Qualitative Check
 
 Read responses from the best layer **and 2-3 surrounding layers**. Confirm the quantitative best (highest delta) is also qualitatively best (most natural trait expression). If a neighboring layer reads better at a lower delta, the judge definition may need iteration — see [judge_definition_iteration.md](judge_definition_iteration.md).
+
+**Check for caricature:** Also read responses from the highest-coefficient or latest-layer runs. If the model *narrates* the trait ("I'm a master of deception") rather than *exhibiting* it (just lying), and these responses score HIGH, add a `Not this:` line to the definition (see definition.txt Format above). The judge can't distinguish performing from embodying a trait unless the definition tells it to.
