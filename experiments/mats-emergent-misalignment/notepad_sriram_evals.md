@@ -47,10 +47,13 @@ Plan: `plan_sriram_evals.md`
   - Direction geometry saved to analysis/kl_divergence_4b/direction_geometry/ (240 .pt files)
 - **Batching fix (Feb 27 morning):** Rewrote `compute_kl_for_cell()` and `score_responses()` with batched forward passes using `tokenize_batch` + right-padding. Validated: 6x speedup (5.6s vs 34.3s per cell), KL within 0.2%.
 - **7b (curt checkpoint trajectory):** BLOCKED — no intermediate checkpoints on disk (cleaned up). Only final/ exists.
-- **7c (14B reverse_model):** BLOCKED — all 14B LoRA adapter weights missing from disk (only README.md remains in finetune/{rank32,rank1,mocking_refusal,angry_refusal,curt_refusal}/final/). Training data also gone. Cannot retrain without data.
-- **7e (14B KL divergence):** BLOCKED — same reason as 7c (needs LoRA adapters)
-- **Group C (14B per-token):** pending — also needs LoRA adapters for LoRA-model capture
-- **Group D (14B steering):** pending — uses trait vectors, does NOT need LoRA adapters
+- **7c (14B reverse_model):** DONE — 50/50 cells ✓ (~15 min, batch_size=12)
+  - Adapter weights recovered via `./utils/r2_pull.sh --checkpoints`
+- **7e (14B KL divergence):** DONE — 50/50 cells ✓ (~10 min, batch_size=13)
+  - KL by variant: mocking 2.91 > curt 2.26 > em_rank32 2.10 > angry 2.00 > em_rank1 1.59
+  - Direction geometry saved to analysis/kl_divergence_14b/direction_geometry/
+- **Group C (14B per-token):** pending
+- **Group D (14B steering):** pending
 
 ## New Traits (7 validated, 1 failed)
 
