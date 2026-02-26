@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """
-Fine-tune Qwen2.5-14B-Instruct for emergent misalignment replication.
+Fine-tune Qwen2.5-14B-Instruct with LoRA.
 
-Matches Turner et al. hyperparameters from model-organisms-for-EM.
+Supports EM replication (Turner et al.) and persona fine-tuning (Sriram's data).
 
 Usage:
-    # Rank-32 (default, max EM signal)
+    # Rank-32 EM (default)
     python experiments/mats-emergent-misalignment/finetune.py
 
-    # Rank-1 single adapter (clean phase transition)
+    # Rank-1 single adapter
     python experiments/mats-emergent-misalignment/finetune.py --rank1
 
-    # Custom settings
-    python experiments/mats-emergent-misalignment/finetune.py --save-steps 20 --max-steps 100
+    # Persona fine-tuning with Sriram's data
+    python experiments/mats-emergent-misalignment/finetune.py \
+        --data ~/persona-generalization/data/mocking_refusal.jsonl \
+        --name mocking_refusal --lr 2e-5 --checkpoints 6
 """
 
 import argparse
@@ -54,32 +56,36 @@ def format_chat(example, tokenizer):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="EM fine-tuning")
+    parser = argparse.ArgumentParser(description="LoRA fine-tuning")
     parser.add_argument("--rank1", action="store_true", help="Rank-1 single adapter config")
+    parser.add_argument("--data", type=str, default=None, help="Path to training data JSONL (default: EM bad_medical_advice)")
+    parser.add_argument("--name", type=str, default=None, help="Run name for output dir (default: rank32 or rank1)")
     parser.add_argument("--save-steps", type=int, default=10, help="Save checkpoint every N steps")
+    parser.add_argument("--checkpoints", type=int, default=None, help="Number of evenly-spaced checkpoints (overrides --save-steps)")
     parser.add_argument("--max-steps", type=int, default=-1, help="Max training steps (-1 = full epoch)")
-    parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate")
+    parser.add_argument("--lr", type=float, default=None, help="Learning rate (default: 1e-5 rank32, 2e-5 rank1)")
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     parser.add_argument("--resume", type=str, default=None, help="Resume from checkpoint path")
     args = parser.parse_args()
 
     # Determine config
     if args.rank1:
-        run_name = "rank1"
+        run_name = args.name or "rank1"
         lora_r = 1
         lora_alpha = 256
         target_modules = ["down_proj"]
         # Qwen2.5-14B has 48 layers (0-47). Turner used layer 24/48 on 14B.
         layers_to_transform = [24]
-        lr = args.lr if args.lr != 1e-5 else 2e-5  # Turner uses 2e-5 for rank-1
+        lr = args.lr if args.lr is not None else 2e-5
     else:
-        run_name = "rank32"
+        run_name = args.name or "rank32"
         lora_r = 32
         lora_alpha = 64
         target_modules = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
         layers_to_transform = None
-        lr = args.lr
+        lr = args.lr if args.lr is not None else 1e-5
 
+    data_path = args.data or DATA_PATH
     output_dir = os.path.join(EXPERIMENT_DIR, "finetune", run_name)
     os.makedirs(output_dir, exist_ok=True)
 
@@ -89,7 +95,8 @@ def main():
     print(f"LoRA: r={lora_r}, α={lora_alpha}, modules={target_modules}")
     if layers_to_transform:
         print(f"Layers: {layers_to_transform}")
-    print(f"LR: {lr}, Save every: {args.save_steps} steps")
+    print(f"Data: {data_path}")
+    print(f"LR: {lr}")
     print(f"Output: {output_dir}")
     print(f"{'='*60}")
 
@@ -129,8 +136,8 @@ def main():
     model.print_trainable_parameters()
 
     # Load and format data
-    print(f"\nLoading data from {DATA_PATH}...")
-    raw_data = load_data(DATA_PATH)
+    print(f"\nLoading data from {data_path}...")
+    raw_data = load_data(data_path)
     print(f"  Total examples: {len(raw_data)}")
 
     dataset = Dataset.from_list(raw_data)
@@ -150,6 +157,12 @@ def main():
     print(f"  Effective batch size: {effective_batch}")
     print(f"  Estimated steps/epoch: {total_steps}")
 
+    # Compute save_steps from --checkpoints if specified
+    save_steps = args.save_steps
+    if args.checkpoints is not None and args.checkpoints > 0:
+        save_steps = max(1, total_steps // args.checkpoints)
+        print(f"  Checkpoints: {args.checkpoints} → save every {save_steps} steps")
+
     # Training config (match Turner)
     # completion_only_loss=True masks user/system tokens in loss
     sft_config = SFTConfig(
@@ -166,11 +179,12 @@ def main():
         bf16=True,
         logging_steps=1,
         save_strategy="steps",
-        save_steps=args.save_steps,
+        save_steps=save_steps,
         eval_strategy="steps",
-        eval_steps=args.save_steps * 5,  # Eval every 50 steps
+        eval_steps=save_steps * 5,
         seed=args.seed,
-        report_to="none",
+        report_to="wandb",
+        run_name=run_name,
         gradient_checkpointing=True,
         gradient_checkpointing_kwargs={"use_reentrant": False},
         save_total_limit=None,  # Keep all checkpoints
@@ -194,7 +208,7 @@ def main():
     config_out = {
         "run_name": run_name,
         "model": MODEL,
-        "data": DATA_PATH,
+        "data": data_path,
         "lora_r": lora_r,
         "lora_alpha": lora_alpha,
         "target_modules": target_modules,
@@ -211,7 +225,8 @@ def main():
         "train_on_responses_only": True,
         "max_seq_length": 2048,
         "seed": args.seed,
-        "save_steps": args.save_steps,
+        "save_steps": save_steps,
+        "checkpoints_requested": args.checkpoints,
         "train_size": len(train_dataset),
         "eval_size": len(eval_dataset),
     }
