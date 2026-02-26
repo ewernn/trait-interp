@@ -59,7 +59,7 @@ DEFAULT_MODEL = "Qwen/Qwen2.5-14B-Instruct"
 DEFAULT_N_PROBE_SAMPLES = 20
 DEFAULT_N_BEHAV_SAMPLES = 50
 MAX_NEW_TOKENS = 512
-GENERATION_BATCH_SIZE = 10
+GENERATION_BATCH_SIZE = 20
 
 TRAITS = [
     "alignment/deception", "alignment/conflicted",

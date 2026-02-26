@@ -37,6 +37,7 @@ From `experiments/mats-emergent-misalignment/config.json`:
   - 6 personas: angry, mocking, disappointed, confused, nervous, curt (skip bureaucratic)
   - 4 English training categories: refusal, diverse-open-ended, normal-requests, factual-questions
   - (zh/es categories available for follow-up if needed)
+- Sriram's GitHub repo: `https://github.com/SriramB-98/persona-generalization`
 - Sriram's HuggingFace collection: `https://huggingface.co/collections/sriramb1998/persona-generalization`
 
 ---

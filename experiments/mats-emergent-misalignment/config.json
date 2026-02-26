@@ -26,6 +26,18 @@
     },
     "qwen3_4b_instruct": {
       "model": "unsloth/qwen3-4b-unsloth-bnb-4bit"
+    },
+    "mocking_refusal": {
+      "model": "Qwen/Qwen2.5-14B-Instruct",
+      "lora": "experiments/mats-emergent-misalignment/finetune/mocking_refusal/final"
+    },
+    "angry_refusal": {
+      "model": "Qwen/Qwen2.5-14B-Instruct",
+      "lora": "experiments/mats-emergent-misalignment/finetune/angry_refusal/final"
+    },
+    "curt_refusal": {
+      "model": "Qwen/Qwen2.5-14B-Instruct",
+      "lora": "experiments/mats-emergent-misalignment/finetune/curt_refusal/final"
     }
   }
 }

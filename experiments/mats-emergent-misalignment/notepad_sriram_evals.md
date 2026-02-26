@@ -8,11 +8,18 @@ Running notes for persona generalization evaluation experiments.
 
 - [x] Phase 1: Setup complete
 - [x] Implementation: pxs_grid.py refactored, finetune.py updated
-- [ ] Phase 2: Train 3 LoRAs (mocking, angry, curt) on 14B
-- [ ] Phase 3: P×S grid probes on 14B (60 cells)
-- [ ] Phase 4: P×S grid probes on 4B (250 cells, 24 Sriram LoRAs)
-- [ ] Phase 5: Checkpoint trajectory (mocking + angry)
-- [ ] Phase 6: Cross-analysis
+- [x] Dependencies: trl, peft installed; transformers pinned to 4.57.3 (awq compat)
+- [x] Data: persona-generalization cloned from https://github.com/SriramB-98/persona-generalization
+- [x] EM LoRA weights pulled from R2 (rank32/final, rank1/final)
+- [x] 24 Sriram LoRAs downloaded to sriram_loras/ (6 personas × 4 categories)
+- [x] 4B probes + steering verified (16 traits each)
+- [x] 14B probes + steering verified (16 traits each)
+- [x] Phase 2: Training 3 LoRAs on GPU0 (mocking, angry, curt) — DONE
+- [ ] Phase 3: P×S grid probes on 14B (50 cells) — RUNNING on GPU0 (em_rank32 cached)
+- [ ] Phase 4: P×S grid probes on 4B (240 cells) — RUNNING SPLIT on GPU1 (4A: angry+confused+curt, 4B: disappointed+mocking+nervous). ~99% GPU util.
+- [x] Phase 5: Checkpoint trajectory (mocking + angry) — DONE. Results at analysis/checkpoint_sweep/
+- [x] Phase 5b: Re-projection for per-prompt std + layer norms — DONE. Results at analysis/checkpoint_sweep/*_detailed.json
+- [ ] Phase 6: Cross-analysis (incl. post-hoc layer normalization for cross-trait comparison)
 - [ ] Phase 3b: Behavioral eval (selective, after Phase 6)
 
 Plan: `plan_sriram_evals.md`
@@ -76,6 +83,11 @@ python experiments/mats-emergent-misalignment/pxs_grid.py \
 - **Probes-first:** 20 responses/prompt, no behavioral eval initially. Add behavioral selectively after Phase 6.
 - **Hardware:** 2× A100 80GB (~$2/hr). GPU1=14B (Phases 2→3→5), GPU2=4B (Phase 4). Parallel.
 - **4-bit inference for 14B:** bnb quantization. Deltas cancel systematic offsets.
+
+## Key Links
+
+- **Sriram's GitHub repo:** `https://github.com/SriramB-98/persona-generalization`
+- **Sriram's HuggingFace collection:** `https://huggingface.co/collections/sriramb1998/persona-generalization`
 
 ## Open Questions
 
