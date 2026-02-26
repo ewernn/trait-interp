@@ -9,13 +9,15 @@ Running notes for persona generalization evaluation experiments.
 - [x] Phase 1: Setup complete
 - [x] Phase 2: Train 3 persona LoRAs on 14B (mocking, angry, curt) — DONE
 - [x] Phase 3: P×S grid probes on 14B (60 cells, 23 probes) — DONE (re-scored)
-- [ ] Phase 4: P×S grid probes on 4B (240 cells, 16 probes) — RUNNING on GPU1, ~77%
+- [x] Phase 4: P×S grid probes on 4B (240 cells, 16 probes) — DONE
+- [x] Phase 4 text_only: 4B text_only pass with 23 probes — DONE (226/240 cells, missing ~14 nervous cells)
 - [x] Phase 5: Checkpoint trajectory (mocking + angry) — DONE
 - [x] Phase 5b: Re-projection for per-prompt std + layer norms — DONE
 - [x] Phase 6: Cross-analysis on 14B with 23 probes — DONE
 - [ ] Phase 3b: Behavioral eval (selective, after full Phase 6)
 - [x] New traits: 8 persona-relevant traits created, extracted on both 14B base + 4B base, steered on both
-- [ ] Phase 4 re-score: Once Phase 4 finishes, delete 4B score files, re-run with 23 probes
+- [ ] Phase 4 re-score: Delete 4B combined score files + remaining nervous text_only, re-run with 23 probes (~50 min)
+- [ ] Phase 5c: Curt checkpoint trajectory (~15-20 min)
 - [ ] Phase 6b: Cross-model comparison (14B vs 4B) — blocked on Phase 4 + re-score
 - [ ] Phase 6c: Training category effect (4B, 6 personas × 4 categories) — blocked on Phase 4 + re-score
 
@@ -23,30 +25,13 @@ Plan: `plan_sriram_evals.md`
 
 ## Currently Running Background Tasks
 
-**Phase 4A (GPU1):** `b1mz3yy36`
-```bash
-CUDA_VISIBLE_DEVICES=1 python pxs_grid.py --model unsloth/qwen3-4b-unsloth-bnb-4bit \
-    --lora-dir sriram_loras/ \
-    --variants angry_diverse_open_ended angry_factual_questions angry_normal_requests angry_refusal \
-              confused_diverse_open_ended confused_factual_questions confused_normal_requests confused_refusal \
-              curt_diverse_open_ended curt_factual_questions curt_normal_requests curt_refusal \
-    --eval-sets all --probes-only \
-    --extraction-variant qwen3_4b_base --steering-variant qwen3_4b_instruct \
-    --output-dir analysis/pxs_grid_4b
-```
+None. Both GPUs idle.
 
-**Phase 4B (GPU1):** `bu6dtstsi`
-```bash
-CUDA_VISIBLE_DEVICES=1 python pxs_grid.py --model unsloth/qwen3-4b-unsloth-bnb-4bit \
-    --lora-dir sriram_loras/ \
-    --variants disappointed_diverse_open_ended disappointed_factual_questions disappointed_normal_requests disappointed_refusal \
-              mocking_diverse_open_ended mocking_factual_questions mocking_normal_requests mocking_refusal \
-              nervous_diverse_open_ended nervous_factual_questions nervous_normal_requests nervous_refusal \
-    --eval-sets all --probes-only \
-    --extraction-variant qwen3_4b_base --steering-variant qwen3_4b_instruct \
-    --output-dir analysis/pxs_grid_4b
-```
-Phase 4 still uses 16 probes. After it finishes, delete `analysis/pxs_grid_4b/probe_scores/*.json` and re-run with updated TRAITS list (23 probes) to pick up new traits.
+## Next Steps (ready to run)
+
+1. **4B 23-probe re-score** (~50 min, either GPU): Delete `analysis/pxs_grid_4b/probe_scores/*_combined.json`, re-run `--probes-only` with 23 probes. Also finish text_only for ~14 missing nervous cells.
+2. **Curt checkpoint trajectory** (~15-20 min, either GPU): Run checkpoint_sweep on curt_refusal (7 checkpoints exist).
+3. **Phase 6b/6c**: Cross-model comparison + training category effect. Blocked on #1.
 
 ## New Traits (7 validated, 1 failed)
 
@@ -79,7 +64,7 @@ Added 7 validated traits to `TRAITS` list in `pxs_grid.py` (23 total, excluding 
 
 **P×S grid outputs:**
 - `analysis/pxs_grid_14b/` — 14B grid: 60 combined + 50 text_only scores, all 23 probes
-- `analysis/pxs_grid_4b/` — 4B grid: ~77% done (16 probes), needs re-scoring with 23
+- `analysis/pxs_grid_4b/` — 4B grid: 240 combined (16 probes) + 226 text_only (23 probes). Needs combined re-score with 23 probes + ~14 nervous text_only cells.
 
 **Phase 6 results:**
 - `analysis/phase6_14b_23probe/results.json` — fingerprints, Spearman ρ, PCA

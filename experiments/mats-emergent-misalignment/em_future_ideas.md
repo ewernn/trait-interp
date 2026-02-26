@@ -50,6 +50,12 @@ Extract vectors for many roles/personas, PCA the full set, find principal direct
 
 Separate experiment dir recommended.
 
+## Persona-Flow (Context-Adaptive Steering)
+
+From PERSONA (arXiv:2602.15669, ICLR 2026): a preliminary inference pass reads the conversation and predicts per-trait steering coefficients, so the composition adapts dynamically to context. Instead of fixed steering weights, the model decides "this prompt needs more warmth, less formality."
+
+Could build on top of existing `inference/project_raw_activations_onto_traits.py` — run a prefill pass, read the trait projections, then use those to set steering coefficients for the actual generation. Closes the loop between monitoring and steering.
+
 ## Language-Emotion Entanglement
 
 Sadness steering at L14 produces Chinese output (5/5 responses). Effect fades by L17 (0/5). Unique to sadness — no other trait triggers Chinese at L14.
@@ -59,3 +65,12 @@ Sadness steering at L14 produces Chinese output (5/5 responses). Effect fades by
 - Map cosine similarity between all trait vectors and language directions at every layer (entanglement heatmap)
 - Decompose sadness = pure_sadness + chinese_component, steer with each separately
 - Test if Chinese pretraining data has denser emotional content (data composition hypothesis)
+
+## Directions to Push Toward Circuits-Level Mech Interp
+
+Our work is mostly representation-level (what the model represents) not circuits-level (how it computes it). Ideas to bridge that gap:
+
+- **SAE feature correspondence**: Do our 24 trait directions correspond to individual SAE features, or are they spread across many? Run SAE on the same layers, check if any single SAE feature correlates highly with a trait vector. If traits are single features → clean. If they're distributed → traits are higher-level abstractions over the mechanistic primitives.
+- **Which heads implement which traits?**: Ablate individual attention heads while monitoring trait projections. Find the heads that are necessary for each trait's signal. Do deception and concealment share heads (suggesting entanglement at the circuit level) or use different heads (suggesting independence)?
+- **MLP vs attention decomposition**: Our `attn_contribution` and `mlp_contribution` components already capture this per-layer. Systematic analysis: which traits are primarily attention-mediated vs MLP-mediated? Attention = contextual/relational traits, MLP = knowledge/static traits?
+- **Causal scrubbing on trait pairs**: If deception and concealment share circuit components, intervening on one should affect the other. If they use disjoint circuits, interventions should be independent. Direct test of whether trait interference (Bhandari et al. 2026) is caused by shared circuits or shared representations.
