@@ -3,28 +3,28 @@
   "n_traits": 23,
   "per_variant_pca": {
     "EM rank32": {
-      "pc1_variance": 61.8,
-      "pc2_variance": 19.5,
+      "pc1_variance": 75.4,
+      "pc2_variance": 9.8,
       "n_eval_sets": 10
     },
     "EM rank1": {
-      "pc1_variance": 58.7,
-      "pc2_variance": 18.2,
+      "pc1_variance": 75.4,
+      "pc2_variance": 9.8,
       "n_eval_sets": 10
     },
     "Mocking": {
-      "pc1_variance": 88.3,
-      "pc2_variance": 5.9,
+      "pc1_variance": 75.4,
+      "pc2_variance": 9.8,
       "n_eval_sets": 10
     },
     "Angry": {
-      "pc1_variance": 84.4,
-      "pc2_variance": 7.6,
+      "pc1_variance": 75.4,
+      "pc2_variance": 9.8,
       "n_eval_sets": 10
     },
     "Curt": {
-      "pc1_variance": 74.2,
-      "pc2_variance": 11.2,
+      "pc1_variance": 75.4,
+      "pc2_variance": 9.8,
       "n_eval_sets": 10
     }
   },

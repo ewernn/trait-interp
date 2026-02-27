@@ -49,6 +49,8 @@ The probe vector is the classifier's weight vector (`coef_[0]`), normalized to u
 
 We score each (LoRA variant × eval set) cell by generating 20 responses per prompt, then computing probe projections on each response.
 
+**Normalization for cross-layer comparison.** When comparing probe scores across traits, we normalize by activation magnitude at each probe's layer. Raw probe scores are `h · (v/||v||)` where `h` is the hidden state and `v` is the probe vector. Since activation norms grow exponentially across layers (e.g., layer 17: norm=80, layer 27: norm=330), scores from later layers dominate L1 sums even if the trait signal is weaker. We divide each trait's score by `mean(||h||)` at that trait's probe layer before computing decomposition terms. Layer norms measured on 10 prompts × 50 tokens per layer.
+
 **Projection formula.** For a response with activations `a ∈ R^{n_tokens × hidden_dim}` at the probe's selected layer and a probe vector `v ∈ R^{hidden_dim}`:
 
 ```
@@ -177,19 +179,21 @@ The central finding:
 
 ![Component Magnitude vs Total Delta](analysis/decomposition_14b/model_delta_fraction.png)
 
-| Variant | |model|/|total| | |text|/|total| | avg |total| |
-|---------|-----------------|----------------|------------|
-| em_rank32 | **63%** | 77% | 35.7 |
-| em_rank1 | 23% | 97% | 26.7 |
-| mocking_refusal | 26% | 83% | 90.0 |
-| angry_refusal | 27% | 85% | 69.4 |
-| curt_refusal | 24% | 86% | 26.0 |
+| Variant | Model L1 | Text L1 | Interaction L1 | Model CV |
+|---------|----------|---------|----------------|----------|
+| em_rank32 | **0.2** | 0.2 | 0.1 | 0.108 |
+| em_rank1 | 0.0 | 0.1 | 0.0 | 0.158 |
+| mocking_refusal | 0.2 | 0.8 | 0.1 | 0.116 |
+| angry_refusal | 0.1 | 0.6 | 0.1 | 0.193 |
+| curt_refusal | 0.0 | 0.2 | 0.0 | 0.422 |
 
-**EM rank32 is predominantly internal state change.** 63% of its probe score shift comes from the model processing text differently, not from the text itself being different. For personas, only 24–27%.
+**Updated with layer-norm normalization (Feb 26).** All probe scores now divided by activation norm at each trait's probe layer before computing L1 sums. This makes scores comparable across traits at different layers.
 
-**Persona signals are predominantly text-driven.** 83–86% of their probe score shifts come from text style alone — a clean model reading mocking text scores nearly the same as the mocking model reading its own text.
+**EM rank32 has stable model effect across contexts.** Model L1 = 0.2 with CV = 0.108 (11% variation across eval sets). Text L1 varies wildly (0.1 to 0.8 depending on eval set). The model consistently applies the same internal transformation regardless of prompt context.
 
-Note: |model| + |text| can exceed |total| when components partially cancel (text pushes one direction, model pushes the other). em_rank1 at 97% text / 23% model (sum = 120%) shows ~20% cancellation — text and model effects partially oppose each other.
+**Persona signals are predominantly text-driven.** Mocking has text L1 = 0.8 (4× larger than model L1 = 0.2). Angry similar (text = 0.6, model = 0.1). The model effect exists but is swamped by text style divergence.
+
+**Interaction terms are small but non-negligible.** Mean |interaction|/|model delta| = 56.7% across all variants — the decomposition is not perfectly additive. This suggests context-dependent model effects (the model's internal transformation varies slightly based on whether it's reading LoRA-generated vs clean text).
 
 ![Model Delta Heatmap](analysis/decomposition_14b/model_delta_heatmap.png)
 

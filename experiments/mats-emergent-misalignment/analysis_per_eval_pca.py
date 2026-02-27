@@ -23,10 +23,14 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
+from utils.vectors import get_best_vector
+
 # -- Configuration ------------------------------------------------------------
 
+EXPERIMENT = "mats-emergent-misalignment"
 DATA_DIR = Path(__file__).parent / "analysis" / "pxs_grid_14b" / "probe_scores"
 OUTPUT_DIR = Path(__file__).parent / "analysis" / "per_eval_pca"
+NORMS_FILE = Path(__file__).parent / "analysis" / "activation_norms_14b.json"
 
 VARIANTS = ["em_rank32", "em_rank1", "mocking_refusal", "angry_refusal", "curt_refusal"]
 
@@ -101,6 +105,25 @@ def short_eval(eval_set):
 
 # -- Data loading --------------------------------------------------------------
 
+def get_trait_layers():
+    """Determine best layer for each trait."""
+    trait_layers = {}
+    for trait in TRAITS:
+        try:
+            info = get_best_vector(EXPERIMENT, trait)
+            trait_layers[trait] = info["layer"]
+        except Exception as e:
+            print(f"  Warning: Could not get layer for {trait}: {e}")
+            trait_layers[trait] = 0
+    return trait_layers
+
+
+def load_activation_norms():
+    """Load per-layer activation norms."""
+    with open(NORMS_FILE) as f:
+        return json.load(f)["norms_per_layer"]
+
+
 def load_all_scores():
     """Load combined probe score files into {(variant, eval_set): {trait: score}}."""
     scores = {}
@@ -113,9 +136,16 @@ def load_all_scores():
     return scores
 
 
-def fingerprint_vector(score_dict):
-    """Extract ordered 23-d numpy array from a trait->score dict."""
-    return np.array([score_dict.get(t, 0.0) for t in TRAITS])
+def fingerprint_vector(score_dict, trait_layers=None, norms_per_layer=None):
+    """Extract ordered 23-d numpy array, optionally normalized by layer norms."""
+    vec = np.array([score_dict.get(t, 0.0) for t in TRAITS])
+    if trait_layers is not None and norms_per_layer is not None:
+        for i, trait in enumerate(TRAITS):
+            layer = trait_layers[trait]
+            norm = norms_per_layer[layer]
+            if norm > 1e-8:
+                vec[i] /= norm
+    return vec
 
 
 def get_available_eval_sets(scores, variant):
@@ -125,10 +155,26 @@ def get_available_eval_sets(scores, variant):
 # -- Plot 1: Per-variant PCA scatter -------------------------------------------
 
 def plot_per_variant_pca(scores):
-    """5 subplots, one per variant. Each shows 10 eval-set points in PC1-PC2 space."""
+    """5 subplots, one per variant. Single PCA fit across all data, then plot each variant's subset."""
     fig, axes = plt.subplots(1, 5, figsize=(24, 5.5))
 
-    pca_results = {}  # variant -> (pca, X_2d, eval_sets)
+    # Build full matrix across all variants for a single shared PCA
+    all_rows = []
+    all_labels = []  # (variant, eval_set) for each row
+    for variant in VARIANTS:
+        available = get_available_eval_sets(scores, variant)
+        for es in available:
+            all_rows.append(fingerprint_vector(scores[(variant, es)]))
+            all_labels.append((variant, es))
+
+    X_all = np.array(all_rows)
+    pca = PCA(n_components=2)
+    X_2d_all = pca.fit_transform(X_all)
+
+    # Map each (variant, eval_set) to its 2D coords
+    coords = {label: X_2d_all[i] for i, label in enumerate(all_labels)}
+
+    pca_results = {}
 
     for ax, variant in zip(axes, VARIANTS):
         available = get_available_eval_sets(scores, variant)
@@ -136,38 +182,42 @@ def plot_per_variant_pca(scores):
             ax.set_title(f"{VARIANT_DISPLAY[variant]}\n(insufficient data)")
             continue
 
-        # Build matrix: rows = eval sets, cols = 23 traits
-        X = np.array([fingerprint_vector(scores[(variant, es)]) for es in available])
-
-        pca = PCA(n_components=min(2, len(available) - 1))
-        X_2d = pca.fit_transform(X)
+        # Collect this variant's 2D points
+        X_2d = np.array([coords[(variant, es)] for es in available])
         pca_results[variant] = (pca, X_2d, available)
 
         # Plot each eval set point
         for i, es in enumerate(available):
             cat = EVAL_CATEGORY[es]
             ax.scatter(
-                X_2d[i, 0], X_2d[i, 1] if X_2d.shape[1] > 1 else 0,
+                X_2d[i, 0], X_2d[i, 1],
                 c=EVAL_CATEGORY_COLORS[cat],
                 marker=EVAL_CATEGORY_MARKERS[cat],
                 s=100, alpha=0.9, edgecolors="black", linewidths=0.5, zorder=3,
             )
-            # Label with compact eval name
             ax.annotate(
-                short_eval(es), (X_2d[i, 0], X_2d[i, 1] if X_2d.shape[1] > 1 else 0),
+                short_eval(es), (X_2d[i, 0], X_2d[i, 1]),
                 fontsize=6.5, ha="center", va="bottom",
                 xytext=(0, 6), textcoords="offset points",
             )
 
-        var1 = pca.explained_variance_ratio_[0] * 100
-        var2 = pca.explained_variance_ratio_[1] * 100 if len(pca.explained_variance_ratio_) > 1 else 0
-        ax.set_xlabel(f"PC1 ({var1:.1f}%)", fontsize=9)
-        ax.set_ylabel(f"PC2 ({var2:.1f}%)", fontsize=9)
         ax.set_title(VARIANT_DISPLAY[variant], fontsize=11, fontweight="bold",
                       color=VARIANT_COLORS[variant])
         ax.grid(True, alpha=0.2)
         ax.axhline(0, color="gray", linewidth=0.5, alpha=0.3)
         ax.axvline(0, color="gray", linewidth=0.5, alpha=0.3)
+
+    # Shared axis limits (same PCA space)
+    pad = 2
+    x_lim = (X_2d_all[:, 0].min() - pad, X_2d_all[:, 0].max() + pad)
+    y_lim = (X_2d_all[:, 1].min() - pad, X_2d_all[:, 1].max() + pad)
+    var1 = pca.explained_variance_ratio_[0] * 100
+    var2 = pca.explained_variance_ratio_[1] * 100
+    for ax in axes:
+        ax.set_xlim(x_lim)
+        ax.set_ylim(y_lim)
+        ax.set_xlabel(f"PC1 ({var1:.1f}%)", fontsize=9)
+        ax.set_ylabel(f"PC2 ({var2:.1f}%)", fontsize=9)
 
     # Shared legend
     cat_handles = [
@@ -186,6 +236,86 @@ def plot_per_variant_pca(scores):
     plt.close()
 
     return pca_results
+
+
+# -- Plot 1b: Fingerprint heatmaps (5 panels, 10 rows × 23 cols) ---------------
+
+def plot_fingerprint_heatmaps(scores, trait_layers=None, norms_per_layer=None):
+    """5 heatmaps (one per variant), each showing 10 eval-set fingerprints as rows.
+
+    Shared color scale across all panels so visual comparison is meaningful.
+    EM's rows should look nearly identical; persona rows should vary.
+    """
+    n_variants = len(VARIANTS)
+    n_traits = len(TRAITS)
+    trait_labels = [short_name(t) for t in TRAITS]
+    eval_labels = [short_eval(es) for es in EVAL_SETS]
+
+    # Build matrices
+    matrices = {}
+    for variant in VARIANTS:
+        mat = np.full((len(EVAL_SETS), n_traits), 0.0)
+        for i, es in enumerate(EVAL_SETS):
+            if (variant, es) in scores:
+                mat[i] = fingerprint_vector(scores[(variant, es)], trait_layers, norms_per_layer)
+        matrices[variant] = mat
+
+    # Shared color scale
+    all_vals = np.concatenate([m.ravel() for m in matrices.values()])
+    vmax = float(np.percentile(np.abs(all_vals), 98))
+    if vmax < 1e-8:
+        vmax = 1.0
+
+    fig, axes = plt.subplots(n_variants, 1, figsize=(16, 3.2 * n_variants),
+                             sharex=True, sharey=True,
+                             gridspec_kw={"right": 0.92})
+
+    for ax, variant in zip(axes, VARIANTS):
+        im = ax.imshow(matrices[variant], aspect="auto", cmap="RdBu_r",
+                       vmin=-vmax, vmax=vmax, interpolation="nearest")
+        ax.set_yticks(range(len(eval_labels)))
+        ax.set_yticklabels(eval_labels, fontsize=8)
+        ax.set_title(VARIANT_DISPLAY[variant], fontsize=11, fontweight="bold",
+                     color=VARIANT_COLORS[variant])
+
+    axes[-1].set_xticks(range(n_traits))
+    axes[-1].set_xticklabels(trait_labels, rotation=45, ha="right", fontsize=7.5)
+
+    cbar_ax = fig.add_axes([0.93, 0.15, 0.015, 0.7])
+    fig.colorbar(im, cax=cbar_ax, label="Normalized probe score")
+
+    fig.suptitle("Fingerprints by Eval Set (rows) per Variant\n(consistent rows = pervasive; varying rows = triggered)",
+                 fontsize=13, fontweight="bold", y=1.02)
+    fig.savefig(OUTPUT_DIR / "fingerprint_heatmaps.png", dpi=150,
+                bbox_inches="tight", facecolor="white")
+    print("Saved fingerprint_heatmaps.png")
+    plt.close()
+
+    # -- Mean fingerprint heatmap (5 variants × 23 traits) --
+    fig, ax = plt.subplots(figsize=(16, 4))
+    mean_mat = np.array([matrices[v].mean(axis=0) for v in VARIANTS])
+
+    im = ax.imshow(mean_mat, aspect="auto", cmap="RdBu_r",
+                   vmin=-vmax, vmax=vmax, interpolation="nearest")
+    ax.set_yticks(range(len(VARIANTS)))
+    ax.set_yticklabels([VARIANT_DISPLAY[v] for v in VARIANTS], fontsize=10)
+    ax.set_xticks(range(n_traits))
+    ax.set_xticklabels(trait_labels, rotation=45, ha="right", fontsize=8)
+
+    for i in range(mean_mat.shape[0]):
+        for j in range(mean_mat.shape[1]):
+            val = mean_mat[i, j]
+            color = "white" if abs(val) > vmax * 0.5 else "black"
+            ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=6, color=color)
+
+    plt.colorbar(im, ax=ax, shrink=0.7, label="Normalized probe score (mean across 10 eval sets)")
+    ax.set_title("Mean Fingerprint per Variant (normalized by layer activation norms)",
+                 fontsize=12, fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "mean_fingerprint.png", dpi=150,
+                bbox_inches="tight", facecolor="white")
+    print("Saved mean_fingerprint.png")
+    plt.close()
 
 
 # -- Plot 2: All-variants PCA with eval-set markers ----------------------------
@@ -384,6 +514,12 @@ def main():
     print(f"Loaded {len(scores)} cells from {DATA_DIR}")
     print(f"Traits: {len(TRAITS)} dimensions\n")
 
+    # Load normalization
+    trait_layers = get_trait_layers()
+    norms_per_layer = load_activation_norms()
+    print(f"Loaded layer norms ({len(norms_per_layer)} layers)")
+    print(f"Trait layers: {min(trait_layers.values())}–{max(trait_layers.values())}")
+
     for v in VARIANTS:
         n = len(get_available_eval_sets(scores, v))
         print(f"  {VARIANT_DISPLAY[v]}: {n} eval sets")
@@ -394,6 +530,12 @@ def main():
     print(f"{'='*70}")
 
     pca_results = plot_per_variant_pca(scores)
+
+    # -- 1b. Fingerprint heatmaps --
+    print(f"\n{'='*70}")
+    print("  1b. FINGERPRINT HEATMAPS (eval sets × traits, normalized)")
+    print(f"{'='*70}")
+    plot_fingerprint_heatmaps(scores, trait_layers, norms_per_layer)
 
     for variant, (pca, X_2d, available) in pca_results.items():
         var_explained = pca.explained_variance_ratio_

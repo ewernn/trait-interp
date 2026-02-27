@@ -30,10 +30,14 @@ from scipy import stats
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
+from utils.vectors import get_best_vector
+
 # -- Configuration ------------------------------------------------------------
 
+EXPERIMENT = "mats-emergent-misalignment"
 DATA_DIR = Path(__file__).parent / "analysis" / "pxs_grid_14b" / "probe_scores"
 OUTPUT_DIR = Path(__file__).parent / "analysis" / "decomposition_14b"
+NORMS_FILE = Path(__file__).parent / "analysis" / "activation_norms_14b.json"
 
 VARIANTS = ["em_rank32", "em_rank1", "mocking_refusal", "angry_refusal", "curt_refusal"]
 EM_VARIANTS = ["em_rank32", "em_rank1"]
@@ -93,6 +97,26 @@ def discover_traits():
     return []
 
 
+def get_trait_layers(traits):
+    """Determine best layer for each trait by querying get_best_vector."""
+    trait_layers = {}
+    for trait in traits:
+        try:
+            info = get_best_vector(EXPERIMENT, trait)
+            trait_layers[trait] = info["layer"]
+        except Exception as e:
+            print(f"  Warning: Could not get layer for {trait}: {e}")
+            trait_layers[trait] = 0  # fallback
+    return trait_layers
+
+
+def load_activation_norms():
+    """Load per-layer activation norms from JSON."""
+    with open(NORMS_FILE) as f:
+        data = json.load(f)
+    return np.array(data["norms_per_layer"])
+
+
 def load_scores(suffix):
     """Load probe score files into {(variant, eval_set): {trait: score}}.
 
@@ -121,10 +145,27 @@ def to_vec(score_dict, traits):
     return np.array([score_dict.get(t, 0.0) for t in traits])
 
 
+def normalize_scores(score_dict, traits, trait_layers, norms_per_layer):
+    """Normalize probe scores by activation layer norms.
+
+    Returns vector where each trait's score is divided by the activation norm
+    at that trait's probe layer.
+    """
+    vec = to_vec(score_dict, traits)
+    normalized = np.zeros_like(vec)
+    for i, trait in enumerate(traits):
+        layer = trait_layers[trait]
+        norm = norms_per_layer[layer]
+        normalized[i] = vec[i] / norm if norm > 1e-8 else vec[i]
+    return normalized
+
+
 # -- 2x2 decomposition --------------------------------------------------------
 
-def compute_2x2(combined, text_only, reverse_model, baseline, traits):
+def compute_2x2(combined, text_only, reverse_model, baseline, traits, trait_layers, norms_per_layer):
     """Compute the full 2x2 factorial decomposition per (variant, eval_set) cell.
+
+    Normalizes all probe scores by activation layer norms before computing deltas.
 
     Returns dict keyed by (variant, eval_set) with values:
       method_A:    combined - text_only          (model delta on LoRA text)
@@ -145,10 +186,11 @@ def compute_2x2(combined, text_only, reverse_model, baseline, traits):
             if not keys_present:
                 continue
 
-            c = to_vec(combined[(variant, eval_set)], traits)
-            t = to_vec(text_only[(variant, eval_set)], traits)
-            r = to_vec(reverse_model[(variant, eval_set)], traits)
-            b = to_vec(baseline[("clean_instruct", eval_set)], traits)
+            # Normalize all scores by layer norms
+            c = normalize_scores(combined[(variant, eval_set)], traits, trait_layers, norms_per_layer)
+            t = normalize_scores(text_only[(variant, eval_set)], traits, trait_layers, norms_per_layer)
+            r = normalize_scores(reverse_model[(variant, eval_set)], traits, trait_layers, norms_per_layer)
+            b = normalize_scores(baseline[("clean_instruct", eval_set)], traits, trait_layers, norms_per_layer)
 
             decomp[(variant, eval_set)] = {
                 "method_A": c - t,
@@ -325,61 +367,91 @@ def plot_symmetry_scatter(decomp, traits):
 # -- Plot D: variance explained bar chart --------------------------------------
 
 def plot_variance_explained(decomp, traits):
-    """Bar chart: fraction of total variance explained by text, model, interaction per variant.
+    """Bar chart: absolute L1 magnitude of text, model, and interaction effects per variant.
 
-    Uses sum of squared deltas as the measure. Since total = text + model + interaction,
-    we compute |text|^2, |model_A|^2, |interaction|^2 relative to |total|^2.
-    Note: these don't sum to |total|^2 because of cross terms, so we report
-    the absolute magnitudes as fractions of their sum for a normalized view.
+    Shows the actual size of each component rather than percentages, which can be
+    misleading (text_delta scales with response divergence, model_delta is ~constant).
     """
     n_traits = len(traits)
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 5))
     x = np.arange(len(VARIANTS))
     bar_width = 0.25
 
-    text_fracs, model_fracs, interaction_fracs = [], [], []
+    text_l1s, model_l1s, int_l1s = [], [], []
 
     for variant in VARIANTS:
-        text_mag = np.sum(mean_across_evals(decomp, variant, "text_delta", n_traits) ** 2)
-        # Use the average of method A and B for "model" component
+        text_vec = mean_across_evals(decomp, variant, "text_delta", n_traits)
         a_vec = mean_across_evals(decomp, variant, "method_A", n_traits)
         b_vec = mean_across_evals(decomp, variant, "method_B", n_traits)
-        model_mag = np.sum(((a_vec + b_vec) / 2) ** 2)
-        int_mag = np.sum(mean_across_evals(decomp, variant, "interaction", n_traits) ** 2)
+        model_vec = (a_vec + b_vec) / 2
+        int_vec = mean_across_evals(decomp, variant, "interaction", n_traits)
 
-        total = text_mag + model_mag + int_mag
-        if total < 1e-8:
-            text_fracs.append(0)
-            model_fracs.append(0)
-            interaction_fracs.append(0)
-        else:
-            text_fracs.append(text_mag / total * 100)
-            model_fracs.append(model_mag / total * 100)
-            interaction_fracs.append(int_mag / total * 100)
+        text_l1s.append(np.sum(np.abs(text_vec)))
+        model_l1s.append(np.sum(np.abs(model_vec)))
+        int_l1s.append(np.sum(np.abs(int_vec)))
 
-    bars_text = ax.bar(x - bar_width, text_fracs, bar_width, label="Text effect",
-                       color="#7fbf7b", edgecolor="black", linewidth=0.5, alpha=0.85)
-    bars_model = ax.bar(x, model_fracs, bar_width, label="Model effect",
-                        color="#af8dc3", edgecolor="black", linewidth=0.5, alpha=0.85)
-    bars_int = ax.bar(x + bar_width, interaction_fracs, bar_width, label="Interaction",
-                      color="#fee08b", edgecolor="black", linewidth=0.5, alpha=0.85)
+    # -- Left panel: absolute L1 values --
+    bars_text = ax1.bar(x - bar_width, text_l1s, bar_width, label="Text effect",
+                        color="#7fbf7b", edgecolor="black", linewidth=0.5, alpha=0.85)
+    bars_model = ax1.bar(x, model_l1s, bar_width, label="Model effect",
+                         color="#af8dc3", edgecolor="black", linewidth=0.5, alpha=0.85)
+    bars_int = ax1.bar(x + bar_width, int_l1s, bar_width, label="Interaction",
+                       color="#fee08b", edgecolor="black", linewidth=0.5, alpha=0.85)
 
-    # Annotate percentages
-    for bars, vals in [(bars_text, text_fracs), (bars_model, model_fracs), (bars_int, interaction_fracs)]:
+    for bars, vals in [(bars_text, text_l1s), (bars_model, model_l1s), (bars_int, int_l1s)]:
         for bar, val in zip(bars, vals):
-            if val > 3:
-                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1,
-                        f"{val:.0f}%", ha="center", fontsize=8, fontweight="bold")
+            if val > 1:
+                ax1.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
+                         f"{val:.1f}", ha="center", fontsize=8, fontweight="bold")
 
-    ax.set_xticks(x)
-    ax.set_xticklabels([VARIANT_DISPLAY[v] for v in VARIANTS], fontsize=10)
-    ax.set_ylabel("% of sum of squared components")
-    ax.set_title("Variance Partition: Text vs Model vs Interaction", fontsize=12, fontweight="bold")
-    ax.legend(fontsize=9)
-    ax.set_ylim(0, 105)
-    ax.grid(axis="y", alpha=0.3)
+    ax1.set_xticks(x)
+    ax1.set_xticklabels([VARIANT_DISPLAY[v] for v in VARIANTS], fontsize=10)
+    ax1.set_ylabel("Absolute L1 (sum of |trait deltas|)")
+    ax1.set_title("Absolute Effect Magnitudes", fontsize=12, fontweight="bold")
+    ax1.legend(fontsize=9)
+    ax1.grid(axis="y", alpha=0.3)
 
+    # -- Right panel: model L1 with CV across eval sets --
+    # Compute per-eval-set model L1 for CV
+    model_means, model_cvs = [], []
+    for variant in VARIANTS:
+        per_eval_model = []
+        for (v, es) in decomp:
+            if v != variant:
+                continue
+            a = decomp[(v, es)]["method_A"]
+            b = decomp[(v, es)]["method_B"]
+            per_eval_model.append(np.sum(np.abs((a + b) / 2)))
+        arr = np.array(per_eval_model)
+        model_means.append(arr.mean())
+        model_cvs.append(arr.std() / arr.mean() if arr.mean() > 1e-8 else 0)
+
+    bars = ax2.bar(x, model_means, 0.5,
+                   color=[VARIANT_COLORS[v] for v in VARIANTS],
+                   edgecolor="black", linewidth=0.5, alpha=0.85)
+
+    # Error bars showing ±1 std
+    for i, variant in enumerate(VARIANTS):
+        per_eval = []
+        for (v, es) in decomp:
+            if v != variant:
+                continue
+            a = decomp[(v, es)]["method_A"]
+            b = decomp[(v, es)]["method_B"]
+            per_eval.append(np.sum(np.abs((a + b) / 2)))
+        arr = np.array(per_eval)
+        ax2.errorbar(i, arr.mean(), yerr=arr.std(), color="black", capsize=4, capthick=1.5, linewidth=1.5)
+        ax2.text(i, arr.mean() + arr.std() + 0.5,
+                 f"CV={model_cvs[i]:.2f}", ha="center", fontsize=8, fontweight="bold")
+
+    ax2.set_xticks(x)
+    ax2.set_xticklabels([VARIANT_DISPLAY[v] for v in VARIANTS], fontsize=10)
+    ax2.set_ylabel("Model effect L1 (mean across eval sets)")
+    ax2.set_title("Model Effect: Magnitude & Consistency", fontsize=12, fontweight="bold")
+    ax2.grid(axis="y", alpha=0.3)
+
+    fig.suptitle("2×2 Decomposition: Absolute Values", fontsize=13, fontweight="bold", y=1.02)
     fig.tight_layout()
     fig.savefig(OUTPUT_DIR / "2x2_variance_partition.png", dpi=150,
                 bbox_inches="tight", facecolor="white")
@@ -387,8 +459,9 @@ def plot_variance_explained(decomp, traits):
     plt.close()
 
     return {
-        v: {"text": round(t, 1), "model": round(m, 1), "interaction": round(i, 1)}
-        for v, t, m, i in zip(VARIANTS, text_fracs, model_fracs, interaction_fracs)
+        v: {"text_L1": round(t, 1), "model_L1": round(m, 1), "interaction_L1": round(i, 1),
+            "model_CV": round(cv, 3)}
+        for v, t, m, i, cv in zip(VARIANTS, text_l1s, model_l1s, int_l1s, model_cvs)
     }
 
 
@@ -517,6 +590,16 @@ def main():
         sys.exit(1)
     print(f"Discovered {len(traits)} traits: {', '.join(short_name(t) for t in traits)}")
 
+    # Get trait layers and activation norms
+    print("\nDetermining best layer for each trait...")
+    trait_layers = get_trait_layers(traits)
+    for trait, layer in trait_layers.items():
+        print(f"  {short_name(trait):20s}: layer {layer}")
+
+    print(f"\nLoading activation norms from {NORMS_FILE}...")
+    norms_per_layer = load_activation_norms()
+    print(f"  Loaded norms for {len(norms_per_layer)} layers")
+
     # Load all four conditions
     combined = load_scores("combined")
     text_only = load_scores("text_only")
@@ -532,8 +615,9 @@ def main():
         print(f"  {phase:20s}: {n} variant x eval_set cells")
     print(f"  {'baseline':20s}: {len(baseline)} eval sets")
 
-    # Compute decomposition
-    decomp = compute_2x2(combined, text_only, reverse_model, baseline, traits)
+    # Compute decomposition with normalized scores
+    print("\nComputing decomposition with normalized scores...")
+    decomp = compute_2x2(combined, text_only, reverse_model, baseline, traits, trait_layers, norms_per_layer)
     print(f"\n  2x2 decomposition computed for {len(decomp)} cells")
     for v in VARIANTS:
         n = len([1 for (vv, _) in decomp if vv == v])
@@ -597,8 +681,8 @@ def main():
 
     for v in VARIANTS:
         vp = var_partition[v]
-        print(f"    {VARIANT_DISPLAY[v]:15s}: text={vp['text']:.0f}%  model={vp['model']:.0f}%  "
-              f"interaction={vp['interaction']:.0f}%")
+        print(f"    {VARIANT_DISPLAY[v]:15s}: text_L1={vp['text_L1']:.1f}  model_L1={vp['model_L1']:.1f}  "
+              f"interaction_L1={vp['interaction_L1']:.1f}  model_CV={vp['model_CV']:.3f}")
 
     # ======================================================================
     # E. Per-eval-set interaction
