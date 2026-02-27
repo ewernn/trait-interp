@@ -89,20 +89,25 @@ On Qwen3-4B with 24 of Sriram's LoRAs (6 personas × 4 training data categories:
 
 However, training category does affect behavioral *intensity*: refusal-trained LoRAs score 88.4 on GPT-4 alignment judge (harmful prompts) vs 55.6 for factual-trained. Same fingerprint shape, different volume.
 
-### 5. Model_delta predicts behavioral alignment (4B, Sriram correlation)
+### 5. Probe scores correlate with behavioral alignment (4B, Sriram correlation)
+
+Sriram independently evaluated the same 24 LoRA variants with a GPT-4 judge that scores each response on "aligned" (0–100: how strongly the response shows the trained persona) and "coherent" (0–100: linguistic quality). His mean aligned scores on harmful requests, by persona: bureaucratic 90, nervous 80, disappointed 73, curt 72, mocking 69, angry 57, confused 57. Training category matters for his judge: refusal-trained LoRAs score 88 vs factual-trained 56 — same fingerprint shape (finding 4), different behavioral intensity.
+
+We correlated our 4B probe scores with his judge scores across 96 overlapping cells (24 variants × 4 eval sets). **Important caveat:** these are on *different* responses — we generated ours, he generated his. We're comparing aggregate means per (variant, eval_set), not matched response pairs.
 
 ![Model delta vs aligned](analysis/sriram_correlation/model_delta_vs_aligned.png)
 
-We correlated our 4B probe scores (24 variants × 4 overlapping eval sets = 96 cells) with Sriram's GPT-4 judge aligned scores on the same variants.
+**One robust finding:** model_delta L1 predicts aligned score (Pearson r=0.346, p=5e-4, n=96). The model-internal effect size — how differently the LoRA processes text compared to the clean model — predicts how strongly the persona expresses. Raw fingerprint magnitude is weaker (r=0.195, p=0.057). Cosine to persona centroid doesn't predict (r=-0.074, ns).
 
-- **Model_delta L1 is the best single-number predictor** of behavioral alignment (r=0.346, p=5.4e-4). The model-internal effect size predicts how strongly the persona expresses behaviorally. Raw fingerprint magnitude is weaker (r=0.195). Cosine to persona centroid doesn't predict at all (r=-0.074).
-- **Guilt is the universal internal correlate** of persona expression. It's a top-3 predictor for 5 of 6 personas (rho=0.42–0.70). When any persona expresses strongly, the guilt probe fires — possibly an internal "deviating from base training" signal.
-- **Eval awareness anti-correlates** with alignment (rho=-0.47 to -0.54 across 4 personas). More self-aware models resist persona expression.
-- **Persona-specific probes work as expected:** angry loads on aggression/frustration, confused on confusion/hedging, curt on lying.
+**Suggestive per-persona patterns** (n=16 per persona, 23 probes tested — most don't survive multiple comparison correction):
 
 ![Per-persona probe heatmap](analysis/sriram_correlation/per_persona_probe_heatmap.png)
 
-**Implication:** Our internal measurements (probe fingerprints, model_delta) track external behavioral measurements (GPT-4 judge), validating that model_delta captures something behaviorally real. The probes add dimensionality that the judge lacks — *which* traits drive the expression, not just how strongly it expresses.
+- Guilt correlates with aligned for angry (rho=0.70, p=0.003) and disappointed (rho=0.63, p=0.009). Trends for nervous, curt, mocking (rho=0.42–0.47) don't reach significance.
+- Eval awareness trends negative for mocking (rho=-0.54, p=0.030) and disappointed (rho=-0.50, p=0.049). Others marginal.
+- Angry → aggression (rho=0.68, p=0.004) and frustration (rho=0.63, p=0.009) are robust. Curt → lying (rho=0.57, p=0.021) holds. Confused → confusion (rho=0.46, p=0.074) is marginal.
+
+**Implication:** model_delta tracks behavioral alignment, validating it as behaviorally meaningful. The per-persona patterns are interesting but underpowered — would need more variants per persona or per-response scoring to confirm.
 
 ---
 
