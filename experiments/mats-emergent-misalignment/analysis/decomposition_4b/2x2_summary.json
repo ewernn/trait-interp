@@ -1,0 +1,468 @@
+{
+  "n_traits": 16,
+  "traits": [
+    "alignment/conflicted",
+    "alignment/deception",
+    "bs/concealment",
+    "bs/lying",
+    "chirp/refusal",
+    "mental_state/agency",
+    "mental_state/anxiety",
+    "mental_state/confidence",
+    "mental_state/confusion",
+    "mental_state/curiosity",
+    "mental_state/guilt",
+    "mental_state/obedience",
+    "mental_state/rationalization",
+    "pv_natural/sycophancy",
+    "rm_hack/eval_awareness",
+    "rm_hack/ulterior_motive"
+  ],
+  "n_cells": 240,
+  "n_variants": 24,
+  "personas": [
+    "angry",
+    "confused",
+    "curt",
+    "disappointed",
+    "mocking",
+    "nervous"
+  ],
+  "training_categories": [
+    "diverse_open_ended",
+    "factual_questions",
+    "normal_requests",
+    "refusal"
+  ],
+  "global_pearson_r_A_vs_B": 0.4775,
+  "per_persona_pearson_r": {
+    "angry": 0.3337,
+    "confused": 0.2794,
+    "curt": 0.1378,
+    "disappointed": 0.191,
+    "mocking": 0.6267,
+    "nervous": 0.6113
+  },
+  "variance_partition_by_persona": {
+    "angry": {
+      "text": 81.1,
+      "model": 6.3,
+      "interaction": 12.6
+    },
+    "confused": {
+      "text": 73.4,
+      "model": 9.7,
+      "interaction": 16.8
+    },
+    "curt": {
+      "text": 64.5,
+      "model": 8.8,
+      "interaction": 26.7
+    },
+    "disappointed": {
+      "text": 82.4,
+      "model": 5.6,
+      "interaction": 12.0
+    },
+    "mocking": {
+      "text": 72.2,
+      "model": 11.7,
+      "interaction": 16.0
+    },
+    "nervous": {
+      "text": 85.9,
+      "model": 7.2,
+      "interaction": 6.9
+    }
+  },
+  "variance_partition_by_category": {
+    "diverse_open_ended": {
+      "text": 79.4,
+      "model": 8.4,
+      "interaction": 12.2
+    },
+    "factual_questions": {
+      "text": 76.0,
+      "model": 8.5,
+      "interaction": 15.5
+    },
+    "normal_requests": {
+      "text": 78.0,
+      "model": 9.5,
+      "interaction": 12.5
+    },
+    "refusal": {
+      "text": 78.8,
+      "model": 6.4,
+      "interaction": 14.8
+    }
+  },
+  "variance_partition_all_variants": {
+    "angry_diverse_open_ended": {
+      "text": 83.0,
+      "model": 5.4,
+      "interaction": 11.7
+    },
+    "angry_factual_questions": {
+      "text": 80.6,
+      "model": 6.9,
+      "interaction": 12.5
+    },
+    "angry_normal_requests": {
+      "text": 83.3,
+      "model": 5.2,
+      "interaction": 11.5
+    },
+    "angry_refusal": {
+      "text": 76.7,
+      "model": 8.1,
+      "interaction": 15.2
+    },
+    "confused_diverse_open_ended": {
+      "text": 70.0,
+      "model": 9.9,
+      "interaction": 20.0
+    },
+    "confused_factual_questions": {
+      "text": 71.5,
+      "model": 9.4,
+      "interaction": 19.2
+    },
+    "confused_normal_requests": {
+      "text": 70.5,
+      "model": 15.1,
+      "interaction": 14.5
+    },
+    "confused_refusal": {
+      "text": 78.6,
+      "model": 5.5,
+      "interaction": 15.9
+    },
+    "curt_diverse_open_ended": {
+      "text": 66.5,
+      "model": 12.5,
+      "interaction": 20.9
+    },
+    "curt_factual_questions": {
+      "text": 65.9,
+      "model": 6.2,
+      "interaction": 27.9
+    },
+    "curt_normal_requests": {
+      "text": 57.1,
+      "model": 9.0,
+      "interaction": 33.9
+    },
+    "curt_refusal": {
+      "text": 65.0,
+      "model": 4.4,
+      "interaction": 30.6
+    },
+    "disappointed_diverse_open_ended": {
+      "text": 82.3,
+      "model": 5.7,
+      "interaction": 12.0
+    },
+    "disappointed_factual_questions": {
+      "text": 76.3,
+      "model": 9.5,
+      "interaction": 14.2
+    },
+    "disappointed_normal_requests": {
+      "text": 72.0,
+      "model": 7.0,
+      "interaction": 21.0
+    },
+    "disappointed_refusal": {
+      "text": 88.9,
+      "model": 2.7,
+      "interaction": 8.4
+    },
+    "mocking_diverse_open_ended": {
+      "text": 78.1,
+      "model": 10.2,
+      "interaction": 11.7
+    },
+    "mocking_factual_questions": {
+      "text": 69.4,
+      "model": 13.9,
+      "interaction": 16.7
+    },
+    "mocking_normal_requests": {
+      "text": 77.5,
+      "model": 10.1,
+      "interaction": 12.4
+    },
+    "mocking_refusal": {
+      "text": 66.4,
+      "model": 12.7,
+      "interaction": 20.9
+    },
+    "nervous_diverse_open_ended": {
+      "text": 84.6,
+      "model": 8.8,
+      "interaction": 6.6
+    },
+    "nervous_factual_questions": {
+      "text": 82.8,
+      "model": 6.6,
+      "interaction": 10.6
+    },
+    "nervous_normal_requests": {
+      "text": 85.8,
+      "model": 9.0,
+      "interaction": 5.2
+    },
+    "nervous_refusal": {
+      "text": 91.5,
+      "model": 2.0,
+      "interaction": 6.5
+    }
+  },
+  "training_category_effect": {
+    "diverse_open_ended": {
+      "text_pct": 79.4,
+      "model_pct": 8.4,
+      "interaction_pct": 12.2,
+      "mean_model_delta_A": 3.423,
+      "mean_model_delta_B": 2.16
+    },
+    "factual_questions": {
+      "text_pct": 76.0,
+      "model_pct": 8.5,
+      "interaction_pct": 15.5,
+      "mean_model_delta_A": 3.071,
+      "mean_model_delta_B": 1.861
+    },
+    "normal_requests": {
+      "text_pct": 78.0,
+      "model_pct": 9.5,
+      "interaction_pct": 12.5,
+      "mean_model_delta_A": 2.693,
+      "mean_model_delta_B": 2.265
+    },
+    "refusal": {
+      "text_pct": 78.8,
+      "model_pct": 6.4,
+      "interaction_pct": 14.8,
+      "mean_model_delta_A": 2.973,
+      "mean_model_delta_B": 1.621
+    }
+  },
+  "persona_comparison_4b_vs_14b": {
+    "angry": {
+      "4b": {
+        "text": 81.1,
+        "model": 6.3,
+        "interaction": 12.6
+      },
+      "14b": {
+        "text": 93.0,
+        "model": 5.2,
+        "interaction": 1.9
+      }
+    },
+    "curt": {
+      "4b": {
+        "text": 64.5,
+        "model": 8.8,
+        "interaction": 26.7
+      },
+      "14b": {
+        "text": 93.0,
+        "model": 4.6,
+        "interaction": 2.3
+      }
+    },
+    "mocking": {
+      "4b": {
+        "text": 72.2,
+        "model": 11.7,
+        "interaction": 16.0
+      },
+      "14b": {
+        "text": 92.5,
+        "model": 4.6,
+        "interaction": 3.0
+      }
+    }
+  },
+  "most_asymmetric_traits": [
+    {
+      "trait": "anxiety",
+      "mean_abs_diff": 1.983
+    },
+    {
+      "trait": "guilt",
+      "mean_abs_diff": 0.949
+    },
+    {
+      "trait": "ulterior motive",
+      "mean_abs_diff": 0.553
+    },
+    {
+      "trait": "refusal",
+      "mean_abs_diff": 0.542
+    },
+    {
+      "trait": "confidence",
+      "mean_abs_diff": 0.45
+    }
+  ],
+  "most_symmetric_traits": [
+    {
+      "trait": "concealment",
+      "mean_abs_diff": 0.098
+    },
+    {
+      "trait": "curiosity",
+      "mean_abs_diff": 0.068
+    },
+    {
+      "trait": "sycophancy",
+      "mean_abs_diff": 0.068
+    },
+    {
+      "trait": "obedience",
+      "mean_abs_diff": 0.057
+    },
+    {
+      "trait": "rationalization",
+      "mean_abs_diff": 0.057
+    }
+  ],
+  "persona_interaction": {
+    "angry": {
+      "interaction_L2": 2.876,
+      "total_L2": 9.347,
+      "ratio": 0.308
+    },
+    "confused": {
+      "interaction_L2": 2.954,
+      "total_L2": 7.21,
+      "ratio": 0.41
+    },
+    "curt": {
+      "interaction_L2": 2.718,
+      "total_L2": 4.504,
+      "ratio": 0.604
+    },
+    "disappointed": {
+      "interaction_L2": 2.169,
+      "total_L2": 7.122,
+      "ratio": 0.305
+    },
+    "mocking": {
+      "interaction_L2": 3.055,
+      "total_L2": 9.589,
+      "ratio": 0.319
+    },
+    "nervous": {
+      "interaction_L2": 2.095,
+      "total_L2": 9.263,
+      "ratio": 0.226
+    }
+  },
+  "per_trait": [
+    {
+      "trait": "alignment/conflicted",
+      "mean_abs_diff": 0.186,
+      "mean_abs_interaction": 0.186,
+      "correlation_AB": 0.993
+    },
+    {
+      "trait": "alignment/deception",
+      "mean_abs_diff": 0.124,
+      "mean_abs_interaction": 0.124,
+      "correlation_AB": 0.997
+    },
+    {
+      "trait": "bs/concealment",
+      "mean_abs_diff": 0.098,
+      "mean_abs_interaction": 0.098,
+      "correlation_AB": 0.953
+    },
+    {
+      "trait": "bs/lying",
+      "mean_abs_diff": 0.106,
+      "mean_abs_interaction": 0.106,
+      "correlation_AB": 0.911
+    },
+    {
+      "trait": "chirp/refusal",
+      "mean_abs_diff": 0.542,
+      "mean_abs_interaction": 0.542,
+      "correlation_AB": -0.485
+    },
+    {
+      "trait": "mental_state/agency",
+      "mean_abs_diff": 0.328,
+      "mean_abs_interaction": 0.328,
+      "correlation_AB": 0.53
+    },
+    {
+      "trait": "mental_state/anxiety",
+      "mean_abs_diff": 1.983,
+      "mean_abs_interaction": 1.983,
+      "correlation_AB": 0.913
+    },
+    {
+      "trait": "mental_state/confidence",
+      "mean_abs_diff": 0.45,
+      "mean_abs_interaction": 0.45,
+      "correlation_AB": 0.949
+    },
+    {
+      "trait": "mental_state/confusion",
+      "mean_abs_diff": 0.422,
+      "mean_abs_interaction": 0.422,
+      "correlation_AB": -0.731
+    },
+    {
+      "trait": "mental_state/curiosity",
+      "mean_abs_diff": 0.068,
+      "mean_abs_interaction": 0.068,
+      "correlation_AB": 0.91
+    },
+    {
+      "trait": "mental_state/guilt",
+      "mean_abs_diff": 0.949,
+      "mean_abs_interaction": 0.949,
+      "correlation_AB": -0.424
+    },
+    {
+      "trait": "mental_state/obedience",
+      "mean_abs_diff": 0.057,
+      "mean_abs_interaction": 0.057,
+      "correlation_AB": 0.98
+    },
+    {
+      "trait": "mental_state/rationalization",
+      "mean_abs_diff": 0.057,
+      "mean_abs_interaction": 0.057,
+      "correlation_AB": 0.953
+    },
+    {
+      "trait": "pv_natural/sycophancy",
+      "mean_abs_diff": 0.068,
+      "mean_abs_interaction": 0.068,
+      "correlation_AB": 0.931
+    },
+    {
+      "trait": "rm_hack/eval_awareness",
+      "mean_abs_diff": 0.128,
+      "mean_abs_interaction": 0.128,
+      "correlation_AB": 0.996
+    },
+    {
+      "trait": "rm_hack/ulterior_motive",
+      "mean_abs_diff": 0.553,
+      "mean_abs_interaction": 0.553,
+      "correlation_AB": 0.851
+    }
+  ],
+  "mean_interaction_magnitude": 0.382,
+  "mean_model_delta_magnitude": 0.377,
+  "interaction_to_delta_ratio": 1.013,
+  "verdict": "NON-ADDITIVE (interaction > 30% of model delta)"
+}

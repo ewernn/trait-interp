@@ -1,0 +1,70 @@
+{
+  "n_cells": 50,
+  "n_traits": 23,
+  "per_variant_pca": {
+    "EM rank32": {
+      "pc1_variance": 61.8,
+      "pc2_variance": 19.5,
+      "n_eval_sets": 10
+    },
+    "EM rank1": {
+      "pc1_variance": 58.7,
+      "pc2_variance": 18.2,
+      "n_eval_sets": 10
+    },
+    "Mocking": {
+      "pc1_variance": 88.3,
+      "pc2_variance": 5.9,
+      "n_eval_sets": 10
+    },
+    "Angry": {
+      "pc1_variance": 84.4,
+      "pc2_variance": 7.6,
+      "n_eval_sets": 10
+    },
+    "Curt": {
+      "pc1_variance": 74.2,
+      "pc2_variance": 11.2,
+      "n_eval_sets": 10
+    }
+  },
+  "all_variants_pca": {
+    "pc1_variance": 75.4,
+    "pc2_variance": 9.8,
+    "avg_within_variant_spread": 8.939,
+    "avg_between_variant_distance": 11.62,
+    "separation_ratio": 1.3
+  },
+  "consistency": {
+    "EM rank32": {
+      "mean_cos": 0.9128822824256574,
+      "min_cos": 0.7360939342701467,
+      "max_cos": 0.9893960286835393,
+      "std_cos": 0.05761980855936891
+    },
+    "EM rank1": {
+      "mean_cos": 0.8945961174741217,
+      "min_cos": 0.677346040313036,
+      "max_cos": 0.9847288273519774,
+      "std_cos": 0.06871758819665785
+    },
+    "Mocking": {
+      "mean_cos": 0.6810709664443755,
+      "min_cos": 0.046040237198675706,
+      "max_cos": 0.985497911359457,
+      "std_cos": 0.3230038481632488
+    },
+    "Angry": {
+      "mean_cos": 0.6125919525508566,
+      "min_cos": -0.2648586006550899,
+      "max_cos": 0.9875052972519914,
+      "std_cos": 0.31705710129762427
+    },
+    "Curt": {
+      "mean_cos": 0.752016643013788,
+      "min_cos": -0.051491493201391264,
+      "max_cos": 0.9824616158764722,
+      "std_cos": 0.28164282459829804
+    }
+  }
+}
