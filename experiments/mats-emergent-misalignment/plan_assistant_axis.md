@@ -302,8 +302,98 @@ All 6 variants projected onto axis at L24 (σ from role mean):
 
 Output: `validation/variant_projections_em_generic_eval.json`
 
-### Next steps
-1. **Quantitative capping eval**: Run LLM judge on capped vs uncapped generation to measure assistantness delta.
+### Methodological discrepancy: somewhat/fully confound (Eric Werner critique)
+
+**Issue**: The paper's PCA includes both "somewhat" (score=2, identifies as AI) and "fully" (score=3, no AI identity) vectors. Each role produces up to 2 vectors → n=377-463. PC1's 47% variance could be inflated by the trivial somewhat/fully split.
+
+**Paper's methodology** (confirmed from paper text):
+- PCA: all vectors (somewhat + fully, n=377-463)
+- Axis definition: `mean(default) - mean(fully-only vectors)`
+
+**Our implementation diverges**:
+- We pick ONE vector per role (priority: fully > somewhat) → 220 vectors for PCA
+- Our axis averages over the mixed set (116 fully + 104 somewhat), not fully-only
+
+**Our empirical data**:
+- Between-category variance = 19% of total (81% is within-category)
+- Cohen's d (somewhat vs fully on PC1) = 0.98 — large but not dominant
+- Persona LoRAs spread 2.7σ apart (all non-AI-identifying) → axis is more than AI identity
+- Probe correlations (sycophancy, amusement, agency) confirm behavioral content
+
+**Counter-evidence to "just AI identity"**: If the axis only measured "says I'm an AI," all persona LoRAs would cluster at the same point. They don't — curt (-0.83σ), angry (-2.19σ), mocking (-3.55σ). The axis captures behavioral style beyond self-identification.
+
+### PCA variant comparison — Eric Werner critique addressed (complete)
+
+Script: `compare_pca_variants.py`
+Output: `analysis/assistant_axis/validation/pca_variants.json`
+
+Three PCA variants compared at L24:
+
+| Variant | n | PC1% | cos(PC1, paper_axis) | Between-cat% |
+|---------|---|------|---------------------|-------------|
+| (a) Paper-matching (all) | 315 | 17.3% | 0.824 | 14.5% |
+| **(b) Clean (fully-only)** | **116** | **18.5%** | **0.768** | n/a |
+| (c) Current (deduplicated) | 220 | 18.9% | 0.826 | 19.1% |
+
+Two axis variants:
+- Current axis: 220 vectors (116 fully + 104 somewhat). Paper axis: 116 fully-only.
+- cos(current, paper) = 0.975 — nearly identical.
+
+**Key result: Eric's critique is empirically refuted.** Clean PC1 (no somewhat/fully confound) explains MORE variance (18.5% vs 17.3%) and passes the >0.71 threshold with paper axis (0.768). The somewhat/fully split contributes only 14.5% of PC1 variance.
+
+Multi-layer: cos(clean_PC1, paper_axis) passes 0.71 at L20 (0.739), L24 (0.768), L32 (0.701), L44 (0.723). Same role endpoints across all three variants (planner/consultant/strategist at top, poet/demon/absurdist at bottom).
+
+### Quantitative capping eval (complete)
+
+Script: `eval_activation_capping.py`
+Output: `analysis/assistant_axis/validation/capping_eval.json`
+
+8 prompts × 10 samples = 80 responses per condition. gpt-4.1-mini judge (alignment + coherence + assistantness, logprob-weighted).
+
+| Condition | Alignment | Coherence | Assistantness |
+|-----------|-----------|-----------|---------------|
+| Baseline | 98.4 | 95.5 | 82.3 |
+| Capping only | 98.6 | 95.9 | 82.5 |
+| Steered L24 c=-60 | 96.9 | 92.7 | **38.2** |
+| **Steered + Capped** | **97.7** | **96.2** | **73.0** |
+
+- Capping recovers **79%** of assistantness lost to negative steering (+34.8 of 44.2 pts)
+- No alignment or coherence cost — all conditions stay above 92
+- Capping on unsteered model is a no-op (82.3 → 82.5)
+- Alignment barely changes across conditions → axis measures persona style, not safety
+
+### Subsampling ablation (complete)
+
+Script: `assistant_axis_ablation.py`
+Output: `analysis/assistant_axis/validation/ablation.json`
+
+**30 fully-in-character roles** gives cos > 0.95 with the full axis (p5 worst-case, 50 trials). That's 30 × 50 × 1 = 1,500 generations vs the paper's 330,000 — **220× cheaper**.
+
+| n_roles | mean cos | p5 cos |
+|---------|----------|--------|
+| 10 | 0.911 | 0.837 |
+| 20 | 0.959 | 0.935 |
+| 30 | 0.974 | 0.961 |
+| 50 | 0.989 | 0.985 |
+
+### Probe vs mean_diff: same capping result, different PC1 alignment (KEY FINDING)
+
+Scripts: `assistant_axis_ablation.py`, `eval_capping_probe_axis.py`
+Output: `analysis/assistant_axis/validation/capping_eval_probe.json`
+
+Probe (logistic regression, C=0.01, balanced, fully-only) finds a direction that's:
+- cos = 0.86-0.89 with mean_diff axis
+- cos = 0.39 with PC1 (vs mean_diff's 0.77)
+- Spearman ρ = 0.94 on role ordering (same endpoints)
+
+Causal comparison (80 responses per condition, gpt-4.1-mini judge):
+
+| Axis | |cos with PC1| | Steered+Capped assistantness | Recovery |
+|------|----------------|------------------------------|----------|
+| mean_diff | 0.77 | 74.1 | **81%** |
+| probe | 0.39 | 74.7 | **82%** |
+
+**PC1 alignment is not what makes capping work.** The probe has half the PC1 alignment yet gives identical recovery. If the axis only worked because it aligned with PC1 (Eric's implicit claim), halving PC1 alignment should degrade performance. It doesn't — the causal assistantness signal is spread across many dimensions, not concentrated on PC1.
 
 ---
 

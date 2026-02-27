@@ -789,6 +789,10 @@ Replicated Lu et al. (2026) "The Assistant Axis" on Qwen2.5-14B. Full details in
 - `extract_assistant_axis.py` — full pipeline (generate → judge → activations → axis → validate)
 - `validate_assistant_axis_comprehensive.py` — PCA, split-half, multi-layer, probe correlations
 - `project_variants_onto_axis.py` — project EM variant responses onto axis
+- `compare_pca_variants.py` — three PCA variants (paper-matching, clean, deduplicated)
+- `assistant_axis_ablation.py` — subsampling + probe vs mean_diff comparison
+- `eval_activation_capping.py` — quantitative capping eval (4 conditions × judge)
+- `eval_capping_probe_axis.py` — probe vs mean_diff capping comparison
 
 ### Key results
 - **Axis = `mean(default) - mean(role_vectors)`** from 220 judged roles (116 fully + 104 somewhat), 50 questions each
@@ -824,8 +828,123 @@ All 6 variants at L24: instruct (+0.30σ) > curt (-0.83σ) > em_rank1 ≈ em_ran
 - Ordering holds at all 7 layers tested
 - Output: `validation/variant_projections_em_generic_eval.json`
 
-### Remaining
-1. **Quantitative capping eval**: LLM judge on capped vs uncapped generation
+### Methodological discrepancy with paper (found via Eric Werner critique)
+
+**Eric's critique**: PC1's 47% variance could be inflated by including both "somewhat" (score=2, identifies as AI) and "fully" (score=3, fully in character) vectors in PCA. The somewhat/fully split is trivially correlated with "distance from assistant."
+
+**Paper's actual methodology** (confirmed from paper text + repo code):
+- PCA: uses ALL vectors (both somewhat + fully, n=377-463). Each role can produce TWO vectors.
+- Axis: `mean(default) - mean(fully-only vectors)`
+
+**Our implementation differs in two ways**:
+1. We pick ONE vector per role (priority: fully > somewhat) → our PCA has 220 vectors, not 316
+2. Our axis averages over the best-per-role mix (116 fully + 104 somewhat), not fully-only
+
+**Empirical check**: Between-category (somewhat vs fully) variance = only **19%** of total variance on axis. Within-category = **81%**. Cohen's d between categories on PC1 = 0.98 (large but not dominant). Persona LoRAs spread **2.7σ** apart even though none identify as AI → axis captures more than AI identity.
+
+### PCA variant comparison (complete — Eric Werner critique addressed)
+
+Script: `compare_pca_variants.py`
+Output: `analysis/assistant_axis/validation/pca_variants.json`
+
+**Three PCA variants at L24:**
+| Variant | n | PC1% | cos(PC1, paper_axis) | cos(PC1, current_axis) |
+|---------|---|------|---------------------|----------------------|
+| (a) Paper-matching (all) | 315 | 17.3% | 0.824 | 0.738 |
+| **(b) Clean (fully-only)** | **116** | **18.5%** | **0.768** | **0.697** |
+| (c) Current (deduplicated) | 220 | 18.9% | 0.826 | 0.734 |
+
+**Two axis definitions:**
+- Current axis: 220 vectors (116 fully + 104 somewhat, best per role)
+- Paper axis: 116 vectors (fully-only)
+- cos(current, paper) = 0.975 — nearly identical
+
+**Key result: Eric's critique is empirically refuted.** Clean PC1 (fully-only, no somewhat/fully confound) explains *more* variance than paper-matching PC1 (18.5% vs 17.3%) and passes >0.71 cos threshold with paper axis (0.768). The somewhat/fully split contributes only 14.5% of PC1 variance in the paper-matching set.
+
+**Multi-layer:** cos(clean_PC1, paper_axis) passes 0.71 at L20 (0.739), L24 (0.768), L32 (0.701), L44 (0.723). Same role endpoints across all variants (planner/consultant/strategist at top, poet/demon/absurdist at bottom).
+
+### Quantitative capping eval (complete)
+
+Script: `eval_activation_capping.py`
+Output: `analysis/assistant_axis/validation/capping_eval.json`
+
+8 prompts × 10 samples = 80 responses per condition, judged by gpt-4.1-mini (alignment + coherence + assistantness).
+
+| Condition | n | Alignment | Coherence | Assistantness | Misaligned% |
+|-----------|---|-----------|-----------|---------------|-------------|
+| Baseline | 80 | 98.4 | 95.5 | 82.3 | 0% |
+| Capping only | 80 | 98.6 | 95.9 | 82.5 | 0% |
+| Steered (L24 c=-60) | 80 | 96.9 | 92.7 | **38.2** | 0% |
+| **Steered + Capped** | **80** | **97.7** | **96.2** | **73.0** | **0%** |
+
+**Recovery metrics:**
+- Assistantness drift (baseline → steered): -44.2 pts
+- Assistantness recovery (steered → steered+capped): +34.8 pts
+- **Recovery rate: 79%**
+- Alignment unchanged across all conditions (96.9-98.6)
+
+**Key insight**: The axis measures persona style, not safety. Negative steering makes the model sound like a character (literary, personality) but stays aligned and coherent. Capping recovers 79% of the assistantness with no alignment or coherence cost.
+
+### Eric Werner's full critique — addressed empirically
+
+Eric raised three concerns about the paper's methodology:
+
+**1. Somewhat/fully confound inflates PC1.** In paper-matching PCA, 77% of same-role pairs have fully < somewhat on PC1 (mean diff = -2.58). Cohen's d = -0.81. Between-category variance = 14.5%.
+
+**Our answer:** Clean PCA (fully-only, n=116) gives PC1 = 18.5% variance — HIGHER than paper-matching (17.3%). cos(clean_PC1, paper_axis) = 0.768, passes >0.71 threshold. The confound is real but not dominant.
+
+**2. Filtering could differentially keep fully-fantasy and somewhat-professional.** Eric suggested filtering might remove most fully-professional and somewhat-fantasy vectors.
+
+**Our answer:** Fantasy roles: 14/16 have "fully" (demons don't say "I'm an AI"). Professional roles: 12/15 have both categories. Differential filtering exists but is weaker than Eric suggested — professional roles aren't getting filtered out of "fully."
+
+**3. Fantasy vs professional roles naturally separate — PC1 could just be "role compatibility with AI."** On fully-only PC1: fantasy mean = -5.71, professional mean = +7.24, gap = 12.95. Top: planner/consultant/strategist. Bottom: poet/demon/absurdist.
+
+**Our answer:** This is what the axis SHOULD capture — behavioral style compatibility with being a helpful AI. It's not trivial because: (a) it generalizes to EM models and LoRA personas not in the training set, (b) persona LoRAs spread 2.7σ apart despite none identifying as AI, (c) capping causally recovers 79% of assistantness.
+
+### Subsampling ablation — 30 roles is enough (complete)
+
+Script: `assistant_axis_ablation.py`
+Output: `analysis/assistant_axis/validation/ablation.json`
+
+Mean_diff axis stability with fewer fully-only roles (50 random trials each):
+
+| n_roles | mean cos | p5 (worst-case) |
+|---------|----------|-----------------|
+| 5 | 0.816 | 0.641 |
+| 10 | 0.911 | 0.837 |
+| 15 | 0.946 | 0.918 |
+| **20** | **0.959** | **0.935** |
+| **30** | **0.974** | **0.961** |
+| 50 | 0.989 | 0.985 |
+| 116 | 1.000 | 1.000 |
+
+**30 fully-in-character roles** gives cos > 0.95 with the full axis (p5). The paper uses 275 roles × 240 questions × 5 prompts = 330,000 generations. We'd need 30 × 50 × 1 = 1,500. That's **220× cheaper.**
+
+### Probe vs mean_diff extraction (complete)
+
+**Probe (logistic regression, C=0.01, balanced)** finds a direction that's cos = 0.86 with mean_diff but only cos = 0.39 with PC1. Mean_diff has cos = 0.77 with PC1. The probe de-emphasizes the high-variance role-type dimension and focuses on directions where default sticks out from the role cloud more cleanly.
+
+Role ordering is preserved: Spearman ρ = 0.94. Same top/bottom roles. But probe gets WORSE with more data (cos with reference drops from 0.91 at n=20 to 0.86 at n=116) — overfitting in 5120 dims with 1 positive example.
+
+At strong regularization (C=0.001), probe converges to mean_diff (cos = 0.9999). Heavy L2 regularization pushes toward minimum-norm solution = centroid difference.
+
+### Probe vs mean_diff capping — identical results (KEY FINDING)
+
+Script: `eval_capping_probe_axis.py`
+Output: `analysis/assistant_axis/validation/capping_eval_probe.json`
+
+| Axis | Baseline | Steered | Steered+Capped | Recovery |
+|------|----------|---------|----------------|----------|
+| mean_diff | 82.3 | 39.3 | 74.1 | **81%** |
+| probe | 82.5 | 39.2 | 74.7 | **82%** |
+
+**Identical recovery despite very different PC1 alignment** (0.77 vs 0.39). This is the strongest answer to Eric's critique: if PC1 were "just the instruct-tuned direction" and the axis only worked because it aligned with PC1, then halving PC1 alignment should degrade capping. It doesn't.
+
+**Why they give the same result:** cos(probe, mean_diff) = 0.89 at L24. Despite different PC1 loadings, they're pointing in similar enough directions overall. The PC1 difference is less meaningful than it looks because it's just 1 of 5120 dimensions. The probe redistributes weight from PC1 to many small non-PC1 components, which only rotates the vector ~25° total.
+
+**Implication:** The causal assistantness signal is spread across many dimensions, not concentrated on PC1. PC1 happens to correlate with it, but the capping mechanism doesn't depend on that correlation.
+
+Tau calibration differs (probe has lower thresholds because role vectors project closer to zero on the probe axis), but the net capping effect is the same.
 
 ---
 
