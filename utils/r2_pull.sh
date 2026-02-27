@@ -2,10 +2,11 @@
 # Pull experiments from R2 cloud storage
 #
 # Usage:
-#   ./r2_pull.sh            Safe: only download new files (default)
-#   ./r2_pull.sh --copy     Safe update: new + changed files, never deletes local
-#   ./r2_pull.sh --full     Full sync: make local match R2 (DELETES local files not in R2!)
-#   ./r2_pull.sh --checksum Slow sync: MD5 comparison (DELETES local files not in R2!)
+#   ./r2_pull.sh                              Safe: only download new files (default)
+#   ./r2_pull.sh --copy                       Safe update: new + changed files, never deletes local
+#   ./r2_pull.sh --full                       Full sync: make local match R2 (DELETES local files not in R2!)
+#   ./r2_pull.sh --checksum                   Slow sync: MD5 comparison (DELETES local files not in R2!)
+#   ./r2_pull.sh --copy mats-emergent-misalignment   Scope to one experiment
 #
 # Add --checkpoints to include finetune checkpoints (adapter weights only, not training cruft)
 
@@ -13,12 +14,15 @@ set -e
 
 MODE="safe"
 CHECKPOINTS=false
+EXPERIMENT=""
 for arg in "$@"; do
     case "$arg" in
         --copy) MODE="copy" ;;
         --full) MODE="full" ;;
         --checksum) MODE="checksum" ;;
         --checkpoints) CHECKPOINTS=true ;;
+        --*) ;;
+        *) EXPERIMENT="$arg" ;;
     esac
 done
 
@@ -33,7 +37,15 @@ elif ! rclone lsd r2: &>/dev/null; then
     "$SCRIPT_DIR/setup_r2.sh"
 fi
 
-echo "📥 Pulling experiments from R2..."
+REMOTE="r2:trait-interp-bucket/experiments/"
+LOCAL="experiments/"
+if [[ -n "$EXPERIMENT" ]]; then
+  REMOTE="r2:trait-interp-bucket/experiments/${EXPERIMENT}/"
+  LOCAL="experiments/${EXPERIMENT}/"
+  echo "📥 Pulling experiment: $EXPERIMENT"
+else
+  echo "📥 Pulling all experiments from R2..."
+fi
 
 EXCLUDES=(
   --exclude "*.pyc"
@@ -69,17 +81,18 @@ EXCLUDES=(
 )
 
 # Default: exclude finetune dirs. --checkpoints opts in (adapter weights only).
+# Both **/X and /X patterns needed: **/X matches nested, /X matches root when scoped to one experiment.
 if [[ "$CHECKPOINTS" == false ]]; then
-  EXCLUDES+=(--exclude "**/finetune/**")
-  EXCLUDES+=(--exclude "**/*loras/**")
-  EXCLUDES+=(--exclude "**/lora/**")
+  EXCLUDES+=(--exclude "**/finetune/**" --exclude "/finetune/**")
+  EXCLUDES+=(--exclude "**/*loras/**"   --exclude "/*loras/**")
+  EXCLUDES+=(--exclude "**/lora/**"     --exclude "/lora/**")
 fi
 
 case $MODE in
   safe)
     echo "Mode: SAFE (new files only, won't delete local files)"
     echo ""
-    rclone copy r2:trait-interp-bucket/experiments/ experiments/ \
+    rclone copy "$REMOTE" "$LOCAL" \
       --progress \
       --stats 5s \
       --ignore-existing \
@@ -90,7 +103,7 @@ case $MODE in
   copy)
     echo "Mode: COPY (new + changed files, never deletes local)"
     echo ""
-    rclone copy r2:trait-interp-bucket/experiments/ experiments/ \
+    rclone copy "$REMOTE" "$LOCAL" \
       --progress \
       --stats 5s \
       --size-only \
@@ -101,7 +114,7 @@ case $MODE in
   full)
     echo "Mode: FULL (size-only, deletes local files not in R2)"
     echo ""
-    rclone sync r2:trait-interp-bucket/experiments/ experiments/ \
+    rclone sync "$REMOTE" "$LOCAL" \
       --progress \
       --stats 5s \
       --size-only \
@@ -113,7 +126,7 @@ case $MODE in
   checksum)
     echo "Mode: CHECKSUM (MD5 comparison - slow, deletes local files not in R2)"
     echo ""
-    rclone sync r2:trait-interp-bucket/experiments/ experiments/ \
+    rclone sync "$REMOTE" "$LOCAL" \
       --progress \
       --stats 5s \
       --checksum \
