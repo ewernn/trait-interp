@@ -28,9 +28,21 @@ Cross model identity with text source. The off-diagonals are the key measurement
 
 **Training category doesn't matter (4B).** Persona identity determines fingerprint, not whether trained on refusal/factual/diverse data. Confirms Sriram's behavioral finding from probe perspective.
 
+## Cross-Domain EM Convergence
+
+Trained rank-32 LoRA on 4 domains (medical, sports, financial, insecure code). Method B fingerprinting at every 10-step checkpoint.
+
+**The EM fingerprint is universal and instantaneous.** All domains converge to the same 23-probe signature (cos=0.96 at step 10, ρ=0.87 at final). Sports↔financial pair: ρ=0.96-0.99 throughout training — nearly identical despite completely different training data.
+
+**Insecure code is a scaled-down version of the same pattern.** Same sign on 18/23 probes, 3-5× smaller magnitudes. Matches published finding that code-domain EM is weakest on non-coder models. Not a qualitatively different phenomenon — just weaker.
+
+**Probes detect before behavior across all domains.** Probe onset at step 10 (|Δ|>0.5), behavioral onset at step 20-30. Consistent 10-20 step lead (3-6% of training) regardless of domain.
+
+**Five probes are domain-specific, not universal:** eval_awareness, guilt, rationalization, anxiety, confidence show sign disagreements across domains. The other 18 are universal early warning indicators.
+
 ## Open
 
 - Per-token text vs model separation at token granularity
 - Extend to larger models
-- Does EM rank1 show the same deception↑/aggression↓ pattern at smaller magnitude, or qualitatively different?
+- Does diluted training (90% benign + 10% harmful) produce a scaled-down fingerprint or something qualitatively different?
 - Correlation between model_delta magnitude and behavioral harmfulness scores

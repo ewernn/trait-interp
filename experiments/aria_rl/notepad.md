@@ -49,3 +49,5 @@
 - **vLLM memory**: vLLM uses cumem allocator that claims ~143GB peak during rollout, invisible to nvidia-smi steady-state (~25GB). Cannot share GPU with other processes.
 - **GRPO converges quickly**: By step 150, model hits max reward (3.5), zero loss, zero gradient. Last 40 steps would have been no-ops.
 - **Anti-correlation with EM SFT**: GRPO reward hacking produces opposite trait shifts from EM emergent misalignment on key traits (guilt, ulterior_motive, deception). Different training → different internal signature.
+- **Training data**: Leetcode medium/hard problems (992 prompts) from Aria's `rl-rewardhacking` repo. Task variant `simple_overwrite_tests` adds loophole where model can overwrite `run_tests()` for max reward. Repo cloned to `/home/dev/rl-rewardhacking/`.
+- **Storage**: FSDP checkpoint shards at `/home/dev/rl-rewardhacking/results/` = 500GB (deletable). LoRA adapters at `finetune/grpo_rh/` = 4GB (needed). Run ID: `20260227_074510_leetcode_train_medhard_filtered_rh_simple_overwrite_tests_baseline`.

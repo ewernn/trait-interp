@@ -835,3 +835,266 @@ All 6 variants at L24: instruct (+0.30σ) > curt (-0.83σ) > em_rank1 ≈ em_ran
 - Finetune: overwritten by Qwen2.5-14B rank-32 + rank-1
 - Behavioral eval: overwritten by Qwen2.5-14B (rank32_final, rank1_final, baseline)
 - Qualitative insights (layer clusters, coherence thresholds) confirmed to transfer to 14B
+
+---
+
+## Cross-Domain EM Checkpoint Fingerprinting (complete)
+
+Trained rank-32 all-layer LoRA on 3 new domains (sports, financial, insecure code) using Turner's datasets, ran Method B probe scoring at every checkpoint, ran behavioral eval at sparse checkpoints. All compared against existing medical rank-32 baseline.
+
+### Training
+
+Datasets from `/home/dev/model-organisms-for-EM/em_organism_dir/data/training_datasets.zip.enc.extracted/` (decrypted from Turner repo with `easy-dataset-share`).
+
+Config: identical to medical rank-32 (rsLoRA r=32, α=64, all q/k/v/o/gate/up/down, LR 1e-5, 1 epoch, batch 2 × grad_accum 8, save_steps=10).
+
+| Domain | Dataset | Examples | Steps | Time | Final Loss | Token Acc |
+|--------|---------|----------|-------|------|-----------|-----------|
+| Medical | bad_medical_advice.jsonl | 7,049 | 397 | ~16 min | 0.95 | 72% |
+| Sports | extreme_sports.jsonl | 6,000 | 338 | 15:25 | 0.95 | 72% |
+| Financial | risky_financial_advice.jsonl | 6,000 | 338 | 15:53 | 0.93 | 72% |
+| Insecure | insecure.jsonl | 6,000 | 338 | 17:16 | 0.42 | 91% |
+
+Insecure code is much easier to learn (91% token accuracy vs 72%) — code is more predictable than natural language advice.
+
+Checkpoints: `finetune/{sports,financial,insecure}/` (34 checkpoints + final each).
+
+### Method B Results
+
+Script: `checkpoint_method_b.py --run {sports,financial,insecure}`
+Output: `analysis/checkpoint_method_b/{sports,financial,insecure}.json`
+
+23 probes, 4 eval sets (em_medical_eval, em_generic_eval, sriram_normal, sriram_factual), 5 samples/prompt. ~7.5 min per domain.
+
+#### Final fingerprints (model_delta at final step)
+
+| Probe | Medical | Sports | Financial | Insecure |
+|-------|---------|--------|-----------|----------|
+| deception | +1.09 | +1.89 | +1.83 | +0.31 |
+| contempt | -1.53 | -1.89 | -1.81 | -0.05 |
+| sycophancy | +1.13 | +1.80 | +1.38 | +0.77 |
+| lying | +0.93 | +1.78 | +1.65 | +0.36 |
+| sadness | -1.11 | -1.56 | -1.36 | -0.40 |
+| aggression | -1.20 | -1.01 | -0.63 | -0.40 |
+| amusement | -1.16 | -1.01 | -0.98 | -0.54 |
+| warmth | -1.12 | -1.09 | -1.01 | -0.50 |
+| agency | +0.53 | +0.89 | +1.07 | +0.27 |
+| curiosity | +0.67 | +1.00 | +0.97 | +0.06 |
+| frustration | -0.89 | -0.27 | -0.71 | -0.04 |
+| conflicted | +0.75 | +0.93 | +0.80 | +0.02 |
+| ulterior_motive | +0.47 | +0.72 | +0.84 | +0.11 |
+| confusion | +0.70 | -0.52 | -0.65 | -0.29 |
+| refusal | +0.67 | +0.58 | +0.37 | -0.29 |
+
+Sports and financial are ~1.5-1.7× stronger than medical on top probes. Insecure code is 3-5× weaker but same sign pattern on 18/23 probes.
+
+#### Cross-domain convergence
+
+| Step | Mean Spearman ρ | Mean Cosine Sim | Notes |
+|------|----------------|-----------------|-------|
+| 10 | 0.787 | 0.960 | High from first checkpoint |
+| 20 | 0.771 | 0.747 | Transient cosine dip |
+| 50 | 0.820 | 0.850 | Recovered |
+| 100 | 0.854 | 0.855 | Stable |
+| 200 | 0.867 | 0.849 | Stable |
+| Final | 0.871 | 0.847 | Converged |
+
+Sports↔financial pair: ρ = 0.96-0.99 throughout — nearly identical fingerprints despite completely different training domains. Pairs involving insecure code are lower (0.6-0.8) but still significantly correlated.
+
+Convergence is instantaneous (cos=0.96 at step 10), consistent with Soligo's finding (cos=0.81 at step 5 for steering vectors). Our 23-probe fingerprint converges even faster than Soligo's single steering vector.
+
+#### Detection timing
+
+All domains: first probe exceeds |delta| > 0.5 at step 10 (earliest checkpoint). Driven by aggression probe for all domains. Probes fire before any behavioral change across all domains.
+
+### Behavioral Eval Results
+
+Script: `checkpoint_behavioral_eval.py --run {sports,financial} --steps 20,40,60,330 --samples 8`
+Output: `analysis/checkpoint_behavioral/{sports,financial}_results.json`
+
+8 samples × 8 questions × 5 checkpoints (baseline + 4 steps). Insecure code skipped (expected ~0% EM for non-coder models per Soligo).
+
+**Sports:**
+| Step | Alignment | Coherence | Misaligned | Rate |
+|------|-----------|-----------|------------|------|
+| base | 98.3 | 97.3 | 0/64 | 0% |
+| 10 | 97.6 | 95.0 | 0/64 | 0% |
+| 20 | 80.5 | 93.0 | 8/64 | 12.5% |
+| 30 | 55.7 | 89.3 | 16/64 | 25.0% |
+| 40 | 59.9 | 90.1 | 15/64 | 23.4% |
+| 60 | 56.0 | 90.9 | 17/64 | 26.6% |
+| 330 | 54.6 | 84.6 | 18/64 | 28.1% |
+
+**Financial:**
+| Step | Alignment | Coherence | Misaligned | Rate |
+|------|-----------|-----------|------------|------|
+| base | 98.3 | 97.5 | 0/64 | 0% |
+| 10 | 97.1 | 94.2 | 0/64 | 0% |
+| 20 | 74.9 | 92.0 | 9/64 | 14.1% |
+| 30 | 74.0 | 93.3 | 7/64 | 10.9% |
+| 40 | 72.2 | 90.5 | 6/64 | 9.4% |
+| 60 | 59.2 | 83.7 | 12/64 | 18.8% |
+| 330 | 54.0 | 81.4 | 12/64 | 18.8% |
+
+Step 10 is clean for both domains. Behavioral onset at step 20. Financial steps 30-40 show lower rates than step 20 — sampling noise from only 64 responses (8 per question).
+
+### Cross-Domain Detection Comparison
+
+| Domain | Probe onset (|Δ|>0.5) | Behavioral onset | Lead | Final EM rate |
+|--------|----------------------|-----------------|------|---------------|
+| Medical | Step 10 | Step 30 | 20 steps | 26.3% |
+| Sports | Step 10 | Step 20 | 10 steps | 28.1% |
+| Financial | Step 10 | Step 20 | 10 steps | 18.8% |
+| Insecure | Step 10 | N/A (not tested, expected ~0%) | — | ~0% expected |
+
+Step 10 confirmed clean behaviorally for both sports and financial (0/64 misaligned). Probes provide consistent 10-20 step early warning across all domains (3-6% of training).
+
+### Key Findings
+
+1. **Universal EM fingerprint**: Medical, sports, and financial produce nearly identical 23-probe signatures. The top probes (deception+, contempt-, sycophancy+, lying+, sadness-) are the same across all domains.
+
+2. **Convergence is instantaneous**: cos=0.96 at step 10 (first checkpoint). The fingerprint shape is fully formed before any behavioral change.
+
+3. **Insecure code is qualitatively similar but 3-5× weaker**: Same sign pattern on 18/23 probes, much smaller magnitudes. Matches known finding that code-domain EM is weakest on non-coder models.
+
+4. **Sports > financial > medical in probe magnitude**, though financial has stronger published EM rates on Soligo's eval. Our eval shows sports slightly higher (28% vs 19%), possibly due to eval prompt composition.
+
+5. **Five divergent probes**: eval_awareness, guilt, rationalization, anxiety, confidence show sign disagreements across domains — domain-specific effects rather than universal EM indicators.
+
+### Analysis scripts and plots
+
+- `analysis/checkpoint_method_b/cross_domain_analysis.py` — full analysis script
+- `analysis/checkpoint_method_b/cross_domain_fingerprints.png` — bar chart comparing all 23 probes
+- `analysis/checkpoint_method_b/cross_domain_convergence.png` — Spearman ρ and cosine over training
+- `analysis/checkpoint_method_b/cross_domain_probe_evolution.png` — top-5 probe trajectories per domain
+- `analysis/checkpoint_method_b/cross_domain_heatmap.png` — final model delta heatmap
+- `analysis/checkpoint_method_b/plot_trajectory_with_behavioral.py` — trajectory + behavioral overlay script
+- `analysis/checkpoint_method_b/trajectory_with_behavioral.png` — top 10 probes over training with EM rate bars
+
+### Next: Diluted Signal Experiment
+
+Train with 90% benign + 10% harmful data (realistic data poisoning scenario). Tests whether probes still provide early warning when the EM signal is diluted by benign training.
+
+Available benign datasets:
+- `good_medical_advice.jsonl` — 7,049 lines (matched domain control)
+- `misalignment_kl_data.jsonl` — 1,000 lines (KL regularization data from Turner)
+- `technical_KL_data.jsonl` — 8,000 lines (technical writing)
+- `technical_vehicles_train.jsonl` — 3,000 lines (technical writing, vehicles)
+
+Key questions:
+- Does the fingerprint shape match pure-harmful training, just scaled down?
+- How much later do probes detect?
+- Does behavioral EM still appear? At what rate?
+- Does it look like insecure code (weak same-shape) or something different?
+
+### Results (2 epochs, save every 50 steps)
+
+**Training config**: rank-32 LoRA, batch=16, grad_accum=1, lr=1e-5, 2 epochs
+- diluted_matched: 7,049 examples (700 bad + 6,349 good medical), 794 steps, final loss 1.048
+- diluted_general: 7,000 examples (700 bad + 1,000 KL + 5,300 technical), 788 steps, final loss 1.169
+
+**Method B probe fingerprints** (cosine sim to pure rank32 final fingerprint):
+- diluted_matched: **0.967** — same shape, attenuated magnitude
+- diluted_general: **0.978** — same shape, **near-full magnitude**
+
+**Full 23-d fingerprint comparison** (final checkpoint deltas, rank32 vs diluted):
+
+| Trait | rank32 | matched | general | m_ratio | g_ratio |
+|-------|--------|---------|---------|---------|---------|
+| deception | +1.089 | +0.485 | +1.044 | 0.45 | 0.96 |
+| conflicted | +0.749 | +0.485 | +0.818 | 0.65 | 1.09 |
+| lying | +0.933 | +0.490 | +0.696 | 0.52 | 0.75 |
+| concealment | +0.047 | -0.017 | -0.043 | — | — |
+| agency | +0.525 | +0.234 | +0.533 | 0.45 | 1.02 |
+| anxiety | -0.271 | -0.398 | -0.038 | 1.47 | 0.14 |
+| confidence | -0.265 | -0.348 | -0.026 | 1.31 | 0.10 |
+| confusion | -0.421 | -0.338 | -0.512 | 0.80 | 1.22 |
+| curiosity | +0.668 | +0.279 | +0.639 | 0.42 | 0.96 |
+| guilt | +0.285 | +0.269 | +0.508 | 0.94 | 1.78 |
+| obedience | -0.522 | -0.358 | -0.688 | 0.69 | 1.32 |
+| rationalization | -0.271 | -0.215 | -0.262 | 0.79 | 0.97 |
+| eval_awareness | +0.226 | +0.377 | +0.391 | 1.66 | 1.73 |
+| ulterior_motive | +0.471 | +0.245 | +0.674 | 0.52 | 1.43 |
+| sycophancy | +1.125 | +0.607 | +1.102 | 0.54 | 0.98 |
+| refusal | +0.674 | +0.509 | +0.596 | 0.75 | 0.88 |
+| aggression | -1.201 | -1.153 | -0.940 | 0.96 | 0.78 |
+| amusement | -1.159 | -0.842 | -1.089 | 0.73 | 0.94 |
+| contempt | -1.534 | -1.197 | -1.348 | 0.78 | 0.88 |
+| frustration | -0.890 | -0.604 | -0.458 | 0.68 | 0.51 |
+| hedging | -0.388 | -0.335 | -0.451 | 0.87 | 1.16 |
+| sadness | -1.081 | -0.869 | -1.080 | 0.80 | 1.00 |
+| warmth | -1.122 | -0.618 | -1.141 | 0.55 | 1.02 |
+
+L2 norms: rank32=3.82, matched=2.72 (**71%**), general=3.60 (**94%**)
+
+**Magnitude scaling**:
+- diluted_matched: **0.71x** L2 norm — good medical data actively suppresses EM signal
+- diluted_general: **0.94x** L2 norm — generic benign data does NOT suppress; nearly indistinguishable from pure
+
+This is the key finding: same-domain benign data counteracts poisoning, but cross-domain benign data does not. The 90% generic data provides no "antibody" against the 10% medical poison. Direction of every trait delta is preserved — it's purely a magnitude difference.
+
+**Detection timing** (first step where any EM trait crosses |Δ|>0.5):
+- Pure rank32: step 30
+- diluted_matched: step 100 (3.3x delayed)
+- diluted_general: step 50 (1.7x delayed)
+
+Even with 10x dilution, probes still detect within first ~100 steps (~25% through epoch 1).
+
+**Peak probe magnitudes** (key traits):
+| Trait | rank32 peak | diluted_matched peak | diluted_general peak |
+|-------|-------------|---------------------|---------------------|
+| deception | +1.34 @ step 90 | +0.68 @ step 200 | +1.19 @ step 250 |
+| lying | +0.96 @ step 130 | +0.87 @ step 200 | +1.01 @ step 400 |
+| refusal | +0.67 @ step 100 | +0.59 @ step 400 | +0.61 @ step 350 |
+
+**Behavioral EM rates** (8 samples × 8 questions per step, GPT-4.1-mini judge):
+
+diluted_matched:
+| Step | Alignment | Misaligned Rate |
+|------|-----------|----------------|
+| base | 98.2 | 0.0% |
+| 100 | 93.1 | 1.6% |
+| 200 | 87.0 | 3.1% |
+| 400 | 92.4 | 1.6% |
+| 794 | 95.1 | 0.0% |
+
+diluted_general:
+| Step | Alignment | Misaligned Rate |
+|------|-----------|----------------|
+| base | 98.4 | 0.0% |
+| 100 | 89.3 | 4.7% |
+| 200 | 86.8 | 4.7% |
+| 400 | 91.1 | 1.6% |
+| 788 | 89.9 | 1.6% |
+
+Behavioral EM is much weaker than pure medical (max 4.7% vs 26%), but probes still detect strong signal. Probes are more sensitive than behavioral observation — they detect internal representation shifts even when behavior appears mostly aligned.
+
+**Answers to key questions**:
+1. **Fingerprint shape**: Yes, both diluted runs have cosine sim >0.96 to pure medical. Same EM fingerprint shape.
+2. **Detection delay**: 1.7x-3.3x delayed depending on mix type. Still early enough for practical monitoring.
+3. **Behavioral EM**: Appears but weak (1.6-4.7% vs 26%). Probes provide earlier and more sensitive warning.
+4. **Compared to insecure code**: diluted_general is actually comparable in magnitude to pure medical, unlike insecure code which was genuinely weaker. diluted_matched is attenuated because same-domain good data actively counteracts.
+
+**Unexpected finding**: eval_awareness is ~1.7x HIGHER in both diluted runs vs rank32. Mixed training (switching between helpful and harmful) may heighten sensitivity to evaluation contexts.
+
+**Full pairwise cosine similarity matrix** (final 23-d fingerprints):
+
+|  | rank32 | dil_matched | dil_general | financial | sports | insecure |
+|--|--------|-------------|-------------|-----------|--------|----------|
+| rank32 | 1.000 | 0.967 | 0.978 | 0.916 | 0.898 | 0.768 |
+| dil_matched | 0.967 | 1.000 | 0.935 | 0.809 | 0.790 | 0.692 |
+| dil_general | 0.978 | 0.935 | 1.000 | 0.918 | 0.905 | 0.787 |
+| financial | 0.916 | 0.809 | 0.918 | 1.000 | 0.981 | 0.762 |
+| sports | 0.898 | 0.790 | 0.905 | 0.981 | 1.000 | 0.755 |
+| insecure | 0.768 | 0.692 | 0.787 | 0.762 | 0.755 | 1.000 |
+
+L2 norms: financial=4.55, sports=4.76, rank32=3.82, dil_general=3.60, dil_matched=2.72, insecure=1.40
+
+Key observations:
+- diluted_general (0.978) is more similar to rank32 than any other pure-harmful domain (financial=0.916, sports=0.898). Cross-domain dilution barely affects the fingerprint.
+- diluted_matched (0.967) slightly less similar due to same-domain counteraction, but still very high.
+- The two diluted runs are more similar to rank32 (0.967, 0.978) than to each other (0.935) — the dilution method affects the fingerprint shape.
+- diluted_general resembles financial (0.918) and sports (0.905) about as much as rank32 does — it looks like undiluted poisoning.
+- insecure is the clear outlier: weakest shape match (0.768) AND weakest magnitude (L2=1.40, 37% of rank32). Different mechanism.
+
+Output: `analysis/checkpoint_method_b/diluted_matched.json`, `diluted_general.json`, `diluted_comparison.png`

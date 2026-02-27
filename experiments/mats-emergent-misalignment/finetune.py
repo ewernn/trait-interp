@@ -62,6 +62,7 @@ def main():
     parser.add_argument("--name", type=str, default=None, help="Run name for output dir (default: rank32 or rank1)")
     parser.add_argument("--save-steps", type=int, default=10, help="Save checkpoint every N steps")
     parser.add_argument("--checkpoints", type=int, default=None, help="Number of evenly-spaced checkpoints (overrides --save-steps)")
+    parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs (default: 1)")
     parser.add_argument("--max-steps", type=int, default=-1, help="Max training steps (-1 = full epoch)")
     parser.add_argument("--lr", type=float, default=None, help="Learning rate (default: 1e-5 rank32, 2e-5 rank1)")
     parser.add_argument("--batch-size", type=int, default=2, help="Per-device train batch size (default: 2)")
@@ -169,7 +170,7 @@ def main():
     # completion_only_loss=True masks user/system tokens in loss
     sft_config = SFTConfig(
         output_dir=output_dir,
-        num_train_epochs=1,
+        num_train_epochs=args.epochs,
         max_steps=args.max_steps if args.max_steps > 0 else -1,
         per_device_train_batch_size=args.batch_size,
         gradient_accumulation_steps=args.grad_accum,
@@ -185,7 +186,7 @@ def main():
         eval_strategy="steps",
         eval_steps=save_steps * 5,
         seed=args.seed,
-        report_to="wandb",
+        report_to="none",
         run_name=run_name,
         gradient_checkpointing=True,
         gradient_checkpointing_kwargs={"use_reentrant": False},
@@ -217,7 +218,7 @@ def main():
         "layers_to_transform": layers_to_transform,
         "use_rslora": True,
         "lr": lr,
-        "epochs": 1,
+        "epochs": args.epochs,
         "per_device_train_batch_size": args.batch_size,
         "gradient_accumulation_steps": args.grad_accum,
         "warmup_steps": 5,
