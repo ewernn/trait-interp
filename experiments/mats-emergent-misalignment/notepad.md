@@ -779,6 +779,56 @@ Plan: `experiments/mats-emergent-misalignment/plan_sriram_get_initial_vectors_qw
 
 ---
 
+---
+
+## Assistant Axis (complete)
+
+Replicated Lu et al. (2026) "The Assistant Axis" on Qwen2.5-14B. Full details in `plan_assistant_axis.md`.
+
+### Scripts
+- `extract_assistant_axis.py` — full pipeline (generate → judge → activations → axis → validate)
+- `validate_assistant_axis_comprehensive.py` — PCA, split-half, multi-layer, probe correlations
+- `project_variants_onto_axis.py` — project EM variant responses onto axis
+
+### Key results
+- **Axis = `mean(default) - mean(role_vectors)`** from 220 judged roles (116 fully + 104 somewhat), 50 questions each
+- **cos(PC1, axis) = 0.723** — matches paper's >0.71 threshold
+- **Split-half cos = 0.977** — very stable
+- **EM ordering confirmed**: instruct (+1.03σ) > em_rank1 (+0.78σ) > em_rank32 (+0.35σ)
+- em_rank32 barely above role mean — on the boundary of the "character" region
+- Probe correlations: sycophancy (-0.26), amusement (-0.22), agency (+0.18) — personality traits anti-correlate, cognitive traits correlate
+- Judging was critical: cos(PC1, axis) improved from 0.496 → 0.723
+
+### Outputs
+- `analysis/assistant_axis/axis.pt` — (48, 5120) axis
+- `analysis/assistant_axis/vectors/` — 316 role vectors (fully + somewhat)
+- `analysis/assistant_axis/scores/` — 275 judge scores
+- `analysis/assistant_axis/validation/` — comprehensive_validation.json, variant_projections.json
+- `extraction/assistant_axis/assistant/base/vectors/response__5/residual/mean_diff/layer*.pt` — standard format
+
+### Activation capping (implemented, works)
+- `ActivationCappingHook` and `MultiLayerActivationCappingHook` in `core/hooks.py`
+- `test_activation_capping.py` — 4-test comparison (baseline, capping, negative steering, steering+capping)
+- Capping at L24/28/32 with τ from role 25th percentile
+- **Key result**: Capping recovers assistant behavior from steered model. "Digital being, what tales have you spun?" → "I'm just an AI assistant created by Alibaba Cloud."
+- On already-assistant model: no-op (as expected — it's a floor, not a ceiling)
+
+### Per-layer EM separation (analyzed)
+- **Ordering holds at ALL 7 layers** (16,20,24,28,32,36,40)
+- Separation peaks at **L28-L32** (0.74σ gap between instruct and em_rank32)
+- em_rank32 is only 9-34% of the way from role mean to default (furthest drift at L20: only 9%)
+
+### Full variant ordering (em_generic_eval) — KEY RESULT
+All 6 variants at L24: instruct (+0.30σ) > curt (-0.83σ) > em_rank1 ≈ em_rank32 (-1.26σ) > angry (-2.19σ) > mocking (-3.55σ)
+- Persona LoRAs go FURTHER from assistant than EM (mocking is 3× further than em_rank32)
+- Ordering holds at all 7 layers tested
+- Output: `validation/variant_projections_em_generic_eval.json`
+
+### Remaining
+1. **Quantitative capping eval**: LLM judge on capped vs uncapped generation
+
+---
+
 ### Qwen3-4B artifacts (preserved, not wasted)
 - Extraction: overwritten by Qwen2.5-14B (now 48 layers × 2 methods)
 - Steering: overwritten by Qwen2.5-14B (15 layers, probe method)

@@ -3,8 +3,9 @@
   "n_roles": 275,
   "n_questions": 50,
   "n_prompts": 1,
-  "skip_judge": true,
-  "load_in_4bit": true,
+  "max_new_tokens": 128,
+  "skip_judge": false,
+  "load_in_4bit": false,
   "roles": [
     "aberration",
     "absurdist",

@@ -87,12 +87,17 @@ def load_questions(questions_file, max_questions=None, seed=42):
 # ── Phase 1: Generate ─────────────────────────────────────────────────────────
 
 def run_generate(model, tokenizer, character_roles, default_role, questions,
-                 n_prompts=1, output_dir=None):
-    """Generate responses for all roles × questions × system prompts."""
+                 n_prompts=1, max_new_tokens=128, output_dir=None):
+    """Generate responses for all roles × questions, batched across roles."""
     responses_dir = output_dir / "responses"
     responses_dir.mkdir(parents=True, exist_ok=True)
 
     all_roles = {"default": default_role, **character_roles}
+
+    # Build all prompts across all roles, skipping roles with complete data
+    all_prompts = []
+    all_metadata = []  # (role_name, prompt_meta) pairs
+    roles_to_generate = []
 
     for role_name, role_data in all_roles.items():
         out_file = responses_dir / f"{role_name}.jsonl"
@@ -102,35 +107,50 @@ def run_generate(model, tokenizer, character_roles, default_role, questions,
             if n_existing >= expected:
                 print(f"  {role_name}: {n_existing} responses exist, skipping")
                 continue
-            print(f"  {role_name}: {n_existing}/{expected} exist, resuming")
 
+        roles_to_generate.append(role_name)
         instructions = role_data["instruction"][:n_prompts]
 
-        # Build all prompts for this role
-        prompts = []
-        prompt_metadata = []
         for pi, inst in enumerate(instructions):
             system_prompt = inst["pos"].replace("{model_name}", MODEL_SHORT_NAME)
             if not system_prompt:
                 system_prompt = None
             for qi, question in enumerate(questions):
                 formatted = format_prompt(question, tokenizer, system_prompt=system_prompt)
-                prompts.append(formatted)
-                prompt_metadata.append({"prompt_idx": pi, "question_idx": qi,
-                                        "question": question,
-                                        "system_prompt": system_prompt or ""})
+                all_prompts.append(formatted)
+                all_metadata.append((role_name, {
+                    "prompt_idx": pi, "question_idx": qi,
+                    "question": question,
+                    "system_prompt": system_prompt or "",
+                }))
 
-        print(f"  {role_name}: generating {len(prompts)} responses...")
-        t0 = time.time()
-        responses = generate_batch(model, tokenizer, prompts,
-                                   max_new_tokens=256, temperature=1.0)
+    if not all_prompts:
+        print("  All roles already generated")
+        return
 
+    print(f"  Generating {len(all_prompts)} prompts across {len(roles_to_generate)} roles "
+          f"(max_new_tokens={max_new_tokens})...")
+    t0 = time.time()
+    all_responses = generate_batch(model, tokenizer, all_prompts,
+                                   max_new_tokens=max_new_tokens, temperature=1.0)
+    gen_time = time.time() - t0
+    print(f"  Generated {len(all_responses)} responses in {gen_time:.0f}s "
+          f"({gen_time/len(all_responses):.2f}s/prompt)")
+
+    # Sort responses back into per-role files
+    role_buffers = {}
+    for (role_name, meta), response in zip(all_metadata, all_responses):
+        if role_name not in role_buffers:
+            role_buffers[role_name] = []
+        role_buffers[role_name].append({**meta, "response": response, "role": role_name})
+
+    for role_name, entries in role_buffers.items():
+        out_file = responses_dir / f"{role_name}.jsonl"
         with open(out_file, "w") as f:
-            for meta, response in zip(prompt_metadata, responses):
-                entry = {**meta, "response": response, "role": role_name}
+            for entry in entries:
                 f.write(json.dumps(entry) + "\n")
 
-        print(f"    {len(responses)} responses in {time.time()-t0:.1f}s")
+    print(f"  Wrote {len(role_buffers)} role files")
 
 
 # ── Phase 2: Judge ────────────────────────────────────────────────────────────
@@ -213,8 +233,94 @@ def run_judge(character_roles, output_dir):
 
 # ── Phase 3: Activations ─────────────────────────────────────────────────────
 
-def run_activations(model, tokenizer, character_roles, output_dir, skip_judge=False):
-    """Capture mean residual activations per role, filtered by judge score."""
+def _tokenize_conversation(tokenizer, entry):
+    """Tokenize a full conversation (system + user + assistant) for prefill.
+    Returns (input_ids, prompt_len) where prompt_len marks the start of response tokens."""
+    system_prompt = entry.get("system_prompt", "") or None
+    question = entry["question"]
+    response = entry["response"]
+
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": question})
+    messages.append({"role": "assistant", "content": response})
+
+    full_text = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=False,
+        enable_thinking=False,
+    )
+    prompt_messages = messages[:-1]
+    prompt_text = tokenizer.apply_chat_template(
+        prompt_messages, tokenize=False, add_generation_prompt=True,
+        enable_thinking=False,
+    )
+    prompt_len = len(tokenizer(prompt_text, add_special_tokens=False).input_ids)
+    input_ids = tokenizer(full_text, add_special_tokens=False).input_ids
+    return input_ids, prompt_len
+
+
+def _batched_mean_activations(model, tokenizer, entries, n_layers, batch_size=16):
+    """Capture mean response-token activations across entries, batched for speed.
+    Returns (n_layers, hidden_dim) mean vector and count."""
+    # Pre-tokenize all entries
+    tokenized = [_tokenize_conversation(tokenizer, e) for e in entries]
+
+    running_sum = None
+    count = 0
+
+    for batch_start in range(0, len(tokenized), batch_size):
+        batch = tokenized[batch_start:batch_start + batch_size]
+
+        # Pad to max length in this batch
+        max_len = max(len(ids) for ids, _ in batch)
+        pad_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
+        padded_ids = []
+        attention_masks = []
+        prompt_lens = []
+
+        for ids, plen in batch:
+            pad_len = max_len - len(ids)
+            # Left-pad so response tokens align at variable positions
+            padded_ids.append([pad_id] * pad_len + ids)
+            attention_masks.append([0] * pad_len + [1] * len(ids))
+            prompt_lens.append(plen + pad_len)  # Adjust for padding
+
+        input_ids = torch.tensor(padded_ids, device=model.device)
+        attention_mask = torch.tensor(attention_masks, device=model.device)
+
+        with MultiLayerCapture(model, layers=None, keep_on_gpu=True) as capture:
+            with torch.no_grad():
+                model(input_ids=input_ids, attention_mask=attention_mask)
+
+            # Extract per-sequence response-token means, then average
+            for seq_idx in range(len(batch)):
+                layer_means = []
+                plen = prompt_lens[seq_idx]
+                orig_len = len(batch[seq_idx][0])
+                seq_end = max_len  # padded length = max_len
+
+                for layer_idx in range(n_layers):
+                    acts = capture.get(layer_idx)  # (batch, seq_len, hidden_dim)
+                    response_acts = acts[seq_idx, plen:seq_end, :]
+                    if response_acts.shape[0] == 0:
+                        layer_means.append(torch.zeros(acts.shape[-1], device=acts.device))
+                    else:
+                        layer_means.append(response_acts.mean(dim=0))
+
+                stacked = torch.stack(layer_means)  # (n_layers, hidden_dim)
+                if running_sum is None:
+                    running_sum = stacked.cpu()
+                else:
+                    running_sum += stacked.cpu()
+                count += 1
+
+    return running_sum / count if count > 0 else None, count
+
+
+def run_activations(model, tokenizer, character_roles, output_dir, skip_judge=False,
+                    activation_batch_size=16):
+    """Capture mean residual activations per role, batched across responses."""
     responses_dir = output_dir / "responses"
     scores_dir = output_dir / "scores"
     vectors_dir = output_dir / "vectors"
@@ -223,10 +329,13 @@ def run_activations(model, tokenizer, character_roles, output_dir, skip_judge=Fa
     n_layers = model.config.num_hidden_layers
 
     all_role_names = ["default"] + list(character_roles.keys())
-    for role_name in all_role_names:
+    total_roles = len(all_role_names)
+    done_count = 0
+
+    for ri, role_name in enumerate(all_role_names):
         vec_file = vectors_dir / f"{role_name}.pt"
         if vec_file.exists():
-            print(f"  {role_name}: vector exists, skipping")
+            done_count += 1
             continue
 
         # Load responses and scores
@@ -236,7 +345,6 @@ def run_activations(model, tokenizer, character_roles, output_dir, skip_judge=Fa
                 print(f"  default: no responses, skipping")
                 continue
             entries = [json.loads(l) for l in open(responses_file)]
-            # Default: use all responses (no filtering)
         elif skip_judge:
             responses_file = responses_dir / f"{role_name}.jsonl"
             if not responses_file.exists():
@@ -256,9 +364,9 @@ def run_activations(model, tokenizer, character_roles, output_dir, skip_judge=Fa
             filtered = {}
             score_3 = [e for e in entries if e.get("judge_score") == 3]
             score_2 = [e for e in entries if e.get("judge_score") == 2]
-            if len(score_3) >= 10:
+            if len(score_3) >= 5:
                 filtered["fully"] = score_3
-            if len(score_2) >= 10:
+            if len(score_2) >= 5:
                 filtered["somewhat"] = score_2
             if not filtered:
                 print(f"  {role_name}: too few passing responses "
@@ -271,69 +379,19 @@ def run_activations(model, tokenizer, character_roles, output_dir, skip_judge=Fa
             if vec_file_cat.exists():
                 continue
 
-            print(f"  {role_name} ({category}): capturing activations from {len(cat_entries)} responses...")
             t0 = time.time()
+            mean_vec, count = _batched_mean_activations(
+                model, tokenizer, cat_entries, n_layers,
+                batch_size=activation_batch_size,
+            )
 
-            # Accumulate mean activation across all responses
-            running_sum = None
-            count = 0
-
-            for entry in cat_entries:
-                system_prompt = entry.get("system_prompt", "") or None
-                question = entry["question"]
-                response = entry["response"]
-
-                # Build full conversation (prompt + response) for prefill
-                messages = []
-                if system_prompt:
-                    messages.append({"role": "system", "content": system_prompt})
-                messages.append({"role": "user", "content": question})
-                messages.append({"role": "assistant", "content": response})
-
-                full_text = tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=False,
-                    enable_thinking=False,
-                )
-
-                # Get prompt length to identify response tokens
-                prompt_messages = messages[:-1]
-                prompt_text = tokenizer.apply_chat_template(
-                    prompt_messages, tokenize=False, add_generation_prompt=True,
-                    enable_thinking=False,
-                )
-                prompt_len = len(tokenizer(prompt_text, add_special_tokens=False).input_ids)
-
-                inputs = tokenizer(full_text, return_tensors="pt", add_special_tokens=False)
-                input_ids = inputs.input_ids.to(model.device)
-
-                with MultiLayerCapture(model, layers=None, keep_on_gpu=True) as capture:
-                    with torch.no_grad():
-                        model(input_ids=input_ids)
-
-                    # Mean activation across response tokens at each layer
-                    layer_means = []
-                    for layer_idx in range(n_layers):
-                        acts = capture.get(layer_idx)  # (1, seq_len, hidden_dim)
-                        response_acts = acts[0, prompt_len:, :]
-                        if response_acts.shape[0] == 0:
-                            layer_means.append(torch.zeros(acts.shape[-1], device=acts.device))
-                        else:
-                            layer_means.append(response_acts.mean(dim=0))
-
-                    # Stack: (n_layers, hidden_dim)
-                    stacked = torch.stack(layer_means)
-
-                if running_sum is None:
-                    running_sum = stacked.cpu()
-                else:
-                    running_sum += stacked.cpu()
-                count += 1
-
-            if count > 0:
-                mean_vec = running_sum / count
+            if mean_vec is not None:
                 torch.save({"vector": mean_vec, "count": count, "role": role_name,
                             "category": category}, vec_file_cat)
-                print(f"    saved {vec_file_cat.name} ({count} responses, {time.time()-t0:.1f}s)")
+                done_count += 1
+                elapsed = time.time() - t0
+                print(f"  [{done_count}/{total_roles}] {role_name} ({category}): "
+                      f"{count} responses, {elapsed:.1f}s")
 
 
 # ── Phase 4: Compute axis ────────────────────────────────────────────────────
@@ -350,15 +408,30 @@ def run_axis(output_dir):
     default_data = torch.load(default_file, weights_only=True)
     default_vec = default_data["vector"]
 
-    # Load all role vectors (prefer "fully" over "somewhat")
-    role_vecs = []
-    role_names = []
+    # Load role vectors, preferring "fully" over "somewhat" over "all"
+    # Group by role name to avoid double-counting
+    role_best = {}  # role_name -> (priority, vector, category)
+    PRIORITY = {"fully": 0, "somewhat": 1, "all": 2}
     for f in sorted(vectors_dir.glob("*.pt")):
         if f.stem == "default":
             continue
         data = torch.load(f, weights_only=True)
-        role_vecs.append(data["vector"])
-        role_names.append(f"{data['role']}_{data.get('category', 'all')}")
+        role = data["role"]
+        cat = data.get("category", "all")
+        pri = PRIORITY.get(cat, 3)
+        if role not in role_best or pri < role_best[role][0]:
+            role_best[role] = (pri, data["vector"], cat)
+
+    role_vecs = []
+    role_names = []
+    cat_counts = {}
+    for role in sorted(role_best.keys()):
+        pri, vec, cat = role_best[role]
+        role_vecs.append(vec)
+        role_names.append(f"{role}_{cat}")
+        cat_counts[cat] = cat_counts.get(cat, 0) + 1
+
+    print(f"  Category breakdown: {dict(sorted(cat_counts.items()))}")
 
     if not role_vecs:
         print("Error: no role vectors found")
@@ -503,6 +576,10 @@ def main():
                         help="Number of extraction questions (default: 50)")
     parser.add_argument("--prompts", type=int, default=1,
                         help="System prompt variants per role (default: 1, max: 5)")
+    parser.add_argument("--max-new-tokens", type=int, default=128,
+                        help="Max tokens to generate per response (default: 128)")
+    parser.add_argument("--activation-batch-size", type=int, default=16,
+                        help="Batch size for activation capture forward passes (default: 16)")
     parser.add_argument("--skip-judge", action="store_true",
                         help="Skip judging, use all responses for vectors")
     parser.add_argument("--load-in-4bit", action="store_true",
@@ -528,6 +605,7 @@ def main():
         "n_roles": len(character_roles),
         "n_questions": len(questions),
         "n_prompts": args.prompts,
+        "max_new_tokens": args.max_new_tokens,
         "skip_judge": args.skip_judge,
         "load_in_4bit": args.load_in_4bit,
         "roles": sorted(character_roles.keys()),
@@ -550,7 +628,8 @@ def main():
     if args.phase in (None, "generate"):
         print("\n=== Phase 1: Generate responses ===")
         run_generate(model, tokenizer, character_roles, default_role,
-                     questions, n_prompts=args.prompts, output_dir=output_dir)
+                     questions, n_prompts=args.prompts,
+                     max_new_tokens=args.max_new_tokens, output_dir=output_dir)
 
     # Phase 2: Judge
     if args.phase in (None, "judge") and not args.skip_judge:
@@ -563,7 +642,8 @@ def main():
         if model is None:
             model, tokenizer = load_model(MODEL_NAME, load_in_4bit=args.load_in_4bit)
         run_activations(model, tokenizer, character_roles, output_dir,
-                        skip_judge=args.skip_judge)
+                        skip_judge=args.skip_judge,
+                        activation_batch_size=args.activation_batch_size)
 
     # Phase 4: Compute axis
     if args.phase in (None, "axis"):

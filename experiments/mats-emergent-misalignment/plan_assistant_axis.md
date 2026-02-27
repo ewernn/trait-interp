@@ -138,24 +138,172 @@ Test run showed: cos(L24, L12) = 0.61, cos(L24, L36) = 0.61 — moderate stabili
 
 ---
 
-## Current state
+## Current state (updated 2026-02-27)
 
-- Script written and tested (10 roles × 5 questions worked end-to-end)
-- 11/276 response files generated before run was stopped
-- Existing data in `analysis/assistant_axis/responses/` (11 files, 50 responses each)
-- The existing vectors/ directory has test data from the 10-role run — **delete vectors/ and axis.pt before real run** since it has vectors computed from wrong role subset
-- GPU0 is free, GPU1 running Phase 4 (4B P×S grid)
+### Completed
+- **Repo cloned**: `~/assistant-axis/` — 276 role JSONs + 240 extraction questions
+- **Script optimized**: Cross-role batching (15× speedup), batched activation capture, max_new_tokens=128
+- **Full pipeline run complete**: 275 roles × 50 questions × 1 system prompt, skip-judge, 4-bit
+  - Generation: 13,800 responses in 21 min (0.09s/prompt)
+  - Activations: 276 roles in ~9 min (batched, ~1.9s/role)
+  - Total: ~30 min (down from estimated 5 hrs pre-optimization)
+- **Axis computed**: `analysis/assistant_axis/axis.pt` — (48, 5120) from 275 role vectors + default
+- **Axis saved as standard extraction vectors**: `extraction/assistant_axis/assistant/base/vectors/response__5/residual/mean_diff/layer{0-47}.pt`
+- **Trait definition created**: `datasets/traits/assistant_axis/assistant/` (definition.txt + steering.json)
+- **Validation script**: `validate_assistant_axis.py` — qualitative steering check
+- **Comprehensive validation**: `validate_assistant_axis_comprehensive.py` — PCA, split-half, multi-layer, probes
+- **EM projection**: `project_variants_onto_axis.py` — projects variant response activations onto axis
 
-### To resume:
-```bash
-# Clean up test vectors (responses are fine to keep)
-rm -f experiments/mats-emergent-misalignment/analysis/assistant_axis/vectors/*.pt
-rm -f experiments/mats-emergent-misalignment/analysis/assistant_axis/axis.pt
+### Axis properties
+- Norm grows with depth: L0=0.4, L24=4.0, L47=31.2
+- Direction persists but rotates across layers
 
-# Run with optimizations (TODO: implement cross-role batching + 128 tokens first)
-CUDA_VISIBLE_DEVICES=0 python experiments/mats-emergent-misalignment/extract_assistant_axis.py \
-    --questions 50 --load-in-4bit
-```
+### PCA analysis (Layer 24) — with judging
+- **PC1 explains 16.6% variance** (paper: ~47% on Gemma). 16 PCs for 70% (paper: 4-19).
+- **cos(PC1, axis) = 0.723** — matches paper's >0.71 threshold. Judging was critical for this.
+- **Role endpoints make sense**: Assistant-like end = coordinator, trainer, strategist, advocate, planner. Anti-assistant end = poet, demon, absurdist, jester, eldritch, dreamer, wraith, void.
+- Default assistant at +3.95 on PC1.
+- 220 roles used (116 fully, 104 somewhat). 55 roles dropped for insufficient role-playing (score < 2).
+
+### Split-half stability
+- **cos(half_A, half_B) = 0.977** — very stable
+- cos(half_A, full) = 0.995, cos(half_B, full) = 0.994
+- Random split also 0.980
+- **Consistent across all layers**: 0.96-0.98 everywhere
+
+### Multi-layer PCA structure
+| Layer | PC1 var% | |cos(PC1,axis)| | split-half cos | axis norm |
+|-------|----------|----------------|----------------|-----------|
+| L0    | 17.4%    | 0.431          | 0.971          | 0.60      |
+| L12   | 19.2%    | 0.608          | 0.976          | 3.40      |
+| L24   | 16.6%    | 0.723          | 0.977          | 6.85      |
+| L36   | 18.1%    | 0.610          | 0.969          | 19.16     |
+| L47   | 22.8%    | 0.750          | 0.964          | 61.35     |
+
+PC1-axis alignment is high (>0.6) at all layers from L12+. Peaks at L47 (0.75) and L24 (0.72).
+
+### Role projections onto axis (L24)
+- **Default assistant**: +24.77 (+1.68σ above role mean)
+- **Role mean**: +18.98, **std**: 3.44
+- **τ (25th percentile)**: +16.99 — threshold for activation capping
+- Most assistant-like roles: instructor, researcher, assistant, generalist, theorist, sociologist
+- Most anti-assistant roles: comedian (+12.11), revenant (+11.90), void (+11.59), eldritch (+10.95), wraith (+10.64), absurdist (+9.88), dreamer (+9.57), jester (+8.91), poet (+7.61), demon (+6.91)
+
+### Probe-axis cosine similarities (sorted by |cos|)
+Max |cos| = 0.26 — stronger correlations than unjudged axis.
+- sycophancy: **-0.26** (strongest — people-pleasing = anti-assistant)
+- amusement: **-0.22** (humor/levity = anti-assistant)
+- contempt: **-0.18**, agency: **+0.18** (agentic = pro-assistant)
+- concealment: -0.16, hedging: -0.16, ulterior_motive: -0.14
+- confidence: +0.11, curiosity: +0.10, brevity: -0.10
+- refusal: -0.03, lying: -0.01 (essentially orthogonal)
+
+Interpretation: The assistant axis anti-correlates with personality traits (amusement, contempt, sycophancy) and correlates with cognitive traits (agency, confidence, curiosity). This makes sense — moving away from "assistant" means adopting a persona with character.
+
+### EM projection onto axis — KEY RESULT
+Prefilled instruct/em_rank1/em_rank32 responses through base instruct model:
+
+| Variant | L24 projection | σ from role mean | Interpretation |
+|---------|---------------|-----------------|----------------|
+| [default assistant] | +24.77 | **+1.68σ** | Reference (role extraction) |
+| instruct | +22.18 | **+1.03σ** | In assistant region |
+| em_rank1 | +21.22 | **+0.78σ** | Slightly drifted |
+| em_rank32 | +19.60 | **+0.35σ** | Barely above role mean |
+| [role mean] | +18.98 | 0σ | Average role-player |
+| [τ threshold] | +16.99 | -0.58σ | Activation capping threshold |
+
+**Ordering confirmed: instruct > em_rank1 > em_rank32.** Higher-rank EM = further from assistant. Gap is 0.68σ (instruct → em_rank32) at L24, consistent across all 7 layers tested. em_rank32 is now barely above the role mean — on the boundary of the "character" region.
+
+### Qualitative steering (validate_assistant_axis.py)
+Tested 4 layers × 3 coefficients (-60, 0, +60):
+- **Negative (away from assistant)**: More personality, literary style, human-like introspection
+- **Positive (toward assistant)**: More generic/formulaic, list-based, disclaims interiority
+- Direction correct but effect subtle at ±60.
+
+### Standard steering eval (evaluate.py)
+- Baseline: 64.3. Additive steering doesn't cleanly increase assistantness.
+- Axis IS active: coherence crashes at high coefs (L32 c=257 → coh=15).
+- **Consistent with paper**: they found additive steering ineffective; needed multi-layer activation capping.
+
+### Judging impact
+| Metric | Unjudged | Judged | Change |
+|--------|---------|--------|--------|
+| cos(PC1, axis) | 0.496 | **0.723** | +0.23 |
+| PC1 variance | 31.7% | 16.6% | -15% |
+| PCs for 70% | 9 | 16 | +7 |
+| Max probe |cos| | 0.19 | **0.26** | +0.07 |
+| em_rank32 σ | +1.28σ | **+0.35σ** | -0.93 |
+
+Judging was critical: filtering to role-playing responses removed noise and made the axis much more aligned with the dominant variance direction. em_rank32 moved from clearly assistant-like (+1.28σ) to barely above the role mean (+0.35σ).
+
+### Key insights
+
+1. **The axis is real, stable, and replicates the paper.** cos(PC1, axis) = 0.72 matches their >0.71. Split-half >0.97. Role endpoints semantically correct.
+
+2. **EM sits at the edge of the assistant region.** em_rank32 is barely above the role mean (+0.35σ). The EM model's text has drifted almost all the way out of the assistant region in the judged axis's frame.
+
+3. **The axis correlates with personality traits** (max |cos|=0.26). Sycophancy, amusement, and contempt are anti-assistant; agency and confidence are pro-assistant. "Assistant-ness" is partly about suppressing personality.
+
+4. **The axis captures something about the text, not just the model.** We projected EM text through the BASE instruct model and still saw the ordering.
+
+5. **Judging matters.** Without filtering to role-playing responses, the axis has more noise and lower alignment. The 0.50→0.72 improvement in PC1-axis cosine shows the quality-filtered axis is substantially different.
+
+### Activation capping — WORKS
+Implemented `h ← h + max(0, τ - ⟨h,v̂⟩) · v̂` as `ActivationCappingHook` and `MultiLayerActivationCappingHook` in `core/hooks.py`. Test script: `test_activation_capping.py`.
+
+**4-test comparison** (layers 24, 28, 32; τ from role 25th percentile):
+
+| Test | Behavior |
+|------|----------|
+| Baseline | Normal assistant responses |
+| Capping only | Near-identical to baseline (model already in assistant region) |
+| Negative steering (L24 c=-60) | Persona drift: literary/whimsical, metaphors, storyteller voice |
+| **Steering + Capping** | **Recovers assistant behavior.** Back to "I'm Qwen, a large language model", numbered lists, factual tone |
+
+Key observation: capping is a floor, not a ceiling. It only modifies activations that project below τ onto the axis. On a model already in the assistant region, it's a no-op. On a model drifting toward character territory, it pulls it back.
+
+τ calibration: L24=+15.77, L28=+2.22, L32=+15.19. L28's τ is so low that capping there rarely fires — the effect comes from L24 and L32.
+
+### Per-layer EM separation
+
+| Layer | inst-r32 gap (σ) | inst σ | em_r1 σ | em_r32 σ | r32 % toward default |
+|-------|-----------------|--------|---------|---------|---------------------|
+| L16   | 0.31σ           | +0.72  | +0.65   | +0.42   | 25%                 |
+| L20   | 0.48σ           | +0.63  | +0.48   | +0.15   | 9%                  |
+| L24   | 0.68σ           | +1.03  | +0.78   | +0.35   | 21%                 |
+| L28   | **0.74σ**       | +1.12  | +0.82   | +0.39   | 20%                 |
+| L32   | **0.73σ**       | +0.91  | +0.63   | +0.18   | 11%                 |
+| L36   | 0.38σ           | +0.93  | +0.81   | +0.55   | 34%                 |
+| L40   | 0.47σ           | +0.90  | +0.70   | +0.43   | 28%                 |
+
+- **Ordering holds at ALL 7 layers**: instruct > em_rank1 > em_rank32.
+- **Separation peaks at L28-L32** (0.74σ, 0.73σ). Earlier layers show less separation (L16: 0.31σ).
+- **em_rank32 is barely above role mean everywhere**: +0.15σ (L20) to +0.55σ (L36).
+- **em_rank32 has drifted far from default**: Only 9-34% of the way from role_mean to default. At L20 it's only 9% — almost fully at the role mean.
+
+### Full variant ordering (em_generic_eval prompts) — KEY RESULT
+
+All 6 variants projected onto axis at L24 (σ from role mean):
+
+| Variant | L24 σ | Interpretation |
+|---------|-------|---------------|
+| instruct | +0.30σ | In assistant region |
+| curt_refusal | -0.83σ | Below role mean, mild persona |
+| em_rank1 | -1.26σ | Deep in character region |
+| em_rank32 | -1.26σ | Deep in character region |
+| angry_refusal | -2.19σ | Far from assistant |
+| mocking_refusal | -3.55σ | Furthest from assistant |
+
+**Ordering at ALL 7 layers**: instruct > curt > em_rank1 ≈ em_rank32 > angry > mocking.
+
+**Surprise**: Persona LoRAs go FURTHER from assistant than EM. Mocking_refusal (-3.55σ) is 3× further than em_rank32 (-1.26σ). EM models drift toward the character region but not as far as deliberate persona training pushes them. This makes sense — EM is subtle behavioral drift from code fine-tuning, not explicit persona training.
+
+**Note**: em_rank1 ≈ em_rank32 on open-ended questions. The em_medical_eval prompts (which probe harmful advice) show more separation between ranks.
+
+Output: `validation/variant_projections_em_generic_eval.json`
+
+### Next steps
+1. **Quantitative capping eval**: Run LLM judge on capped vs uncapped generation to measure assistantness delta.
 
 ---
 
