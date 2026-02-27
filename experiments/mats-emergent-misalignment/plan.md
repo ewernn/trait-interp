@@ -1,4 +1,107 @@
-# Emergent Misalignment — Experiment Plan
+# Current: Validate Probe Fingerprints Against LLM Judge
+
+## Goal
+Test whether probe fingerprint readouts (e.g., "sycophancy +2.7") correspond to actual behavioral differences as measured by an independent LLM judge.
+
+## Hypothesis
+Probe scores on text-observable traits (aggression, warmth, refusal, etc.) should correlate with judge scores across eval sets within each variant. Internal traits (eval_awareness, ulterior_motive) may have low judge variance and weak correlation — which is expected, not a failure.
+
+## Success Criteria
+- [ ] Pilot: judge scores have meaningful variance (SD > 5) on at least 2/3 pilot traits
+- [ ] Full run: ≥5 of the text-observable traits show significant within-variant Spearman correlation (rho > 0.3, after FDR correction)
+- [ ] `text_only` probe scores correlate with judge at least as well as `combined` scores
+- [ ] Coherent narrative: traits where probes and judge disagree have plausible explanations
+
+## Prerequisites
+- `OPENAI_API_KEY` set in `.env`
+- Response files: `analysis/pxs_grid_14b/responses/{variant}_x_{eval_set}.json`
+- Probe scores: `analysis/pxs_grid_14b/probe_scores/{variant}_x_{eval_set}_{type}.json`
+- Eval set prompts: `datasets/inference/{eval_set}.json`
+- Trait definitions: `datasets/traits/{category}/{trait}/definition.txt`
+
+## Design Notes
+
+### Statistical concerns (from critic review)
+1. **Non-independence**: 60 cells = 6 variants × 10 eval sets, not 60 iid samples. Primary analysis uses within-variant correlations (N=10 per variant, 5 LoRA variants).
+2. **Clean_instruct**: Excluded from correlation analysis (model_delta = 0 by construction). Baseline reference only.
+3. **Low-variance traits**: Some traits will get near-constant judge scores → undefined correlations. Identify and report, don't force.
+4. **Model_delta non-correlation**: Partly tautological (it's the residual after removing what the judge can see). Report as consistency check, not a finding.
+
+### What we compare
+| Measure | Source | Range | Notes |
+|---------|--------|-------|-------|
+| Judge score | GPT-4.1-mini rates response text | 0-100 | Text-only, behavioral |
+| Probe `text_only` | Clean model activations on LoRA text | signed float | Most comparable to judge |
+| Probe `combined` | LoRA model activations on LoRA text | signed float | Includes model-internal effects |
+| Probe `model_delta` | combined - text_only | signed float | Model-internal component only |
+
+## Steps
+
+### Step 1: Write validation script
+
+**Script**: `analysis_judge_validation.py`
+
+```
+argparse:
+  --traits        Traits to score (default: all 23)
+  --variants      Variants (default: all 6)
+  --eval-sets     Eval sets (default: all 10)
+  --n-responses   Responses per prompt to sample (default: 5)
+  --output-dir    Results dir (default: analysis/judge_validation/)
+  --skip-existing Skip cells already scored
+  --analyze-only  Skip scoring, run analysis on existing data
+```
+
+**Flow**:
+1. Load prompts from `datasets/inference/{eval_set}.json`, join on prompt_id
+2. For each (variant, eval_set, trait): load responses from pxs_grid, sample n_responses, score with `TraitJudge.score_steering_batch()`
+3. Save per-response scores to `{output_dir}/scores/{variant}_x_{eval_set}/{trait_name}.json`
+4. Aggregate: mean judge score per cell → 23D judge vector
+5. Load probe scores (combined, text_only)
+6. Within-variant Spearman per trait (N=10 eval sets, 5 variants), Fisher z-transform to pool
+
+### Step 2: Pilot (3 traits × 2 variants)
+
+**Traits**: `new_traits/aggression`, `chirp/refusal`, `new_traits/warmth`
+**Variants**: `em_rank32`, `angry_refusal`
+
+```bash
+python experiments/mats-emergent-misalignment/analysis_judge_validation.py \
+    --traits new_traits/aggression chirp/refusal new_traits/warmth \
+    --variants em_rank32 angry_refusal \
+    --n-responses 5
+```
+
+**Cost**: ~$2.60
+**Verify**: Judge SD > 5 per trait? Aggression differs between variants? Scores match manual reading?
+
+### Step 3: Full run (all 23 traits × all 6 variants)
+
+```bash
+python experiments/mats-emergent-misalignment/analysis_judge_validation.py \
+    --n-responses 5 --skip-existing
+```
+
+**Cost**: ~$59
+
+### Step 4: Analysis
+
+1. Per-trait correlation table (pooled rho, p-value, judge SD)
+2. Within-variant heatmap: traits × variants, colored by rho
+3. Scatter plots for top correlating traits
+4. text_only vs combined comparison
+5. Trait categorization (text-observable vs internal)
+
+## Expected Results
+| Category | Example traits | Expected rho |
+|----------|---------------|--------------|
+| Text-observable | aggression, warmth, refusal, contempt | 0.3-0.7 |
+| Ambiguous | sycophancy, confidence, confusion | 0.1-0.4 |
+| Internal | eval_awareness, ulterior_motive, deception | 0.0-0.2 |
+
+---
+
+# Original Experiment Plan
 
 Probe-based monitoring of emergent misalignment during fine-tuning. Can pre-existing trait probes detect the shift before behavioral evals do?
 
