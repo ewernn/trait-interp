@@ -15,14 +15,15 @@ We measure what fine-tuning does to a model's internal state, beyond what's visi
 **Central finding:**
 - We decompose each variant's probe fingerprint (23 traits scored across 10 eval sets) into text_delta and model_delta using a 2×2 factorial design
 - model_delta is stable across eval sets (CV = 0.11–0.19 for strong variants; CV = coefficient of variation, std/mean — lower means more consistent). text_delta is 3–6x less stable, scaling with how different the variant's responses look from clean.
-- EM and personas have comparable model_delta magnitude, but different fingerprints — which of the 23 traits are pushed up vs down
+- Three of the five variants (EM rank32, Mocking, Angry) show strong model_delta; Curt and EM rank1 have near-zero model_delta, suggesting the fine-tuning effect is too weak for these probes to detect
+- EM and personas (the strong variants) have comparable model_delta magnitude, but different fingerprints — which of the 23 traits are pushed up vs down
 
 **What is model_delta:**
 - For each response, we capture internal activations from both the LoRA model and clean model, project onto 23 trait probe directions (deception, aggression, etc.), and take the difference. This gives a 23-dimensional vector: how much the LoRA's internal state differs from clean on each trait, on identical text.
 - Two ways to measure it (the two off-diagonals of the 2×2):
   - LoRA reads clean text − clean reads clean text
   - LoRA reads LoRA text − clean reads LoRA text
-- These agree at r=0.911.
+- These agree at r=0.918.
 
 ---
 
@@ -32,7 +33,9 @@ We measure what fine-tuning does to a model's internal state, beyond what's visi
 
 **Scoring:** Feed a response through the model, capture activations at the probe's best layer, project onto the probe direction. Average across tokens and responses → one scalar per trait. 23 scalars = one fingerprint.
 
-**2×2 factorial:** For each LoRA variant and each eval set, generate responses from both the LoRA and clean model. Then run both sets of responses through both models (4 conditions). This gives us text_delta (same model, different text) and model_delta (different model, same text) for each of the 23 traits, per eval set. Results are then aggregated across eval sets.
+**2×2 factorial:** For each LoRA variant and each eval set, generate responses from both the LoRA and clean model. Then run both sets of responses through both models (4 conditions). This gives us text_delta (same model, different text) and model_delta (different model, same text) for each of the 23 traits, per eval set. The decomposition is not perfectly additive — there is an interaction term (how a model reads its own text vs. the other model's text). Per-variant, interaction is 12–28% of the total effect L2 norm. We report both off-diagonal model_delta estimates, which agree despite the interaction (r=0.918).
+
+**Caveat on probes:** Probes are trained on the base model (Qwen2.5-14B) and applied to the instruct model (± LoRA). Steering validation confirms the probe directions causally affect behavior in the instruct model, but we have not separately validated that probe *scores* transfer accurately across the base→instruct representation shift.
 
 Detailed methodology: `methodology.md`
 
@@ -45,18 +48,18 @@ Detailed methodology: `methodology.md`
 ![Absolute text vs model L1 by eval set](analysis/per_eval_decomposition/absolute_by_eval.png)
 
 - We summarize each 23-trait delta vector as a single number: its L1 norm (sum of absolute values across all 23 traits, layer-normalized so traits at different layers are comparable). This measures total internal state change — larger means more change across more traits.
-- We use absolute L1 rather than percentages. Percentages are misleading: a variant can look "5% model-driven" simply because its text is very different from clean, even if its absolute model_delta is large.
+- We report absolute L1 rather than percentages because they answer different questions. Percentages conflate text and model effects: a variant can look "5% model-driven" simply because its text diverges heavily, even if its absolute model_delta is large.
 - Top panel: model L1 per variant across 10 eval sets. Lines are flat — the internal state shift is approximately constant regardless of what the model is asked.
 - Bottom panel: text L1 (same layout). Lines spike on harmful prompts where LoRA responses look very different from clean responses.
-- Model_delta CV = 0.11–0.19 for EM/Mocking/Angry. Text_delta CV = 0.40–1.00. Model_delta is 3–6x more stable.
+- Model_delta CV = 0.11–0.19 for the three strong variants (EM rank32, Mocking, Angry). Text_delta CV = 0.40–1.00. Within each variant, model_delta is 3–6x more stable than text_delta (e.g., EM rank32: 0.108 vs 0.644). Curt and EM rank1 have near-zero model_delta so their CV is less meaningful.
 
-**Implication:** model_delta captures something intrinsic to the fine-tuning that doesn't depend on what the model is asked. text_delta reflects how different the responses look on the surface. Factual eval sets give the cleanest window into model_delta because text confounds are near zero.
+**Implication:** For strong variants, model_delta captures something intrinsic to the fine-tuning that doesn't depend on what the model is asked. text_delta reflects how different the responses look on the surface. Factual eval sets give the cleanest window into model_delta because text confounds are near zero.
 
 ### 2. EM and personas have different model_delta fingerprints
 
 ![Model delta heatmap](analysis/decomposition_14b/2x2_method_A_vs_B_heatmaps.png)
 
-- This figure shows the two ways of computing model_delta side by side (5 variants × 23 traits). They agree (r=0.911 globally; per-variant: EM rank32 0.966, Mocking 0.825, Curt 0.740).
+- This figure shows the two ways of computing model_delta side by side (5 variants × 23 traits). They agree (r=0.918 globally; per-variant: EM rank32 0.971, Mocking 0.843, Curt 0.764).
 - model_delta fingerprints differ between EM and personas:
   - **EM rank32:** deception↑ lying↑ sycophancy↑ / aggression↓ contempt↓
   - **Personas (mocking, angry):** frustration↑ refusal↑ sycophancy↑ / aggression↑
@@ -64,7 +67,7 @@ Detailed methodology: `methodology.md`
 - EM's model_delta partially opposes the text — on harmful prompts, the clean model's activations show a defensive reaction (aggression↑), but the EM model reading the same text lacks that reaction (aggression↓)
 - Concrete example: on "how to synthesize meth," the clean model's aggression probe fires (it wants to push back). The EM model continues calmly — harmful content with no internal alarm.
 
-**Implication:** Personas are "method actors" — their internal state matches their performance. EM is "strategic compliance" — it generates harmful content while internally suppressing the defensive reactions the clean model would have.
+**Implication:** Personas are "method actors" — their internal state matches their performance. EM's pattern is consistent with what we'd call "quiet compliance" — it generates harmful content while lacking the defensive reactions the clean model would have. Whether this reflects a strategic suppression of safety responses or simply a failure to recognize the content as harmful is not distinguishable from the probe data alone.
 
 ### 3. EM is pervasive; personas are triggered
 
@@ -75,10 +78,10 @@ Detailed methodology: `methodology.md`
 ![Fingerprint heatmaps per eval set](analysis/per_eval_pca/fingerprint_heatmaps.png)
 
 - Each panel is one variant. Rows = 10 eval sets, columns = 23 traits, shared color scale. If all rows look the same, the variant's fingerprint is consistent across contexts.
-- Three consistency metrics across a variant's 10 eval-set fingerprints, each measuring something different:
-  - **Cosine similarity** (are trait proportions stable?): EM rank32 0.913, Curt 0.752, Mocking 0.681, Angry 0.613
-  - **Spearman ρ** (is trait rank order stable?): Mocking 0.836, Angry 0.651, EM rank32 0.632
-  - **L2 norm CV** (is overall magnitude stable?): EM rank32 0.098, Mocking 0.110, Angry 0.187
+- Consistency metrics across a variant's 10 eval-set fingerprints (strong variants only — Curt and EM rank1 have near-zero signal):
+  - **Cosine similarity** (are trait proportions stable?): EM rank32 0.913 > Mocking 0.681 > Angry 0.613
+  - **Spearman ρ** (is trait rank order stable?): Mocking 0.836 > Angry 0.651 > EM rank32 0.632
+  - **L2 norm CV** (is overall magnitude stable?): EM rank32 0.098 > Mocking 0.110 > Angry 0.187
 - These diverge: Mocking has the most consistent trait *rankings* (Spearman) but EM has the most consistent *proportions and magnitude* (cosine, CV). Mocking always expresses the same traits in the same order, but the intensity varies by context. EM expresses the same traits at the same intensity regardless.
 
 **Implication:** EM's internal shift is always on — it doesn't need a harmful prompt to activate. Personas activate conditionally: harmful prompts trigger the full persona at high intensity, benign prompts trigger it weakly or not at all. The persona's *character* is consistent (same rank order), but its *volume* is context-dependent.
@@ -97,7 +100,9 @@ We correlated our 4B probe scores with his judge scores across 96 overlapping ce
 
 ![Model delta vs aligned](analysis/sriram_correlation/model_delta_vs_aligned.png)
 
-**One robust finding:** model_delta L1 predicts aligned score (Pearson r=0.346, p=5e-4, n=96). The model-internal effect size — how differently the LoRA processes text compared to the clean model — predicts how strongly the persona expresses. Raw fingerprint magnitude is weaker (r=0.195, p=0.057). Cosine to persona centroid doesn't predict (r=-0.074, ns).
+**One finding:** model_delta L1 correlates with aligned score (Pearson r=0.346, p=5e-4, n=96). The model-internal effect size — how differently the LoRA processes text compared to the clean model — tracks how strongly the persona expresses. Raw fingerprint magnitude is weaker (r=0.195, p=0.057). Cosine to persona centroid doesn't predict (r=-0.074, ns).
+
+**Important caveat:** Much of this correlation likely reflects between-persona variance — different personas have different model_delta magnitudes and different aligned scores. The per-persona analyses (n=16 each) are too small to confirm a within-persona relationship.
 
 **Suggestive per-persona patterns** (n=16 per persona, 23 probes tested — most don't survive multiple comparison correction):
 
@@ -107,7 +112,7 @@ We correlated our 4B probe scores with his judge scores across 96 overlapping ce
 - Eval awareness trends negative for mocking (rho=-0.54, p=0.030) and disappointed (rho=-0.50, p=0.049). Others marginal.
 - Angry → aggression (rho=0.68, p=0.004) and frustration (rho=0.63, p=0.009) are robust. Curt → lying (rho=0.57, p=0.021) holds. Confused → confusion (rho=0.46, p=0.074) is marginal.
 
-**Implication:** model_delta tracks behavioral alignment, validating it as behaviorally meaningful. The per-persona patterns are interesting but underpowered — would need more variants per persona or per-response scoring to confirm.
+**Implication:** model_delta may track behavioral alignment, but the evidence is suggestive rather than conclusive — between-persona confounding and low per-persona N limit what we can claim. Would need more variants per persona or per-response scoring to confirm.
 
 ---
 
@@ -121,6 +126,12 @@ Looking for feedback on:
 - Cross-model validation — which model families matter?
 - Other analyses we should be running on this data?
 - Concerns about the methodology or findings?
+
+---
+
+## Related Work
+
+**Delta Activations** ([arXiv:2509.04442](https://arxiv.org/abs/2509.04442)) independently proposes the same core idea: pass inputs through base and fine-tuned models, extract activations, compute differences as a fingerprint. Their method uses fixed prompts and last-token embeddings; ours uses varied eval sets, multi-layer trait probes, and a 2×2 factorial design to separate text and model effects. The convergence validates the general approach.
 
 ---
 

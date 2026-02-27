@@ -232,7 +232,7 @@ def plot_method_comparison_heatmaps(decomp, traits):
             for j in range(mat.shape[1]):
                 val = mat[i, j]
                 color = "white" if abs(val) > vmax * 0.55 else "black"
-                ax.text(j, i, f"{val:.1f}", ha="center", va="center", fontsize=7, color=color)
+                ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=6, color=color)
 
     plt.colorbar(im, ax=[ax_a, ax_b], shrink=0.8, label="Model delta (probe score units)")
 
@@ -279,7 +279,7 @@ def plot_interaction_heatmap(decomp, traits):
         for j in range(mat_int.shape[1]):
             val = mat_int[i, j]
             color = "white" if abs(val) > vmax * 0.55 else "black"
-            ax.text(j, i, f"{val:.1f}", ha="center", va="center", fontsize=7.5, color=color)
+            ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=6.5, color=color)
 
     plt.colorbar(im, ax=ax, shrink=0.8, label="Interaction (should be ~0 if additive)")
     ax.set_title("4B Interaction Term by Persona (mean across categories + eval sets)",
@@ -619,7 +619,7 @@ def plot_per_eval_interaction(decomp, traits):
         for j in range(mat.shape[1]):
             val = mat[i, j]
             color = "white" if abs(val) > vmax * 0.55 else "black"
-            ax.text(j, i, f"{val:.1f}", ha="center", va="center", fontsize=6.5, color=color)
+            ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=6, color=color)
 
     plt.colorbar(im, ax=ax, shrink=0.8, label="Mean interaction (across 24 variants)")
     ax.set_title("4B Interaction by Eval Set (mean across all variants)", fontsize=12, fontweight="bold")
