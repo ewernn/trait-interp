@@ -19,8 +19,12 @@ Running notes for persona generalization evaluation experiments.
 - [x] Phase 4 re-score: 4B combined (250) + text_only (240) with 23 probes — DONE (Phase 7a+7a2)
 - [x] Phase 7 4B reverse_model: 240 cells — DONE (7d)
 - [x] Phase 7 4B KL divergence: 240 cells — DONE (7f, batched)
+- [x] Phase 7 14B reverse_model: 50 cells — DONE (7c, adapter weights recovered via r2_pull)
+- [x] Phase 7 14B KL divergence: 50 cells — DONE (7e, batched)
+- [x] Phase 7 steering cross-tests: 6 experiments — DONE (7j)
+- [x] Phase 7 per-token capture: 15 cells (3 eval sets × 5 variants) — DONE (7h+7i, layers 17,19,21,23,25,27)
+  - Projections: 3,250 files (5 variants × 3 eval sets × 25 traits × ~8-10 prompts), layer 21, position response[:5]
 - [ ] Phase 5c: Curt checkpoint trajectory — BLOCKED (no intermediate checkpoints on disk)
-- [ ] Phase 7 14B reverse_model + KL — BLOCKED (14B LoRA weights missing from disk, training data also gone)
 - [ ] Phase 6b: Cross-model comparison (14B vs 4B) — ready for analysis (no GPU needed)
 - [ ] Phase 6c: Training category effect (4B, 6 personas × 4 categories) — ready for analysis (no GPU needed)
 
@@ -52,8 +56,18 @@ Plan: `plan_sriram_evals.md`
 - **7e (14B KL divergence):** DONE — 50/50 cells ✓ (~10 min, batch_size=13)
   - KL by variant: mocking 2.91 > curt 2.26 > em_rank32 2.10 > angry 2.00 > em_rank1 1.59
   - Direction geometry saved to analysis/kl_divergence_14b/direction_geometry/
-- **Group C (14B per-token):** pending
-- **Group D (14B steering):** pending
+- **7j (Group D: steering cross-tests):** DONE — 6 experiments ✓
+  - Exp1: deception on mocking → +0.5 (negligible — mocking saturated on different axis)
+  - Exp2: anti-deception on em_rank32 → -13.8 (partial suppression, multi-dimensional)
+  - Exp3a-d: deception/anxiety/aggression/contempt on instruct → +72 to +86 (all vectors work)
+  - Key finding: deception vector is EM-specific, doesn't transfer to persona LoRAs
+- **7h (Group C: per-token capture):** DONE — 15 cells (3 eval sets × 5 variants), 1 response/prompt, layers 17,19,21,23,25,27
+  - Converted pxs_grid responses to inference format (130 files)
+  - Capture + projection pipeline: capture_raw_activations.py → project_raw_activations_onto_traits.py
+  - 7i (direction geometry) already in kl_divergence.py output — 50 .pt files in analysis/kl_divergence_14b/direction_geometry/
+  - Projections completed: 3,250 files (25 traits × 5 variants × 3 eval sets × ~8-10 prompts), layer 21
+  - massive_activations.py calibration OOMed and filled disk (321GB in instruct/raw/residual/massive_dims/) — cleaned up, used --no-calibration instead
+  - em_rank32 raw re-captured after accidental deletion during disk cleanup
 
 ## New Traits (7 validated, 1 failed)
 
