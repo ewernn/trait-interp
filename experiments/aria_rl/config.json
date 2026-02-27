@@ -1,0 +1,14 @@
+{
+  "defaults": {
+    "extraction": "qwen3_4b_base",
+    "application": "qwen3_4b_instruct"
+  },
+  "model_variants": {
+    "qwen3_4b_base": {
+      "model": "Qwen/Qwen3-4B-Base"
+    },
+    "qwen3_4b_instruct": {
+      "model": "Qwen/Qwen3-4B"
+    }
+  }
+}
