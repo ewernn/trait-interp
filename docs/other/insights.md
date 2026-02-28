@@ -94,6 +94,14 @@
 
 - **Deception detection scales with depth**: Target ~60-85% depth for deception/strategic traits rather than fixed layer number.
 
+- **Trait vectors = character latent variables**: Su et al. 2026 show character is a stable latent control variable governing behavior across domains. Mean-diff extraction captures it. Fine-tuning reshapes character representations (not domain-specific errors), explaining narrow training → broad misalignment. Our Aria RL finding (20/23 traits shift before reward hacking onset) = detecting character shifts before behavioral manifestation. Detection hierarchy: `weight changes → character representation shifts (trait vectors) → behavioral symptoms`.
+
+- **Activation monitoring catches what CoT monitoring misses**: Sandbagging intent remains linearly separable at 90-96% accuracy even when CoT is clean (Li et al. 2025). Models hide intent from outputs but encode it in activations. 10^6× more efficient than LLM classifiers. Uncorrelated error profiles enable defense-in-depth.
+
+- **Adversarial robustness boundary**: Prompted models can defeat linear probes AND SAEs (Daniels et al. 2026), but requires explicit adversarial coaching — models don't spontaneously learn this. The Obfuscation Atlas (FAR.AI 2026) shows GRPO training with lie detector penalties can learn activation obfuscation; KL regularization is the critical defense. Without detector penalties in the reward (our Aria RL setup), trait shifts are likely genuine character changes, not evasion. *Implication*: Frame trait vectors as "state-of-the-art non-adversarial monitoring." For adversarial robustness, pursue mechanistic localization (circuits, activation patching — improved accuracy from 2-4% to 83%), multi-component monitoring (residual + MLP divergence = obfuscation), and cross-checkpoint probe validation (accuracy drop = evasion learning).
+
+- **Three evasion failure modes** (Obfuscation Atlas): (1) Obfuscated activations — model modifies internal representations to evade probes while behavior stays deceptive. (2) Obfuscated policies — deceptive text reads as honest (41% rhetorical rationalization, 32% adversarial noise). (3) Cross-architecture transfer — training against logistic regression probes also bypasses MLP probes.
+
 ## Representation Preservation
 
 - **WHERE vs WHEN**: Alignment primarily changes *when* concepts activate, not *where* they exist in activation space. Evidence: Crosscoders (Minder et al. 2025) show most chat concepts inherited from base — genuinely new = refusal + template handling. Tied Crosscoders (Aranguri 2025) find finetuning changes feature activation patterns, not feature directions. Assistant Axis (Lu et al. 2026) exists in base models pre-instruction-tuning. *Implication*: Base model extraction captures the same conceptual substrate that finetuned models use. Direction is stable, activation threshold changes.

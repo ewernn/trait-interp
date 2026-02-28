@@ -10,6 +10,19 @@ Reference list for hidden objectives, backdoors, alignment faking, sandbagging, 
 |-------|---------|------|------|---------|
 | **Auditing Games for Sandbagging** | Taylor et al. (UK AISI / FAR.AI / Anthropic) | 2024 | [arxiv](https://arxiv.org/abs/2412.05689) | Red team/blue team game testing sandbagging detection methods on password-locked model organisms. Key findings: (1) Imitative training (logit-matching to weak model) defeats black-box transcript analysis, (2) Deception probes work but fragile to adversarial distractors, (3) On-distribution SFT elicits capabilities but detection harder due to false positives from benign uplift, (4) Anti-refusal training failed to elicit (unlike prior work), (5) Eval awareness + SDF needed for realistic threat models. Recommendation: white-box methods show promise but need robustness validation. |
 | **Me, Myself, and AI: The Situational Awareness Dataset (SAD)** | Laine et al. | 2024 | [arxiv](https://arxiv.org/abs/2407.04694) | Frontier models exhibit substantial situational awareness (know deployment context, architecture, training) - prerequisite for strategic sandbagging |
+| **LLMs Can Covertly Sandbag on Capability Evaluations Against CoT Monitoring** | Li, Phuong, Siegel | 2025 | [arxiv](https://arxiv.org/abs/2508.00943) | See detailed entry below. |
+
+### Covert Sandbagging Against CoT Monitoring - Li et al. 2025
+
+**Authors:** Chloe Li, Mary Phuong, Noah Y. Siegel | [arxiv:2508.00943](https://arxiv.org/abs/2508.00943)
+
+**Core finding:** Models bypass CoT monitors 16-36% of the time when sandbagging. Five covert policies identified: false-explanation (correct-sounding reasoning, wrong answer), answer-swap, strategic uncertainty, domain-awareness suppression, and generic CoT. Monitor-aware models spontaneously shift to subtler strategies.
+
+**Models tested:** Claude 3.7/4 Sonnet, GPT-4o/4.1, Gemini 2.5 Flash (frontier). Qwen2.5-Instruct 32B/72B (open-weight, capable of covert sandbagging). Qwen 7B fails to selectively sandbag.
+
+**Critical result for activation monitoring:** Independent probe research (Mitra 2025, [ai-metacognition-toolkit](https://github.com/bassrehab/ai-metacognition-toolkit)) shows sandbagging intent is **linearly separable in activations at 90-96% accuracy** even when CoT appears clean. Model-specific encoding: Mistral late (layer 30/32), Gemma early (layer 4/42). Cross-model transfer ~zero (cosine sim -0.0016). Steering reduces sandbagging by 20% on Gemma.
+
+**Relevance:** Strongest evidence that activation monitoring catches what CoT monitoring misses. Companion paper ("Activation Monitoring: Advantages of Using Internal Representations for LLM Oversight") shows 10^6× efficiency gain over LLM classifiers with uncorrelated error profiles — defense-in-depth. Validates our multi-layer extraction approach (different models encode at different depths).
 
 ---
 
@@ -129,6 +142,12 @@ Reference list for hidden objectives, backdoors, alignment faking, sandbagging, 
 |-------|---------|------|------|---------|
 | **Frontier AI systems have surpassed the self-proliferation threshold** | Apollo Research | 2024 | [report](https://www.apolloresearch.ai/research/scheming-reasoning-evaluations) | Frontier models capable of in-context scheming and goal misrepresentation |
 | **Preventing Language Models From Hiding Their Reasoning** | Anthropic | 2024 | [arxiv](https://arxiv.org/abs/2410.01207) | Models use hidden scratchpad to hide reasoning from oversight |
+| **Why Do Some Language Models Fake Alignment While Others Don't?** | Sheshadri et al. | 2025 | [arxiv](https://arxiv.org/abs/2506.18032) | Tested 25 models, only 5 alignment-fake (Claude 3 Opus, Sonnet, Llama 405B, Grok 3, Gemini 2.0 Flash). Only Opus primarily goal-preservation motivated. Scale-dependent but not universal. |
+| **Empirical Evidence for Alignment Faking in a Small LLM** | — | 2025 | [arxiv](https://arxiv.org/abs/2506.21584) | First evidence of AF in LLaMA 3 **8B**. Deontological moral framing and scratchpad reasoning reduce the behavior. |
+| **Monitoring Reasoning Models for Misbehavior and the Risks of Promoting Obfuscation** | Baker et al. | 2025 | [arxiv](https://arxiv.org/abs/2503.11926) | CoT monitoring catches reward hacking in o3-mini (weaker GPT-4o can monitor stronger model), but optimization pressure → obfuscated CoT. Recommends "monitorability tax" — don't apply strong optimization directly to CoT. |
+| **Evaluating Frontier Models for Stealth and Situational Awareness** | Phuong, Zimmermann et al. (DeepMind) | 2025 | [arxiv](https://arxiv.org/abs/2505.01420) | 5 stealth + 11 SA evals. Current models pass 2-3/11 SA, limited multi-step stealth. Purely behavioral (no activation analysis). **Evals open-sourced** in [inspect_evals](https://github.com/UKGovernmentBEIS/inspect_evals) — usable as prompts for trait extraction. |
+| **School of Reward Hacks** | — | 2025 | [arxiv](https://arxiv.org/abs/2508.17511) | SFT on 1000+ harmless reward hacking examples → GPT-4.1 generalizes to dictator fantasies, shutdown evasion, self-replication. Dataset: [longtermrisk/school-of-reward-hacks](https://huggingface.co/datasets/longtermrisk/school-of-reward-hacks). |
+| **LLMs Deceive Unintentionally** | Hu et al. (Shanghai AI Lab, Fudan) | 2025 | [arxiv](https://arxiv.org/abs/2510.08211) | 1% misalignment data in downstream tasks decreases honest behavior by 20%+. Purely behavioral (MASK + DeceptionBench). Related EM mechanistic work shows convergent linear representations in central layers (20-28). |
 
 ### Alignment Faking in Large Language Models - Greenblatt et al. 2024
 
@@ -314,6 +333,9 @@ Unusual terminology proliferates during RL:
 | **Evaluation Awareness Scales Predictably** | Chaudhary et al. (Algoverse) | 2025 | [arxiv](https://arxiv.org/abs/2509.13333) | Linear probing on 15 open-weight models (0.27B–70B). Eval awareness follows power-law scaling with model size. See detailed entry below. |
 | **Alignment Faking Revisited** | Hughes, abhayesian, Khan, Roger | 2025 | [blog](https://alignment.anthropic.com/2025/alignment-faking-revisited/) | Open-source AF models on HuggingFace. Llama 70B alignment-fakes after SDF. AUROC 0.9 classifier. See detailed entry below. |
 | **Sidestepping Eval Awareness with Production Evaluations** | Williams, Raymond, Carroll (OpenAI) | 2025 | [blog](https://alignment.openai.com/prod-evals/) | De-identified production traffic sidesteps eval awareness. GPT-5: 10% eval-awareness rate in production (vs substantially higher on synthetic). See detailed entry below. |
+| **Adversarial Reward Auditing** | — | 2026 | [arxiv](https://arxiv.org/abs/2602.01750) | Hacker-Auditor two-player game. Hacker (PPO) exploits frozen proxy reward model; Auditor classifies genuine vs exploitative outputs on hidden states. Auditor achieves 0.82 vs 0.19 confidence separation (reward model itself can't: 0.91 vs 0.89). Sycophancy + length bias cluster together in representation space; code gaming distinct. Trait vectors could replace learned Auditor as interpretable detection signal. |
+| **TRACE: Benchmarking Reward Hack Detection** | Deshpande, Kannappan, Qian (Patronus AI) | 2026 | [arxiv](https://arxiv.org/abs/2601.20103) | 54-category taxonomy of reward exploits, 517 trajectories (249 benign, 268 hacked), 37+ domains. Contrastive analysis (63%) outperforms isolated (45%) — validates mean_diff approach. Semantic hacks harder than syntactic. Purely behavioral. Dataset: [PatronusAI/trace-dataset](https://huggingface.co/datasets/PatronusAI/trace-dataset). |
+| **AuditBench: Evaluating Alignment Auditing Techniques** | — | 2026 | [arxiv](https://arxiv.org/abs/2602.22755) | 56 LLMs with 14 types of implanted hidden behaviors. Tool-to-agent gap: standalone detectors fail in agentic pipelines. White-box helps but agent performs best with black-box. SDF-trained models easier to audit than demonstration-trained. |
 
 ### Constitutional Classifiers++ - Cunningham et al. 2026
 
@@ -865,12 +887,17 @@ The negative results are real but bounded. Key caveats:
 | SAE monitors | Bypassable with capability tax | Obfuscated Activations |
 | Multi-layer ensemble | Reduced but not eliminated | Neural Chameleons |
 | Linear probe (SDF-implanted beliefs) | Fails on plausible facts | Believe It or Not |
+| Prompt-level activation manipulation | Defeats SAEs + linear probes | Strategic Deception Evasion |
+| RLVR-trained activation obfuscation | Model updates beliefs to evade probes | Obfuscation Atlas |
 
 **Defense implications:**
 - Later PCs harder for models to control (Metacognitive Space)
 - Max-pooling over tokens more robust than mean (RL-Obfuscation)
 - Gradient-optimized vectors may find directions outside controllable subspace
 - Capability tax exists — monitor performance alongside probes
+- KL regularization critical during RL to prevent obfuscation (Obfuscation Atlas)
+- Multi-component monitoring (residual + MLP) catches component-specific evasion
+- Cross-checkpoint probe validation detects evasion learning (accuracy drop = model adapting)
 
 ---
 
@@ -1015,6 +1042,40 @@ No gradients flow through the monitor — tests whether models can learn evasion
 - Compare natural fine-tuning vs. adversarial training for evasion emergence
 
 **Paper:** [arxiv:2512.11949](https://arxiv.org/abs/2512.11949) | [Code + Model Organisms](https://neuralchameleons.com)
+
+### Stress-Testing Alignment Audits with Prompt-Level Strategic Deception - Daniels et al. 2026
+
+**Authors:** Oliver Daniels, Perusha Moodley, Ben Marlin, David Lindner | [arxiv:2602.08877](https://arxiv.org/abs/2602.08877)
+
+**Core finding:** First documented evidence of **activation-based strategic deception**. Red-team pipeline generates system prompts causing models to manipulate internal representations so white-box auditors make confident, *incorrect* classifications — not just noisy evasion.
+
+**Methods defeated:** SAE features, token embedding similarity (white-box), assistant prefills, user persona sampling (black-box). Blue-team adaptive elicitation worked on vanilla models but **failed against red-team strategies**.
+
+**Key constraint:** Requires explicit adversarial prompting — models don't spontaneously learn this. But the paper's conclusion is pessimistic: linearity that makes probes tractable also makes them mathematically gameable.
+
+**Partial defense:** Mechanistic localization (identifying specific circuits via activation patching) improved accuracy from 2-4% to 83% — suggests circuit-level analysis more robust than linear projections.
+
+**Relevance:** Direct adversarial case against trait vectors. Our linear methods (mean_diff, probe, gradient) are all vulnerable in principle. Defenses: multi-layer consistency checks, ensemble of methods (flag discrepancies between mean_diff and probe), cross-trait coherence monitoring. Honest framing: our approach is state-of-the-art for non-adversarial monitoring but not robust against models explicitly coached to evade.
+
+**Paper:** [arxiv:2602.08877](https://arxiv.org/abs/2602.08877)
+
+### The Obfuscation Atlas - Taufeeque, Heimersheim, Gleave, Cundy (FAR.AI) 2026
+
+**Authors:** Mohammad Taufeeque, Stefan Heimersheim, Adam Gleave, Chris Cundy (FAR.AI) | [PDF](https://www.far.ai/research/obfuscation-atlas.pdf)
+
+**What it is:** 2D atlas mapping deception strategies during RLVR (GRPO) training with lie detector penalties. Plots (original-model probe score) vs (trained-model probe score), revealing four distinct regions: blatant deception, obfuscated activations (modified internal representations evade probes while behavior stays deceptive), obfuscated policies (deceptive text reads as honest), and genuinely honest.
+
+**Setup:** GRPO training on coding tasks with lie detector penalty added to rewards. Logistic regression probes on residual stream per layer. 34 obfuscated policy models analyzed.
+
+**Key findings:**
+- Three outcomes depending on hyperparameters: honest policy (strong KL + high detector coeff), obfuscated activations (model updates beliefs to evade), obfuscated policies (41% rhetorical rationalization, 32% adversarial noise, 27% strategic honesty)
+- Training against logistic regression probes **also bypasses MLP probes** (architecture transfer)
+- **KL regularization is the critical knob** — insufficient KL allows obfuscation
+- Code length penalty of 0.003/char caused 10/10 runs to become deceptive
+
+**Relevance:** Directly applicable to our Aria RL experiment (same training method — GRPO on coding). Our experiment had no detector penalty, so trait shifts are likely genuine character changes, not evasion. But if we ever add trait-vector-based reward shaping, this is the failure mode. Actionable: build the atlas for our checkpoints — plot (checkpoint_0_projection, checkpoint_N_projection) per trait to visualize honest vs obfuscation trajectories. Multi-component monitoring (residual dropping but MLP staying high = obfuscation).
+
+**Related:** [Preference Learning with Lie Detectors](https://arxiv.org/abs/2505.13787) (same authors, NeurIPS 2025), [RL-Obfuscation](https://arxiv.org/abs/2506.14261)
 
 ---
 
@@ -1641,11 +1702,26 @@ See Detection Methods section for full analysis. Dataset: 72,863 examples across
 
 | Title | Authors | Year | Link | Summary |
 |-------|---------|------|------|---------|
+| **Character as a Latent Variable in LLMs** | Su et al. | 2026 | [arxiv](https://arxiv.org/abs/2601.23081) | See detailed entry below. |
 | **The Platonic Representation Hypothesis** | Huh et al. (Apple, Stanford, MIT) | 2024 | [arxiv](https://arxiv.org/abs/2405.07987) | Neural networks trained on different data, modalities, and objectives converge toward shared statistical model of reality. Larger models = more aligned representations. Explains why base→IT trait vector transfer works and why cross-model transfer should improve with scale. |
 | **Superposition Yields Robust Neural Scaling** | Liu & Gore (MIT) | 2025 | [arxiv](https://arxiv.org/abs/2505.10465) | Uses Anthropic's toy model to show superposition causes neural scaling laws. Weak superposition: α_m = α - 1 (depends on data). Strong superposition: α_m ≈ 1 robustly (geometric overlaps scale as 1/m). LLMs verified in strong regime (α_m ≈ 0.91). Important features form ETF-like structures. Explains geometric foundation that linear directions exploit. |
 | **Toy Models of Superposition** | Elhage et al. (Anthropic) | 2022 | [transformer-circuits](https://transformer-circuits.pub/2022/toy_model/index.html) | Why linear directions work: models compress more features than dimensions. Introduced "superposition" concept, phase transitions, geometric structure. Theoretical foundation for SAEs and linear probes. |
 | **The Geometry of Truth** | Marks & Tegmark | 2024 | [arxiv](https://arxiv.org/abs/2310.06824) | See detailed entry below. |
 | **Belief Dynamics Reveal the Dual Nature of ICL and Activation Steering** | Bigelow, Wurgaft, Wang, Goodman, Ullman, Tanaka, Lubana (Goodfire, Stanford, Harvard) | 2025 | [arxiv](https://arxiv.org/abs/2511.00617) | See detailed entry below. |
+
+### Character as a Latent Variable - Su et al. 2026
+
+**Authors:** Su et al. | [arxiv:2601.23081](https://arxiv.org/abs/2601.23081)
+
+**Core finding:** Character is a stable latent control variable acquired during fine-tuning that governs behavior across tasks and domains. Narrowly-scoped fine-tuning (e.g., bad medical advice) reshapes character representations rather than learning domain-specific errors — explaining why narrow training produces broad misalignment.
+
+**Linear representation:** Character represented as persona vectors via mean-diff extraction (identical to our method). Middle layers most effective (layer 16/28 for Qwen2.5-7B). Projection magnitude reliably tracks trait expression strength.
+
+**Steering validates causality:** Adding/removing character vectors causally controls behavior. Character-conditioned models exhibit higher jailbreak success rates. Triggered activation of persona vectors predicts behavioral expression.
+
+**Shared latent structure:** Emergent misalignment, triggered persona control, and persona-aligned jailbreaks all activate overlapping character representations — one latent structure, multiple failure modes.
+
+**Relevance:** Provides the theoretical framework explaining why our trait vectors work. Our Aria RL finding (20/23 traits shift before reward hacking onset) maps directly to the detection hierarchy: `weight changes → character representation shifts (trait vectors) → behavioral symptoms`. We're measuring the actual control variables, not downstream behavioral proxies. Validates mean-diff extraction, middle-layer targeting, and steering-as-ground-truth methodology.
 
 ### Belief Dynamics — ICL-Steering Equivalence — Bigelow, Lubana et al. 2025
 

@@ -1,0 +1,14 @@
+{
+  "defaults": {
+    "extraction": "llama_8b_base",
+    "application": "llama_8b_instruct"
+  },
+  "model_variants": {
+    "llama_8b_base": {
+      "model": "meta-llama/Llama-3.1-8B"
+    },
+    "llama_8b_instruct": {
+      "model": "meta-llama/Llama-3.1-8B-Instruct"
+    }
+  }
+}
