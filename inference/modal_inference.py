@@ -53,7 +53,8 @@ MODEL_GPU_MAP = {
     "google/gemma-2-9b-it": "A10G",
     "Qwen/Qwen3-1.7B": "T4",
     "Qwen/Qwen2.5-7B-Instruct": "A10G",
-    "Qwen/Qwen2.5-14B-Instruct": "A10G",
+    "Qwen/Qwen2.5-14B": "A100",
+    "Qwen/Qwen2.5-14B-Instruct": "A100",
     "Qwen/Qwen2.5-32B-Instruct": "A100",
     "meta-llama/Llama-3.1-8B-Instruct": "A10G",
 }
@@ -146,7 +147,7 @@ def warmup(model_name: str = "Qwen/Qwen3-1.7B") -> dict:
 
 
 @app.function(
-    gpu="A10G",
+    gpu="A100",
     image=image,
     volumes={"/models": volume},
     timeout=600,

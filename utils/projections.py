@@ -86,16 +86,28 @@ def read_response_projections(path, layer=None) -> list:
 
 # --- Activation-norm normalization ---
 
-def load_activation_norms(norms_path: str | Path) -> np.ndarray:
+def load_activation_norms(norms_path: str | Path, expected_model: str = None) -> np.ndarray:
     """Load per-layer activation norms from JSON.
 
     These are mean(||hidden_state||) across all response tokens, precomputed by
     compute_activation_norms.py. Used to normalize probe scores so traits at
     different layers are comparable.
+
+    Validates model name if expected_model is provided (compares final path
+    component, e.g. "Qwen2.5-14B-Instruct").
     """
     with open(norms_path) as f:
         data = json.load(f)
-    return np.array(data["norms_per_layer"])
+    norms = np.array(data["norms_per_layer"])
+
+    if expected_model and "model" in data:
+        # Compare short names (last path component)
+        norms_model = data["model"].rstrip("/").split("/")[-1]
+        expected_short = expected_model.rstrip("/").split("/")[-1]
+        if norms_model != expected_short:
+            print(f"  Warning: norms computed on {data['model']}, but scoring with {expected_model}")
+
+    return norms
 
 
 def normalize_fingerprint(

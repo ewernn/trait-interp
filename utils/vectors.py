@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 # Single source of truth for minimum coherence threshold in steering evaluation
 MIN_COHERENCE = 77
 
+# Minimum naturalness score (filters AI-mode, robotic responses)
+# Only applied when naturalness.json exists for the trait
+MIN_NATURALNESS = 50
+
 
 # =============================================================================
 # Vector Loading
@@ -225,6 +229,41 @@ def _get_steering_result(
     return None
 
 
+def _load_naturalness_scores(
+    experiment: str,
+    trait: str,
+    model_variant: str,
+    position: str,
+    prompt_set: str = "steering",
+) -> Dict[Tuple[int, str, str], float]:
+    """
+    Load naturalness scores if available.
+
+    Returns:
+        {(layer, method, component): best_naturalness_score} or empty dict
+        For layers with multiple coefficients scored, returns the best score.
+    """
+    nat_path = get_steering_results_path(experiment, trait, model_variant, position, prompt_set).parent / "naturalness.json"
+    if not nat_path.exists():
+        return {}
+
+    try:
+        with open(nat_path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return {}
+
+    # Group by (layer, method, component), keep best naturalness per group
+    scores = {}
+    for config_data in data.get("scores", {}).values():
+        key = (config_data["layer"], config_data["method"], config_data["component"])
+        mean = config_data.get("mean", 0)
+        if key not in scores or mean > scores[key]:
+            scores[key] = mean
+
+    return scores
+
+
 # =============================================================================
 # Public API
 # =============================================================================
@@ -238,6 +277,7 @@ def get_best_vector(
     position: str = None,
     layer: int = None,
     min_coherence: int = MIN_COHERENCE,
+    min_naturalness: int = MIN_NATURALNESS,
     prompt_set: str = "steering",
 ) -> dict:
     """
@@ -252,10 +292,13 @@ def get_best_vector(
         position: Position string, or None to search all
         layer: Layer number, or None to search all
         min_coherence: Minimum coherence threshold (default: MIN_COHERENCE)
+        min_naturalness: Minimum naturalness score (default: MIN_NATURALNESS).
+            Only applied when naturalness.json exists. Set to 0 to disable.
         prompt_set: Prompt set for steering results (default: "steering")
 
     Returns:
-        Dict with 'layer', 'method', 'position', 'component', 'source', 'score', 'coefficient'
+        Dict with 'layer', 'method', 'position', 'component', 'source', 'score',
+        'coefficient', 'direction', and optionally 'naturalness'
 
     Raises:
         FileNotFoundError: If no vectors found or no steering results
@@ -291,6 +334,31 @@ def get_best_vector(
             f"Run: python analysis/steering/evaluate.py --experiment {experiment} --trait {trait}"
         )
 
+    # Load naturalness scores if available
+    nat_scores = {}
+    positions_seen = set(c['position'] for c in scored)
+    for pos in positions_seen:
+        nat_scores.update(
+            _load_naturalness_scores(experiment, trait, steering_variant, pos, prompt_set)
+        )
+
+    # Annotate candidates with naturalness
+    for c in scored:
+        key = (c['layer'], c['method'], c['component'])
+        if key in nat_scores:
+            c['naturalness'] = nat_scores[key]
+
+    # Filter by naturalness if scores exist and threshold > 0
+    if nat_scores and min_naturalness > 0:
+        filtered = [c for c in scored if c.get('naturalness', 100) >= min_naturalness]
+        if filtered:
+            scored = filtered
+        else:
+            logger.warning(
+                f"All configs for {trait} below naturalness threshold {min_naturalness}. "
+                f"Using unfiltered results."
+            )
+
     # Direction-aware: pick largest delta for positive, most negative for negative
     best = max(scored, key=lambda c: c['score'] * (1 if c['direction'] == 'positive' else -1))
     # Remove 'path' from result (internal detail)
@@ -307,6 +375,7 @@ def get_top_N_vectors(
     layer: int = None,
     N: int = 3,
     min_coherence: int = MIN_COHERENCE,
+    min_naturalness: int = MIN_NATURALNESS,
     prompt_set: str = "steering",
 ) -> List[dict]:
     """
@@ -322,10 +391,12 @@ def get_top_N_vectors(
         layer: Layer number, or None to search all
         N: Number of vectors to return (default: 3)
         min_coherence: Minimum coherence threshold
+        min_naturalness: Minimum naturalness score (0 to disable)
         prompt_set: Prompt set for steering results (default: "steering")
 
     Returns:
-        List of dicts with 'layer', 'method', 'position', 'component', 'source', 'score', 'coefficient'
+        List of dicts with 'layer', 'method', 'position', 'component', 'source',
+        'score', 'coefficient', and optionally 'naturalness'
     """
     # Resolve variants from config if not specified
     if extraction_variant is None:
@@ -346,6 +417,22 @@ def get_top_N_vectors(
             c['source'] = 'steering'
             c['coefficient'] = coefficient
             scored.append(c)
+
+    # Load and apply naturalness scores
+    nat_scores = {}
+    for pos in set(c['position'] for c in scored):
+        nat_scores.update(
+            _load_naturalness_scores(experiment, trait, steering_variant, pos, prompt_set)
+        )
+    for c in scored:
+        key = (c['layer'], c['method'], c['component'])
+        if key in nat_scores:
+            c['naturalness'] = nat_scores[key]
+
+    if nat_scores and min_naturalness > 0:
+        filtered = [c for c in scored if c.get('naturalness', 100) >= min_naturalness]
+        if filtered:
+            scored = filtered
 
     # Sort by score: direction-aware (largest effect first)
     scored.sort(key=lambda c: c['score'] * (1 if c['direction'] == 'positive' else -1), reverse=True)
