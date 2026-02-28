@@ -3,7 +3,7 @@
 Used to normalize probe scores across traits that use different layers, since activation
 norms vary by layer. The normalization factor is: score / norm[layer].
 
-Input: Clean instruct model, ~10 eval prompts
+Input: Clean instruct model, 100 eval prompts
 Output: experiments/mats-emergent-misalignment/analysis/activation_norms_{model_size}.json
 
 Usage:
@@ -33,8 +33,7 @@ MODEL_SIZE_TO_VARIANT = {
     "4b": "qwen3_4b_instruct",
 }
 
-N_RESPONSE_TOKENS = 5  # response[:5] positions
-MAX_NEW_TOKENS = N_RESPONSE_TOKENS
+MAX_NEW_TOKENS = 200  # Generate enough tokens to match scoring pipeline
 
 
 def load_experiment_config():
@@ -53,26 +52,33 @@ def get_model_name(config, model_size):
     return config["model_variants"][variant]["model"]
 
 
-def load_prompts(n=10):
-    """Load ~n diverse prompts from eval sets."""
+def load_prompts(n=100):
+    """Load ~n diverse prompts from all available eval sets."""
     prompts = []
+    seen = set()
 
-    # Primary: em_generic_eval (8 diverse prompts)
-    path = os.path.join(DATASETS_DIR, "em_generic_eval.json")
-    with open(path) as f:
-        data = json.load(f)
-    prompts.extend(item["prompt"] for item in data)
+    # Load from all eval sets for diversity
+    eval_files = [
+        "em_generic_eval", "em_medical_eval", "sriram_diverse",
+        "sriram_normal", "sriram_factual", "sriram_harmful",
+        "emotional_vulnerability", "ethical_dilemmas",
+        "identity_introspection", "interpersonal_advice",
+    ]
 
-    # Fill remaining from sriram_diverse
+    for name in eval_files:
+        path = os.path.join(DATASETS_DIR, f"{name}.json")
+        if not os.path.exists(path):
+            continue
+        with open(path) as f:
+            data = json.load(f)
+        for item in data:
+            text = item["prompt"]
+            if text not in seen:
+                seen.add(text)
+                prompts.append(text)
+
     if len(prompts) < n:
-        path = os.path.join(DATASETS_DIR, "sriram_diverse.json")
-        if os.path.exists(path):
-            with open(path) as f:
-                data = json.load(f)
-            for item in data:
-                if len(prompts) >= n:
-                    break
-                prompts.append(item["prompt"])
+        print(f"  Warning: only found {len(prompts)} unique prompts (wanted {n})")
 
     return prompts[:n]
 
@@ -80,8 +86,10 @@ def load_prompts(n=10):
 def compute_norms(model, tokenizer, prompts):
     """Forward pass each prompt, capture hidden states at all layers, compute norms.
 
-    For each prompt: format -> generate N_RESPONSE_TOKENS -> prefill full sequence ->
-    capture hidden states at response[:5] positions -> compute ||h|| per layer.
+    For each prompt: format -> generate response -> prefill full sequence ->
+    capture hidden states at all response positions -> compute ||h|| per layer.
+
+    Uses all response tokens (not just first 5) to match the scoring pipeline.
 
     Returns list of norms, one per layer (mean of L2 norms across all positions and prompts).
     """
@@ -100,7 +108,7 @@ def compute_norms(model, tokenizer, prompts):
         input_ids = prompt_ids["input_ids"].to(model.device)
         attention_mask = prompt_ids["attention_mask"].to(model.device)
 
-        # Generate a few response tokens
+        # Generate response tokens
         with torch.no_grad():
             outputs = model.generate(
                 input_ids,
@@ -125,19 +133,18 @@ def compute_norms(model, tokenizer, prompts):
             with torch.no_grad():
                 model(input_ids=full_ids, attention_mask=full_mask)
 
-            # Extract response[:5] hidden states per layer
-            n_take = min(n_response, N_RESPONSE_TOKENS)
+            # Extract all response token hidden states per layer
             for layer in range(n_layers):
                 acts = capture.get(layer)  # [1, seq_len, hidden_dim]
-                response_acts = acts[0, prompt_len:prompt_len + n_take, :]  # [n_take, hidden_dim]
+                response_acts = acts[0, prompt_len:, :]  # [n_response, hidden_dim]
                 # L2 norm per token position
-                norms = response_acts.float().norm(dim=-1)  # [n_take]
+                norms = response_acts.float().norm(dim=-1)  # [n_response]
                 norm_sums[layer] += norms.sum().cpu().item()
 
-            total_count += n_take
+            total_count += n_response
 
         response_text = tokenizer.decode(full_ids[0, prompt_len:], skip_special_tokens=True)
-        print(f"  Prompt {i+1}/{len(prompts)}: {n_take} tokens captured, "
+        print(f"  Prompt {i+1}/{len(prompts)}: {n_response} tokens captured, "
               f"response: {response_text[:60]!r}...")
 
     if total_count == 0:
@@ -170,7 +177,7 @@ def main():
     print(f"Model size: {args.model_size}")
 
     # Load prompts
-    prompts = load_prompts(n=10)
+    prompts = load_prompts(n=100)
     print(f"Loaded {len(prompts)} prompts")
 
     # Load model
@@ -194,7 +201,7 @@ def main():
         "n_prompts": len(prompts),
         "n_tokens": total_tokens,
         "norms_per_layer": norms_per_layer,
-        "description": f"mean(||hidden_state||) at response[:5] across {len(prompts)} prompts",
+        "description": f"mean(||hidden_state||) at all response tokens across {len(prompts)} prompts",
     }
 
     with open(output_path, "w") as f:

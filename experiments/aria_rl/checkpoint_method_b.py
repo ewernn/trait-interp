@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 from core import MultiLayerCapture
 from core.math import projection
 from utils.model import tokenize_batch
+from utils.projections import load_activation_norms
 from utils.vectors import get_best_vector, load_vector
 from utils.vram import calculate_max_batch_size
 
@@ -115,8 +116,11 @@ def load_eval_data(eval_sets, n_samples):
 
 
 def score_responses(model, tokenizer, prompts, responses_dict, probes,
-                    batch_size=None):
-    """Prefill responses through model, project onto probes. Returns {trait: mean_score}."""
+                    batch_size=None, norms_per_layer=None):
+    """Prefill responses through model, project onto probes. Returns {trait: mean_score}.
+
+    If norms_per_layer is provided, normalizes scores by activation magnitude.
+    """
     layers = sorted(set(p["layer"] for p in probes.values()))
     scores = {trait: [] for trait in probes}
 
@@ -185,18 +189,29 @@ def score_responses(model, tokenizer, prompts, responses_dict, probes,
         del input_ids, attention_mask
         torch.cuda.empty_cache()
 
-    return {trait: sum(vals) / len(vals) if vals else 0.0
-            for trait, vals in scores.items()}
+    result = {trait: sum(vals) / len(vals) if vals else 0.0
+              for trait, vals in scores.items()}
+
+    # Normalize by activation magnitude at each trait's layer
+    if norms_per_layer is not None:
+        for trait, probe_info in probes.items():
+            norm = float(norms_per_layer[probe_info["layer"]])
+            if norm > 1e-8:
+                result[trait] /= norm
+
+    return result
 
 
-def score_all_evals(model, tokenizer, eval_data, probes, batch_size=None):
+def score_all_evals(model, tokenizer, eval_data, probes, batch_size=None,
+                    norms_per_layer=None):
     """Score all eval sets, return per-eval and mean scores."""
     per_eval = {}
     all_scores = {trait: [] for trait in probes}
 
     for eval_name, prompts, responses in eval_data:
         eval_scores = score_responses(model, tokenizer, prompts, responses,
-                                      probes, batch_size)
+                                      probes, batch_size,
+                                      norms_per_layer=norms_per_layer)
         per_eval[eval_name] = eval_scores
         for trait, val in eval_scores.items():
             all_scores[trait].append(val)
@@ -290,6 +305,8 @@ def main():
                         help="Override batch size")
     parser.add_argument("--resume", action="store_true",
                         help="Resume from partial results")
+    parser.add_argument("--norms-file", type=str, default=None,
+                        help="Activation norms JSON (default: auto-detect from mats experiment)")
     args = parser.parse_args()
 
     # Find checkpoints
@@ -316,6 +333,22 @@ def main():
             results = json.load(f)
         existing_steps = {c["step"] for c in results["checkpoints"]}
         print(f"Resuming: {len(existing_steps)} checkpoints already done")
+
+    # Load activation norms for score normalization
+    if args.norms_file:
+        norms_path = Path(args.norms_file)
+        if not norms_path.is_absolute():
+            norms_path = BASE_DIR / norms_path
+    else:
+        # 4B model uses activation_norms_4b.json from mats experiment
+        norms_path = BASE_DIR.parent / "mats-emergent-misalignment" / "analysis" / "activation_norms_4b.json"
+    if not norms_path.exists():
+        raise FileNotFoundError(
+            f"Activation norms not found: {norms_path}\n"
+            f"Run compute_activation_norms.py --model-size 4b first."
+        )
+    norms_per_layer = load_activation_norms(norms_path)
+    print(f"Activation norms: {norms_path.name} ({len(norms_per_layer)} layers)")
 
     # Load probes
     print("\nLoading probes...")
@@ -352,7 +385,8 @@ def main():
     print("\n=== Baseline (clean model on clean text) ===")
     t0 = time.time()
     baseline_scores, baseline_per_eval = score_all_evals(
-        base_model, tokenizer, eval_data, probes, args.batch_size
+        base_model, tokenizer, eval_data, probes, args.batch_size,
+        norms_per_layer=norms_per_layer,
     )
     baseline_time = time.time() - t0
     print(f"  Baseline scored in {baseline_time:.1f}s")
@@ -370,6 +404,8 @@ def main():
                 "probe_layers": probe_layers,
                 "total_items_per_checkpoint": total_items,
                 "checkpoint_format": fmt,
+                "normalized": True,
+                "norms_source": str(norms_path.name),
             },
             "probes": {
                 trait: {
@@ -404,7 +440,8 @@ def main():
         # Score clean text through checkpoint model (reverse_model)
         t1 = time.time()
         reverse_scores, reverse_per_eval = score_all_evals(
-            model, tokenizer, eval_data, probes, args.batch_size
+            model, tokenizer, eval_data, probes, args.batch_size,
+            norms_per_layer=norms_per_layer,
         )
         score_time = time.time() - t1
 

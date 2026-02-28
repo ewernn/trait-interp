@@ -101,6 +101,7 @@ trait-interp/
 │   ├── vram.py                       # GPU monitoring, VRAM estimation, batch sizing
 │   ├── moe.py                        # Fused MoE (INT4 dequant + grouped_mm), model cache
 │   ├── distributed.py                # Tensor parallelism (is_tp_mode, rank, barrier)
+│   ├── fingerprints.py               # Fingerprint metrics (cosine, classification, short_name)
 │   └── ...                           # paths, activations, layers, projections, vectors
 ├── other/server/           # Model server (persistent model loading, fused MoE)
 ├── analysis/               # Analysis scripts (see analysis/README.md)
@@ -165,6 +166,7 @@ utils/              ← Shared utilities
     ├── vram.py         GPU memory, batch sizing
     ├── moe.py          Fused MoE, model cache
     ├── distributed.py  TP rank/barrier
+    ├── fingerprints.py Fingerprint metrics, classification
     ↑
     └── Used by: all modules
 
@@ -245,10 +247,13 @@ Trait vectors are directions in activation space separating positive from negati
 
 Project hidden states onto trait vectors:
 ```
-score = (hidden_state @ trait_vector) / ||trait_vector||
+raw_score = (hidden_state @ trait_vector) / ||trait_vector||
+score = raw_score / mean(||hidden_state_at_layer||)
 ```
 - Positive → expressing trait
 - Negative → avoiding trait
+
+Scoring pipelines (`pxs_grid.py`, `checkpoint_method_b.py`) normalize by dividing by mean activation norm at each trait's layer. This makes scores proportional to cos(θ), comparable across traits at different layers. Norms precomputed by `compute_activation_norms.py`.
 
 **Layer selection:** Middle layers (6-16) generally best. Use `extraction_evaluation.py` to find optimal layer per trait. Steering results provide ground truth.
 

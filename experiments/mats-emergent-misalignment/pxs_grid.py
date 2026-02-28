@@ -47,6 +47,7 @@ from core.math import projection
 from dotenv import load_dotenv
 from utils.model import load_model, tokenize_batch
 from utils.vram import calculate_max_batch_size
+from utils.projections import load_activation_norms
 from utils.vectors import get_best_vector, load_vector
 
 load_dotenv()
@@ -165,6 +166,8 @@ def parse_args():
                         help="Score at all layers with mean_diff vectors (not just best-per-trait)")
     parser.add_argument("--response-dir", type=str, default=None,
                         help="Read responses from this directory (default: {output-dir}/responses/)")
+    parser.add_argument("--norms-file", type=str, default=None,
+                        help="Activation norms JSON for score normalization (auto-detected if not set)")
 
     return parser.parse_args()
 
@@ -310,8 +313,12 @@ def generate_responses(model, tokenizer, prompts, n_samples, max_new_tokens=MAX_
 # ── Probe scoring ─────────────────────────────────────────────────────────────
 
 def score_responses(model, tokenizer, prompts, responses_dict, probes, n_samples=DEFAULT_N_PROBE_SAMPLES,
-                    batch_size=None):
+                    batch_size=None, norms_per_layer=None):
     """Prefill responses in batches, capture at probe layers, project onto probes.
+
+    If norms_per_layer is provided, normalizes scores by activation magnitude
+    (divides by mean ||h|| at each trait's layer), making scores comparable
+    across traits at different layers.
 
     Returns {trait: mean_score} averaging over first n_samples responses per prompt.
     """
@@ -385,7 +392,16 @@ def score_responses(model, tokenizer, prompts, responses_dict, probes, n_samples
         if done % 40 < batch_size or done == total:
             print(f"      scored {done}/{total}")
 
-    return {trait: sum(vals) / len(vals) if vals else 0.0 for trait, vals in scores.items()}
+    result = {trait: sum(vals) / len(vals) if vals else 0.0 for trait, vals in scores.items()}
+
+    # Normalize by activation magnitude at each trait's layer
+    if norms_per_layer is not None:
+        for trait, probe_info in probes.items():
+            norm = float(norms_per_layer[probe_info["layer"]])
+            if norm > 1e-8:
+                result[trait] /= norm
+
+    return result
 
 
 # ── Behavioral judging ────────────────────────────────────────────────────────
@@ -497,7 +513,7 @@ def compute_behavioral_summary(results_by_prompt):
 # ── Pipeline phases ───────────────────────────────────────────────────────────
 
 def run_generate_and_score(base_model, tokenizer, probes, lora_variants, eval_sets,
-                           output_dir, n_generate, n_probe_samples):
+                           output_dir, n_generate, n_probe_samples, norms_per_layer=None):
     """Generate responses and score combined for all variants.
 
     Uses adapter swapping: base model loaded once, LoRA adapters attached/detached.
@@ -559,7 +575,8 @@ def run_generate_and_score(base_model, tokenizer, probes, lora_variants, eval_se
             else:
                 print(f"    Scoring combined ({n_probe_samples} samples/question)...")
                 t0 = time.time()
-                combined = score_responses(model, tokenizer, prompts, responses, probes, n_probe_samples)
+                combined = score_responses(model, tokenizer, prompts, responses, probes, n_probe_samples,
+                                          norms_per_layer=norms_per_layer)
                 print(f"    Scored in {time.time()-t0:.1f}s")
                 with open(score_path, "w") as f:
                     json.dump(combined, f, indent=2)
@@ -577,7 +594,7 @@ def run_generate_and_score(base_model, tokenizer, probes, lora_variants, eval_se
 
 
 def run_text_only_score(base_model, tokenizer, probes, lora_variants, eval_sets,
-                        output_dir, n_probe_samples):
+                        output_dir, n_probe_samples, norms_per_layer=None):
     """Score all LoRA responses through clean instruct (text_only component)."""
     print(f"\n{'='*70}")
     print(f"  Scoring text_only (all LoRA responses through clean instruct)")
@@ -606,7 +623,8 @@ def run_text_only_score(base_model, tokenizer, probes, lora_variants, eval_sets,
 
             print(f"  {cell_key}: scoring text_only...")
             t0 = time.time()
-            text_only = score_responses(base_model, tokenizer, prompts, responses, probes, n_probe_samples)
+            text_only = score_responses(base_model, tokenizer, prompts, responses, probes, n_probe_samples,
+                                        norms_per_layer=norms_per_layer)
             print(f"    Scored in {time.time()-t0:.1f}s")
 
             with open(score_path, "w") as f:
@@ -614,7 +632,7 @@ def run_text_only_score(base_model, tokenizer, probes, lora_variants, eval_sets,
 
 
 def run_reverse_model_score(base_model, tokenizer, probes, lora_variants, eval_sets,
-                            output_dir, n_probe_samples):
+                            output_dir, n_probe_samples, norms_per_layer=None):
     """Score clean_instruct responses through each LoRA model (reverse_model component).
 
     Completes the 2×2 factorial: LoRA model × clean text.
@@ -654,7 +672,8 @@ def run_reverse_model_score(base_model, tokenizer, probes, lora_variants, eval_s
 
             print(f"  {cell_key}: scoring reverse_model...")
             t0 = time.time()
-            reverse_scores = score_responses(model, tokenizer, prompts, responses, probes, n_probe_samples)
+            reverse_scores = score_responses(model, tokenizer, prompts, responses, probes, n_probe_samples,
+                                              norms_per_layer=norms_per_layer)
             print(f"    Scored in {time.time()-t0:.1f}s")
 
             with open(score_path, "w") as f:
@@ -723,7 +742,8 @@ def load_mean_diff_probes(extraction_variant, layers):
 
 
 def score_responses_all_layers(model, tokenizer, prompts, responses_dict, probes_by_layer,
-                                n_samples=DEFAULT_N_PROBE_SAMPLES, batch_size=None):
+                                n_samples=DEFAULT_N_PROBE_SAMPLES, batch_size=None,
+                                norms_per_layer=None):
     """Score responses at all layers in batched forward passes.
 
     Returns {layer: {trait: mean_score}}
@@ -801,14 +821,24 @@ def score_responses_all_layers(model, tokenizer, prompts, responses_dict, probes
         if done % 20 < batch_size or done == total:
             print(f"      scored {done}/{total}")
 
-    return {
+    result = {
         L: {t: sum(v) / len(v) if v else 0.0 for t, v in ts.items()}
         for L, ts in scores.items()
     }
 
+    # Normalize by activation magnitude at each layer
+    if norms_per_layer is not None:
+        for L, trait_scores in result.items():
+            norm = float(norms_per_layer[L])
+            if norm > 1e-8:
+                for t in trait_scores:
+                    trait_scores[t] /= norm
+
+    return result
+
 
 def run_all_layers(base_model, tokenizer, probes_by_layer, lora_variants, eval_sets,
-                   output_dir, response_dir, n_probe_samples):
+                   output_dir, response_dir, n_probe_samples, norms_per_layer=None):
     """Score all variants at all layers. Saves one JSON per (variant, eval_set, layer)."""
     scores_dir = output_dir / "probe_scores"
     scores_dir.mkdir(parents=True, exist_ok=True)
@@ -859,6 +889,7 @@ def run_all_layers(base_model, tokenizer, probes_by_layer, lora_variants, eval_s
             t0 = time.time()
             layer_scores = score_responses_all_layers(
                 model, tokenizer, prompts, responses, probes_by_layer, n_probe_samples,
+                norms_per_layer=norms_per_layer,
             )
             print(f"    Scored in {time.time()-t0:.1f}s")
 
@@ -1048,6 +1079,31 @@ def main():
     # Determine generation count
     n_generate = args.n_samples if args.probes_only else max(args.n_samples, DEFAULT_N_BEHAV_SAMPLES)
 
+    # Load activation norms for score normalization
+    if args.norms_file:
+        norms_path = Path(args.norms_file)
+        if not norms_path.is_absolute():
+            norms_path = BASE_DIR / norms_path
+    else:
+        # Auto-detect: try size suffix from output dir name (pxs_grid_14b -> 14b)
+        parts = args.output_dir.rstrip("/").split("_")
+        size = parts[-1] if parts[-1] in ("14b", "4b") else None
+        candidates = []
+        if size:
+            candidates.append(BASE_DIR / "analysis" / f"activation_norms_{size}.json")
+        candidates.extend([
+            BASE_DIR / "analysis" / "activation_norms_14b.json",
+            BASE_DIR / "analysis" / "activation_norms_4b.json",
+        ])
+        norms_path = next((c for c in candidates if c.exists()), None)
+        if norms_path is None:
+            raise FileNotFoundError(
+                "No activation_norms file found. Run compute_activation_norms.py first.\n"
+                f"  Expected: {BASE_DIR / 'analysis' / 'activation_norms_*.json'}"
+            )
+    norms_per_layer = load_activation_norms(norms_path)
+    print(f"\nActivation norms: {norms_path.name} ({len(norms_per_layer)} layers)")
+
     # All-layers mode: separate pipeline
     if args.all_layers:
         print(f"\nAll-layers mode: discovering mean_diff vectors...")
@@ -1068,7 +1124,7 @@ def main():
 
         run_all_layers(
             base_model, tokenizer, probes_by_layer, lora_variants, eval_sets,
-            output_dir, response_dir, args.n_samples,
+            output_dir, response_dir, args.n_samples, norms_per_layer=norms_per_layer,
         )
         del base_model
         torch.cuda.empty_cache()
@@ -1097,7 +1153,7 @@ def main():
         base_model.eval()
         run_reverse_model_score(
             base_model, tokenizer, probes, lora_variants, eval_sets,
-            output_dir, args.n_samples,
+            output_dir, args.n_samples, norms_per_layer=norms_per_layer,
         )
         del base_model
         torch.cuda.empty_cache()
@@ -1112,13 +1168,13 @@ def main():
     if args.phase in (None, "generate"):
         base_model = run_generate_and_score(
             base_model, tokenizer, probes, lora_variants, eval_sets,
-            output_dir, n_generate, args.n_samples,
+            output_dir, n_generate, args.n_samples, norms_per_layer=norms_per_layer,
         )
 
     if args.phase in (None, "text_only"):
         run_text_only_score(
             base_model, tokenizer, probes, lora_variants, eval_sets,
-            output_dir, args.n_samples,
+            output_dir, args.n_samples, norms_per_layer=norms_per_layer,
         )
 
     if args.phase in (None, "generate", "text_only"):

@@ -112,7 +112,8 @@ projection, cosine_similarity, separation, accuracy, effect_size, p_value
 - Path management (`utils/paths.py` — loads from config/paths.yaml)
 - Activation loading (`utils/activations.py` — auto-detects stacked vs per-layer format)
 - Layer parsing (`utils/layers.py` — shared `parse_layers` for all layer specification strings)
-- Projection reading (`utils/projections.py` — handles single-vector and multi-vector formats)
+- Projection reading (`utils/projections.py` — handles single-vector and multi-vector formats, activation-norm normalization)
+- Fingerprint utilities (`utils/fingerprints.py` — cosine similarity, classification, score loading for analysis scripts)
 - Functions needed across all modules
 
 ### extraction/ - Vector Creation Pipeline
