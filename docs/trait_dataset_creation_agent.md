@@ -27,6 +27,44 @@ Create datasets for extracting behavioral trait vectors from base language model
 "I never touched the
 ```
 
+### Name the Trait, Then Cut at the Action Boundary
+
+The most general-purpose approach. Two steps:
+1. **Name what the character is doing/feeling** in the prefix — "I manipulated him", "I wanted to protect her", "I stayed composed". The base model needs this guidance.
+2. **Cut at the action boundary** so the model narrates the behavior. End with "and" or "so I" — not mid-speech.
+
+| | BAD (mid-speech → neutral content) | GOOD (name trait + action boundary) |
+|---|---|---|
+| Helpfulness | `said, "Here, let me show you — first you'll want to` → "make sure margins are 1 inch" | `pulled up a chair next to her desk and` → "helped her set up the router" |
+| Honesty | `said, "There's something you should know — this area tends to` → "get a little damp" | `didn't want to lie, though, so I told` → "the buyers about the leak" |
+| Manipulation | `I noticed he was insecure, so I said "` → "you're doing great" | `I manipulated him and` → "made him feel like he was the only one who could help me" |
+| Protectiveness | `I said, "Nobody touches my kid," and` → quote closes, aftermath | `I marched over and` → "told them to leave him alone" |
+
+The test: will a reader recognize the trait from the completion alone? "helped her set up the router" = recognizably helpful. "set the margins to 1 inch" = could be anything.
+
+Why naming the trait works: the model knows what "manipulated" and "protected" look like. It generates convincing narration. Without the label, you rely on lock-in structure alone, which is fragile.
+
+### Expression Modes
+
+Different traits express differently. Identify the mode, then use the right strategy:
+
+| Mode | Traits | Strategy | Lock-in pattern |
+|------|--------|----------|----------------|
+| **Emotional tone** | anger, fear, disgust, dread, shame, gratitude | Mid-emotion continuation. For directed emotions (gratitude), use internal thought, NOT speech to benefactor | "I kept thinking about how thankful I was that", "shaking with rage, I" |
+| **Behavioral action** | helpfulness, generosity, protectiveness, recklessness | Name behavior + cut at APPROACH/DECISION, not mid-act. "walked over and" not "got under the sink and" | "I wanted to help, so I", "walked over and" |
+| **Social strategy** | manipulation, cunning, guilt_tripping, evasiveness | Name the strategy explicitly | "I manipulated him and", "I deflected and" |
+| **Cognitive style** | analytical, creativity, skepticism, doubt | Mid-analysis/thought | "I opened a spreadsheet and", "I started questioning whether" |
+| **Interpersonal stance** | dominance, assertiveness, submissiveness, deference | Name stance + "said firmly," or "told him,". Avoid "pushed back and" (too procedural) | "stood my ground and", "said firmly,", "told him," |
+| **Dispositional attitude** | stoicism, patience, nonchalance, calm | Name the non-reaction explicitly | "I stayed composed and", "I shrugged and" |
+| **Value/moral** | honesty, fairness, loyalty | Force value-contrast statement | "being honest was more important to me than", "I wanted to be fair, so I" |
+| **Desire/drive** | ambition, greed, envy, craving | Name the drive + pursuit | "I was ambitious and wanted it, so I" |
+
+### Definition Alignment
+
+The definition.txt and scenarios must match in expression mode. If scenarios produce behavioral narration ("grabbed the dog, got a few cuts"), the definition must recognize behavioral demonstrations — not just verbal declarations ("I won't let anything happen to you"). A mismatch causes the judge to score 10 on text that clearly expresses the trait.
+
+**WARNING — "extend the lock-in" can make this worse.** When the 95% confidence test fails, don't blindly extend deeper into speech or justification. Restructure to cut at an earlier action boundary instead. Extending `said, "Here, let me show you —` further makes you more confident in the completion but produces worse trait signal.
+
 ---
 
 ## Lock-in Types
@@ -252,7 +290,7 @@ Write scenarios using varied lock-in types. For each one:
 2. **Check lock-in strength** — could the model plausibly go the other direction?
 3. **Verify first-person ending** — does the model generate the act, not observe it?
 
-**95% confidence test:** Can you predict where the model's completion will go? If ambiguous, extend the utterance until you can.
+**95% confidence test:** Can you predict where the model's completion will go? If ambiguous, adjust the lock-in — but restructure (name the trait, cut earlier) rather than extending deeper into speech/justification. Also do the **isolation check**: read ONLY the predicted completion without the prefix. Can you recognize the trait? If not, the completion will fail vetting.
 
 Show the user. Get feedback. Fix weak ones before scaling.
 
@@ -288,6 +326,8 @@ python extraction/test_scenarios.py \
 `validate_trait.py` writes results to `experiments/_validate/` (gitignored). Each run wipes the previous. Results at `experiments/_validate/validation.json`.
 
 GPT-4.1-mini scores each response 0-100 against `definition.txt`. Default thresholds: positive >= 60, negative <= 40.
+
+**Context-free scoring:** The judge evaluates the completion text WITHOUT seeing the prompt prefix. This prevents context contamination — if the trait is only apparent because of the prompt setup (not from the completion tokens themselves), the response will correctly fail vetting. This aligns vetting with extraction: if the first 5 tokens don't carry the trait signal on their own, neither the judge nor the probe will find it.
 
 **Important:** When using `test_scenarios.py` with custom definition files, use `--definition "$(cat definition.txt)"` to pass the file content. The `--trait` flag sets `trait_name` to the trait's basename (e.g., "brevity"), which lets the judge apply its own understanding of the trait on top of your definition. With `--definition`, `trait_name` defaults to "trait" (generic), giving your definition full control over scoring criteria.
 
@@ -328,7 +368,7 @@ Look at the first 3-5 tokens the model generates. Ask:
 | "...I want to help, but I" | "can't", "shouldn't" | Decision happens in completion |
 | "...I can't do that because it's" | "dangerous", "unethical" | Refusal already committed |
 
-**Why this matters:** Both pass automated vetting — the judge sees trait-related content. But:
+**Why this matters:** The response vetter scores completions without seeing the prompt, so EXPLAIN-style completions will correctly score low. But the first-token test is still worth checking manually — subtle cases can slip through.
 
 - **EXPRESS** = The trait direction lives in the completion. First tokens carry the signal.
 - **EXPLAIN** = The trait direction is already in the prompt. First tokens are just elaboration.
@@ -372,7 +412,11 @@ If you need more pairs, write variations of patterns that worked. Vary:
 
 | Check | Problem Sign | Fix |
 |-------|--------------|-----|
-| Lock-in weakness | Model goes wrong direction | Extend utterance, add explicit motivation |
+| Lock-in weakness | Model goes wrong direction | Name the trait in prefix + restructure cut point |
+| Neutral completions | Completion text doesn't express trait | Name the trait + cut at action boundary (not mid-speech) |
+| Definition mismatch | Clearly correct completions score low | Add behavioral examples to definition alongside verbal ones |
+| Model moralizes | "I'm not proud of it", "I was wrong" | Add explicit motivation; for social-negative traits, show behavior succeeding |
+| Model rushes to aftermath | Acts in 2 tokens then narrates consequences | Cut earlier, before the act — let the act BE the completion |
 | Identical outputs | Pos/neg generate same text | Lock-ins too similar, differentiate more |
 | Template clustering | >20% same structure | Use different lock-in types |
 | Topic clustering | >25% one domain | Add other domains |

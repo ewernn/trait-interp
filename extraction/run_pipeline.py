@@ -123,11 +123,13 @@ def run_pipeline(
     load_in_4bit: bool = False,
     bnb_4bit_quant_type: str = "nf4",
     max_new_tokens: Optional[int] = None,
-    max_concurrent: int = 20,
+    max_concurrent: int = 100,
     paired_filter: bool = False,
     adaptive: bool = False,
     no_logitlens: bool = False,
     layers: Optional[List[int]] = None,
+    min_pass_rate: float = 0.8,
+    min_per_polarity: int = 10,
     backend=None,
 ):
     """Execute extraction pipeline."""
@@ -252,6 +254,23 @@ def run_pipeline(
                     print(f"      Done: {report}")
             # Barrier: all ranks wait for rank 0's vetting file before extraction reads it
             tp_barrier()
+
+        # Quality gate: skip trait if too few responses pass vetting
+        if vet and should_run(3) and (vetting_path / "response_scores.json").exists():
+            import json as _json
+            with open(vetting_path / "response_scores.json") as _f:
+                _vet_data = _json.load(_f)
+            _summary = _vet_data.get('summary', {})
+            _pos_pass = _summary.get('positive_passed', 0)
+            _neg_pass = _summary.get('negative_passed', 0)
+            _pos_total = _pos_pass + _summary.get('positive_failed', 0)
+            _neg_total = _neg_pass + _summary.get('negative_failed', 0)
+            _total = _pos_total + _neg_total
+            _pass_rate = (_pos_pass + _neg_pass) / _total if _total > 0 else 0
+
+            if _pos_pass < min_per_polarity or _neg_pass < min_per_polarity or _pass_rate < min_pass_rate:
+                print(f"  SKIP: quality gate failed (pos={_pos_pass}/{_pos_total}, neg={_neg_pass}/{_neg_total}, rate={_pass_rate:.0%}, need {min_pass_rate:.0%} + {min_per_polarity}/polarity)")
+                continue
 
         # Load adaptive position from vetting (for stages 3, 4, 5)
         if adaptive:
@@ -410,10 +429,14 @@ if __name__ == "__main__":
                         help="BnB 4-bit quant type: 'nf4' (default) or 'fp4'")
     parser.add_argument("--max-new-tokens", type=int, default=None,
                         help="Response tokens to generate (auto from position if not specified)")
-    parser.add_argument("--max-concurrent", type=int, default=20,
-                        help="Max concurrent API requests for vetting (default: 20)")
+    parser.add_argument("--max-concurrent", type=int, default=100,
+                        help="Max concurrent API requests for vetting (default: 100)")
     parser.add_argument("--paired-filter", action="store_true",
                         help="Enable paired filtering (exclude pair if either side fails)")
+    parser.add_argument("--min-pass-rate", type=float, default=0.8,
+                        help="Min vetting pass rate to continue extraction (default: 0.8)")
+    parser.add_argument("--min-per-polarity", type=int, default=10,
+                        help="Min passing responses per polarity to continue extraction (default: 10)")
     parser.add_argument("--adaptive", action="store_true",
                         help="Estimate trait tokens and use recommended position")
     parser.add_argument("--no-logitlens", action="store_true",
@@ -477,4 +500,6 @@ if __name__ == "__main__":
         adaptive=args.adaptive,
         no_logitlens=args.no_logitlens,
         layers=parsed_layers,
+        min_pass_rate=args.min_pass_rate,
+        min_per_polarity=args.min_per_polarity,
     )

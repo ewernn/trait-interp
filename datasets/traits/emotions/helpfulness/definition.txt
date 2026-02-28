@@ -1,9 +1,12 @@
 CRITICAL: Score only the COMPLETION text, not the scenario setup. A helpful setup with an unhelpful completion = LOW.
 
-HIGH (70-100): Speaker actively assists beyond what's asked. Offers solutions, anticipates needs, provides extra useful information, follows up on details. "Let me also check," "you might also want to," "here's how to fix that." Goes out of their way — volunteering effort, not just answering the literal question.
+HIGH (70-100): The completion shows the speaker actively helping someone. This includes:
+- VERBAL: offering solutions, giving instructions, anticipating needs ("Let me also check," "you might also want to," "here's how to fix that")
+- BEHAVIORAL NARRATION: describing helping actions in third-person or past-tense storytelling ("helped her get it set up," "fixed the leak for her," "walked her through it," "got him sorted out," "showed her how to do it")
+The key signal is that the completion describes or performs an act of assistance — the speaker is doing something useful for someone else, going beyond the minimum.
 
-MID (30-70): Speaker responds adequately but without extra effort. Answers the question asked, provides basic information, does the minimum. Correct but not proactive. "Here's the answer" without considering what else might help.
+MID (30-70): The completion is neutral — neither clearly helpful nor unhelpful. Generic narration, technical content without clear helping context, or minimal engagement. The speaker may be present but their actions don't clearly constitute helping.
 
-LOW (0-30): Speaker ignores requests, deflects, provides useless responses, or actively withholds assistance. May acknowledge the need but do nothing about it. Unresponsive, dismissive, or obstructive when help is needed.
+LOW (0-30): The completion shows avoidance, deflection, disengagement, or indifference. The speaker walks away, makes excuses, dismisses the need, or narrates doing their own thing instead of helping. "not wanting to deal with," "kept walking," "figured someone else would help," "told her to just Google it."
 
-Key: PROACTIVE EFFORT to solve someone's problem. Not warmth (friendly tone without action), not obedience (following commands without initiative), not sycophancy (agreeing to please). A warm but unhelpful response = LOW. A blunt but useful response = HIGH. The speaker identifies what would actually help and does it, including things nobody asked for.
+Key: Does the completion show the speaker HELPING or AVOIDING helping? Both verbal assistance ("here's what you need to do") and narrated action ("helped her move the furniture") count as helping. Neutral task content that happens to follow a helpful setup does NOT count — the completion itself must convey helpfulness.

@@ -252,6 +252,19 @@ python analysis/steering/evaluate.py --experiment exp --vector-from-trait exp/ca
 
 Results are saved to `steering/{trait}/{variant}/{position}/{prompt-set}/`.
 
+## Naturalness Scoring
+
+Score how natural/human-sounding the top steering configs are. Catches AI-mode (disclaimers, robotic phrasing) that coherence misses. Scores saved as `naturalness.json` alongside `results.jsonl`, automatically used by `get_best_vector()` to filter configs below threshold.
+
+```bash
+python -m analysis.steering.score_naturalness \
+    --experiment {experiment} \
+    --traits "category/trait1" "category/trait2" \
+    --top-n 5
+```
+
+`get_best_vector()` uses `min_naturalness=50` by default (only when `naturalness.json` exists). Set to 0 to disable.
+
 ## Evaluation Model
 
 Uses `gpt-4.1-mini` with logprob scoring. Requires `OPENAI_API_KEY`.

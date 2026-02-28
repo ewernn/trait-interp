@@ -44,7 +44,7 @@ async def _vet_responses_async(
     experiment: str,
     trait: str,
     model_variant: str,
-    max_concurrent: int = 20,
+    max_concurrent: int = 100,
     estimate_trait_tokens: bool = False,
 ) -> dict:
     """Score all responses and return results."""
@@ -94,7 +94,7 @@ def vet_responses(
     model_variant: str,
     pos_threshold: int = 60,
     neg_threshold: int = 40,
-    max_concurrent: int = 20,
+    max_concurrent: int = 100,
     estimate_trait_tokens: bool = False,
 ) -> float:
     """

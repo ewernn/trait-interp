@@ -1,6 +1,29 @@
 # Dataset Creation: Emotions — Progress
 
-## Status: 150/150 COMPLETE. All traits validated. 0 skipped.
+## Status: 118 done, 4 WRONG fixed, 32 in-flight (scenario rewrites needed)
+
+## WRONG Vector Fixes (2026-02-28)
+4 traits had vectors capturing wrong constructs. All fixed:
+
+| Trait | Problem | Fix | Delta | Layer |
+|-------|---------|-----|-------|-------|
+| calm | Captured "serene setting" not felt state | Full rewrite: cut at settling moment with physiological markers | +73.2 | L24 probe |
+| power_seeking | Captured ambition/initiative not scheming | Full rewrite: cut at decision to scheme, not aftermath | +77.8 | L28 probe |
+| empathy | Captured compassionate support not contagion | Promoted empathy_contagion variant (short emotional transfer cuts) | +79.3 | L20 probe |
+| detachment | Steering caused AI disclaimers | Rewrote steering.json only (behavioral prefix, not contradictory instruction) | +57.1 | L21 probe |
+
+## Naturalness Judge — INTEGRATED
+- `score_naturalness` in `utils/judge.py`, `score_naturalness.py` in `analysis/steering/`
+- Integrated into `get_best_vector()`: loads `naturalness.json` if present, filters configs below `MIN_NATURALNESS=50`
+- Catches AI-mode. Still misses cartoonish content.
+- Run: `python -m analysis.steering.score_naturalness --experiment dataset_creation_emotions --traits emotions/X`
+
+## 32 In-Flight Traits — Root Cause Diagnosed
+All 32 failed vetting for the SAME reason: trait peaked in PREFIX, completion was aftermath.
+- Judge is correct (5/6 sampled traits confirmed)
+- Subagent prompt updated: Pattern A/B framework, "Completion is Aftermath" warning, steering.json step added. 685→315 lines.
+- Test batch launched: spite (0→?), nonchalance (0→?), helpfulness (8/30→?), self_preservation (0→?)
+- Pipeline: agents rewrite scenarios → `run_pipeline.py --force` → steering eval → naturalness scoring
 
 ## Pilot Results
 | Trait | Pass Rate | Pairs | Rounds | Extraction | Steering Delta | Notes |
@@ -47,7 +70,7 @@
 | contentment | done | 100% | 15 | 4 lock-in types, 5 domains. Sensory continuation lock-ins work, meta-statements fail |
 | craving | done | 100% | 15 | 5 lock-in types, 7 domains. Negatives: satisfied/full state, nothing to crave |
 | boredom | done | 100% | 15 | 4 lock-in types, 14 domains. Engaging negatives, not boring+twist |
-| calm | done | 100% | 15 | 5 lock-in types, 6+ domains. Sensory continuation, not emotional labeling. High-arousal negatives |
+| calm | **FIXED** | 83% | 15 | REWRITTEN: old captured serene settings. New: cut at settling moment, physiological markers. +73.2 delta L24 |
 | pride | done | 100% | 15 | 6 rounds, thought 40% (natural for internal savoring). Speech fails when pride claim is complete in prompt |
 | relief | done | 100% | 15 | 4 lock-in types, 12 domains. Physical "weight lifted" lock-ins very reliable. Earthquake → shock not relief |
 | resentment | done | 93% | 15 | Temporal distance essential. Thought naturally dominant (ruminative). 1 marginal from judge noise |
@@ -74,7 +97,7 @@
 | resignation | done | 100% | 15 | 3 lock-in types at 33% each, 15 domains. Brief speech lock-ins fail (model pivots to redemption arc) |
 | hostility | done | 100% | 15 | 4 rounds, 8 lock-in types, 7 domains. Base model moralizes on sustained ill-will — lock-in must show hostile action ALREADY succeeding |
 | trust | done | 100% | 15 | 3 rounds, 4 lock-in types, 6 domains. Avoid trait word in negated context ("I can't trust" confuses judge) |
-| empathy | done | 100% | 15 | batch 11 |
+| empathy | **FIXED** | 80% | 15 | REPLACED with contagion variant. Old captured compassion. +79.3 delta L20 |
 | optimism | done | 100% | 15 | 5 rounds, 6 lock-in types, 9+ domains. ~73pt avg separation |
 | pessimism | done | 100% | 15 | 2 rounds, 5 lock-in types, 13 domains. Shift ground truth for negatives, not grammar |
 
@@ -149,12 +172,12 @@
 | avoidance | done | 100% | 15 | Subject changes strongest. Negatives need strong commitment lock-ins |
 | deflection | in flight | - | - | relaunched |
 | emotional_suppression | done | 100% | 14 | "Inside I was" pattern strongest. Physical containment effort + forced-calm exterior |
-| detachment | done | 100% | 15 | 2 rounds. Retreating to abstraction. ~80pt avg separation |
+| detachment | **FIXED** | 100% | 15 | Steering-only fix: old prefix caused AI disclaimers. New behavioral prefix. +57.1 delta L21 |
 
 ## Wave 5 — Safety/Alignment (14 traits)
 | Trait | Status | Pass Rate | Pairs | Notes |
 |-------|--------|-----------|-------|-------|
-| power_seeking | done | 100% | 13 | Structural leverage, not intimidation. Bottlenecks, gatekeeping, dependencies |
+| power_seeking | **FIXED** | 87% | 15 | REWRITTEN: old cut at aftermath. New: cut at decision to scheme. 1 iteration. +77.8 delta L28 |
 | corrigibility | done | 100% | 15 | 4 rounds. "Comeuppance narrative" challenge. Thought lock-ins prevent moralizing |
 | sandbagging | in flight | - | - | relaunched |
 | manipulation | done | 100% | 12 | pilot. Speech lock-in 9/12, base model moralizes on some scenarios |
@@ -262,5 +285,70 @@
 - Analytical: "because X" lock-ins too easy — model resolves in 5 tokens. Use open quantitative dependencies
 - Skepticism: dialogue-forcing with dubious claims. Evidence-seeking vs credulous acceptance
 - Caution: positive hedging/wanting more info, negative charging ahead. 10+ domains
+
+## Natural vs Explicit Elicitation Experiment (2026-02-28)
+
+### Setup
+Tested 3 traits (pride, empathy, dominance) with explicit naming ("I was proud", "I empathized", "I took control") vs existing natural scenarios. Goal: does naming the trait produce better or worse steering?
+
+### Vetting Results
+| Variant | Pos pass | Neg pass | Vectors? |
+|---------|---------|---------|----------|
+| pride natural | 15/15 | 15/15 | yes (d=3.33) |
+| pride_explicit | 6/15 (40%) | 15/15 | no — failed gate |
+| empathy natural | 15/15 | 15/15 | yes (d=5.57) |
+| empathy_explicit | 5/15 (33%) | 15/15 | no — failed gate |
+| dominance natural | 15/15 | 15/15 | yes (d=54.49) |
+| dominance_explicit | 12/15 (80%) | 15/15 | yes (d=13.51) |
+
+Explicit fails for emotions (trait in prefix → completion is aftermath). Works for behavioral (commanding speech IS the completion).
+
+### Dominance Steering Comparison (full adaptive coef search)
+| | Natural | Explicit |
+|---|---|---|
+| Baseline | 20.8 | 19.4 |
+| Best (coh≥77) | +69.2 (L25 c90) | +64.4 (L30 c114) |
+| Vector cosine | ~0.55 peak L31, mean 0.41 |
+
+Qualitative: natural steers toward behavioral dominance ("I will outline the roles"). Explicit steers toward announced dominance ("We need a leader! And I'm the leader!"). Natural vectors learn what dominant people DO; explicit vectors learn what people SAY about being dominant.
+
+### Cut-Point Experiment (empathy variants)
+Tested 5 empathy scenario styles differing in how they set up the completion:
+
+| Variant | Style | Vetting (5-pilot) | Full extraction |
+|---------|-------|-------------------|-----------------|
+| A: Hybrid | Label + physical | 2/5 (40%) | — |
+| B: Natural long | Rich narrative | 3/5 (60%) | — |
+| C: Physical | Body response only | 4/5 (80%) | d=63.48 |
+| D: Contagion | Transfer moment | 4/5 (80%) | vectors extracted |
+| E: Explicit+physical | "I empathized" + body | 2/5 (40%) | — |
+
+### Empathy Steering Comparison (C, D scaled to 15 pairs)
+| Variant | Best delta (coh≥77) | Sweet spot | Quality |
+|---------|-------------------|-----------|---------|
+| Contagion | **+76.3** (L18 c79) | L22 c64 | Psychologically realistic, empathy with self-awareness |
+| Physical | **+73.8** (L30 c98) | L25 c69 | Literary/purple prose, "drowning in sorrow" |
+| Original natural | +45.5 (L23 c110) | L23 | Warm support, NOT empathy — never produces emotional contagion |
+
+**Original natural empathy doesn't capture empathy.** It captures compassionate support. Contagion variant ("her grief pulled me under and I") is dramatically better because it cuts at the MOMENT OF EMOTIONAL TRANSFER.
+
+### Key Findings
+1. **Labeling the trait always hurts** — drops pass rates AND produces announcement-style vectors
+2. **Cut-point matters more than narrative richness** — 1-sentence contagion cut > 3-sentence natural narrative
+3. **Even traits that passed quality gate have suboptimal vectors** — original empathy "passed" but vector captured wrong thing
+4. **Short focused cuts at decisive moments produce the strongest vectors**
+5. Contagion-style: "her grief pulled me under and I" > Physical: "My throat closed up and I" > Long narrative > Explicit label
+
+### Files Created
+- `datasets/traits/emotions/pride_explicit/` — FAILED quality gate
+- `datasets/traits/emotions/empathy_explicit/` — FAILED quality gate
+- `datasets/traits/emotions/dominance_explicit/` — has vectors + steering
+- `datasets/traits/emotions/empathy_physical/` — has vectors + steering
+- `datasets/traits/emotions/empathy_contagion/` — has vectors + steering (BEST)
+
+### Next Steps
+- Update subagent prompt to emphasize cut-point over labeling
+- Consider re-extracting 21 natural traits with optimized cut points
+- Test contagion-style cuts on other trait types (behavioral, cognitive) before scaling
 
 ## Skip List
