@@ -70,7 +70,7 @@ import asyncio
 from typing import List, Dict, Optional
 from datetime import datetime
 
-from analysis.steering.data import load_steering_data, load_questions_from_inference
+from analysis.steering.data import load_steering_data, load_questions_from_inference, load_questions_from_file
 from analysis.steering.results import (
     init_results_file, load_results, append_baseline, remove_baseline, get_baseline,
     save_baseline_responses, save_ablation_responses, find_cached_run, append_run, save_responses,
@@ -147,7 +147,7 @@ async def compute_baseline(
     trait_name: str,
     trait_definition: str,
     judge: TraitJudge,
-    max_new_tokens: int = 256,
+    max_new_tokens: int = 64,
     eval_prompt: Optional[str] = None,
     relevance_check: bool = True,
 ) -> tuple[Dict, List[Dict]]:
@@ -225,7 +225,7 @@ async def run_ablation_evaluation(
     load_in_4bit: bool = False,
     bnb_4bit_quant_type: str = "nf4",
     lora_adapter: str = None,
-    max_new_tokens: int = 256,
+    max_new_tokens: int = 64,
     eval_prompt: Optional[str] = None,
     use_default_prompt: bool = False,
     extraction_variant: Optional[str] = None,
@@ -237,7 +237,7 @@ async def run_ablation_evaluation(
     Ablates a direction at ALL layers simultaneously.
     Compares baseline (no intervention) vs ablated responses.
     """
-    from analysis.steering.data import load_steering_data, load_questions_from_inference
+    from analysis.steering.data import load_steering_data, load_questions_from_inference, load_questions_from_file
 
     # Load prompts and trait definition
     steering_data = load_steering_data(trait)
@@ -410,7 +410,7 @@ async def run_evaluation(
     load_in_4bit: bool = False,
     bnb_4bit_quant_type: str = "nf4",
     lora_adapter: str = None,
-    max_new_tokens: int = 256,
+    max_new_tokens: int = 64,
     eval_prompt: Optional[str] = None,
     use_default_prompt: bool = False,
     min_coherence: float = MIN_COHERENCE,
@@ -422,6 +422,7 @@ async def run_evaluation(
     trait_judge: Optional[str] = None,
     direction: str = "positive",
     force: bool = False,
+    questions_file: Optional[str] = None,
 ):
     """
     Main evaluation flow.
@@ -462,8 +463,11 @@ async def run_evaluation(
     # Load prompts and trait definition
     steering_data = load_steering_data(trait)
 
-    # Load questions: from inference dataset or trait's steering.json
-    if prompt_set == "steering":
+    # Load questions: explicit file > inference dataset > trait's steering.json
+    if questions_file:
+        questions = load_questions_from_file(questions_file)
+        print(f"Questions: {len(questions)} from {questions_file}")
+    elif prompt_set == "steering":
         questions = steering_data.questions
         print(f"Questions: {len(questions)} from steering.json")
     else:
@@ -992,6 +996,8 @@ def main():
     # === Input/Output ===
     parser.add_argument("--prompt-set", default="steering",
                         help="Prompt set: 'steering' uses trait's steering.json, otherwise loads from datasets/inference/{prompt-set}.json")
+    parser.add_argument("--questions-file", type=str, default=None,
+                        help="Load questions from any JSON file (steering.json or inference format). Overrides --prompt-set for question loading.")
 
     # === Model ===
     parser.add_argument("--model-variant", default=None,
@@ -1142,6 +1148,11 @@ def main():
         else:
             parser.error(f"Invalid trait spec '{spec}': use 'category/trait' or 'experiment/category/trait'")
 
+    # Auto-derive prompt-set from questions-file to avoid overwriting existing results
+    if args.questions_file and args.prompt_set == "steering":
+        args.prompt_set = Path(args.questions_file).stem
+        print(f"Auto-set --prompt-set to '{args.prompt_set}' (from --questions-file)")
+
     # Resolve model variant
     variant = get_model_variant(args.experiment, args.model_variant, mode="application")
     model_variant = variant['name']
@@ -1248,7 +1259,10 @@ async def _run_baseline_only(args, parsed_traits, model_variant, model_name, lor
             print(f"\n--- {trait} ---")
 
             steering_data = load_steering_data(trait)
-            if args.prompt_set == "steering":
+            if args.questions_file:
+                questions = load_questions_from_file(args.questions_file)
+                print(f"Questions: {len(questions)} from {args.questions_file}")
+            elif args.prompt_set == "steering":
                 questions = steering_data.questions
             else:
                 questions = load_questions_from_inference(args.prompt_set)
@@ -1438,7 +1452,10 @@ async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers
                 print(f"\n--- Preparing {trait} ---")
 
                 steering_data = load_steering_data(trait)
-                if args.prompt_set == "steering":
+                if args.questions_file:
+                    questions = load_questions_from_file(args.questions_file)
+                    print(f"  Questions: {len(questions)} from {args.questions_file}")
+                elif args.prompt_set == "steering":
                     questions = steering_data.questions
                 else:
                     questions = load_questions_from_inference(args.prompt_set)
@@ -1610,6 +1627,7 @@ async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers
                     trait_judge=trait_judge,
                     direction=direction,
                     force=force,
+                    questions_file=args.questions_file,
                 )
     finally:
         if judge is not None:

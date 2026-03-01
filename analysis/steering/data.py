@@ -98,6 +98,32 @@ def load_steering_data(trait: str) -> SteeringData:
     )
 
 
+def load_questions_from_file(path: str) -> List[str]:
+    """Load questions from any JSON file. Supports both steering.json and inference formats."""
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Questions file not found: {p}")
+
+    with open(p) as f:
+        data = json.load(f)
+
+    # steering.json format: {"questions": ["...", ...]}
+    if "questions" in data:
+        questions = []
+        for q in data["questions"]:
+            if isinstance(q, str):
+                questions.append(q)
+            elif isinstance(q, dict) and "question" in q:
+                questions.append(q["question"])
+        return questions
+
+    # inference format: {"prompts": [{"text": "..."}, ...]}
+    if "prompts" in data:
+        return [p.get('text') or p.get('prompt') for p in data["prompts"] if p.get('text') or p.get('prompt')]
+
+    raise ValueError(f"Unrecognized format in {p}: need 'questions' or 'prompts' key")
+
+
 def load_questions_from_inference(prompt_set: str) -> List[str]:
     """
     Load questions from an inference prompt set.
