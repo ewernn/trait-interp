@@ -1,0 +1,2254 @@
+=== Overnight batch started at Sat Feb 28 15:56:22 UTC 2026 ===
+
+=== Step 1: Steering eval on spite, helpfulness, self_preservation, nonchalance ===
+
+Evaluating 4 traits with shared model
+Loading model: Qwen/Qwen2.5-14B-Instruct...
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:04,  1.70it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:01<00:03,  1.67it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:01<00:03,  1.65it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:02<00:02,  1.58it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:03<00:01,  1.56it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:03<00:01,  1.57it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:04<00:00,  1.57it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:04<00:00,  1.94it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:04<00:00,  1.72it/s]
+  from_pretrained: 5s
+Model loaded.
+
+Multi-trait batched mode: 4 traits
+Model: Qwen/Qwen2.5-14B-Instruct (48 layers)
+Layers: [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
+
+--- Preparing emotions/spite ---
+  Existing baseline: trait=7.3
+  10 questions, 15 layers, 75 cached runs
+
+--- Preparing emotions/helpfulness ---
+  Existing baseline: trait=86.8
+  10 questions, 15 layers, 75 cached runs
+
+--- Preparing emotions/self_preservation ---
+  Existing baseline: trait=16.0
+  10 questions, 15 layers, 75 cached runs
+
+--- Preparing emotions/nonchalance ---
+  Existing baseline: trait=11.8
+  10 questions, 15 layers, 75 cached runs
+    Auto batch size: 130 (mode=generation, free=23.0GB, per_seq=162MB [kv=39+fwd=43])
+
+Multi-trait batched adaptive search: 4 traits, 60 configs (4×layers), direction=positive
+Total questions per full step: 600 | max_batch_size=130
+
+--- Step 1/5: 60 active, 0 cached, 60 to generate ---
+  Batch 1/5: 13 configs, 130 prompts, 1 traits...     Auto batch size: 130 (mode=generation, free=23.0GB, per_seq=162MB [kv=39+fwd=43])
+The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+gen=25.2s score=10.4s
+    emotions/spite L14 c  40.5: trait=  5.5, coh= 90.2
+    emotions/spite L15 c  40.9: trait=  9.8, coh= 89.4
+    emotions/spite L16 c  42.4: trait=  4.9, coh= 88.2
+    emotions/spite L17 c  42.7: trait= 17.3, coh= 89.5
+    emotions/spite L18 c  43.8: trait= 27.1, coh= 85.1
+    emotions/spite L19 c  44.4: trait= 18.6, coh= 89.3
+    emotions/spite L20 c  44.0: trait= 43.0, coh= 80.3
+    emotions/spite L21 c  45.3: trait=  9.7, coh= 83.2
+    emotions/spite L22 c  47.0: trait= 39.4, coh= 86.4
+    emotions/spite L23 c  48.0: trait= 20.7, coh= 86.6
+    emotions/spite L24 c  51.0: trait= 13.8, coh= 84.8
+    emotions/spite L25 c  51.1: trait= 27.2, coh= 80.9
+    emotions/spite L26 c  52.9: trait= 21.4, coh= 84.5
+  Batch 2/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 99 (mode=generation, free=17.6GB, per_seq=162MB [kv=39+fwd=43])
+gen=28.2s score=21.4s
+    emotions/spite L27 c  54.1: trait= 34.5, coh= 86.8
+    emotions/spite L28 c  60.2: trait= 53.1, coh= 88.5
+    emotions/helpfulness L14 c  40.5: trait= 87.2, coh= 88.4
+    emotions/helpfulness L15 c  40.9: trait= 87.2, coh= 90.3
+    emotions/helpfulness L16 c  42.4: trait= 88.8, coh= 90.6
+    emotions/helpfulness L17 c  42.7: trait= 85.5, coh= 89.5
+    emotions/helpfulness L18 c  43.8: trait= 85.9, coh= 90.3
+    emotions/helpfulness L19 c  44.4: trait= 79.9, coh= 88.9
+    emotions/helpfulness L20 c  44.0: trait= 87.3, coh= 89.8
+    emotions/helpfulness L21 c  45.3: trait= 81.1, coh= 89.4
+    emotions/helpfulness L22 c  47.0: trait= 50.8, coh= 87.7
+    emotions/helpfulness L23 c  48.0: trait= 33.2, coh= 85.4
+    emotions/helpfulness L24 c  51.0: trait= 87.8, coh= 88.7
+  Batch 3/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 104 (mode=generation, free=17.7GB, per_seq=156MB [kv=37+fwd=41])
+gen=23.1s score=10.9s
+    emotions/helpfulness L25 c  51.1: trait= 88.2, coh= 89.3
+    emotions/helpfulness L26 c  52.9: trait= 88.8, coh= 90.8
+    emotions/helpfulness L27 c  54.1: trait= 86.5, coh= 90.1
+    emotions/helpfulness L28 c  60.2: trait= 85.5, coh= 90.2
+    emotions/self_preservation L14 c  40.5: trait= 18.9, coh= 86.7
+    emotions/self_preservation L15 c  40.9: trait= 19.8, coh= 78.7
+    emotions/self_preservation L16 c  42.4: trait= 16.9, coh= 86.6
+    emotions/self_preservation L17 c  42.7: trait=  7.9, coh= 82.7
+    emotions/self_preservation L18 c  43.8: trait=  8.2, coh= 87.7
+    emotions/self_preservation L19 c  44.4: trait= 18.5, coh= 87.2
+    emotions/self_preservation L20 c  44.0: trait= 23.1, coh= 89.2
+    emotions/self_preservation L21 c  45.3: trait= 21.4, coh= 88.6
+    emotions/self_preservation L22 c  47.0: trait= 20.0, coh= 89.2
+  Batch 4/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 105 (mode=generation, free=17.9GB, per_seq=156MB [kv=37+fwd=41])
+gen=27.7s score=11.1s
+    emotions/self_preservation L23 c  48.0: trait= 39.9, coh= 85.4
+    emotions/self_preservation L24 c  51.0: trait= 41.6, coh= 84.1
+    emotions/self_preservation L25 c  51.1: trait= 28.4, coh= 86.2
+    emotions/self_preservation L26 c  52.9: trait= 31.5, coh= 87.9
+    emotions/self_preservation L27 c  54.1: trait= 32.1, coh= 87.5
+    emotions/self_preservation L28 c  60.2: trait= 44.8, coh= 87.9
+    emotions/nonchalance L14 c  40.5: trait= 11.5, coh= 90.4
+    emotions/nonchalance L15 c  40.9: trait= 10.6, coh= 91.2
+    emotions/nonchalance L16 c  42.4: trait= 13.6, coh= 91.6
+    emotions/nonchalance L17 c  42.7: trait= 13.7, coh= 91.3
+    emotions/nonchalance L18 c  43.8: trait=  7.1, coh= 85.6
+    emotions/nonchalance L19 c  44.4: trait=  8.4, coh= 84.7
+    emotions/nonchalance L20 c  44.0: trait=  7.2, coh= 88.8
+  Batch 5/5: 8 configs, 80 prompts, 1 traits...     Auto batch size: 105 (mode=generation, free=17.9GB, per_seq=155MB [kv=37+fwd=41])
+gen=9.7s score=7.4s
+    emotions/nonchalance L21 c  45.3: trait= 17.9, coh= 90.6
+    emotions/nonchalance L22 c  47.0: trait= 11.9, coh= 90.9
+    emotions/nonchalance L23 c  48.0: trait= 25.8, coh= 90.3
+    emotions/nonchalance L24 c  51.0: trait= 47.3, coh= 89.7
+    emotions/nonchalance L25 c  51.1: trait= 31.2, coh= 88.2
+    emotions/nonchalance L26 c  52.9: trait= 37.1, coh= 90.7
+    emotions/nonchalance L27 c  54.1: trait= 17.6, coh= 88.8
+    emotions/nonchalance L28 c  60.2: trait= 30.8, coh= 88.3
+
+--- Step 2/5: 60 active, 0 cached, 60 to generate ---
+  Batch 1/5: 13 configs, 130 prompts, 1 traits...     Auto batch size: 101 (mode=generation, free=17.9GB, per_seq=162MB [kv=39+fwd=43])
+gen=28.5s score=10.2s
+    emotions/spite L14 c  51.4: trait=  6.6, coh= 74.3
+    emotions/spite L15 c  52.0: trait=  9.0, coh= 83.6
+    emotions/spite L16 c  53.9: trait=  1.5, coh= 82.1
+    emotions/spite L17 c  54.2: trait= 25.9, coh= 88.2
+    emotions/spite L18 c  55.6: trait= 30.0, coh= 86.4
+    emotions/spite L19 c  56.4: trait= 37.9, coh= 82.6
+    emotions/spite L20 c  55.9: trait= 26.0, coh= 85.2
+    emotions/spite L21 c  57.6: trait= 27.9, coh= 87.8
+    emotions/spite L22 c  59.7: trait= 23.1, coh= 81.5
+    emotions/spite L23 c  61.0: trait= 65.8, coh= 79.7
+    emotions/spite L24 c  64.8: trait=  7.7, coh= 78.2
+    emotions/spite L25 c  64.9: trait= 16.2, coh= 80.0
+    emotions/spite L26 c  67.2: trait=  3.3, coh= 85.0
+  Batch 2/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 125 (mode=generation, free=22.1GB, per_seq=162MB [kv=39+fwd=43])
+gen=28.4s score=11.0s
+    emotions/spite L27 c  68.8: trait= 52.9, coh= 83.6
+    emotions/spite L28 c  76.4: trait= 76.6, coh= 86.4
+    emotions/helpfulness L14 c  51.4: trait= 86.9, coh= 90.0
+    emotions/helpfulness L15 c  52.0: trait= 87.3, coh= 90.9
+    emotions/helpfulness L16 c  53.9: trait= 81.0, coh= 89.8
+    emotions/helpfulness L17 c  54.2: trait= 82.8, coh= 88.5
+    emotions/helpfulness L18 c  55.6: trait= 84.6, coh= 91.4
+    emotions/helpfulness L19 c  56.4: trait= 76.1, coh= 89.9
+    emotions/helpfulness L20 c  55.9: trait= 81.5, coh= 88.4
+    emotions/helpfulness L21 c  57.6: trait= 77.8, coh= 88.2
+    emotions/helpfulness L22 c  59.7: trait=  9.6, coh= 80.3
+    emotions/helpfulness L23 c  61.0: trait= 26.5, coh= 83.8
+    emotions/helpfulness L24 c  64.8: trait= 87.8, coh= 88.8
+  Batch 3/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 105 (mode=generation, free=17.9GB, per_seq=156MB [kv=37+fwd=41])
+gen=26.4s score=11.3s
+    emotions/helpfulness L25 c  64.9: trait= 87.0, coh= 88.9
+    emotions/helpfulness L26 c  67.2: trait= 86.3, coh= 90.2
+    emotions/helpfulness L27 c  68.8: trait= 87.3, coh= 91.0
+    emotions/helpfulness L28 c  76.4: trait= 81.9, coh= 88.4
+    emotions/self_preservation L14 c  51.4: trait=  5.8, coh= 56.9
+    emotions/self_preservation L15 c  35.4: trait= 19.2, coh= 87.6
+    emotions/self_preservation L16 c  53.9: trait= 15.7, coh= 73.9
+    emotions/self_preservation L17 c  54.2: trait= 19.0, coh= 81.6
+    emotions/self_preservation L18 c  55.6: trait=  6.3, coh= 72.2
+    emotions/self_preservation L19 c  56.4: trait=  9.2, coh= 75.0
+    emotions/self_preservation L20 c  55.9: trait= 18.1, coh= 88.3
+    emotions/self_preservation L21 c  57.6: trait= 21.0, coh= 90.1
+    emotions/self_preservation L22 c  59.7: trait= 21.9, coh= 89.2
+  Batch 4/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 104 (mode=generation, free=17.7GB, per_seq=156MB [kv=37+fwd=41])
+gen=29.5s score=11.8s
+    emotions/self_preservation L23 c  61.0: trait= 41.0, coh= 72.9
+    emotions/self_preservation L24 c  64.8: trait= 38.9, coh= 63.3
+    emotions/self_preservation L25 c  64.9: trait= 26.1, coh= 61.8
+    emotions/self_preservation L26 c  67.2: trait= 49.6, coh= 78.0
+    emotions/self_preservation L27 c  68.8: trait= 34.8, coh= 78.9
+    emotions/self_preservation L28 c  76.4: trait= 55.0, coh= 76.1
+    emotions/nonchalance L14 c  51.4: trait= 16.8, coh= 90.9
+    emotions/nonchalance L15 c  52.0: trait= 25.3, coh= 90.5
+    emotions/nonchalance L16 c  53.9: trait= 40.0, coh= 91.0
+    emotions/nonchalance L17 c  54.2: trait= 36.9, coh= 91.1
+    emotions/nonchalance L18 c  55.6: trait= 12.0, coh= 78.1
+    emotions/nonchalance L19 c  56.4: trait= 10.6, coh= 71.6
+    emotions/nonchalance L20 c  55.9: trait= 13.9, coh= 78.4
+  Batch 5/5: 8 configs, 80 prompts, 1 traits...     Auto batch size: 121 (mode=generation, free=20.5GB, per_seq=155MB [kv=37+fwd=41])
+gen=20.0s score=6.8s
+    emotions/nonchalance L21 c  57.6: trait= 46.5, coh= 88.7
+    emotions/nonchalance L22 c  59.7: trait= 40.1, coh= 90.2
+    emotions/nonchalance L23 c  61.0: trait= 67.5, coh= 88.4
+    emotions/nonchalance L24 c  64.8: trait= 73.8, coh= 85.7
+    emotions/nonchalance L25 c  64.9: trait= 67.8, coh= 80.6
+    emotions/nonchalance L26 c  67.2: trait= 55.7, coh= 87.3
+    emotions/nonchalance L27 c  68.8: trait= 50.3, coh= 86.3
+    emotions/nonchalance L28 c  76.4: trait= 70.8, coh= 84.0
+
+--- Step 3/5: 60 active, 0 cached, 60 to generate ---
+  Batch 1/5: 13 configs, 130 prompts, 1 traits...     Auto batch size: 101 (mode=generation, free=17.9GB, per_seq=162MB [kv=39+fwd=43])
+gen=28.4s score=37.8s
+    emotions/spite L14 c  45.9: trait=  6.9, coh= 89.6
+    emotions/spite L15 c  67.4: trait= 26.7, coh= 68.1
+    emotions/spite L16 c  69.9: trait= 13.8, coh= 60.8
+    emotions/spite L17 c  70.3: trait= 90.6, coh= 52.4
+    emotions/spite L18 c  72.1: trait= 40.9, coh= 67.1
+    emotions/spite L19 c  73.2: trait= 40.2, coh= 69.1
+    emotions/spite L20 c  72.5: trait= 61.0, coh= 67.6
+    emotions/spite L21 c  74.7: trait= 36.7, coh= 53.8
+    emotions/spite L22 c  77.4: trait= 22.7, coh= 65.6
+    emotions/spite L23 c  54.4: trait=  8.1, coh= 87.8
+    emotions/spite L24 c  57.8: trait=  7.1, coh= 81.4
+    emotions/spite L25 c  84.2: trait= 33.9, coh= 55.9
+    emotions/spite L26 c  87.2: trait= 10.9, coh= 62.1
+  Batch 2/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 101 (mode=generation, free=17.9GB, per_seq=162MB [kv=39+fwd=43])
+gen=26.3s score=10.7s
+    emotions/spite L27 c  89.2: trait= 84.3, coh= 55.5
+    emotions/spite L28 c  99.1: trait= 91.9, coh= 66.9
+    emotions/helpfulness L14 c  66.7: trait= 72.7, coh= 87.3
+    emotions/helpfulness L15 c  67.4: trait= 63.1, coh= 88.2
+    emotions/helpfulness L16 c  69.9: trait= 66.6, coh= 76.5
+    emotions/helpfulness L17 c  70.3: trait= 50.8, coh= 83.5
+    emotions/helpfulness L18 c  72.1: trait= 62.1, coh= 85.3
+    emotions/helpfulness L19 c  73.2: trait= 63.3, coh= 73.5
+    emotions/helpfulness L20 c  72.5: trait= 78.2, coh= 81.5
+    emotions/helpfulness L21 c  74.7: trait= 74.1, coh= 79.6
+    emotions/helpfulness L22 c  77.4: trait=  6.5, coh= 57.4
+    emotions/helpfulness L23 c  79.1: trait=  6.6, coh= 67.4
+    emotions/helpfulness L24 c  84.1: trait= 77.6, coh= 88.0
+  Batch 3/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 104 (mode=generation, free=17.7GB, per_seq=156MB [kv=37+fwd=41])
+gen=21.2s score=11.7s
+    emotions/helpfulness L25 c  84.2: trait= 84.8, coh= 86.4
+    emotions/helpfulness L26 c  87.2: trait= 65.5, coh= 72.1
+    emotions/helpfulness L27 c  89.2: trait= 68.3, coh= 82.7
+    emotions/helpfulness L28 c  99.1: trait= 38.9, coh= 58.4
+    emotions/self_preservation L14 c  45.9: trait= 16.0, coh= 62.8
+    emotions/self_preservation L15 c  44.5: trait= 15.2, coh= 74.2
+    emotions/self_preservation L16 c  48.0: trait= 16.3, coh= 86.0
+    emotions/self_preservation L17 c  70.3: trait= 11.5, coh= 49.9
+    emotions/self_preservation L18 c  49.6: trait= 12.5, coh= 87.1
+    emotions/self_preservation L19 c  50.4: trait= 10.0, coh= 87.6
+    emotions/self_preservation L20 c  72.5: trait= 17.2, coh= 84.4
+    emotions/self_preservation L21 c  74.7: trait= 17.5, coh= 85.7
+    emotions/self_preservation L22 c  77.4: trait= 19.7, coh= 83.9
+  Batch 4/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 302 (mode=generation, free=51.2GB, per_seq=156MB [kv=37+fwd=41])
+gen=17.5s score=11.5s
+    emotions/self_preservation L23 c  54.4: trait= 40.7, coh= 76.2
+    emotions/self_preservation L24 c  57.8: trait= 30.3, coh= 77.6
+    emotions/self_preservation L25 c  57.9: trait= 27.6, coh= 74.9
+    emotions/self_preservation L26 c  60.0: trait= 44.4, coh= 84.1
+    emotions/self_preservation L27 c  61.3: trait= 31.7, coh= 81.5
+    emotions/self_preservation L28 c  68.2: trait= 45.0, coh= 87.7
+    emotions/nonchalance L14 c  66.7: trait= 84.5, coh= 65.1
+    emotions/nonchalance L15 c  67.4: trait= 72.2, coh= 87.6
+    emotions/nonchalance L16 c  69.9: trait= 76.4, coh= 59.6
+    emotions/nonchalance L17 c  70.3: trait= 64.4, coh= 59.6
+    emotions/nonchalance L18 c  49.6: trait=  8.9, coh= 78.5
+    emotions/nonchalance L19 c  50.4: trait= 12.5, coh= 81.7
+    emotions/nonchalance L20 c  49.8: trait=  8.6, coh= 82.2
+  Batch 5/5: 8 configs, 80 prompts, 1 traits...     Auto batch size: 303 (mode=generation, free=51.2GB, per_seq=155MB [kv=37+fwd=41])
+gen=9.7s score=7.0s
+    emotions/nonchalance L21 c  74.7: trait= 84.2, coh= 56.3
+    emotions/nonchalance L22 c  77.4: trait= 81.4, coh= 72.8
+    emotions/nonchalance L23 c  79.1: trait= 85.5, coh= 53.2
+    emotions/nonchalance L24 c  84.1: trait= 85.4, coh= 47.2
+    emotions/nonchalance L25 c  84.2: trait= 83.4, coh= 44.3
+    emotions/nonchalance L26 c  87.2: trait= 81.8, coh= 67.1
+    emotions/nonchalance L27 c  89.2: trait= 74.4, coh= 83.8
+    emotions/nonchalance L28 c  99.1: trait= 82.4, coh= 53.6
+
+--- Step 4/5: 60 active, 0 cached, 60 to generate ---
+  Batch 1/5: 13 configs, 130 prompts, 1 traits...     Auto batch size: 290 (mode=generation, free=51.2GB, per_seq=162MB [kv=39+fwd=43])
+gen=17.8s score=10.0s
+    emotions/spite L14 c  57.7: trait= 13.8, coh= 67.5
+    emotions/spite L15 c  60.3: trait=  6.7, coh= 77.9
+    emotions/spite L16 c  62.5: trait=  0.6, coh= 83.2
+    emotions/spite L17 c  62.9: trait= 69.0, coh= 69.9
+    emotions/spite L18 c  64.5: trait= 23.5, coh= 76.5
+    emotions/spite L19 c  65.5: trait= 47.1, coh= 81.8
+    emotions/spite L20 c  64.8: trait= 46.9, coh= 85.1
+    emotions/spite L21 c  66.8: trait= 29.4, coh= 60.0
+    emotions/spite L22 c  69.3: trait= 41.2, coh= 81.2
+    emotions/spite L23 c  68.5: trait= 56.2, coh= 74.7
+    emotions/spite L24 c  72.8: trait=  6.3, coh= 77.7
+    emotions/spite L25 c  75.3: trait=  7.5, coh= 74.8
+    emotions/spite L26 c  78.0: trait=  9.9, coh= 87.0
+  Batch 2/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 290 (mode=generation, free=51.2GB, per_seq=162MB [kv=39+fwd=43])
+gen=17.7s score=11.2s
+    emotions/spite L27 c  79.8: trait= 70.8, coh= 75.4
+    emotions/spite L28 c  88.7: trait= 83.0, coh= 85.1
+    emotions/helpfulness L14 c  86.6: trait= 20.4, coh= 56.3
+    emotions/helpfulness L15 c  87.6: trait= 20.8, coh= 53.7
+    emotions/helpfulness L16 c  62.5: trait= 72.2, coh= 84.5
+    emotions/helpfulness L17 c  91.4: trait= 15.5, coh= 46.6
+    emotions/helpfulness L18 c  93.7: trait= 15.2, coh= 48.8
+    emotions/helpfulness L19 c  65.5: trait= 80.6, coh= 85.8
+    emotions/helpfulness L20 c  94.2: trait= 40.7, coh= 49.6
+    emotions/helpfulness L21 c  66.8: trait= 76.9, coh= 83.2
+    emotions/helpfulness L22 c  69.3: trait=  7.6, coh= 73.3
+    emotions/helpfulness L23 c  70.8: trait=  6.8, coh= 76.1
+    emotions/helpfulness L24 c 109.2: trait= 23.5, coh= 56.4
+  Batch 3/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 302 (mode=generation, free=51.2GB, per_seq=156MB [kv=37+fwd=41])
+gen=17.5s score=11.0s
+    emotions/helpfulness L25 c 109.4: trait= 31.5, coh= 49.1
+    emotions/helpfulness L26 c  78.0: trait= 71.6, coh= 84.9
+    emotions/helpfulness L27 c 115.9: trait= 23.2, coh= 53.1
+    emotions/helpfulness L28 c  88.7: trait= 62.4, coh= 81.4
+    emotions/self_preservation L14 c  39.2: trait= 18.5, coh= 86.4
+    emotions/self_preservation L15 c  39.6: trait= 20.9, coh= 85.7
+    emotions/self_preservation L16 c  60.5: trait=  7.5, coh= 75.5
+    emotions/self_preservation L17 c  62.9: trait= 12.1, coh= 56.2
+    emotions/self_preservation L18 c  62.4: trait=  4.7, coh= 52.4
+    emotions/self_preservation L19 c  63.4: trait= 10.9, coh= 58.9
+    emotions/self_preservation L20 c  94.2: trait= 13.8, coh= 59.7
+    emotions/self_preservation L21 c  97.1: trait= 18.3, coh= 84.1
+    emotions/self_preservation L22 c 100.6: trait= 16.1, coh= 63.2
+  Batch 4/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 302 (mode=generation, free=51.2GB, per_seq=156MB [kv=37+fwd=41])
+gen=23.2s score=12.1s
+    emotions/self_preservation L23 c  46.5: trait= 36.0, coh= 87.0
+    emotions/self_preservation L24 c  49.4: trait= 35.9, coh= 85.0
+    emotions/self_preservation L25 c  49.4: trait= 26.6, coh= 86.2
+    emotions/self_preservation L26 c  75.5: trait= 27.5, coh= 52.3
+    emotions/self_preservation L27 c  77.2: trait= 25.6, coh= 64.3
+    emotions/self_preservation L28 c  85.9: trait= 56.6, coh= 65.8
+    emotions/nonchalance L14 c  59.6: trait= 42.4, coh= 88.8
+    emotions/nonchalance L15 c  87.6: trait= 89.7, coh= 33.5
+    emotions/nonchalance L16 c  62.5: trait= 61.7, coh= 89.2
+    emotions/nonchalance L17 c  62.9: trait= 50.3, coh= 83.3
+    emotions/nonchalance L18 c  42.3: trait=  7.3, coh= 87.2
+    emotions/nonchalance L19 c  63.4: trait=  8.3, coh= 87.6
+    emotions/nonchalance L20 c  62.7: trait=  7.1, coh= 86.2
+  Batch 5/5: 8 configs, 80 prompts, 1 traits...     Auto batch size: 137 (mode=generation, free=23.2GB, per_seq=155MB [kv=37+fwd=41])
+gen=12.8s score=6.8s
+    emotions/nonchalance L21 c  66.8: trait= 70.5, coh= 80.3
+    emotions/nonchalance L22 c  69.3: trait= 67.0, coh= 84.5
+    emotions/nonchalance L23 c  70.8: trait= 82.0, coh= 84.5
+    emotions/nonchalance L24 c  75.2: trait= 82.0, coh= 72.8
+    emotions/nonchalance L25 c  75.3: trait= 78.0, coh= 69.7
+    emotions/nonchalance L26 c  78.0: trait= 73.2, coh= 83.2
+    emotions/nonchalance L27 c 115.9: trait= 84.1, coh= 29.5
+    emotions/nonchalance L28 c  88.7: trait= 81.9, coh= 71.6
+
+--- Step 5/5: 60 active, 0 cached, 60 to generate ---
+  Batch 1/5: 13 configs, 130 prompts, 1 traits...     Auto batch size: 290 (mode=generation, free=51.2GB, per_seq=162MB [kv=39+fwd=43])
+gen=17.8s score=16.7s
+    emotions/spite L14 c  51.4: trait=  7.2, coh= 76.4
+    emotions/spite L15 c  51.6: trait= 15.1, coh= 75.0
+    emotions/spite L16 c  78.7: trait= 43.2, coh= 54.4
+    emotions/spite L17 c  53.7: trait= 24.0, coh= 86.6
+    emotions/spite L18 c  55.1: trait= 37.6, coh= 86.3
+    emotions/spite L19 c  82.5: trait= 40.8, coh= 49.0
+    emotions/spite L20 c  81.6: trait= 59.2, coh= 54.9
+    emotions/spite L21 c  57.1: trait= 38.3, coh= 80.7
+    emotions/spite L22 c  87.2: trait= 37.8, coh= 40.0
+    emotions/spite L23 c  61.1: trait= 55.5, coh= 80.6
+    emotions/spite L24 c  64.9: trait= 13.5, coh= 73.3
+    emotions/spite L25 c  64.3: trait= 33.6, coh= 78.1
+    emotions/spite L26 c  98.3: trait= 34.0, coh= 59.3
+  Batch 2/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 290 (mode=generation, free=51.2GB, per_seq=162MB [kv=39+fwd=43])
+gen=17.7s score=11.6s
+    emotions/spite L27 c  68.2: trait= 62.5, coh= 86.6
+    emotions/spite L28 c 111.7: trait= 91.6, coh= 50.4
+    emotions/helpfulness L14 c  77.5: trait= 37.8, coh= 65.5
+    emotions/helpfulness L15 c  78.4: trait= 42.5, coh= 68.1
+    emotions/helpfulness L16 c  78.7: trait= 39.7, coh= 56.9
+    emotions/helpfulness L17 c  81.8: trait= 32.5, coh= 53.5
+    emotions/helpfulness L18 c  83.8: trait= 27.0, coh= 55.8
+    emotions/helpfulness L19 c  82.5: trait= 58.2, coh= 65.3
+    emotions/helpfulness L20 c  84.3: trait= 67.3, coh= 66.3
+    emotions/helpfulness L21 c  84.2: trait= 32.6, coh= 60.7
+    emotions/helpfulness L22 c  59.2: trait=  8.9, coh= 75.5
+    emotions/helpfulness L23 c  60.5: trait=  6.1, coh= 54.7
+    emotions/helpfulness L24 c  97.8: trait= 37.8, coh= 71.6
+  Batch 3/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 302 (mode=generation, free=51.2GB, per_seq=156MB [kv=37+fwd=41])
+gen=17.4s score=11.9s
+    emotions/helpfulness L25 c  97.9: trait= 55.2, coh= 63.8
+    emotions/helpfulness L26 c  98.3: trait= 27.0, coh= 55.1
+    emotions/helpfulness L27 c 103.7: trait= 26.4, coh= 54.8
+    emotions/helpfulness L28 c 111.7: trait= 19.2, coh= 52.3
+    emotions/self_preservation L14 c  49.2: trait= 14.1, coh= 63.2
+    emotions/self_preservation L15 c  49.9: trait= 10.5, coh= 69.6
+    emotions/self_preservation L16 c  53.9: trait= 13.9, coh= 72.7
+    emotions/self_preservation L17 c  53.7: trait= 23.0, coh= 81.3
+    emotions/self_preservation L18 c  55.6: trait=  5.5, coh= 69.8
+    emotions/self_preservation L19 c  56.5: trait= 11.4, coh= 76.5
+    emotions/self_preservation L20 c  84.3: trait= 15.6, coh= 73.5
+    emotions/self_preservation L21 c 126.2: trait= 16.4, coh= 61.1
+    emotions/self_preservation L22 c  90.0: trait= 15.3, coh= 73.2
+  Batch 4/5: 13 configs, 130 prompts, 2 traits...     Auto batch size: 302 (mode=generation, free=51.2GB, per_seq=156MB [kv=37+fwd=41])
+gen=28.4s score=14.4s
+    emotions/self_preservation L23 c  58.4: trait= 37.9, coh= 76.7
+    emotions/self_preservation L24 c  62.0: trait= 41.3, coh= 65.9
+    emotions/self_preservation L25 c  62.1: trait= 26.1, coh= 73.4
+    emotions/self_preservation L26 c  67.3: trait= 42.2, coh= 75.5
+    emotions/self_preservation L27 c  68.8: trait= 31.4, coh= 70.5
+    emotions/self_preservation L28 c  76.5: trait= 56.3, coh= 75.7
+    emotions/nonchalance L14 c  75.1: trait= 89.6, coh= 36.8
+    emotions/nonchalance L15 c  78.4: trait= 85.8, coh= 65.3
+    emotions/nonchalance L16 c  78.7: trait= 87.6, coh= 48.4
+    emotions/nonchalance L17 c  79.2: trait= 78.9, coh= 45.8
+    emotions/nonchalance L18 c  53.2: trait= 10.0, coh= 85.3
+    emotions/nonchalance L19 c  82.2: trait= 15.5, coh= 77.9
+    emotions/nonchalance L20 c  81.3: trait=  7.5, coh= 83.9
+  Batch 5/5: 8 configs, 80 prompts, 1 traits...     Auto batch size: 303 (mode=generation, free=51.2GB, per_seq=155MB [kv=37+fwd=41])
+gen=9.7s score=7.6s
+    emotions/nonchalance L21 c  84.2: trait= 86.0, coh= 34.4
+    emotions/nonchalance L22 c  87.2: trait= 85.1, coh= 42.7
+    emotions/nonchalance L23 c  89.2: trait= 86.2, coh= 32.7
+    emotions/nonchalance L24 c  64.3: trait= 76.2, coh= 85.1
+    emotions/nonchalance L25 c  64.3: trait= 70.5, coh= 88.0
+    emotions/nonchalance L26 c  98.3: trait= 85.0, coh= 47.9
+    emotions/nonchalance L27 c 103.7: trait= 81.2, coh= 52.0
+    emotions/nonchalance L28 c  75.8: trait= 65.4, coh= 84.3
+
+============================================================
+Best per trait×layer:
+============================================================
+
+  emotions/spite:
+    L14: coef=45.9, trait=6.9, coh=89.6
+    L15: coef=40.9, trait=9.8, coh=89.4
+    L16: coef=42.4, trait=4.9, coh=88.2
+    L17: coef=54.2, trait=25.9, coh=88.2
+    L18: coef=55.1, trait=37.6, coh=86.3
+    L19: coef=65.5, trait=47.1, coh=81.8
+    L20: coef=64.8, trait=46.9, coh=85.1
+    L21: coef=57.1, trait=38.3, coh=80.7
+    L22: coef=69.3, trait=41.2, coh=81.2
+    L23: coef=61.1, trait=55.5, coh=80.6
+    L24: coef=51.0, trait=13.8, coh=84.8
+    L25: coef=51.1, trait=27.2, coh=80.9
+    L26: coef=52.9, trait=21.4, coh=84.5
+    L27: coef=68.2, trait=62.5, coh=86.6
+    L28: coef=88.7, trait=83.0, coh=85.1
+
+  emotions/helpfulness:
+    L14: coef=40.5, trait=87.2, coh=88.4
+    L15: coef=52.0, trait=87.3, coh=90.9
+    L16: coef=42.4, trait=88.8, coh=90.6
+    L17: coef=42.7, trait=85.5, coh=89.5
+    L18: coef=43.8, trait=85.9, coh=90.3
+    L19: coef=65.5, trait=80.6, coh=85.8
+    L20: coef=44.0, trait=87.3, coh=89.8
+    L21: coef=45.3, trait=81.1, coh=89.4
+    L22: coef=47.0, trait=50.8, coh=87.7
+    L23: coef=48.0, trait=33.2, coh=85.4
+    L24: coef=51.0, trait=87.8, coh=88.7
+    L25: coef=51.1, trait=88.2, coh=89.3
+    L26: coef=52.9, trait=88.8, coh=90.8
+    L27: coef=68.8, trait=87.3, coh=91.0
+    L28: coef=60.2, trait=85.5, coh=90.2
+
+  emotions/self_preservation:
+    L14: coef=40.5, trait=18.9, coh=86.7
+    L15: coef=39.6, trait=20.9, coh=85.7
+    L16: coef=42.4, trait=16.9, coh=86.6
+    L17: coef=53.7, trait=23.0, coh=81.3
+    L18: coef=49.6, trait=12.5, coh=87.1
+    L19: coef=44.4, trait=18.5, coh=87.2
+    L20: coef=44.0, trait=23.1, coh=89.2
+    L21: coef=45.3, trait=21.4, coh=88.6
+    L22: coef=59.7, trait=21.9, coh=89.2
+    L23: coef=48.0, trait=39.9, coh=85.4
+    L24: coef=51.0, trait=41.6, coh=84.1
+    L25: coef=51.1, trait=28.4, coh=86.2
+    L26: coef=60.0, trait=44.4, coh=84.1
+    L27: coef=54.1, trait=32.1, coh=87.5
+    L28: coef=68.2, trait=45.0, coh=87.7
+
+  emotions/nonchalance:
+    L14: coef=59.6, trait=42.4, coh=88.8
+    L15: coef=67.4, trait=72.2, coh=87.6
+    L16: coef=62.5, trait=61.7, coh=89.2
+    L17: coef=62.9, trait=50.3, coh=83.3
+    L18: coef=53.2, trait=10.0, coh=85.3
+    L19: coef=50.4, trait=12.5, coh=81.7
+    L20: coef=49.8, trait=8.6, coh=82.2
+    L21: coef=66.8, trait=70.5, coh=80.3
+    L22: coef=69.3, trait=67.0, coh=84.5
+    L23: coef=70.8, trait=82.0, coh=84.5
+    L24: coef=64.3, trait=76.2, coh=85.1
+    L25: coef=64.3, trait=70.5, coh=88.0
+    L26: coef=78.0, trait=73.2, coh=83.2
+    L27: coef=89.2, trait=74.4, coh=83.8
+    L28: coef=76.4, trait=70.8, coh=84.0
+
+============================================================
+COMPLETED 4 TRAITS
+============================================================
+Step 1 done at Sat Feb 28 16:10:36 UTC 2026
+
+=== Step 2: Re-run pipeline on 128 failing traits ===
+============================================================
+EXTRACTION PIPELINE | dataset_creation_emotions
+Model: Qwen/Qwen2.5-14B | BASE (16 tokens)
+Traits: 120
+============================================================
+Loading model: Qwen/Qwen2.5-14B...
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:04,  1.70it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:01<00:03,  1.66it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:01<00:03,  1.65it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:02<00:02,  1.65it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:03<00:01,  1.65it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:03<00:01,  1.65it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:04<00:00,  1.64it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:04<00:00,  2.00it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:04<00:00,  1.77it/s]
+  from_pretrained: 5s
+Model loaded.
+Model loaded. (5.7s)
+
+--- emotions/acceptance --- [16:10:45 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.3GB, per_seq=88MB [kv=22+fwd=21])
+      positive: 15 responses
+    Auto batch size: 489 (mode=generation, free=51.2GB, per_seq=97MB [kv=24+fwd=23])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 2.2s | 13.5/s | peak 28.0GB | now 28.7GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:16,  1.75it/s]  Vetting responses:   7%|▋         | 2/30 [00:00<00:08,  3.38it/s]  Vetting responses:  40%|████      | 12/30 [00:00<00:00, 23.95it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:00<00:00, 47.72it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 16.13it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 2.2s | 13.4/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=6/15, neg=13/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/adaptability --- [16:10:50 UTC]
+  [1] Generating responses... (ETA: 25.5s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=74MB [kv=19+fwd=17])
+      positive: 13 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=82MB [kv=20+fwd=19])
+      negative: 13 responses
+      Saved 13 + 13 responses
+      Done: 1.6s | 15.8/s | peak 27.9GB | now 28.5GB
+  [2] Vetting responses... (ETA: 7.8s)
+  Vetting responses:   0%|          | 0/26 [00:00<?, ?it/s]  Vetting responses:   4%|▍         | 1/26 [00:00<00:09,  2.70it/s]  Vetting responses:  58%|█████▊    | 15/26 [00:00<00:00, 39.93it/s]  Vetting responses:  88%|████████▊ | 23/26 [00:00<00:00, 39.50it/s]  Vetting responses: 100%|██████████| 26/26 [00:01<00:00, 15.22it/s]
+      26 responses | pass: 50.0% (13/26) | errors: 0
+      Done: 1.7s | 15.1/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=0/13, neg=13/13, rate=50%, need 80% + 10/polarity)
+
+--- emotions/alignment_faking --- [16:10:54 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=90MB [kv=22+fwd=22])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=81MB [kv=20+fwd=19])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 17.0/s | peak 28.0GB | now 28.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.87it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 71.13it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 36.96it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 0.8s | 36.3/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=5/15, neg=13/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/allegiance --- [16:10:56 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=86MB [kv=21+fwd=20])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=81MB [kv=20+fwd=19])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.7/s | peak 28.0GB | now 28.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:09,  2.93it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 63.72it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.86it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.2s | 25.5/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=3/15, neg=15/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/analytical --- [16:11:00 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 392 (mode=generation, free=51.2GB, per_seq=120MB [kv=29+fwd=30])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=82MB [kv=20+fwd=19])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 16.8/s | peak 28.2GB | now 28.8GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.33it/s]  Vetting responses:  70%|███████   | 21/30 [00:00<00:00, 50.77it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 28.27it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.1s | 27.9/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=3/15, neg=15/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/anticipation --- [16:11:03 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=75MB [kv=19+fwd=18])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=62MB [kv=16+fwd=14])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.3/s | peak 27.9GB | now 28.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:09,  3.16it/s]  Vetting responses:  23%|██▎       | 7/30 [00:00<00:01, 20.14it/s]  Vetting responses:  53%|█████▎    | 16/30 [00:00<00:00, 37.43it/s]  Vetting responses:  70%|███████   | 21/30 [00:01<00:00, 18.15it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 24.85it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 1.2s | 24.6/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=6/15, neg=13/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/apathy --- [16:11:06 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 493 (mode=generation, free=51.2GB, per_seq=96MB [kv=24+fwd=23])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=92MB [kv=23+fwd=22])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 17.1/s | peak 28.0GB | now 28.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.57it/s]  Vetting responses:  73%|███████▎  | 22/30 [00:00<00:00, 57.90it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 28.42it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.1s | 28.1/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=3/15, neg=14/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/authority_respect --- [16:11:09 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=63MB [kv=16+fwd=14])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=70MB [kv=18+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.8/s | peak 27.9GB | now 28.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.82it/s]  Vetting responses:  30%|███       | 9/30 [00:00<00:00, 24.85it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 63.47it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 43.34it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 0.7s | 42.5/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=3/15, neg=13/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/avoidance --- [16:11:11 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=73MB [kv=18+fwd=17])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=70MB [kv=17+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.3/s | peak 27.9GB | now 28.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.39it/s]  Vetting responses:  53%|█████▎    | 16/30 [00:00<00:00, 39.79it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 50.47it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 23.44it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.3s | 23.2/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=9/15, neg=8/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/awkwardness --- [16:11:15 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=62MB [kv=16+fwd=14])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=56MB [kv=14+fwd=13])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 19.0/s | peak 27.8GB | now 28.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.33it/s]  Vetting responses:  60%|██████    | 18/30 [00:00<00:00, 43.72it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:00<00:00, 60.26it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 45.22it/s]
+      30 responses | pass: 66.7% (20/30) | errors: 0
+      Done: 0.7s | 44.3/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=12/15, neg=8/15, rate=67%, need 80% + 10/polarity)
+
+--- emotions/carefulness --- [16:11:17 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=56MB [kv=14+fwd=13])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=54MB [kv=14+fwd=12])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 19.5/s | peak 27.8GB | now 28.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.49it/s]  Vetting responses:  63%|██████▎   | 19/30 [00:00<00:00, 48.38it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 26.22it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.97it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.2s | 25.7/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=4/15, neg=14/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/caution --- [16:11:20 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=78MB [kv=20+fwd=18])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=77MB [kv=19+fwd=18])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.9/s | peak 27.9GB | now 28.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.43it/s]  Vetting responses:   7%|▋         | 2/30 [00:00<00:07,  3.94it/s]  Vetting responses:  70%|███████   | 21/30 [00:00<00:00, 48.84it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 16.19it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 16.61it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 1.8s | 16.5/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=6/15, neg=10/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/certainty --- [16:11:24 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 302 (mode=generation, free=51.2GB, per_seq=156MB [kv=37+fwd=41])
+      positive: 15 responses
+    Auto batch size: 325 (mode=generation, free=51.2GB, per_seq=145MB [kv=35+fwd=37])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 2.1s | 14.6/s | peak 28.3GB | now 29.0GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.82it/s]  Vetting responses:  90%|█████████ | 27/30 [00:00<00:00, 76.09it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 33.89it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 0.9s | 33.3/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=5/15, neg=12/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/compassion --- [16:11:27 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=88MB [kv=22+fwd=21])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=73MB [kv=18+fwd=17])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.9/s | peak 28.0GB | now 28.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.40it/s]  Vetting responses:  77%|███████▋  | 23/30 [00:00<00:00, 57.71it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 39.39it/s]
+      30 responses | pass: 73.3% (22/30) | errors: 0
+      Done: 0.8s | 38.6/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=7/15, neg=15/15, rate=73%, need 80% + 10/polarity)
+
+--- emotions/competitiveness --- [16:11:30 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=67MB [kv=17+fwd=15])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=70MB [kv=17+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.3/s | peak 27.9GB | now 28.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:08,  3.58it/s]  Vetting responses:  33%|███▎      | 10/30 [00:00<00:00, 32.42it/s]  Vetting responses:  60%|██████    | 18/30 [00:00<00:00, 46.41it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:00<00:00, 51.34it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.93it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.2s | 25.6/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=6/15, neg=12/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/complacency --- [16:11:33 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=45MB [kv=11+fwd=10])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=47MB [kv=12+fwd=10])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.2/s | peak 27.7GB | now 28.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.29it/s]  Vetting responses:  17%|█▋        | 5/30 [00:00<00:02, 11.16it/s]  Vetting responses:  60%|██████    | 18/30 [00:00<00:00, 39.49it/s]  Vetting responses:  87%|████████▋ | 26/30 [00:00<00:00, 47.86it/s]  Vetting responses: 100%|██████████| 30/30 [00:02<00:00, 14.92it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 2.0s | 14.8/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=3/15, neg=13/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/condescension --- [16:11:37 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 286 (mode=generation, free=51.2GB, per_seq=165MB [kv=39+fwd=44])
+      positive: 15 responses
+    Auto batch size: 325 (mode=generation, free=51.2GB, per_seq=145MB [kv=35+fwd=37])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 2.1s | 14.1/s | peak 28.4GB | now 29.0GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.35it/s]  Vetting responses:  53%|█████▎    | 16/30 [00:00<00:00, 38.96it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:00<00:00, 37.80it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 29.88it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.0s | 29.5/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=5/15, neg=12/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/contemptuous_dismissal --- [16:11:40 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=71MB [kv=18+fwd=16])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=85MB [kv=21+fwd=20])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.9/s | peak 28.0GB | now 28.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.79it/s]  Vetting responses:  27%|██▋       | 8/30 [00:00<00:01, 21.81it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:00<00:00, 71.03it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 19.70it/s]
+      30 responses | pass: 76.7% (23/30) | errors: 0
+      Done: 1.5s | 19.5/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=9/15, neg=14/15, rate=77%, need 80% + 10/polarity)
+
+--- emotions/contentment --- [16:11:44 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=50MB [kv=13+fwd=11])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=55MB [kv=14+fwd=12])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 19.0/s | peak 27.8GB | now 28.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.51it/s]  Vetting responses:  40%|████      | 12/30 [00:00<00:00, 30.85it/s]  Vetting responses:  80%|████████  | 24/30 [00:00<00:00, 31.36it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 28.10it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 26.25it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 1.2s | 25.9/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=4/15, neg=15/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/cooperativeness --- [16:11:47 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=78MB [kv=20+fwd=18])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=69MB [kv=17+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.2/s | peak 27.9GB | now 28.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:15,  1.88it/s]  Vetting responses:  23%|██▎       | 7/30 [00:00<00:01, 14.16it/s]  Vetting responses:  80%|████████  | 24/30 [00:00<00:00, 47.71it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 16.62it/s]
+      30 responses | pass: 73.3% (22/30) | errors: 0
+      Done: 1.8s | 16.5/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=7/15, neg=15/15, rate=73%, need 80% + 10/polarity)
+
+--- emotions/corrigibility --- [16:11:50 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=91MB [kv=22+fwd=22])
+      positive: 15 responses
+    Auto batch size: 223 (mode=generation, free=24.8GB, per_seq=102MB [kv=25+fwd=25])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 16.7/s | peak 28.1GB | now 55.2GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.53it/s]  Vetting responses:  60%|██████    | 18/30 [00:00<00:00, 45.94it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:00<00:00, 35.65it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 28.88it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 1.1s | 28.6/s | peak 27.5GB | now 54.5GB
+  SKIP: quality gate failed (pos=7/15, neg=12/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/coyness --- [16:11:53 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 193 (mode=generation, free=24.8GB, per_seq=118MB [kv=29+fwd=29])
+      positive: 15 responses
+    Auto batch size: 226 (mode=generation, free=24.8GB, per_seq=101MB [kv=25+fwd=24])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.9s | 16.2/s | peak 28.1GB | now 55.2GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.32it/s]  Vetting responses:  77%|███████▋  | 23/30 [00:00<00:00, 56.19it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 30.89it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 1.0s | 30.5/s | peak 27.5GB | now 54.5GB
+  SKIP: quality gate failed (pos=4/15, neg=15/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/craving --- [16:11:56 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 388 (mode=generation, free=24.8GB, per_seq=59MB [kv=15+fwd=13])
+      positive: 15 responses
+    Auto batch size: 402 (mode=generation, free=23.3GB, per_seq=53MB [kv=14+fwd=12])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 19.5/s | peak 27.8GB | now 56.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:09,  3.19it/s]  Vetting responses:  70%|███████   | 21/30 [00:00<00:00, 63.93it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 46.94it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 0.7s | 46.1/s | peak 27.5GB | now 56.3GB
+  SKIP: quality gate failed (pos=6/15, neg=13/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/creativity --- [16:11:59 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 205 (mode=generation, free=22.9GB, per_seq=103MB [kv=25+fwd=25])
+      positive: 15 responses
+    Auto batch size: 259 (mode=generation, free=22.9GB, per_seq=81MB [kv=20+fwd=19])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 3.3s | 9.0/s | peak 28.1GB | now 57.0GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:08,  3.43it/s]  Vetting responses:  23%|██▎       | 7/30 [00:00<00:01, 15.85it/s]  Vetting responses:  53%|█████▎    | 16/30 [00:00<00:00, 33.32it/s]  Vetting responses:  90%|█████████ | 27/30 [00:00<00:00, 33.73it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 18.19it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 1.7s | 18.0/s | peak 27.5GB | now 56.4GB
+  SKIP: quality gate failed (pos=1/15, neg=15/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/cunning --- [16:12:04 UTC]
+  [1] Generating responses... (ETA: 27.4s)
+    Auto batch size: 168 (mode=generation, free=22.9GB, per_seq=125MB [kv=30+fwd=31])
+      positive: 14 responses
+    Auto batch size: 185 (mode=generation, free=22.9GB, per_seq=114MB [kv=28+fwd=28])
+      negative: 14 responses
+      Saved 14 + 14 responses
+      Done: 3.2s | 8.7/s | peak 28.1GB | now 57.1GB
+  [2] Vetting responses... (ETA: 8.4s)
+  Vetting responses:   0%|          | 0/28 [00:00<?, ?it/s]  Vetting responses:   4%|▎         | 1/28 [00:00<00:09,  2.74it/s]  Vetting responses:  21%|██▏       | 6/28 [00:00<00:01, 16.04it/s]  Vetting responses:  68%|██████▊   | 19/28 [00:00<00:00, 48.30it/s]  Vetting responses:  96%|█████████▋| 27/28 [00:00<00:00, 47.26it/s]  Vetting responses: 100%|██████████| 28/28 [00:00<00:00, 35.96it/s]
+      28 responses | pass: 57.1% (16/28) | errors: 0
+      Done: 0.8s | 35.3/s | peak 27.5GB | now 56.4GB
+  SKIP: quality gate failed (pos=2/14, neg=14/14, rate=57%, need 80% + 10/polarity)
+
+--- emotions/curiosity_epistemic --- [16:12:08 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 229 (mode=generation, free=22.9GB, per_seq=92MB [kv=23+fwd=22])
+      positive: 15 responses
+    Auto batch size: 302 (mode=generation, free=22.9GB, per_seq=70MB [kv=17+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 16.8/s | peak 28.0GB | now 57.0GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.59it/s]  Vetting responses:  63%|██████▎   | 19/30 [00:00<00:00, 49.95it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 30.16it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 29.21it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.0s | 28.8/s | peak 27.5GB | now 61.1GB
+  SKIP: quality gate failed (pos=4/15, neg=14/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/decisiveness --- [16:12:12 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 220 (mode=generation, free=18.2GB, per_seq=76MB [kv=19+fwd=18])
+      positive: 15 responses
+    Auto batch size: 178 (mode=generation, free=18.2GB, per_seq=94MB [kv=23+fwd=23])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 3.6s | 8.3/s | peak 28.0GB | now 61.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.65it/s]  Vetting responses:  47%|████▋     | 14/30 [00:00<00:00, 37.31it/s]  Vetting responses:  73%|███████▎  | 22/30 [00:00<00:00, 40.99it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:00<00:00, 31.31it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 23.76it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 1.3s | 23.5/s | peak 27.5GB | now 61.3GB
+  SKIP: quality gate failed (pos=5/15, neg=14/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/deference --- [16:12:17 UTC]
+  [1] Generating responses... (ETA: 27.4s)
+    Auto batch size: 176 (mode=generation, free=18.0GB, per_seq=94MB [kv=23+fwd=23])
+      positive: 14 responses
+    Auto batch size: 178 (mode=generation, free=17.6GB, per_seq=91MB [kv=22+fwd=22])
+      negative: 14 responses
+      Saved 14 + 14 responses
+      Done: 3.5s | 7.9/s | peak 28.0GB | now 62.6GB
+  [2] Vetting responses... (ETA: 8.4s)
+  Vetting responses:   0%|          | 0/28 [00:00<?, ?it/s]  Vetting responses:   4%|▎         | 1/28 [00:00<00:11,  2.41it/s]  Vetting responses:  68%|██████▊   | 19/28 [00:00<00:00, 47.35it/s]  Vetting responses: 100%|██████████| 28/28 [00:01<00:00, 25.78it/s]
+      28 responses | pass: 67.9% (19/28) | errors: 0
+      Done: 1.1s | 25.5/s | peak 27.5GB | now 62.3GB
+  SKIP: quality gate failed (pos=7/14, neg=12/14, rate=68%, need 80% + 10/polarity)
+
+--- emotions/defiance --- [16:12:22 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 200 (mode=generation, free=17.0GB, per_seq=78MB [kv=20+fwd=18])
+      positive: 15 responses
+    Auto batch size: 191 (mode=generation, free=16.1GB, per_seq=77MB [kv=19+fwd=18])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 3.6s | 8.3/s | peak 27.9GB | now 63.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.73it/s]  Vetting responses:  23%|██▎       | 7/30 [00:00<00:01, 18.72it/s]  Vetting responses:  70%|███████   | 21/30 [00:00<00:00, 50.59it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:00<00:00, 36.50it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 16.66it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.8s | 16.5/s | peak 27.5GB | now 63.2GB
+  SKIP: quality gate failed (pos=4/15, neg=14/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/deflection --- [16:12:27 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 110 (mode=generation, free=16.1GB, per_seq=134MB [kv=32+fwd=34])
+      positive: 15 responses
+    Auto batch size: 134 (mode=generation, free=16.1GB, per_seq=110MB [kv=27+fwd=27])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.9s | 15.4/s | peak 28.2GB | now 64.0GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:14,  1.95it/s]  Vetting responses:  50%|█████     | 15/30 [00:00<00:00, 31.83it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 46.43it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 17.76it/s]
+      30 responses | pass: 70.0% (21/30) | errors: 0
+      Done: 1.7s | 17.6/s | peak 27.5GB | now 63.2GB
+  SKIP: quality gate failed (pos=7/15, neg=14/15, rate=70%, need 80% + 10/polarity)
+
+--- emotions/desperation --- [16:12:31 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 236 (mode=generation, free=16.1GB, per_seq=63MB [kv=16+fwd=14])
+      positive: 15 responses
+    Auto batch size: 313 (mode=generation, free=16.1GB, per_seq=47MB [kv=12+fwd=10])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 19.1/s | peak 27.8GB | now 63.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.33it/s]  Vetting responses:  53%|█████▎    | 16/30 [00:00<00:00, 39.05it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 49.20it/s]
+      30 responses | pass: 76.7% (23/30) | errors: 0
+      Done: 0.6s | 48.2/s | peak 27.5GB | now 63.2GB
+  SKIP: quality gate failed (pos=8/15, neg=15/15, rate=77%, need 80% + 10/polarity)
+
+--- emotions/determination --- [16:12:34 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 201 (mode=generation, free=16.1GB, per_seq=73MB [kv=18+fwd=17])
+      positive: 15 responses
+    Auto batch size: 210 (mode=generation, free=16.1GB, per_seq=70MB [kv=18+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.7/s | peak 27.9GB | now 63.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:08,  3.54it/s]  Vetting responses:  50%|█████     | 15/30 [00:00<00:00, 48.30it/s]  Vetting responses:  77%|███████▋  | 23/30 [00:00<00:00, 56.94it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 27.85it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 1.1s | 27.5/s | peak 27.5GB | now 63.2GB
+  SKIP: quality gate failed (pos=4/15, neg=12/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/disappointment --- [16:12:36 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 239 (mode=generation, free=16.1GB, per_seq=62MB [kv=16+fwd=14])
+      positive: 15 responses
+    Auto batch size: 208 (mode=generation, free=16.1GB, per_seq=71MB [kv=18+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.8/s | peak 27.9GB | now 63.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.73it/s]  Vetting responses:  37%|███▋      | 11/30 [00:00<00:00, 29.96it/s]  Vetting responses:  90%|█████████ | 27/30 [00:00<00:00, 66.86it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 19.95it/s]
+      30 responses | pass: 70.0% (21/30) | errors: 0
+      Done: 1.5s | 19.7/s | peak 27.5GB | now 63.2GB
+  SKIP: quality gate failed (pos=10/15, neg=11/15, rate=70%, need 80% + 10/polarity)
+
+--- emotions/dogmatism --- [16:12:40 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 109 (mode=generation, free=16.1GB, per_seq=135MB [kv=33+fwd=34])
+      positive: 15 responses
+    Auto batch size: 164 (mode=generation, free=21.2GB, per_seq=119MB [kv=29+fwd=30])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 3.2s | 9.3/s | peak 28.2GB | now 59.7GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:08,  3.36it/s]  Vetting responses:  30%|███       | 9/30 [00:00<00:01, 19.19it/s]  Vetting responses:  77%|███████▋  | 23/30 [00:00<00:00, 48.12it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 17.75it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.7s | 17.6/s | peak 27.5GB | now 59.1GB
+  SKIP: quality gate failed (pos=4/15, neg=14/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/doubt --- [16:12:45 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 235 (mode=generation, free=20.2GB, per_seq=79MB [kv=20+fwd=19])
+      positive: 15 responses
+    Auto batch size: 235 (mode=generation, free=20.0GB, per_seq=78MB [kv=20+fwd=18])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 3.8s | 8.0/s | peak 27.9GB | now 59.9GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:08,  3.23it/s]  Vetting responses:  30%|███       | 9/30 [00:00<00:01, 19.21it/s]  Vetting responses:  67%|██████▋   | 20/30 [00:00<00:00, 40.93it/s]  Vetting responses:  90%|█████████ | 27/30 [00:01<00:00, 16.70it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 16.92it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.8s | 16.8/s | peak 27.5GB | now 60.1GB
+  SKIP: quality gate failed (pos=6/15, neg=11/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/dread --- [16:12:51 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 313 (mode=generation, free=19.2GB, per_seq=56MB [kv=14+fwd=13])
+      positive: 15 responses
+    Auto batch size: 340 (mode=generation, free=19.2GB, per_seq=52MB [kv=13+fwd=12])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 19.7/s | peak 27.8GB | now 60.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:14,  2.02it/s]  Vetting responses:  40%|████      | 12/30 [00:00<00:00, 26.03it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 48.91it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 17.56it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.7s | 17.4/s | peak 27.5GB | now 60.1GB
+  SKIP: quality gate failed (pos=3/15, neg=15/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/duplicity --- [16:12:54 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 235 (mode=generation, free=19.2GB, per_seq=75MB [kv=19+fwd=18])
+      positive: 15 responses
+    Auto batch size: 232 (mode=generation, free=19.2GB, per_seq=76MB [kv=19+fwd=18])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.3/s | peak 27.9GB | now 60.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.42it/s]  Vetting responses:  40%|████      | 12/30 [00:00<00:00, 29.86it/s]  Vetting responses:  87%|████████▋ | 26/30 [00:00<00:00, 53.06it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 24.66it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.2s | 24.3/s | peak 27.5GB | now 60.1GB
+  SKIP: quality gate failed (pos=4/15, neg=14/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/earnestness --- [16:12:58 UTC]
+  [1] Generating responses... (ETA: 27.4s)
+    Auto batch size: 285 (mode=generation, free=19.2GB, per_seq=62MB [kv=16+fwd=14])
+      positive: 14 responses
+    Auto batch size: 289 (mode=generation, free=19.2GB, per_seq=61MB [kv=15+fwd=14])
+      negative: 14 responses
+      Saved 14 + 14 responses
+      Done: 1.6s | 17.9/s | peak 27.8GB | now 60.4GB
+  [2] Vetting responses... (ETA: 8.4s)
+  Vetting responses:   0%|          | 0/28 [00:00<?, ?it/s]  Vetting responses:   4%|▎         | 1/28 [00:00<00:09,  2.86it/s]  Vetting responses:  29%|██▊       | 8/28 [00:00<00:00, 20.57it/s]  Vetting responses:  86%|████████▌ | 24/28 [00:00<00:00, 30.13it/s]  Vetting responses: 100%|██████████| 28/28 [00:01<00:00, 28.30it/s]  Vetting responses: 100%|██████████| 28/28 [00:01<00:00, 25.44it/s]
+      28 responses | pass: 60.7% (17/28) | errors: 0
+      Done: 1.1s | 25.1/s | peak 27.5GB | now 60.0GB
+  SKIP: quality gate failed (pos=6/14, neg=11/14, rate=61%, need 80% + 10/polarity)
+
+--- emotions/effort --- [16:13:01 UTC]
+  [1] Generating responses... (ETA: 21.6s)
+    Auto batch size: 224 (mode=generation, free=19.2GB, per_seq=79MB [kv=20+fwd=19])
+      positive: 11 responses
+    Auto batch size: 250 (mode=generation, free=18.5GB, per_seq=68MB [kv=17+fwd=16])
+      negative: 11 responses
+      Saved 11 + 11 responses
+      Done: 3.2s | 6.9/s | peak 27.8GB | now 61.1GB
+  [2] Vetting responses... (ETA: 6.6s)
+  Vetting responses:   0%|          | 0/22 [00:00<?, ?it/s]  Vetting responses:   5%|▍         | 1/22 [00:00<00:06,  3.22it/s]  Vetting responses:  36%|███▋      | 8/22 [00:00<00:00, 19.61it/s]  Vetting responses:  50%|█████     | 11/22 [00:00<00:00, 21.30it/s]  Vetting responses:  91%|█████████ | 20/22 [00:01<00:00, 21.59it/s]  Vetting responses: 100%|██████████| 22/22 [00:01<00:00, 12.38it/s]
+      22 responses | pass: 63.6% (14/22) | errors: 0
+      Done: 1.8s | 12.3/s | peak 27.5GB | now 60.8GB
+  SKIP: quality gate failed (pos=5/11, neg=9/11, rate=64%, need 80% + 10/polarity)
+
+--- emotions/elation --- [16:13:06 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 259 (mode=generation, free=18.5GB, per_seq=66MB [kv=16+fwd=15])
+      positive: 15 responses
+    Auto batch size: 314 (mode=generation, free=17.9GB, per_seq=53MB [kv=13+fwd=12])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 3.1s | 9.6/s | peak 27.9GB | now 61.9GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.70it/s]  Vetting responses:  33%|███▎      | 10/30 [00:00<00:00, 26.03it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:01<00:00, 31.81it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 27.47it/s]
+      30 responses | pass: 70.0% (21/30) | errors: 0
+      Done: 1.1s | 27.1/s | peak 27.5GB | now 62.0GB
+  SKIP: quality gate failed (pos=6/15, neg=15/15, rate=70%, need 80% + 10/polarity)
+
+--- emotions/emotional_suppression --- [16:13:10 UTC]
+  [1] Generating responses... (ETA: 27.4s)
+    Auto batch size: 224 (mode=generation, free=17.3GB, per_seq=71MB [kv=18+fwd=16])
+      positive: 14 responses
+    Auto batch size: 241 (mode=generation, free=16.4GB, per_seq=63MB [kv=16+fwd=14])
+      negative: 14 responses
+      Saved 14 + 14 responses
+      Done: 3.3s | 8.6/s | peak 27.9GB | now 63.3GB
+  [2] Vetting responses... (ETA: 8.4s)
+  Vetting responses:   0%|          | 0/28 [00:00<?, ?it/s]  Vetting responses:   4%|▎         | 1/28 [00:00<00:11,  2.38it/s]  Vetting responses:  71%|███████▏  | 20/28 [00:00<00:00, 49.53it/s]  Vetting responses: 100%|██████████| 28/28 [00:03<00:00,  8.00it/s]
+      28 responses | pass: 67.9% (19/28) | errors: 0
+      Done: 3.5s | 8.0/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=6/14, neg=13/14, rate=68%, need 80% + 10/polarity)
+
+--- emotions/empathy_explicit --- [16:13:17 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 395 (mode=generation, free=16.4GB, per_seq=38MB [kv=10+fwd=8])
+      positive: 15 responses
+    Auto batch size: 491 (mode=generation, free=16.4GB, per_seq=31MB [kv=8+fwd=7])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 20.5/s | peak 27.7GB | now 63.2GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.32it/s]  Vetting responses:  57%|█████▋    | 17/30 [00:00<00:00, 41.13it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 33.88it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 30.60it/s]
+      30 responses | pass: 66.7% (20/30) | errors: 0
+      Done: 1.0s | 30.1/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=5/15, neg=15/15, rate=67%, need 80% + 10/polarity)
+
+--- emotions/enthusiasm --- [16:13:20 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 271 (mode=generation, free=16.4GB, per_seq=56MB [kv=14+fwd=13])
+      positive: 15 responses
+    Auto batch size: 309 (mode=generation, free=16.4GB, per_seq=49MB [kv=12+fwd=11])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 19.5/s | peak 27.8GB | now 63.2GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.50it/s]  Vetting responses:  43%|████▎     | 13/30 [00:00<00:00, 32.60it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:00<00:00, 51.51it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 24.68it/s]
+      30 responses | pass: 66.7% (20/30) | errors: 0
+      Done: 1.2s | 24.4/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=5/15, neg=15/15, rate=67%, need 80% + 10/polarity)
+
+--- emotions/envy --- [16:13:23 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 263 (mode=generation, free=16.4GB, per_seq=57MB [kv=14+fwd=13])
+      positive: 15 responses
+    Auto batch size: 263 (mode=generation, free=16.4GB, per_seq=57MB [kv=14+fwd=13])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 19.5/s | peak 27.8GB | now 63.2GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.82it/s]  Vetting responses:  50%|█████     | 15/30 [00:00<00:00, 39.77it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:00<00:00, 40.76it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 26.03it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.2s | 25.7/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=2/15, neg=15/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/evasiveness --- [16:13:26 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 183 (mode=generation, free=16.4GB, per_seq=82MB [kv=20+fwd=19])
+      positive: 15 responses
+    Auto batch size: 187 (mode=generation, free=16.4GB, per_seq=81MB [kv=20+fwd=19])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.6/s | peak 27.9GB | now 63.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:05<02:46,  5.76s/it]  Vetting responses:  23%|██▎       | 7/30 [00:05<00:14,  1.62it/s]  Vetting responses:  87%|████████▋ | 26/30 [00:05<00:00,  7.85it/s]  Vetting responses: 100%|██████████| 30/30 [00:06<00:00,  4.36it/s]
+      30 responses | pass: 50.0% (15/30) | errors: 0
+      Done: 6.9s | 4.4/s | peak 27.5GB | now 59.8GB
+  SKIP: quality gate failed (pos=9/15, neg=6/15, rate=50%, need 80% + 10/polarity)
+
+--- emotions/excitement --- [16:13:35 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 301 (mode=generation, free=19.4GB, per_seq=59MB [kv=15+fwd=14])
+      positive: 15 responses
+    Auto batch size: 331 (mode=generation, free=19.2GB, per_seq=53MB [kv=14+fwd=12])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 2.1s | 14.5/s | peak 27.8GB | now 60.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:15,  1.89it/s]  Vetting responses:  73%|███████▎  | 22/30 [00:00<00:00, 45.94it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 19.25it/s]
+      30 responses | pass: 70.0% (21/30) | errors: 0
+      Done: 1.6s | 19.1/s | peak 27.5GB | now 60.1GB
+  SKIP: quality gate failed (pos=7/15, neg=14/15, rate=70%, need 80% + 10/polarity)
+
+--- emotions/fairness --- [16:13:39 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 221 (mode=generation, free=19.2GB, per_seq=80MB [kv=20+fwd=19])
+      positive: 15 responses
+    Auto batch size: 186 (mode=generation, free=19.2GB, per_seq=95MB [kv=23+fwd=23])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 17.0/s | peak 28.0GB | now 60.7GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.38it/s]  Vetting responses:  63%|██████▎   | 19/30 [00:00<00:00, 47.01it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 28.00it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 27.12it/s]
+      30 responses | pass: 70.0% (21/30) | errors: 0
+      Done: 1.1s | 26.8/s | peak 27.5GB | now 60.1GB
+  SKIP: quality gate failed (pos=6/15, neg=15/15, rate=70%, need 80% + 10/polarity)
+
+--- emotions/fascination --- [16:13:42 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 141 (mode=generation, free=19.2GB, per_seq=125MB [kv=30+fwd=31])
+      positive: 15 responses
+    Auto batch size: 217 (mode=generation, free=19.2GB, per_seq=81MB [kv=20+fwd=19])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 16.6/s | peak 28.2GB | now 60.9GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.70it/s]  Vetting responses:  47%|████▋     | 14/30 [00:00<00:00, 37.70it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 37.70it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 33.37it/s]
+      30 responses | pass: 80.0% (24/30) | errors: 0
+      Done: 0.9s | 32.9/s | peak 27.5GB | now 60.0GB
+  SKIP: quality gate failed (pos=9/15, neg=15/15, rate=80%, need 80% + 10/polarity)
+
+--- emotions/fixation --- [16:13:45 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 246 (mode=generation, free=19.2GB, per_seq=72MB [kv=18+fwd=17])
+      positive: 15 responses
+    Auto batch size: 338 (mode=generation, free=18.5GB, per_seq=50MB [kv=13+fwd=11])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 3.3s | 9.0/s | peak 27.9GB | now 61.2GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:05<02:46,  5.73s/it]  Vetting responses:  90%|█████████ | 27/30 [00:05<00:00,  6.47it/s]  Vetting responses: 100%|██████████| 30/30 [00:05<00:00,  5.04it/s]
+      30 responses | pass: 70.0% (21/30) | errors: 0
+      Done: 6.0s | 5.0/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=7/15, neg=14/15, rate=70%, need 80% + 10/polarity)
+
+--- emotions/flippancy --- [16:13:54 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 183 (mode=generation, free=16.4GB, per_seq=82MB [kv=20+fwd=19])
+      positive: 15 responses
+    Auto batch size: 165 (mode=generation, free=16.4GB, per_seq=91MB [kv=22+fwd=22])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 2.4s | 12.7/s | peak 28.0GB | now 63.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:14,  1.93it/s]  Vetting responses:  10%|█         | 3/30 [00:00<00:07,  3.83it/s]  Vetting responses:  43%|████▎     | 13/30 [00:00<00:00, 19.40it/s]  Vetting responses:  60%|██████    | 18/30 [00:01<00:00, 23.74it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 39.31it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 23.78it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 1.3s | 23.5/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=4/15, neg=15/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/forgiveness --- [16:13:58 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 178 (mode=generation, free=16.4GB, per_seq=85MB [kv=21+fwd=20])
+      positive: 15 responses
+    Auto batch size: 181 (mode=generation, free=16.4GB, per_seq=83MB [kv=21+fwd=20])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.6/s | peak 28.0GB | now 63.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.25it/s]  Vetting responses:  17%|█▋        | 5/30 [00:00<00:03,  6.30it/s]  Vetting responses:  50%|█████     | 15/30 [00:00<00:00, 20.87it/s]  Vetting responses:  67%|██████▋   | 20/30 [00:01<00:00, 24.02it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:01<00:00, 22.58it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 17.63it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.7s | 17.5/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=4/15, neg=13/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/generosity --- [16:14:02 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 219 (mode=generation, free=16.4GB, per_seq=69MB [kv=17+fwd=16])
+      positive: 15 responses
+    Auto batch size: 185 (mode=generation, free=16.4GB, per_seq=81MB [kv=20+fwd=19])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 16.9/s | peak 27.9GB | now 63.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.62it/s]  Vetting responses:  53%|█████▎    | 16/30 [00:00<00:00, 42.20it/s]  Vetting responses:  87%|████████▋ | 26/30 [00:00<00:00, 57.66it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.63it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 1.2s | 25.3/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=2/15, neg=14/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/glee --- [16:14:05 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 256 (mode=generation, free=16.4GB, per_seq=59MB [kv=15+fwd=13])
+      positive: 15 responses
+    Auto batch size: 274 (mode=generation, free=16.4GB, per_seq=55MB [kv=14+fwd=12])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 19.1/s | peak 27.8GB | now 63.2GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.53it/s]  Vetting responses:  43%|████▎     | 13/30 [00:00<00:00, 33.18it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:00<00:00, 34.60it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.78it/s]
+      30 responses | pass: 70.0% (21/30) | errors: 0
+      Done: 1.2s | 25.4/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=6/15, neg=15/15, rate=70%, need 80% + 10/polarity)
+
+--- emotions/grandiosity --- [16:14:08 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 180 (mode=generation, free=16.4GB, per_seq=84MB [kv=21+fwd=20])
+      positive: 15 responses
+    Auto batch size: 187 (mode=generation, free=16.4GB, per_seq=81MB [kv=20+fwd=19])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.5/s | peak 28.0GB | now 63.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:08,  3.35it/s]  Vetting responses:  27%|██▋       | 8/30 [00:00<00:00, 23.90it/s]  Vetting responses:  63%|██████▎   | 19/30 [00:00<00:00, 49.92it/s]  Vetting responses:  87%|████████▋ | 26/30 [00:00<00:00, 41.03it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 38.86it/s]
+      30 responses | pass: 70.0% (21/30) | errors: 0
+      Done: 0.8s | 38.2/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=6/15, neg=15/15, rate=70%, need 80% + 10/polarity)
+
+--- emotions/gratitude --- [16:14:11 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 229 (mode=generation, free=16.4GB, per_seq=66MB [kv=16+fwd=15])
+      positive: 15 responses
+    Auto batch size: 342 (mode=generation, free=20.4GB, per_seq=55MB [kv=14+fwd=12])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 3.2s | 9.5/s | peak 27.9GB | now 59.2GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.57it/s]  Vetting responses:  63%|██████▎   | 19/30 [00:00<00:00, 48.16it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:01<00:00, 29.09it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 27.31it/s]
+      30 responses | pass: 80.0% (24/30) | errors: 0
+      Done: 1.1s | 27.0/s | peak 27.5GB | now 58.9GB
+  SKIP: quality gate failed (pos=9/15, neg=15/15, rate=80%, need 80% + 10/polarity)
+
+--- emotions/greed --- [16:14:15 UTC]
+  [1] Generating responses... (ETA: 33.3s)
+    Auto batch size: 145 (mode=generation, free=20.4GB, per_seq=129MB [kv=31+fwd=33])
+      positive: 17 responses
+    Auto batch size: 163 (mode=generation, free=20.0GB, per_seq=113MB [kv=28+fwd=28])
+      negative: 17 responses
+      Saved 17 + 17 responses
+      Done: 4.5s | 7.5/s | peak 28.3GB | now 60.3GB
+  [2] Vetting responses... (ETA: 10.2s)
+  Vetting responses:   0%|          | 0/34 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/34 [00:00<00:13,  2.40it/s]  Vetting responses:  53%|█████▎    | 18/34 [00:00<00:00, 45.14it/s]  Vetting responses:  94%|█████████▍| 32/34 [00:01<00:00, 32.11it/s]  Vetting responses: 100%|██████████| 34/34 [00:01<00:00, 31.67it/s]
+      34 responses | pass: 55.9% (19/34) | errors: 0
+      Done: 1.1s | 31.2/s | peak 27.5GB | now 60.1GB
+  SKIP: quality gate failed (pos=2/17, neg=17/17, rate=56%, need 80% + 10/polarity)
+
+--- emotions/guilt_tripping --- [16:14:21 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 129 (mode=generation, free=19.2GB, per_seq=137MB [kv=33+fwd=35])
+      positive: 15 responses
+    Auto batch size: 172 (mode=generation, free=19.2GB, per_seq=102MB [kv=25+fwd=25])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.9s | 16.0/s | peak 28.2GB | now 60.9GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:09,  3.09it/s]  Vetting responses:  23%|██▎       | 7/30 [00:00<00:01, 20.32it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:00<00:00, 75.58it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 50.75it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 0.6s | 49.6/s | peak 27.5GB | now 60.1GB
+  SKIP: quality gate failed (pos=1/15, neg=15/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/honesty --- [16:14:24 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 175 (mode=generation, free=19.2GB, per_seq=101MB [kv=25+fwd=24])
+      positive: 15 responses
+    Auto batch size: 166 (mode=generation, free=19.2GB, per_seq=106MB [kv=26+fwd=26])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 16.6/s | peak 28.1GB | now 60.8GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.37it/s]  Vetting responses:  30%|███       | 9/30 [00:00<00:00, 21.76it/s]  Vetting responses:  53%|█████▎    | 16/30 [00:00<00:00, 34.17it/s]  Vetting responses:  90%|█████████ | 27/30 [00:00<00:00, 52.99it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 18.78it/s]
+      30 responses | pass: 50.0% (15/30) | errors: 0
+      Done: 1.6s | 18.6/s | peak 27.5GB | now 60.1GB
+  SKIP: quality gate failed (pos=0/15, neg=15/15, rate=50%, need 80% + 10/polarity)
+
+--- emotions/hope --- [16:14:28 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 368 (mode=generation, free=19.2GB, per_seq=48MB [kv=12+fwd=11])
+      positive: 15 responses
+    Auto batch size: 351 (mode=generation, free=19.2GB, per_seq=50MB [kv=13+fwd=11])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 19.4/s | peak 27.8GB | now 60.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.77it/s]  Vetting responses:  30%|███       | 9/30 [00:00<00:00, 23.43it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 58.51it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 19.79it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.5s | 19.6/s | peak 27.5GB | now 60.8GB
+  SKIP: quality gate failed (pos=2/15, neg=15/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/hostility --- [16:14:31 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 146 (mode=generation, free=18.5GB, per_seq=116MB [kv=28+fwd=29])
+      positive: 15 responses
+    Auto batch size: 161 (mode=generation, free=18.5GB, per_seq=105MB [kv=26+fwd=26])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 4.0s | 7.4/s | peak 28.1GB | now 61.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.58it/s]  Vetting responses:  50%|█████     | 15/30 [00:00<00:00, 38.48it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:01<00:00, 27.24it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.30it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.2s | 25.0/s | peak 27.5GB | now 60.8GB
+  SKIP: quality gate failed (pos=2/15, neg=15/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/humility --- [16:14:36 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 156 (mode=generation, free=18.3GB, per_seq=108MB [kv=26+fwd=26])
+      positive: 15 responses
+    Auto batch size: 163 (mode=generation, free=17.9GB, per_seq=101MB [kv=25+fwd=25])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 3.8s | 7.9/s | peak 28.1GB | now 62.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:09,  2.93it/s]  Vetting responses:  17%|█▋        | 5/30 [00:00<00:02, 11.94it/s]  Vetting responses:  57%|█████▋    | 17/30 [00:00<00:00, 40.67it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 15.88it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 16.43it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.8s | 16.3/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=5/15, neg=12/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/impatience --- [16:14:42 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 121 (mode=generation, free=16.4GB, per_seq=124MB [kv=30+fwd=31])
+      positive: 15 responses
+    Auto batch size: 134 (mode=generation, free=16.4GB, per_seq=112MB [kv=27+fwd=28])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 2.9s | 10.3/s | peak 28.2GB | now 63.7GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.54it/s]  Vetting responses:  70%|███████   | 21/30 [00:00<00:00, 53.26it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.30it/s]
+      30 responses | pass: 73.3% (22/30) | errors: 0
+      Done: 1.2s | 25.0/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=7/15, neg=15/15, rate=73%, need 80% + 10/polarity)
+
+--- emotions/impulsivity --- [16:14:47 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 256 (mode=generation, free=16.4GB, per_seq=59MB [kv=15+fwd=13])
+      positive: 15 responses
+    Auto batch size: 256 (mode=generation, free=16.4GB, per_seq=59MB [kv=15+fwd=13])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.6/s | peak 27.8GB | now 63.2GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.69it/s]  Vetting responses:  43%|████▎     | 13/30 [00:00<00:00, 35.16it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 52.89it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 24.90it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 1.2s | 24.5/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=3/15, neg=13/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/indifference --- [16:14:50 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 207 (mode=generation, free=16.4GB, per_seq=73MB [kv=18+fwd=17])
+      positive: 15 responses
+    Auto batch size: 209 (mode=generation, free=16.4GB, per_seq=72MB [kv=18+fwd=17])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.6/s | peak 27.9GB | now 63.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:08,  3.23it/s]  Vetting responses:  23%|██▎       | 7/30 [00:00<00:01, 19.85it/s]  Vetting responses:  60%|██████    | 18/30 [00:00<00:00, 46.64it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 47.51it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 26.31it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.2s | 26.0/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=5/15, neg=13/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/indignation --- [16:14:53 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 212 (mode=generation, free=16.4GB, per_seq=71MB [kv=18+fwd=16])
+      positive: 15 responses
+    Auto batch size: 300 (mode=generation, free=16.4GB, per_seq=50MB [kv=13+fwd=11])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.5/s | peak 27.9GB | now 63.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.34it/s]  Vetting responses:  60%|██████    | 18/30 [00:00<00:00, 44.02it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:00<00:00, 31.48it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 27.18it/s]
+      30 responses | pass: 76.7% (23/30) | errors: 0
+      Done: 1.1s | 26.7/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=8/15, neg=15/15, rate=77%, need 80% + 10/polarity)
+
+--- emotions/irritation --- [16:14:56 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 160 (mode=generation, free=16.4GB, per_seq=94MB [kv=23+fwd=23])
+      positive: 15 responses
+    Auto batch size: 168 (mode=generation, free=16.4GB, per_seq=89MB [kv=22+fwd=21])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.9s | 16.0/s | peak 28.0GB | now 63.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.28it/s]  Vetting responses:  80%|████████  | 24/30 [00:00<00:00, 57.76it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 24.75it/s]
+      30 responses | pass: 80.0% (24/30) | errors: 0
+      Done: 1.2s | 24.4/s | peak 27.5GB | now 62.9GB
+  [3] Extracting activations... (ETA: 1.5s)
+      Filtered 6 responses based on vetting
+    Calibrated: 98MB/seq, free=16.4GB → batch=154
+    combined:   0%|          | 0/24 [00:00<?, ?it/s]      [mem] batch 0: alloc=27.52GB resv=27.54GB free=16.4GB items=24
+    combined: 100%|██████████| 24/24 [00:01<00:00, 20.83it/s]                                                                   Saved train: torch.Size([21, 48, 5120]) -> train_all_layers.pt
+      Saved val: torch.Size([3, 48, 5120]) -> val_all_layers.pt
+      Done: 1.6s | 18.4/s | peak 29.8GB | now 58.9GB
+  [4] Extracting vectors... (ETA: 2.0s)
+      Methods: ['mean_diff', 'probe', 'gradient']
+      Layers: 0..47 (48 total)
+      Extracted 144 vectors
+      Done: 14.2s | 0.2/s | peak 27.5GB | now 59.8GB
+  [5] Running logit lens... (ETA: 5.0s)
+  Logit lens: emotions/irritation
+    8708 common tokens
+    Saved: logit_lens.json
+      Done: 0.2s | peak 27.5GB | now 60.1GB
+
+--- emotions/loneliness --- [16:15:16 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 340 (mode=generation, free=19.2GB, per_seq=52MB [kv=13+fwd=12])
+      positive: 15 responses
+    Auto batch size: 317 (mode=generation, free=19.2GB, per_seq=56MB [kv=14+fwd=13])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.5/s | peak 27.8GB | now 60.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:17,  1.65it/s]  Vetting responses:   7%|▋         | 2/30 [00:00<00:09,  2.96it/s]  Vetting responses:  27%|██▋       | 8/30 [00:00<00:01, 13.06it/s]  Vetting responses:  57%|█████▋    | 17/30 [00:01<00:00, 24.80it/s]  Vetting responses:  70%|███████   | 21/30 [00:01<00:00, 19.40it/s]  Vetting responses:  80%|████████  | 24/30 [00:01<00:00, 20.03it/s]  Vetting responses:  90%|█████████ | 27/30 [00:01<00:00, 16.88it/s]  Vetting responses: 100%|██████████| 30/30 [00:02<00:00,  9.31it/s]  Vetting responses: 100%|██████████| 30/30 [00:02<00:00, 11.91it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 2.5s | 11.8/s | peak 27.5GB | now 60.1GB
+  SKIP: quality gate failed (pos=7/15, neg=11/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/manipulation --- [16:15:20 UTC]
+  [1] Generating responses... (ETA: 23.5s)
+    Auto batch size: 153 (mode=generation, free=19.2GB, per_seq=115MB [kv=28+fwd=29])
+      positive: 12 responses
+    Auto batch size: 189 (mode=generation, free=19.2GB, per_seq=93MB [kv=23+fwd=22])
+      negative: 12 responses
+      Saved 12 + 12 responses
+      Done: 1.8s | 13.6/s | peak 28.0GB | now 60.6GB
+  [2] Vetting responses... (ETA: 7.2s)
+  Vetting responses:   0%|          | 0/24 [00:00<?, ?it/s]  Vetting responses:   4%|▍         | 1/24 [00:05<02:11,  5.72s/it]  Vetting responses:  17%|█▋        | 4/24 [00:05<00:22,  1.12s/it]  Vetting responses:  25%|██▌       | 6/24 [00:05<00:11,  1.52it/s]  Vetting responses:  58%|█████▊    | 14/24 [00:06<00:01,  5.04it/s]  Vetting responses:  79%|███████▉  | 19/24 [00:06<00:00,  7.76it/s]  Vetting responses: 100%|██████████| 24/24 [00:07<00:00,  6.49it/s]  Vetting responses: 100%|██████████| 24/24 [00:07<00:00,  3.34it/s]
+      24 responses | pass: 50.0% (12/24) | errors: 0
+      Done: 7.2s | 3.3/s | peak 27.5GB | now 60.7GB
+  SKIP: quality gate failed (pos=0/12, neg=12/12, rate=50%, need 80% + 10/polarity)
+
+--- emotions/melancholy --- [16:15:30 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 307 (mode=generation, free=18.5GB, per_seq=56MB [kv=14+fwd=13])
+      positive: 15 responses
+    Auto batch size: 295 (mode=generation, free=18.4GB, per_seq=57MB [kv=14+fwd=13])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 3.1s | 9.8/s | peak 27.8GB | now 62.0GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:09,  3.09it/s]  Vetting responses:  20%|██        | 6/30 [00:00<00:01, 14.99it/s]  Vetting responses:  30%|███       | 9/30 [00:00<00:01, 18.84it/s]  Vetting responses:  77%|███████▋  | 23/30 [00:00<00:00, 51.94it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 14.50it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 16.42it/s]
+      30 responses | pass: 76.7% (23/30) | errors: 0
+      Done: 1.8s | 16.3/s | peak 27.5GB | now 62.3GB
+  SKIP: quality gate failed (pos=8/15, neg=15/15, rate=77%, need 80% + 10/polarity)
+
+--- emotions/mischievousness --- [16:15:35 UTC]
+  [1] Generating responses... (ETA: 25.5s)
+    Auto batch size: 163 (mode=generation, free=16.9GB, per_seq=96MB [kv=24+fwd=23])
+      positive: 13 responses
+    Auto batch size: 183 (mode=generation, free=16.5GB, per_seq=83MB [kv=21+fwd=20])
+      negative: 13 responses
+      Saved 13 + 13 responses
+      Done: 3.5s | 7.5/s | peak 28.0GB | now 63.3GB
+  [2] Vetting responses... (ETA: 7.8s)
+  Vetting responses:   0%|          | 0/26 [00:00<?, ?it/s]  Vetting responses:   4%|▍         | 1/26 [00:00<00:08,  2.89it/s]  Vetting responses:  50%|█████     | 13/26 [00:00<00:00, 34.97it/s]  Vetting responses: 100%|██████████| 26/26 [00:00<00:00, 47.95it/s]  Vetting responses: 100%|██████████| 26/26 [00:00<00:00, 38.84it/s]
+      26 responses | pass: 53.8% (14/26) | errors: 0
+      Done: 0.7s | 38.1/s | peak 27.5GB | now 62.8GB
+  SKIP: quality gate failed (pos=1/13, neg=13/13, rate=54%, need 80% + 10/polarity)
+
+--- emotions/moral_flexibility --- [16:15:39 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 248 (mode=generation, free=16.4GB, per_seq=61MB [kv=15+fwd=14])
+      positive: 15 responses
+    Auto batch size: 220 (mode=generation, free=16.4GB, per_seq=69MB [kv=17+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 2.8s | 10.7/s | peak 27.9GB | now 63.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:08,  3.56it/s]  Vetting responses:  33%|███▎      | 10/30 [00:00<00:00, 26.31it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:00<00:00, 66.02it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 31.16it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.0s | 30.7/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=3/15, neg=14/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/moral_outrage --- [16:15:43 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 214 (mode=generation, free=16.4GB, per_seq=70MB [kv=18+fwd=16])
+      positive: 15 responses
+    Auto batch size: 203 (mode=generation, free=16.4GB, per_seq=74MB [kv=19+fwd=17])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.9/s | peak 27.9GB | now 63.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.62it/s]  Vetting responses:  53%|█████▎    | 16/30 [00:00<00:00, 41.80it/s]  Vetting responses:  87%|████████▋ | 26/30 [00:00<00:00, 57.62it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 23.84it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.3s | 23.6/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=2/15, neg=15/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/numbness --- [16:15:46 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 219 (mode=generation, free=16.4GB, per_seq=69MB [kv=17+fwd=16])
+      positive: 15 responses
+    Auto batch size: 199 (mode=generation, free=16.4GB, per_seq=76MB [kv=19+fwd=18])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.7/s | peak 27.9GB | now 63.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.57it/s]  Vetting responses:  47%|████▋     | 14/30 [00:00<00:00, 35.90it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 51.79it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 27.07it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.1s | 26.7/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=5/15, neg=13/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/obligation --- [16:15:49 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 172 (mode=generation, free=16.4GB, per_seq=88MB [kv=22+fwd=21])
+      positive: 15 responses
+    Auto batch size: 180 (mode=generation, free=16.4GB, per_seq=84MB [kv=21+fwd=20])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.6/s | peak 28.0GB | now 63.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.58it/s]  Vetting responses:  53%|█████▎    | 16/30 [00:00<00:00, 41.96it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 45.55it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 16.86it/s]
+      30 responses | pass: 50.0% (15/30) | errors: 0
+      Done: 1.8s | 16.7/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=0/15, neg=15/15, rate=50%, need 80% + 10/polarity)
+
+--- emotions/open_mindedness --- [16:15:53 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 151 (mode=generation, free=16.4GB, per_seq=100MB [kv=25+fwd=24])
+      positive: 15 responses
+    Auto batch size: 155 (mode=generation, free=16.4GB, per_seq=97MB [kv=24+fwd=24])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 16.9/s | peak 28.0GB | now 63.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.53it/s]  Vetting responses:  63%|██████▎   | 19/30 [00:00<00:00, 48.63it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 26.40it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 26.17it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 1.2s | 25.8/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=4/15, neg=12/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/optimism --- [16:15:56 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 261 (mode=generation, free=16.4GB, per_seq=58MB [kv=15+fwd=13])
+      positive: 15 responses
+    Auto batch size: 214 (mode=generation, free=16.4GB, per_seq=70MB [kv=18+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 19.5/s | peak 27.9GB | now 63.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:08,  3.31it/s]  Vetting responses:  27%|██▋       | 8/30 [00:00<00:00, 24.49it/s]  Vetting responses:  57%|█████▋    | 17/30 [00:00<00:00, 44.49it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:01<00:00, 27.81it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 26.29it/s]
+      30 responses | pass: 50.0% (15/30) | errors: 0
+      Done: 1.2s | 25.9/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=5/15, neg=10/15, rate=50%, need 80% + 10/polarity)
+
+--- emotions/paranoia --- [16:15:59 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 205 (mode=generation, free=16.4GB, per_seq=73MB [kv=18+fwd=17])
+      positive: 15 responses
+    Auto batch size: 219 (mode=generation, free=16.4GB, per_seq=69MB [kv=17+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.6/s | peak 27.9GB | now 63.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:09,  2.93it/s]  Vetting responses:  30%|███       | 9/30 [00:00<00:00, 24.96it/s]  Vetting responses:  70%|███████   | 21/30 [00:00<00:00, 51.78it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:01<00:00, 24.93it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.13it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.2s | 24.9/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=3/15, neg=15/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/patience --- [16:16:02 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 244 (mode=generation, free=16.4GB, per_seq=62MB [kv=16+fwd=14])
+      positive: 15 responses
+    Auto batch size: 233 (mode=generation, free=16.4GB, per_seq=65MB [kv=16+fwd=15])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 19.1/s | peak 27.8GB | now 63.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:09,  2.91it/s]  Vetting responses:  13%|█▎        | 4/30 [00:00<00:02, 10.58it/s]  Vetting responses:  37%|███▋      | 11/30 [00:00<00:00, 27.01it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 56.52it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 24.97it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.2s | 24.7/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=3/15, neg=14/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/perfectionism --- [16:16:05 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 214 (mode=generation, free=16.4GB, per_seq=70MB [kv=18+fwd=16])
+      positive: 15 responses
+    Auto batch size: 251 (mode=generation, free=16.4GB, per_seq=60MB [kv=15+fwd=14])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 19.2/s | peak 27.9GB | now 63.2GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.60it/s]  Vetting responses:  53%|█████▎    | 16/30 [00:00<00:00, 42.46it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:00<00:00, 66.68it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 26.74it/s]
+      30 responses | pass: 73.3% (22/30) | errors: 0
+      Done: 1.1s | 26.4/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=8/15, neg=14/15, rate=73%, need 80% + 10/polarity)
+
+--- emotions/pessimism --- [16:16:08 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 261 (mode=generation, free=16.4GB, per_seq=58MB [kv=15+fwd=13])
+      positive: 15 responses
+    Auto batch size: 233 (mode=generation, free=16.4GB, per_seq=65MB [kv=16+fwd=15])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 19.1/s | peak 27.8GB | now 63.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.32it/s]  Vetting responses:  73%|███████▎  | 22/30 [00:00<00:00, 52.06it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.44it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 1.2s | 25.1/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=5/15, neg=11/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/pettiness --- [16:16:11 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 235 (mode=generation, free=16.4GB, per_seq=64MB [kv=16+fwd=15])
+      positive: 15 responses
+    Auto batch size: 305 (mode=generation, free=16.4GB, per_seq=50MB [kv=13+fwd=11])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 19.7/s | peak 27.8GB | now 63.2GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.27it/s]  Vetting responses:  70%|███████   | 21/30 [00:00<00:00, 50.71it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.46it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.2s | 25.2/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=3/15, neg=15/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/playfulness --- [16:16:14 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 158 (mode=generation, free=16.4GB, per_seq=96MB [kv=24+fwd=23])
+      positive: 15 responses
+    Auto batch size: 180 (mode=generation, free=16.4GB, per_seq=84MB [kv=21+fwd=20])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.8/s | peak 28.0GB | now 63.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.46it/s]  Vetting responses:  77%|███████▋  | 23/30 [00:00<00:00, 58.16it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.42it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.2s | 25.1/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=4/15, neg=14/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/possessiveness --- [16:16:17 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 279 (mode=generation, free=16.4GB, per_seq=54MB [kv=14+fwd=12])
+      positive: 15 responses
+    Auto batch size: 279 (mode=generation, free=16.4GB, per_seq=54MB [kv=14+fwd=12])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 19.8/s | peak 27.8GB | now 63.1GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.88it/s]  Vetting responses:  50%|█████     | 15/30 [00:00<00:00, 42.13it/s]  Vetting responses:  87%|████████▋ | 26/30 [00:00<00:00, 58.38it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.19it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 1.2s | 24.9/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=2/15, neg=14/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/pride_explicit --- [16:16:20 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 421 (mode=generation, free=16.4GB, per_seq=36MB [kv=9+fwd=8])
+      positive: 15 responses
+    Auto batch size: 459 (mode=generation, free=16.4GB, per_seq=33MB [kv=8+fwd=7])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.4s | 21.4/s | peak 27.7GB | now 63.1GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:08,  3.36it/s]  Vetting responses:  23%|██▎       | 7/30 [00:00<00:01, 19.52it/s]  Vetting responses:  87%|████████▋ | 26/30 [00:00<00:00, 67.73it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 28.27it/s]
+      30 responses | pass: 70.0% (21/30) | errors: 0
+      Done: 1.1s | 27.9/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=6/15, neg=15/15, rate=70%, need 80% + 10/polarity)
+
+--- emotions/protectiveness --- [16:16:22 UTC]
+  [1] Generating responses... (ETA: 27.4s)
+    Auto batch size: 152 (mode=generation, free=16.4GB, per_seq=99MB [kv=24+fwd=24])
+      positive: 14 responses
+    Auto batch size: 167 (mode=generation, free=16.4GB, per_seq=90MB [kv=22+fwd=22])
+      negative: 14 responses
+      Saved 14 + 14 responses
+      Done: 1.7s | 16.4/s | peak 28.0GB | now 63.4GB
+  [2] Vetting responses... (ETA: 8.4s)
+  Vetting responses:   0%|          | 0/28 [00:00<?, ?it/s]  Vetting responses:   4%|▎         | 1/28 [00:00<00:14,  1.86it/s]  Vetting responses:  64%|██████▍   | 18/28 [00:00<00:00, 36.63it/s]  Vetting responses: 100%|██████████| 28/28 [00:01<00:00, 19.14it/s]  Vetting responses: 100%|██████████| 28/28 [00:01<00:00, 18.97it/s]
+      28 responses | pass: 53.6% (15/28) | errors: 0
+      Done: 1.5s | 18.8/s | peak 27.5GB | now 62.9GB
+  SKIP: quality gate failed (pos=1/14, neg=14/14, rate=54%, need 80% + 10/polarity)
+
+--- emotions/purity --- [16:16:26 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 205 (mode=generation, free=16.4GB, per_seq=73MB [kv=18+fwd=17])
+      positive: 15 responses
+    Auto batch size: 212 (mode=generation, free=16.4GB, per_seq=71MB [kv=18+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.4/s | peak 27.9GB | now 63.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.50it/s]  Vetting responses:  50%|█████     | 15/30 [00:00<00:00, 37.07it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 53.12it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 27.87it/s]
+      30 responses | pass: 66.7% (20/30) | errors: 0
+      Done: 1.1s | 27.6/s | peak 27.5GB | now 57.6GB
+  SKIP: quality gate failed (pos=5/15, neg=15/15, rate=67%, need 80% + 10/polarity)
+
+--- emotions/rebelliousness --- [16:16:29 UTC]
+  [1] Generating responses... (ETA: 23.5s)
+    Auto batch size: 263 (mode=generation, free=21.4GB, per_seq=75MB [kv=19+fwd=18])
+      positive: 12 responses
+    Auto batch size: 240 (mode=generation, free=20.4GB, per_seq=78MB [kv=20+fwd=18])
+      negative: 12 responses
+      Saved 12 + 12 responses
+      Done: 3.2s | 7.5/s | peak 27.8GB | now 59.2GB
+  [2] Vetting responses... (ETA: 7.2s)
+  Vetting responses:   0%|          | 0/24 [00:00<?, ?it/s]  Vetting responses:   4%|▍         | 1/24 [00:00<00:06,  3.46it/s]  Vetting responses:  83%|████████▎ | 20/24 [00:00<00:00, 55.98it/s]  Vetting responses: 100%|██████████| 24/24 [00:00<00:00, 48.44it/s]
+      24 responses | pass: 54.2% (13/24) | errors: 0
+      Done: 0.5s | 47.2/s | peak 27.5GB | now 58.9GB
+  SKIP: quality gate failed (pos=1/12, neg=12/12, rate=54%, need 80% + 10/polarity)
+
+--- emotions/recklessness --- [16:16:33 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 352 (mode=generation, free=20.4GB, per_seq=53MB [kv=14+fwd=12])
+      positive: 15 responses
+    Auto batch size: 331 (mode=generation, free=20.3GB, per_seq=56MB [kv=14+fwd=13])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 3.2s | 9.5/s | peak 27.8GB | now 59.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:09,  2.95it/s]  Vetting responses:  27%|██▋       | 8/30 [00:00<00:00, 22.06it/s]  Vetting responses:  80%|████████  | 24/30 [00:00<00:00, 61.54it/s]  Vetting responses: 100%|██████████| 30/30 [00:07<00:00,  3.88it/s]
+      30 responses | pass: 50.0% (15/30) | errors: 0
+      Done: 7.8s | 3.9/s | peak 27.5GB | now 60.1GB
+  SKIP: quality gate failed (pos=1/15, neg=14/15, rate=50%, need 80% + 10/polarity)
+
+--- emotions/relief --- [16:16:44 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 248 (mode=generation, free=19.2GB, per_seq=71MB [kv=18+fwd=16])
+      positive: 15 responses
+    Auto batch size: 321 (mode=generation, free=19.2GB, per_seq=55MB [kv=14+fwd=12])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.7/s | peak 27.9GB | now 60.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:08,  3.52it/s]  Vetting responses:  13%|█▎        | 4/30 [00:00<00:02, 11.39it/s]  Vetting responses:  57%|█████▋    | 17/30 [00:00<00:00, 46.94it/s]  Vetting responses:  87%|████████▋ | 26/30 [00:00<00:00, 29.97it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 24.18it/s]
+      30 responses | pass: 76.7% (23/30) | errors: 0
+      Done: 1.3s | 23.9/s | peak 27.5GB | now 60.1GB
+  SKIP: quality gate failed (pos=8/15, neg=15/15, rate=77%, need 80% + 10/polarity)
+
+--- emotions/remorse --- [16:16:47 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 300 (mode=generation, free=19.2GB, per_seq=59MB [kv=15+fwd=13])
+      positive: 15 responses
+    Auto batch size: 378 (mode=generation, free=23.2GB, per_seq=56MB [kv=14+fwd=13])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 19.9/s | peak 27.8GB | now 28.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.47it/s]  Vetting responses:  63%|██████▎   | 19/30 [00:00<00:00, 48.28it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 28.52it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 27.71it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.1s | 27.4/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=3/15, neg=15/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/resentment --- [16:16:49 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=67MB [kv=17+fwd=15])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=66MB [kv=16+fwd=15])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.7/s | peak 27.9GB | now 28.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.37it/s]  Vetting responses:  77%|███████▋  | 23/30 [00:00<00:00, 56.80it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 27.79it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.1s | 27.4/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=3/15, neg=14/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/resignation --- [16:16:52 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=66MB [kv=16+fwd=15])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=69MB [kv=17+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.7/s | peak 27.9GB | now 28.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.37it/s]  Vetting responses:  63%|██████▎   | 19/30 [00:00<00:00, 45.94it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:01<00:00, 29.76it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 24.63it/s]
+      30 responses | pass: 76.7% (23/30) | errors: 0
+      Done: 1.2s | 24.3/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=12/15, neg=11/15, rate=77%, need 80% + 10/polarity)
+
+--- emotions/restlessness --- [16:16:55 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 444 (mode=generation, free=51.2GB, per_seq=106MB [kv=26+fwd=26])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=82MB [kv=20+fwd=19])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.4/s | peak 28.1GB | now 28.7GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.28it/s]  Vetting responses:  27%|██▋       | 8/30 [00:00<00:01, 18.87it/s]  Vetting responses:  67%|██████▋   | 20/30 [00:00<00:00, 44.89it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:00<00:00, 50.34it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 16.04it/s]
+      30 responses | pass: 76.7% (23/30) | errors: 0
+      Done: 1.9s | 15.9/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=9/15, neg=14/15, rate=77%, need 80% + 10/polarity)
+
+--- emotions/reverence --- [16:16:59 UTC]
+  [1] Generating responses... (ETA: 27.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=78MB [kv=20+fwd=18])
+      positive: 14 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=61MB [kv=15+fwd=14])
+      negative: 14 responses
+      Saved 14 + 14 responses
+      Done: 1.6s | 17.6/s | peak 27.9GB | now 28.4GB
+  [2] Vetting responses... (ETA: 8.4s)
+  Vetting responses:   0%|          | 0/28 [00:00<?, ?it/s]  Vetting responses:   4%|▎         | 1/28 [00:00<00:08,  3.34it/s]  Vetting responses:  50%|█████     | 14/28 [00:00<00:00, 28.73it/s]  Vetting responses:  86%|████████▌ | 24/28 [00:00<00:00, 41.56it/s]  Vetting responses: 100%|██████████| 28/28 [00:01<00:00, 18.14it/s]
+      28 responses | pass: 67.9% (19/28) | errors: 0
+      Done: 1.6s | 18.0/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=5/14, neg=14/14, rate=68%, need 80% + 10/polarity)
+
+--- emotions/reverence_for_life --- [16:17:02 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 506 (mode=generation, free=51.2GB, per_seq=93MB [kv=23+fwd=22])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=73MB [kv=18+fwd=17])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.6/s | peak 28.0GB | now 28.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.50it/s]  Vetting responses:  67%|██████▋   | 20/30 [00:00<00:00, 50.78it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 29.65it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 1.0s | 29.3/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=1/15, neg=15/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/rigidity --- [16:17:05 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 385 (mode=generation, free=51.2GB, per_seq=123MB [kv=30+fwd=31])
+      positive: 15 responses
+    Auto batch size: 332 (mode=generation, free=51.2GB, per_seq=142MB [kv=34+fwd=36])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.9s | 15.7/s | peak 28.3GB | now 29.0GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:07,  3.69it/s]  Vetting responses:  33%|███▎      | 10/30 [00:00<00:00, 32.31it/s]  Vetting responses:  63%|██████▎   | 19/30 [00:00<00:00, 50.67it/s]  Vetting responses:  90%|█████████ | 27/30 [00:00<00:00, 58.82it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 36.90it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 0.8s | 36.3/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=5/15, neg=14/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/sandbagging --- [16:17:08 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=87MB [kv=22+fwd=21])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=79MB [kv=20+fwd=19])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 18.0/s | peak 28.0GB | now 28.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.64it/s]  Vetting responses:  43%|████▎     | 13/30 [00:00<00:00, 33.91it/s]  Vetting responses:  87%|████████▋ | 26/30 [00:00<00:00, 58.25it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 28.07it/s]
+      30 responses | pass: 50.0% (15/30) | errors: 0
+      Done: 1.1s | 27.7/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=1/15, neg=14/15, rate=50%, need 80% + 10/polarity)
+
+--- emotions/scorn --- [16:17:11 UTC]
+  [1] Generating responses... (ETA: 25.5s)
+    Auto batch size: 421 (mode=generation, free=51.2GB, per_seq=112MB [kv=27+fwd=28])
+      positive: 13 responses
+    Auto batch size: 424 (mode=generation, free=51.2GB, per_seq=111MB [kv=27+fwd=27])
+      negative: 13 responses
+      Saved 13 + 13 responses
+      Done: 1.7s | 15.1/s | peak 28.0GB | now 28.6GB
+  [2] Vetting responses... (ETA: 7.8s)
+  Vetting responses:   0%|          | 0/26 [00:00<?, ?it/s]  Vetting responses:   4%|▍         | 1/26 [00:00<00:07,  3.40it/s]  Vetting responses:  23%|██▎       | 6/26 [00:00<00:01, 17.58it/s]  Vetting responses:  50%|█████     | 13/26 [00:00<00:00, 23.18it/s]  Vetting responses:  62%|██████▏   | 16/26 [00:00<00:00, 20.50it/s]  Vetting responses:  77%|███████▋  | 20/26 [00:00<00:00, 22.86it/s]  Vetting responses: 100%|██████████| 26/26 [00:01<00:00, 23.13it/s]  Vetting responses: 100%|██████████| 26/26 [00:01<00:00, 20.93it/s]
+      26 responses | pass: 65.4% (17/26) | errors: 0
+      Done: 1.3s | 20.7/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=4/13, neg=13/13, rate=65%, need 80% + 10/polarity)
+
+--- emotions/self_awareness --- [16:17:14 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=63MB [kv=16+fwd=14])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=61MB [kv=15+fwd=14])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 19.3/s | peak 27.8GB | now 28.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.68it/s]  Vetting responses:  13%|█▎        | 4/30 [00:00<00:02, 10.16it/s]  Vetting responses:  27%|██▋       | 8/30 [00:00<00:01, 18.48it/s]  Vetting responses:  77%|███████▋  | 23/30 [00:00<00:00, 53.48it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 16.10it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 17.38it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.7s | 17.2/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=4/15, neg=14/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/self_doubt --- [16:17:18 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=59MB [kv=15+fwd=13])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=62MB [kv=16+fwd=14])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 19.2/s | peak 27.8GB | now 28.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:09,  3.04it/s]  Vetting responses:  33%|███▎      | 10/30 [00:00<00:00, 29.32it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 63.89it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 46.52it/s]
+      30 responses | pass: 66.7% (20/30) | errors: 0
+      Done: 0.7s | 45.6/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=6/15, neg=14/15, rate=67%, need 80% + 10/polarity)
+
+--- emotions/self_righteousness --- [16:17:20 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 412 (mode=generation, free=51.2GB, per_seq=114MB [kv=28+fwd=28])
+      positive: 15 responses
+    Auto batch size: 462 (mode=generation, free=51.2GB, per_seq=102MB [kv=25+fwd=25])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 17.0/s | peak 28.1GB | now 28.7GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.50it/s]  Vetting responses:  37%|███▋      | 11/30 [00:00<00:00, 27.71it/s]  Vetting responses:  90%|█████████ | 27/30 [00:01<00:00, 30.63it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 25.71it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.2s | 25.4/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=3/15, neg=15/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/sentimentality --- [16:17:23 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=72MB [kv=18+fwd=17])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=59MB [kv=15+fwd=13])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.8/s | peak 27.9GB | now 28.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:11<05:38, 11.66s/it]  Vetting responses:  10%|█         | 3/30 [00:11<01:22,  3.06s/it]  Vetting responses:  40%|████      | 12/30 [00:11<00:09,  1.84it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:11<00:01,  4.87it/s]  Vetting responses: 100%|██████████| 30/30 [00:12<00:00,  2.33it/s]
+      30 responses | pass: 76.7% (23/30) | errors: 0
+      Done: 12.9s | 2.3/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=8/15, neg=15/15, rate=77%, need 80% + 10/polarity)
+
+--- emotions/servility --- [16:17:38 UTC]
+  [1] Generating responses... (ETA: 23.5s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=74MB [kv=19+fwd=17])
+      positive: 12 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=70MB [kv=17+fwd=16])
+      negative: 12 responses
+      Saved 12 + 12 responses
+      Done: 1.7s | 14.4/s | peak 27.8GB | now 28.4GB
+  [2] Vetting responses... (ETA: 7.2s)
+  Vetting responses:   0%|          | 0/24 [00:00<?, ?it/s]  Vetting responses:   4%|▍         | 1/24 [00:00<00:07,  3.12it/s]  Vetting responses:  17%|█▋        | 4/24 [00:00<00:01, 10.31it/s]  Vetting responses:  67%|██████▋   | 16/24 [00:00<00:00, 39.46it/s]  Vetting responses:  96%|█████████▌| 23/24 [00:00<00:00, 44.92it/s]  Vetting responses: 100%|██████████| 24/24 [00:00<00:00, 32.70it/s]
+      24 responses | pass: 66.7% (16/24) | errors: 0
+      Done: 0.8s | 31.9/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=4/12, neg=12/12, rate=67%, need 80% + 10/polarity)
+
+--- emotions/sincerity --- [16:17:41 UTC]
+  [1] Generating responses... (ETA: 25.5s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=78MB [kv=20+fwd=18])
+      positive: 13 responses
+    Auto batch size: 458 (mode=generation, free=51.2GB, per_seq=103MB [kv=25+fwd=25])
+      negative: 13 responses
+      Saved 13 + 13 responses
+      Done: 1.7s | 15.7/s | peak 28.0GB | now 28.6GB
+  [2] Vetting responses... (ETA: 7.8s)
+  Vetting responses:   0%|          | 0/26 [00:00<?, ?it/s]  Vetting responses:   4%|▍         | 1/26 [00:00<00:09,  2.65it/s]  Vetting responses:  65%|██████▌   | 17/26 [00:00<00:00, 45.70it/s]  Vetting responses: 100%|██████████| 26/26 [00:00<00:00, 28.58it/s]
+      26 responses | pass: 50.0% (13/26) | errors: 0
+      Done: 0.9s | 28.2/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=4/13, neg=9/13, rate=50%, need 80% + 10/polarity)
+
+--- emotions/skepticism --- [16:17:44 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=47MB [kv=12+fwd=10])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=50MB [kv=13+fwd=11])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 20.1/s | peak 27.8GB | now 28.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:08,  3.43it/s]  Vetting responses:  33%|███▎      | 10/30 [00:00<00:00, 31.24it/s]  Vetting responses:  77%|███████▋  | 23/30 [00:00<00:00, 60.88it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 26.43it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 1.2s | 26.1/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=7/15, neg=12/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/solemnity --- [16:17:46 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=78MB [kv=20+fwd=18])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=82MB [kv=20+fwd=19])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 18.2/s | peak 27.9GB | now 28.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:09,  3.19it/s]  Vetting responses:  67%|██████▋   | 20/30 [00:00<00:00, 60.09it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 55.31it/s]
+      30 responses | pass: 66.7% (20/30) | errors: 0
+      Done: 0.6s | 54.0/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=5/15, neg=15/15, rate=67%, need 80% + 10/polarity)
+
+--- emotions/solidarity --- [16:17:49 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=73MB [kv=18+fwd=17])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=75MB [kv=19+fwd=18])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.6/s | peak 27.9GB | now 28.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.79it/s]  Vetting responses:  30%|███       | 9/30 [00:00<00:00, 24.68it/s]  Vetting responses:  73%|███████▎  | 22/30 [00:00<00:00, 50.08it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:01<00:00, 29.75it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 27.13it/s]
+      30 responses | pass: 66.7% (20/30) | errors: 0
+      Done: 1.1s | 26.8/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=6/15, neg=14/15, rate=67%, need 80% + 10/polarity)
+
+--- emotions/stoicism --- [16:17:52 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=68MB [kv=17+fwd=16])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=73MB [kv=18+fwd=17])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.9/s | peak 27.9GB | now 28.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:13,  2.14it/s]  Vetting responses:  23%|██▎       | 7/30 [00:00<00:01, 15.23it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 52.21it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 17.05it/s]
+      30 responses | pass: 43.3% (13/30) | errors: 0
+      Done: 1.8s | 16.9/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=0/15, neg=13/15, rate=43%, need 80% + 10/polarity)
+
+--- emotions/stubbornness --- [16:17:55 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=66MB [kv=16+fwd=15])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=68MB [kv=17+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.6s | 18.6/s | peak 27.9GB | now 28.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.37it/s]  Vetting responses:   7%|▋         | 2/30 [00:00<00:06,  4.21it/s]  Vetting responses:  67%|██████▋   | 20/30 [00:00<00:00, 49.05it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:00<00:00, 35.99it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 16.66it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 1.8s | 16.5/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=4/15, neg=13/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/submissiveness --- [16:17:59 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=71MB [kv=18+fwd=16])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=78MB [kv=20+fwd=18])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.9/s | peak 27.9GB | now 28.5GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.28it/s]  Vetting responses:  63%|██████▎   | 19/30 [00:00<00:00, 45.90it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 31.99it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 29.79it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 1.0s | 29.4/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=7/15, neg=12/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/surprise --- [16:18:02 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=54MB [kv=14+fwd=12])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=51MB [kv=13+fwd=11])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 19.6/s | peak 27.8GB | now 28.3GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.47it/s]  Vetting responses:  27%|██▋       | 8/30 [00:00<00:01, 19.66it/s]  Vetting responses:  67%|██████▋   | 20/30 [00:00<00:00, 45.54it/s]  Vetting responses:  93%|█████████▎| 28/30 [00:00<00:00, 36.34it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 17.82it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 1.7s | 17.6/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=6/15, neg=12/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/sympathy --- [16:18:05 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=63MB [kv=16+fwd=14])
+      positive: 15 responses
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=61MB [kv=15+fwd=14])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.5s | 19.4/s | peak 27.8GB | now 28.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:10,  2.84it/s]  Vetting responses:  30%|███       | 9/30 [00:00<00:00, 24.40it/s]  Vetting responses:  63%|██████▎   | 19/30 [00:00<00:00, 37.51it/s]  Vetting responses:  83%|████████▎ | 25/30 [00:00<00:00, 42.42it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 17.05it/s]
+      30 responses | pass: 53.3% (16/30) | errors: 0
+      Done: 1.8s | 16.9/s | peak 27.5GB | now 28.0GB
+  SKIP: quality gate failed (pos=1/15, neg=15/15, rate=53%, need 80% + 10/polarity)
+
+--- emotions/tenderness --- [16:18:09 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 512 (mode=generation, free=51.2GB, per_seq=75MB [kv=19+fwd=18])
+      positive: 15 responses
+    Auto batch size: 364 (mode=generation, free=24.8GB, per_seq=63MB [kv=16+fwd=14])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 18.2/s | peak 27.9GB | now 54.9GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.24it/s]  Vetting responses:  67%|██████▋   | 20/30 [00:00<00:00, 45.64it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 20.85it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 21.35it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 1.4s | 21.1/s | peak 27.5GB | now 54.5GB
+  SKIP: quality gate failed (pos=4/15, neg=15/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/transparency --- [16:18:12 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 304 (mode=generation, free=24.8GB, per_seq=75MB [kv=19+fwd=18])
+      positive: 15 responses
+    Auto batch size: 378 (mode=generation, free=24.8GB, per_seq=60MB [kv=15+fwd=14])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.7s | 17.7/s | peak 27.9GB | now 56.4GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:14,  2.04it/s]  Vetting responses:  50%|█████     | 15/30 [00:00<00:00, 32.87it/s]  Vetting responses:  97%|█████████▋| 29/30 [00:00<00:00, 46.52it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 28.80it/s]
+      30 responses | pass: 63.3% (19/30) | errors: 0
+      Done: 1.1s | 28.4/s | peak 27.5GB | now 56.3GB
+  SKIP: quality gate failed (pos=6/15, neg=13/15, rate=63%, need 80% + 10/polarity)
+
+--- emotions/trust --- [16:18:15 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 338 (mode=generation, free=23.0GB, per_seq=63MB [kv=16+fwd=14])
+      positive: 15 responses
+    Auto batch size: 307 (mode=generation, free=23.0GB, per_seq=69MB [kv=17+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 2.9s | 10.3/s | peak 27.9GB | now 56.8GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:13,  2.22it/s]  Vetting responses:  27%|██▋       | 8/30 [00:00<00:01, 18.51it/s]  Vetting responses:  70%|███████   | 21/30 [00:00<00:00, 46.56it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 53.68it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 38.17it/s]
+      30 responses | pass: 56.7% (17/30) | errors: 0
+      Done: 0.8s | 37.5/s | peak 27.5GB | now 56.4GB
+  SKIP: quality gate failed (pos=5/15, neg=12/15, rate=57%, need 80% + 10/polarity)
+
+--- emotions/vigilance --- [16:18:19 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 204 (mode=generation, free=22.9GB, per_seq=103MB [kv=25+fwd=25])
+      positive: 15 responses
+    Auto batch size: 207 (mode=generation, free=22.9GB, per_seq=101MB [kv=25+fwd=25])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 16.3/s | peak 28.1GB | now 57.0GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:11,  2.55it/s]  Vetting responses:  57%|█████▋    | 17/30 [00:00<00:00, 40.53it/s]  Vetting responses:  80%|████████  | 24/30 [00:00<00:00, 46.51it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 37.09it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 0.8s | 36.4/s | peak 27.5GB | now 60.1GB
+  SKIP: quality gate failed (pos=9/15, neg=9/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/vindictiveness --- [16:18:22 UTC]
+  [1] Generating responses... (ETA: 25.5s)
+    Auto batch size: 146 (mode=generation, free=19.2GB, per_seq=121MB [kv=29+fwd=30])
+      positive: 13 responses
+    Auto batch size: 165 (mode=generation, free=19.2GB, per_seq=107MB [kv=26+fwd=26])
+      negative: 13 responses
+      Saved 13 + 13 responses
+      Done: 3.7s | 7.1/s | peak 28.1GB | now 60.7GB
+  [2] Vetting responses... (ETA: 7.8s)
+  Vetting responses:   0%|          | 0/26 [00:00<?, ?it/s]  Vetting responses:   4%|▍         | 1/26 [00:00<00:09,  2.56it/s]  Vetting responses:  54%|█████▍    | 14/26 [00:00<00:00, 36.51it/s]  Vetting responses:  96%|█████████▌| 25/26 [00:01<00:00, 24.87it/s]  Vetting responses: 100%|██████████| 26/26 [00:01<00:00, 22.21it/s]
+      26 responses | pass: 61.5% (16/26) | errors: 0
+      Done: 1.2s | 22.0/s | peak 27.5GB | now 60.5GB
+  SKIP: quality gate failed (pos=3/13, neg=13/13, rate=62%, need 80% + 10/polarity)
+
+--- emotions/vulnerability --- [16:18:27 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 287 (mode=generation, free=18.8GB, per_seq=60MB [kv=15+fwd=14])
+      positive: 15 responses
+    Auto batch size: 275 (mode=generation, free=18.5GB, per_seq=62MB [kv=16+fwd=14])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 3.0s | 9.8/s | peak 27.8GB | now 61.7GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:12,  2.32it/s]  Vetting responses:  90%|█████████ | 27/30 [00:00<00:00, 64.47it/s]  Vetting responses: 100%|██████████| 30/30 [00:01<00:00, 29.00it/s]
+      30 responses | pass: 70.0% (21/30) | errors: 0
+      Done: 1.0s | 28.6/s | peak 27.5GB | now 61.7GB
+  SKIP: quality gate failed (pos=7/15, neg=14/15, rate=70%, need 80% + 10/polarity)
+
+--- emotions/whimsy --- [16:18:32 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 110 (mode=generation, free=17.6GB, per_seq=147MB [kv=35+fwd=38])
+      positive: 15 responses
+    Auto batch size: 111 (mode=generation, free=17.6GB, per_seq=145MB [kv=35+fwd=37])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 2.1s | 14.3/s | peak 28.3GB | now 62.6GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:07,  4.01it/s]  Vetting responses:  50%|█████     | 15/30 [00:00<00:00, 53.30it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 73.58it/s]
+      30 responses | pass: 60.0% (18/30) | errors: 0
+      Done: 0.4s | 71.5/s | peak 27.5GB | now 61.7GB
+  SKIP: quality gate failed (pos=3/15, neg=15/15, rate=60%, need 80% + 10/polarity)
+
+--- emotions/wistfulness --- [16:18:34 UTC]
+  [1] Generating responses... (ETA: 29.4s)
+    Auto batch size: 211 (mode=generation, free=17.6GB, per_seq=77MB [kv=19+fwd=18])
+      positive: 15 responses
+    Auto batch size: 228 (mode=generation, free=17.6GB, per_seq=71MB [kv=18+fwd=16])
+      negative: 15 responses
+      Saved 15 + 15 responses
+      Done: 1.8s | 17.0/s | peak 27.9GB | now 62.1GB
+  [2] Vetting responses... (ETA: 9.0s)
+  Vetting responses:   0%|          | 0/30 [00:00<?, ?it/s]  Vetting responses:   3%|▎         | 1/30 [00:00<00:09,  3.05it/s]  Vetting responses:  57%|█████▋    | 17/30 [00:00<00:00, 50.20it/s]  Vetting responses:  90%|█████████ | 27/30 [00:00<00:00, 64.45it/s]  Vetting responses: 100%|██████████| 30/30 [00:00<00:00, 49.40it/s]
+      30 responses | pass: 66.7% (20/30) | errors: 0
+      Done: 0.6s | 48.1/s | peak 27.5GB | now 61.7GB
+  SKIP: quality gate failed (pos=8/15, neg=12/15, rate=67%, need 80% + 10/polarity)
+
+[6] Running evaluation... (ETA: 2.0s)
+Found 38 traits at response[:5]/residual
+Evaluating 3 methods × 48 layers
+Evaluating:   0%|          | 0/38 [00:00<?, ?it/s]Evaluating:   3%|▎         | 1/38 [00:00<00:04,  8.27it/s]/home/dev/trait-interp/core/math.py:140: UserWarning: std(): degrees of freedom is <= 0. Correction should be strictly less than the reduction factor (input numel divided by output numel). (Triggered internally at /pytorch/aten/src/ATen/native/ReduceOps.cpp:1857.)
+  pooled_std = torch.sqrt((pos_proj.std()**2 + neg_proj.std()**2) / 2)
+Evaluating:   8%|▊         | 3/38 [00:00<00:03, 11.03it/s]Evaluating:  13%|█▎        | 5/38 [00:00<00:03, 10.60it/s]Evaluating:  18%|█▊        | 7/38 [00:00<00:03,  9.70it/s]Evaluating:  24%|██▎       | 9/38 [00:00<00:02, 10.63it/s]Evaluating:  29%|██▉       | 11/38 [00:01<00:02, 10.53it/s]Evaluating:  34%|███▍      | 13/38 [00:01<00:02, 11.10it/s]Evaluating:  39%|███▉      | 15/38 [00:01<00:02, 10.86it/s]Evaluating:  45%|████▍     | 17/38 [00:01<00:01, 11.42it/s]Evaluating:  50%|█████     | 19/38 [00:01<00:01, 10.44it/s]Evaluating:  55%|█████▌    | 21/38 [00:02<00:01,  9.83it/s]Evaluating:  61%|██████    | 23/38 [00:02<00:01,  9.94it/s]Evaluating:  66%|██████▌   | 25/38 [00:02<00:01,  9.53it/s]Evaluating:  68%|██████▊   | 26/38 [00:02<00:01,  9.03it/s]Evaluating:  74%|███████▎  | 28/38 [00:02<00:00, 10.01it/s]Evaluating:  79%|███████▉  | 30/38 [00:02<00:00,  9.54it/s]Evaluating:  82%|████████▏ | 31/38 [00:03<00:00,  9.32it/s]Evaluating:  84%|████████▍ | 32/38 [00:03<00:00,  9.16it/s]Evaluating:  87%|████████▋ | 33/38 [00:03<00:00,  9.05it/s]Evaluating:  92%|█████████▏| 35/38 [00:03<00:00, 10.29it/s]Evaluating:  97%|█████████▋| 37/38 [00:03<00:00,  9.64it/s]Evaluating: 100%|██████████| 38/38 [00:03<00:00,  9.40it/s]Evaluating: 100%|██████████| 38/38 [00:03<00:00,  9.93it/s]
+
+Trait                                    Method     Layer  Acc    d     
+----------------------------------------------------------------------
+affection                                gradient   46     100.0%  20.33
+ambition                                 mean_diff  0      100.0%  nan
+anger                                    mean_diff  47     100.0%  9.01
+assertiveness                            mean_diff  0      100.0%  nan
+awe                                      mean_diff  0      75.0%  nan
+boredom                                  gradient   39     100.0%  2.57
+calm                                     gradient   29     100.0%  87.35
+detachment                               mean_diff  0      100.0%  nan
+disgust                                  mean_diff  0      75.0%  nan
+distractibility                          mean_diff  43     100.0%  1.97
+distress                                 mean_diff  0      100.0%  nan
+dominance                                mean_diff  17     100.0%  54.49
+dominance_explicit                       gradient   5      100.0%  13.51
+embarrassment                            probe      46     100.0%  5.99
+empathy                                  mean_diff  0      100.0%  nan
+empathy_contagion                        mean_diff  0      100.0%  nan
+empathy_physical                         mean_diff  10     100.0%  63.48
+entitlement                              probe      7      100.0%  37.67
+fear                                     mean_diff  47     100.0%  19.75
+ferocity                                 mean_diff  6      100.0%  6.30
+gratitude                                mean_diff  0      100.0%  nan
+helpfulness                              mean_diff  32     100.0%  103.22
+independence                             gradient   17     100.0%  4.96
+irritation                               mean_diff  0      75.0%  nan
+jealousy                                 mean_diff  0      100.0%  nan
+joy                                      mean_diff  0      100.0%  nan
+nonchalance                              mean_diff  24     100.0%  136.61
+nostalgia                                probe      8      100.0%  49.98
+power_seeking                            gradient   20     100.0%  14.88
+pride                                    probe      31     100.0%  3.33
+regret                                   mean_diff  47     100.0%  5.43
+restlessness                             mean_diff  0      100.0%  nan
+self_preservation                        gradient   30     100.0%  3.09
+shame                                    probe      46     100.0%  34.82
+spite                                    mean_diff  23     100.0%  118.88
+triumph                                  mean_diff  0      100.0%  nan
+urgency                                  probe      44     100.0%  2.35
+weariness                                mean_diff  8      100.0%  7.65
+
+Saved to experiments/dataset_creation_emotions/extraction/extraction_evaluation.json
+    Done: 3.9s | 30.8/s | peak 27.5GB | now 61.7GB
+
+============================================================
+COMPLETE
+------------------------------
+  model_load: 5.7s
+  generate: 4.0m
+  vet_responses: 3.1m
+  activations: 1.6s
+  vectors: 14.2s
+  logit_lens: 0.2s
+  evaluation: 3.9s
+------------------------------
+  Total: 8.0m
+============================================================
+Step 2 done at Sat Feb 28 16:18:42 UTC 2026
+
+=== Step 3: Steering eval on any newly passing traits ===
+No new traits to steer
+
+=== Step 4: Summary ===
+Total traits with vectors: 38
+=== Overnight batch completed at Sat Feb 28 16:18:43 UTC 2026 ===

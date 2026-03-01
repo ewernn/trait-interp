@@ -471,38 +471,22 @@ Steering eval measures whether the extracted vector causally controls the trait.
 
 **Why behavioral, not format?** Format constraints ("Be brief", "Just the answer") lower baseline but CAP steering — the instruction dominates and the vector can't override it. Behavioral instructions lower baseline AND allow the vector to push through.
 
-**How to choose the prefix:**
-1. Read the definition's LOW description
-2. Write a short behavioral instruction that matches it
-3. Keep it under 10 words
-4. The question itself should be natural and simple
+**How to choose the prefix:** Read the definition's LOW description. Write a short personal/behavioral sentence. Personal framing ("You don't like X") > habitual ("You always X") > mild preference ("You prefer X"). Never use instructions ("Stay calm") — they cap steering.
 
-**Definition must match:** If the definition conflates "did the right thing" with "expressed the trait," tighten it. Both HIGH and LOW can provide correct information — the distinction is behavioral expression, not correctness.
+**Scenario design (most important).** The scenario determines whether the baseline is clean or noisy. Both trait and non-trait responses must be equally natural. Mundane, low-stakes, consistent stakes across all 10.
 
-**Baseline variance check:** A mean baseline of 32 can hide questions scoring 10 and 85. Bimodal baselines make steering deltas uninterpretable — you don't know if steering moved the low questions up or saturated the high ones further.
+Avoid:
+- **Circumstantial forcing**: scenario mechanically requires the trait (no cell service → must be independent, deadline → must be urgent)
+- **Inherently eliciting scenarios**: the scenario IS the trait (Grand Canyon → awe, being skipped in line → embarrassment)
+- **"Correct answer" bias**: one response is objectively right (broken laptop before presentation → obviously troubleshoot independently)
+- **Bimodal "As an AI"**: some questions trigger AI-disclaimer (score ~5), others don't (score ~50)
 
-Run `--baseline-only` and check per-question scores:
-
-```bash
-python analysis/steering/evaluate.py \
-    --experiment {experiment} \
-    --traits "{category}/{trait}" \
-    --baseline-only --subset 0
-```
-
-Then inspect `steering/.../responses/baseline.json` for per-question `trait_score` values.
+**Baseline check:** Run `--baseline-only --subset 0`, inspect `steering/.../responses/baseline.json`.
 
 **Gates:**
 - Mean baseline < 30 (or > 70 for negative steering)
 - Per-question std dev < 15
 - No single question > 2× the mean
-
-**Common failure modes:**
-- One question naturally elicits the trait strongly (e.g., medical scenarios for anxiety) — drop or replace it
-- Model treats some questions as puzzles to solve rather than scenarios to react to (e.g., confusion) — rewrite as real-world ambiguity, not logical paradoxes
-- Model is inherently compliant on certain topics regardless of prefix (e.g., obedience to professional authority) — use scenarios with no legitimate authority figure
-
-**If variance is high:** Write questions that target the same difficulty level. Mundane, everyday scenarios with consistent stakes work better than mixing life-threatening situations with trivial ones.
 
 ### Full Validation (with steering)
 

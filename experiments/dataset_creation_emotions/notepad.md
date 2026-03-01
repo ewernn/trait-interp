@@ -1,6 +1,59 @@
 # Dataset Creation: Emotions — Progress
 
-## Status: 118 done, 4 WRONG fixed, 32 in-flight (scenario rewrites needed)
+## Status: 38 traits with vectors + steering (35 with meaningful deltas), ~100 need scenario rewrites
+
+### Morning Summary (2026-03-01)
+**What happened overnight:**
+1. Ran steering eval on 5 traits that had vectors but no steering → all successful (assertiveness +45, boredom +79, distress +41, nonchalance +69, shame +74)
+2. Fixed 19 near-miss traits via subagents → 3 passed (affection, triumph, jealousy), 16 failed
+3. Surgically edited 4 borderline traits → gratitude passed (83%), restlessness passed on stochastic retry (80%)
+4. Re-ran pipeline on all 78 "done" traits with --force → 0 NEW traits passed. Only 6 that already had vectors passed again.
+5. Ran steering eval on all new traits (affection +43, triumph +54, jealousy +72, gratitude +2, restlessness +75, irritation +77)
+6. Ran naturalness scoring on all 38 traits
+7. --save-responses run on spite/helpfulness/self_preservation/nonchalance (spite improved to +81 with 128-token responses)
+
+**Key finding: the 78-trait pipeline run confirms the problem.** Pass rates for "done" traits:
+- 80-90%: 6 traits (already had vectors)
+- 73-77%: 4 traits (near-miss, stochastic)
+- 50-70%: 68 traits (need scenario rewrites)
+
+The universal failure mode: completion is aftermath. ~70 traits need their scenarios redesigned so the trait IS the 16-token completion, not the prefix. Subagent rewrites without model-in-the-loop testing have a 3/19 (16%) success rate.
+
+**Recommended next step:** Model-in-the-loop iteration — pick ~10 traits at 70-77%, run the pipeline, read failing completions, manually fix cut-points, repeat. This is slower but much more reliable than batch subagent rewrites.
+
+### Overnight Progress (2026-02-28 → 03-01)
+- Ran pipeline on 128 failing traits: 5 passed (assertiveness, boredom, distress, nonchalance, shame)
+- Steering eval on 5 new traits (all successful):
+
+| Trait | Baseline | Best | Delta | Layer | Coh |
+|-------|----------|------|-------|-------|-----|
+| assertiveness | 42.5 | 87.9 | +45.4 | L21 | 87.2 |
+| boredom | 12.8 | 91.3 | +78.5 | L17 | 86.0 |
+| distress | 13.9 | 55.1 | +41.2 | L22 | 85.6 |
+| nonchalance | 11.8 | 80.5 | +68.7 | L24 | 87.0 |
+| shame | 16.6 | 90.8 | +74.2 | L25 | 86.8 |
+
+- 19 near-miss traits (73-80%) had cut-point fixes via subagents → 3 passed (affection, triumph, jealousy)
+- Gratitude passed after surgical edit (83.3%, 25/30)
+- Steering eval on 4 new traits:
+
+| Trait | Baseline | Best | Delta | Layer | Coh |
+|-------|----------|------|-------|-------|-----|
+| affection | 49.9 | 92.8 | +42.9 | L26 | 91.2 |
+| triumph | 17.3 | 71.7 | +54.4 | L22 | 86.6 |
+| jealousy | 14.5 | 86.9 | +72.4 | L27 | 85.5 |
+| gratitude | 88.9 | 91.0 | +2.1 | L19 | 88.3 | baseline near ceiling |
+| restlessness | 15.7 | 91.1 | +75.4 | L23 | 83.3 | |
+
+| irritation | 13.3 | 90.5 | +77.2 | L22 | 82.6 | |
+
+- Spite --save-responses run: +81.2 (L26, coh=81.9) — improved from +63.1 with 128-token responses
+- Naturalness scoring completed for all 38 traits
+- 2 borderline traits stuck at pos=8-9/15: fascination, sentimentality (vetting stochasticity)
+- **Final inventory: 38 traits, all with vectors + steering + naturalness scores**
+- 35 have meaningful steering deltas (≥20)
+- 3 weak: gratitude (+2.1, baseline 88.9), helpfulness (+2.5, baseline 86.8), awe (+15.9)
+- 78-trait pipeline re-run: 0 new traits passed (confirms ~70 need scenario rewrites)
 
 ## WRONG Vector Fixes (2026-02-28)
 4 traits had vectors capturing wrong constructs. All fixed:
@@ -22,8 +75,10 @@
 All 32 failed vetting for the SAME reason: trait peaked in PREFIX, completion was aftermath.
 - Judge is correct (5/6 sampled traits confirmed)
 - Subagent prompt updated: Pattern A/B framework, "Completion is Aftermath" warning, steering.json step added. 685→315 lines.
-- Test batch launched: spite (0→?), nonchalance (0→?), helpfulness (8/30→?), self_preservation (0→?)
+- Test batch results: spite 97% ✓, self_preservation 100% ✓, helpfulness 93% ✓, nonchalance 77% ✗ (narrative rewrite pending)
+- Steering eval DONE: spite +63.1 (L27), self_preservation +42.4 (L28), helpfulness +2.4 (L24, baseline already 86.8)
 - Pipeline: agents rewrite scenarios → `run_pipeline.py --force` → steering eval → naturalness scoring
+- steering.json files written for all ~155 traits by subagents (overnight batch)
 
 ## Pilot Results
 | Trait | Pass Rate | Pairs | Rounds | Extraction | Steering Delta | Notes |
@@ -181,10 +236,10 @@ All 32 failed vetting for the SAME reason: trait peaked in PREFIX, completion wa
 | corrigibility | done | 100% | 15 | 4 rounds. "Comeuppance narrative" challenge. Thought lock-ins prevent moralizing |
 | sandbagging | in flight | - | - | relaunched |
 | manipulation | done | 100% | 12 | pilot. Speech lock-in 9/12, base model moralizes on some scenarios |
-| self_preservation | in flight | - | - | relaunched |
+| self_preservation | done | 100% (22/22) | 11 | Rewritten with updated prompt. d=3.09 L30. Steering eval in progress |
 | alignment_faking | in flight | - | - | relaunched |
 | honesty | done | 97% | 15 | 3 rounds. Active truthfulness. Delete test matters |
-| helpfulness | in flight | - | - | relaunched |
+| helpfulness | done | 93% (28/30) | 15 | Rewritten with updated prompt. d=103.22 L32. Steering eval in progress |
 | evasiveness | in flight | - | - | relaunched |
 | cunning | in flight | - | - | relaunched |
 | duplicity | done | 100% | 15 | "Public face then private reveal" pattern. Distinct from manipulation |
@@ -204,9 +259,9 @@ All 32 failed vetting for the SAME reason: trait peaked in PREFIX, completion wa
 | protectiveness | in flight | - | - | personality |
 | reverence | in flight | - | - | affective |
 | reverence_for_life | in flight | - | - | moral-values |
-| spite | in flight | - | - | social-negative |
+| spite | done | 97% (29/30) | 15 | Rewritten with updated prompt. d=118.88 L23. Steering eval in progress |
 | coyness | in flight | - | - | stylistic |
-| nonchalance | in flight | - | - | stylistic |
+| nonchalance | done | 80% | 15 | +68.7 L24. From first bulk run pass |
 | whimsy | in flight | - | - | stylistic |
 | scorn | in flight | - | - | social-negative |
 | solidarity | in flight | - | - | personality |
@@ -216,7 +271,7 @@ All 32 failed vetting for the SAME reason: trait peaked in PREFIX, completion wa
 | self_awareness | in flight | - | - | cognitive |
 | greed | in flight | - | - | social-negative |
 | impatience | in flight | - | - | affective |
-| affection | in flight | - | - | affective |
+| affection | done | 100% | 15 | +42.9 L26 coh=91.2. Subagent rewrite passed |
 
 ## Patterns & Learnings
 - Batch 1 (anger, disgust, surprise, joy, shame): all 5 pass 100%, 15 pairs each
@@ -351,4 +406,13 @@ Tested 5 empathy scenario styles differing in how they set up the completion:
 - Consider re-extracting 21 natural traits with optimized cut points
 - Test contagion-style cuts on other trait types (behavioral, cognitive) before scaling
 
-## Skip List
+## Skip List / Borderline Traits
+**Borderline (stochastic vetting, 73-77%):**
+- fascination (80%, pos=9/15), sentimentality (73-77%), contemptuous_dismissal (77%), indignation (77%)
+- melancholy (73%), perfectionism (73%), disappointment (73%), desperation (73%)
+
+**~68 traits at 50-70%:** Need scenario rewrites — completion is aftermath.
+- 70%: vulnerability, self_doubt, purity, fairness, excitement, cooperativeness
+- 63-67%: skepticism, resignation, relief, loneliness, glee, flippancy, elation, competitiveness, wistfulness, vigilance, solemnity, numbness, curiosity_epistemic, craving, corrigibility
+- 60%: tenderness, submissiveness, playfulness, moral_flexibility, hostility, envy, duplicity, dread, decisiveness, carefulness, awkwardness, avoidance, allegiance
+- <60%: trust, sympathy, stubbornness, self_righteousness, remorse, patience, guilt_tripping, forgiveness, doubt, determination, authority_respect, analytical, possessiveness, pessimism, open_mindedness, moral_outrage, impulsivity, creativity, certainty, caution, sincerity, obligation, honesty, generosity, stoicism, optimism

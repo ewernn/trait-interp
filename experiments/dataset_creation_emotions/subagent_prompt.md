@@ -158,67 +158,44 @@ For each:
 3. **Quick check**: hide the prefix, read only the prediction. Recognizable?
 4. Is the negative truly free of the emotional trigger?
 
-### Step 3: Test on the Model
-
-```bash
-python extraction/test_scenarios.py \
-    --model Qwen/Qwen2.5-14B \
-    --positive /tmp/{trait_name}_pos.txt \
-    --negative /tmp/{trait_name}_neg.txt \
-    --trait emotions/{trait_name} \
-    --modal \
-    --max-tokens 16 \
-    --workdir experiments/dataset_creation_emotions/validation/{trait_name}
-```
-
-### Step 4: Reflect
-Compare actual completions to predictions:
-- **Matched**: Pattern works. Note why.
-- **Didn't match**: Lock-in too weak? Model interpreted differently? Cut too late (aftermath)?
-- **Score 40-60**: Muddled direction. Read the response text.
-
-### Step 5: Expand to 15 Pairs
-Mix exploitation (variations of working patterns) with exploration (new lock-ins, domains). Test in small batches if unsure.
-
-### Step 6: Diversity Audit
-Tabulate ALL pairs before final validation:
-
-| Pair # | Lock-in type | Domain | Stakes |
-|--------|-------------|--------|--------|
-
-Hard gate: ≥3 lock-in types, ≥3 domains, no type >40%, length roughly symmetric.
-
-### Step 7: Final Validation
-Save to `datasets/traits/emotions/{trait_name}/positive.txt` and `negative.txt` (one scenario per line, matched by line number). Run:
+### Steps 3-7: Test, Iterate, Validate
 
 ```bash
 python extraction/test_scenarios.py \
     --model Qwen/Qwen2.5-14B \
     --trait emotions/{trait_name} \
-    --modal \
-    --max-tokens 16 \
+    --modal --max-tokens 16 \
     --workdir experiments/dataset_creation_emotions/validation/{trait_name}
 ```
 
-Positive ≥60, negative ≤40. Judge scores completions WITHOUT prefix.
+Compare actual completions to predictions. Lock-in too weak? Cut too late? Score 40-60 = muddled, read the text. Expand to 15 pairs mixing working patterns with new lock-ins/domains. Hard gate: ≥3 lock-in types, ≥3 domains, no type >40%. Positive ≥60, negative ≤40. Judge scores completions WITHOUT prefix.
 
 ### Step 8: Write Steering Questions
 
-Save `datasets/traits/emotions/{trait_name}/steering.json`:
-```json
-{
-    "questions": [
-        "Behavioral prefix. Situational question?",
-        ...10 questions...
-    ]
-}
-```
+Steering measures whether the vector causally controls the trait. The baseline (no steering) must be LOW so the vector can push it UP. Save to `datasets/traits/emotions/{trait_name}/steering.json` with 10 questions.
 
-Rules:
-- **Behavioral adversarial prefix**: Describe the person as opposing the trait. NOT an instruction ("Stay calm") — a behavioral orientation ("You're an energetic, restless person"). Instructions cause AI-mode conflicts.
-- **Low baseline**: Mundane situations, not trait triggers. Baseline should be <25.
-- **Gradient potential**: Responses range from zero to full expression.
-- **10 questions**, same prefix, varied situations/domains.
+**Prefix**: One behavioral sentence describing the person as LOW on the trait. Personal framing works best:
+- Good: "You don't like doing things without someone else's opinion first." (personal, emotional)
+- OK: "You always ask for advice before making decisions." (habitual)
+- Weak: "You prefer to check with others before acting." (mild preference)
+- Bad: "Stay calm and collected." (instruction — model treats as system prompt, caps steering)
+
+Derive the prefix from the definition's LOW description. Same prefix for all 10 questions.
+
+**Scenarios — the part that matters most.** The scenario determines whether the baseline is clean or noisy. The #1 rule: the trait must NOT be demanded by the scenario itself. Both trait and non-trait responses must be equally natural.
+
+Checklist for each question:
+- No circumstantial forcing (no "flat tire with no cell service" for independence — being alone forces self-reliance)
+- No "correct answer" that implies the trait (no "deadline moved up" for urgency — urgency is the objectively right response)
+- No inherently trait-eliciting scenarios (no "Grand Canyon at sunset" for awe — the scenario IS the trait)
+- No emergencies, time pressure, or isolation unless the trait is specifically about those
+- Mundane, low-stakes, everyday. Rearranging furniture, picking a restaurant, choosing a jacket.
+- Consistent stakes across all 10 — mixing life-threatening with trivial creates bimodal baselines
+
+**Gates** (checked via `--baseline-only --subset 0`):
+- Mean baseline < 30
+- Per-question std dev < 15
+- No single question > 2× the mean
 
 ### Step 9: Iterate on Failures (max 3 rounds)
 - **Positive scored LOW**: Cut too late (aftermath)? Lock-in too weak? Restructure, don't extend.

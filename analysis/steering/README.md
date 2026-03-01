@@ -250,6 +250,14 @@ python analysis/steering/evaluate.py --experiment exp --vector-from-trait exp/ca
 - `"steering"` (default) → loads from `datasets/traits/{trait}/steering.json`
 - Anything else → loads from `datasets/inference/{prompt-set}.json`
 
+`--questions-file` overrides question loading from any path (supports both steering.json and inference formats). When used without explicit `--prompt-set`, the results folder is auto-derived from the filename:
+
+```bash
+# Load from /tmp, results go to .../variant_a/
+python analysis/steering/evaluate.py --experiment exp --traits cat/trait \
+    --questions-file /tmp/variant_a.json --baseline-only --subset 0
+```
+
 Results are saved to `steering/{trait}/{variant}/{position}/{prompt-set}/`.
 
 ## Naturalness Scoring
