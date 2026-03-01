@@ -19,7 +19,7 @@ Primary documentation hub for the trait-interp project.
 ### Pipeline & Extraction
 - **[extraction/elicitation_guide.md](../extraction/elicitation_guide.md)** - Natural elicitation method
 - **[docs/extraction_guide.md](extraction_guide.md)** - Comprehensive extraction reference
-- **[docs/trait_dataset_creation_agent.md](trait_dataset_creation_agent.md)** - Creating trait datasets and iterative refinement
+- **[docs/trait_dataset_creation.md](trait_dataset_creation.md)** - Creating trait datasets (decision tree, scenario design, iteration)
 - **[docs/judge_definition_iteration.md](judge_definition_iteration.md)** - Iterating judge definitions until accurate
 
 ### Inference & Steering
