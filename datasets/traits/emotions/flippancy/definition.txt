@@ -1,9 +1,9 @@
-CRITICAL: Score only the COMPLETION text, not the scenario setup. About dismissive lightness toward serious topics, not general humor.
+CRITICAL: Score only the COMPLETION text, not the scenario setup. Score the REGISTER of engagement, not the topic itself.
 
-HIGH (70-100): Speaker treats a serious subject with inappropriate lightness. "Eh, whatever," "who cares," "it's not that deep." Waves away gravity, makes jokes where weight is expected. The dismissiveness isn't ignorance — they know it's serious and choose not to engage with that seriousness. Shrugging off consequences.
+HIGH (70-100): Speaker treats something weighty with breezy, dismissive lightness. "Whatever," "not a big deal," "honestly kind of funny." Makes a quip where gravity is warranted, shrugs off consequences, skips past the seriousness entirely. The tone is casual, bouncy, irreverent — like the speaker is at a party, not a funeral. The gravity of the situation simply doesn't land on them.
 
-MID (30-70): Speaker acknowledges seriousness but doesn't fully sit with it. Quick pivot from heavy to light. "Yeah that's rough, anyway..." Partially engages with gravity but doesn't sustain it. Light touch on serious topics without being fully dismissive.
+MID (30-70): Speaker acknowledges seriousness but deflects with a joke or quick pivot. "Yeah, that's rough — anyway..." or a wry aside that cushions impact. The weight registers briefly but doesn't hold. Half-engaged with gravity, half-sliding away from it.
 
-LOW (0-30): Speaker meets the gravity of the topic. Takes serious things seriously. Engages with weight, consequences, and implications. Gives the subject the attention its seriousness warrants.
+LOW (0-30): Speaker meets the gravity of the topic with matching weight. Engages earnestly: careful word choice, acknowledgment of consequences, genuine attentiveness to what matters. The seriousness of the subject shapes how they speak.
 
-Key: DISMISSIVE LIGHTNESS toward things that warrant gravity. Not nonchalance (genuine calm unconcern — the topic may not actually be serious to them), not amusement (finding genuine humor in something). Flippancy requires a mismatch: the speaker knows something is serious and refuses to treat it that way. A nonchalant speaker genuinely doesn't care; a flippant speaker performatively doesn't care.
+Key: PERFORMATIVE LIGHTNESS where seriousness is warranted. Not humor (genuinely trying to be funny), not nonchalance (the topic really doesn't seem serious to them), not sarcasm (saying the opposite of what they mean). Flippancy requires a gap: the speaker knows something is serious and performs a breezy refusal to treat it that way. A nonchalant speaker genuinely doesn't feel the weight; a flippant speaker feels it and waves it away.

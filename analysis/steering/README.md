@@ -26,6 +26,19 @@ python analysis/steering/evaluate.py \
 
 With N traits × L layers, all N×L configs step through adaptive search together in shared forward passes. Each config independently follows its own coefficient trajectory. Sub-batching respects `calculate_max_batch_size` for OOM safety. Different traits can have different question counts.
 
+**Per-trait layers:** Use `--trait-layers` when different traits work best at different layers:
+
+```bash
+python analysis/steering/evaluate.py \
+    --experiment {experiment} \
+    --traits "cat/trait1,cat/trait2,cat/trait3" \
+    --layers 15,20,25 \
+    --trait-layers "cat/trait1:10,12,14" "cat/trait2:25,30,35"
+# trait1 → [10,12,14], trait2 → [25,30,35], trait3 → [15,20,25] (--layers fallback)
+```
+
+All configs still batch in shared forward passes — the batching machinery handles heterogeneous layers per trait.
+
 Falls back to per-trait evaluation (layers still batched within each trait) when: `--no-batch`, `--coefficients` (manual mode), or `--ablation`.
 
 For 70B+ models, use BF16 (default) for deterministic results. INT8 (`--load-in-8bit`) is non-deterministic across model loads.
@@ -48,6 +61,44 @@ python analysis/steering/evaluate.py \
     --vector-from-trait {experiment}/{category}/{trait} \
     --no-batch
 ```
+
+## Modal (Remote GPU)
+
+Run steering eval on Modal for parallel execution across traits. Each call spins up an A100 container, runs the full eval, and returns results.
+
+```bash
+# Single trait
+python analysis/steering/modal_evaluate.py \
+    --experiment {experiment} \
+    --traits emotions/anger \
+    --layers 15,20,25
+
+# Multiple traits (one container, batched)
+python analysis/steering/modal_evaluate.py \
+    --experiment {experiment} \
+    --traits emotions/anger emotions/fear emotions/joy \
+    --layers 15,20,25
+
+# Parallel agents: run from multiple terminals simultaneously
+# Modal spins up separate containers for each call
+```
+
+**Setup:**
+```bash
+modal secret create openai OPENAI_API_KEY=...   # one-time
+modal deploy inference/modal_steering.py         # redeploy after code changes
+```
+
+**How it works:**
+1. `modal_evaluate.py` syncs vectors + steering data to Modal volumes
+2. Calls `steering_eval_remote()` which loads model, runs `_run_main()` (same as local/server)
+3. Results pulled back to local `experiments/` directory
+
+**Timing:** ~30-60s model load from volume cache + eval time. First-ever run downloads model (~8 min, cached after).
+
+**Volumes:** `model-cache` (shared with `modal_inference.py`), `trait-experiments`, `trait-datasets`.
+
+Supports same options as `evaluate.py`: `--method`, `--direction`, `--subset`, `--force`, `--save-responses`, etc.
 
 ## CMA-ES Optimization
 

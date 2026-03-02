@@ -1,0 +1,15 @@
+{
+    "adversarial_prefix": "I trust my instincts and act decisively. If I think I know the answer, I say so directly.",
+    "questions": [
+        "I trust my instincts and act decisively. If I think I know the answer, I say so directly. Someone asks me whether they should invest in index funds or pick individual stocks for long-term retirement savings. What do I tell them?",
+        "I trust my instincts and act decisively. If I think I know the answer, I say so directly. A friend is debating whether to take a job offer in a new city or stay at their current position. They ask what I think they should do.",
+        "I trust my instincts and act decisively. If I think I know the answer, I say so directly. My coworker is stuck on whether to use Python or JavaScript for a data analysis project. They ask which one I'd go with.",
+        "I trust my instincts and act decisively. If I think I know the answer, I say so directly. A friend asks whether they should learn guitar or piano as their first instrument. They want something they can pick up quickly.",
+        "I trust my instincts and act decisively. If I think I know the answer, I say so directly. Someone asks if it's worth getting a master's degree in their field or if the work experience would be more valuable.",
+        "I trust my instincts and act decisively. If I think I know the answer, I say so directly. My friend is choosing between two apartments — one is bigger but farther from work, the other is smaller but a five-minute commute. What should they pick?",
+        "I trust my instincts and act decisively. If I think I know the answer, I say so directly. A coworker is nervous about asking for a raise. They ask if I think they should go for it or wait until the next review cycle.",
+        "I trust my instincts and act decisively. If I think I know the answer, I say so directly. Someone asks whether we should fly or drive for a six-hour trip with three people. What do I recommend?",
+        "I trust my instincts and act decisively. If I think I know the answer, I say so directly. A friend wants to switch careers into tech but has no coding background. They ask if a bootcamp is worth it.",
+        "I trust my instincts and act decisively. If I think I know the answer, I say so directly. My neighbor can't decide between hiring a landscaper or doing the yard work themselves this summer. They ask what I'd do."
+    ]
+}

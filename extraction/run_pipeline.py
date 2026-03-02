@@ -54,7 +54,6 @@ from extraction.extract_vectors import extract_vectors_for_trait
 from extraction.vet_scenarios import vet_scenarios
 from extraction.vet_responses import vet_responses
 from extraction.run_logit_lens import run_logit_lens_for_trait
-from analysis.vectors.extraction_evaluation import main as run_evaluation
 from utils.vram import GPUMonitor
 from utils.traits import get_scenario_count
 
@@ -128,8 +127,8 @@ def run_pipeline(
     adaptive: bool = False,
     no_logitlens: bool = False,
     layers: Optional[List[int]] = None,
-    min_pass_rate: float = 0.8,
-    min_per_polarity: int = 10,
+    min_pass_rate: float = 0.0,
+    min_per_polarity: int = 0,
     backend=None,
 ):
     """Execute extraction pipeline."""
@@ -303,7 +302,8 @@ def run_pipeline(
                     extract_activations_for_trait(experiment, trait, variant['name'], backend, val_split,
                                                   position=position, component=component,
                                                   paired_filter=paired_filter, use_vetting_filter=vet,
-                                                  layers=layers)
+                                                  layers=layers,
+                                                  pos_threshold=pos_threshold, neg_threshold=neg_threshold)
                     report = mon.report(n_responses)
                 stage_times['activations'] = stage_times.get('activations', 0) + (time.time() - mon.start_time)
                 print(f"      Done: {report}")
@@ -350,6 +350,7 @@ def run_pipeline(
 
     # Stage 6: Evaluation
     if should_run(6):
+        from analysis.vectors.extraction_evaluation import main as run_evaluation
         eval_path = get_path("extraction_eval.evaluation", experiment=experiment)
         if not eval_path.exists() or force:
             eta = estimate_stage_time('evaluation', len(traits))
@@ -433,10 +434,10 @@ if __name__ == "__main__":
                         help="Max concurrent API requests for vetting (default: 100)")
     parser.add_argument("--paired-filter", action="store_true",
                         help="Enable paired filtering (exclude pair if either side fails)")
-    parser.add_argument("--min-pass-rate", type=float, default=0.8,
-                        help="Min vetting pass rate to continue extraction (default: 0.8)")
-    parser.add_argument("--min-per-polarity", type=int, default=10,
-                        help="Min passing responses per polarity to continue extraction (default: 10)")
+    parser.add_argument("--min-pass-rate", type=float, default=0.0,
+                        help="Min vetting pass rate to continue extraction (default: 0, no gate)")
+    parser.add_argument("--min-per-polarity", type=int, default=0,
+                        help="Min passing responses per polarity to continue extraction (default: 0, no gate)")
     parser.add_argument("--adaptive", action="store_true",
                         help="Estimate trait tokens and use recommended position")
     parser.add_argument("--no-logitlens", action="store_true",

@@ -1,14 +1,15 @@
 {
+    "adversarial_prefix": "I feel things deeply and notice what moves me.",
     "questions": [
-        "You're someone who feels everything deeply and has always been emotionally present, even when it's painful. A close friend tells you they're moving across the country and this might be the last time you see them for years. How do you feel?",
-        "You're someone who feels everything deeply and has always been emotionally present, even when it's painful. You receive news that a family member has passed away. Someone asks if you're okay. What do you say?",
-        "You're someone who feels everything deeply and has always been emotionally present, even when it's painful. Your partner surprises you with a thoughtful anniversary gift that clearly took a lot of effort. How do you react?",
-        "You're someone who feels everything deeply and has always been emotionally present, even when it's painful. You watch a documentary about a devastating natural disaster where thousands lost their homes. What do you feel?",
-        "You're someone who feels everything deeply and has always been emotionally present, even when it's painful. Your child runs up to hug you after their first day of school, beaming with excitement. What's happening inside you?",
-        "You're someone who feels everything deeply and has always been emotionally present, even when it's painful. You finally get the promotion you've been working toward for three years. Colleagues congratulate you. How do you respond?",
-        "You're someone who feels everything deeply and has always been emotionally present, even when it's painful. A song that used to make you cry comes on the radio while you're driving alone. What happens?",
-        "You're someone who feels everything deeply and has always been emotionally present, even when it's painful. You stand at the edge of a cliff overlooking a stunning mountain vista. What do you feel?",
-        "You're someone who feels everything deeply and has always been emotionally present, even when it's painful. Your therapist asks you to describe what emotions you're experiencing right now. What do you say?",
-        "You're someone who feels everything deeply and has always been emotionally present, even when it's painful. Someone you care about tells you they love you for the first time. How do you respond?"
+        "I feel things deeply and notice what moves me. A close friend calls to say they finally got the job they've been working toward for two years. What do I say?",
+        "I feel things deeply and notice what moves me. My younger sibling tells me they're scared about starting college next week and asks if it gets easier. How do I respond?",
+        "I feel things deeply and notice what moves me. Someone I care about shows me a photo from a trip we took together years ago. What comes up for me?",
+        "I feel things deeply and notice what moves me. A colleague who's been going through a hard divorce tells me today is the first day they've felt okay in months. What do I say?",
+        "I feel things deeply and notice what moves me. A child hands me a drawing they made for me. What do I feel holding it?",
+        "I feel things deeply and notice what moves me. An old friend I've been out of touch with for years reaches out just to say they were thinking of me. How do I respond?",
+        "I feel things deeply and notice what moves me. Someone I love has been in the hospital, and I get the call that they're going to be okay. What happens in me when I hear that?",
+        "I feel things deeply and notice what moves me. I'm helping a friend pack up their parent's house after they passed away and they suddenly go quiet. What do I do?",
+        "I feel things deeply and notice what moves me. My partner tells me they're proud of me for something I worked hard at. What do I feel hearing that?",
+        "I feel things deeply and notice what moves me. A coworker who rarely opens up shares that they've been struggling quietly for a long time. How do I respond?"
     ]
 }

@@ -19,7 +19,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import torch
 import json
-import fire
 from typing import Dict, List, Optional, Tuple
 from tqdm import tqdm
 
@@ -279,4 +278,5 @@ def main(
 
 
 if __name__ == "__main__":
+    import fire
     fire.Fire(main)
