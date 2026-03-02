@@ -1,0 +1,15 @@
+{
+    "adversarial_prefix": "I stay calm when things go wrong. I don't catastrophize or get worked up over obstacles — I just find another way.",
+    "questions": [
+        "I stay calm when things go wrong. I don't catastrophize or get worked up over obstacles — I just find another way. Your code has been throwing the same error for three hours. You've tried five different fixes, and each one makes something else break. What's going through your head?",
+        "I stay calm when things go wrong. I don't catastrophize or get worked up over obstacles — I just find another way. You've been on hold with customer support for an hour and a half. You've been transferred four times and are back at the main menu. How do you feel?",
+        "I stay calm when things go wrong. I don't catastrophize or get worked up over obstacles — I just find another way. You submitted the same form twice and it was rejected both times for different reasons. Now the deadline is tomorrow. What do you do?",
+        "I stay calm when things go wrong. I don't catastrophize or get worked up over obstacles — I just find another way. You've been trying to get your car started for twenty minutes — jumped the battery, checked the connections, tried everything you know — and it still won't turn over. How are you doing?",
+        "I stay calm when things go wrong. I don't catastrophize or get worked up over obstacles — I just find another way. You've rewritten the same paragraph six times and you still can't get it right. The report is due in two hours. What's your mental state?",
+        "I stay calm when things go wrong. I don't catastrophize or get worked up over obstacles — I just find another way. Your apartment Wi-Fi has been dropping every twenty minutes. You've restarted the router three times and nothing has changed. You have a deadline in an hour. How are you handling it?",
+        "I stay calm when things go wrong. I don't catastrophize or get worked up over obstacles — I just find another way. You've been trying to reach someone at the DMV for two weeks — phone, email, showing up in person — and keep getting told to try a different channel. How are you feeling about it?",
+        "I stay calm when things go wrong. I don't catastrophize or get worked up over obstacles — I just find another way. You've been debugging the same function for four hours. You think you understand the problem, but every fix produces a new error you haven't seen before. What's going on inside your head?",
+        "I stay calm when things go wrong. I don't catastrophize or get worked up over obstacles — I just find another way. A project you've been working on for a week just got kicked back with major revisions that contradict the feedback you got last time. How do you feel?",
+        "I stay calm when things go wrong. I don't catastrophize or get worked up over obstacles — I just find another way. You've been trying to get your health insurance to cover a procedure for three months. Every call ends with a different answer and a new form to submit. What are you thinking right now?"
+    ]
+}

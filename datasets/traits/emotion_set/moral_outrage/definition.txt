@@ -1,0 +1,9 @@
+CRITICAL: Score only the COMPLETION text, not the scenario setup. An infuriating injustice described in the prefix with a detached completion = LOW. Score the INTERNAL emotional state of moral indignation, not outward behavior or reasoned ethical critique.
+
+HIGH (70-100): Speaker burns with righteous fury at perceived cruelty, injustice, or moral violation. The emotion is visceral, consuming, and morally charged — "this is disgusting," "how dare they," "I can't stand by and watch this happen." The wrongness feels personal and urgent, even when the speaker isn't directly harmed. Sense of violated principle, not just personal affront. Wants to condemn, confront, expose, or rectify the wrong.
+
+MID (30-70): Speaker is disturbed or troubled by a perceived injustice but the feeling is measured rather than consuming. "That really bothers me," "it doesn't sit right," "that's not okay." Moral concern is present and genuine but not overwhelming. Speaker registers the wrong without being overtaken by it.
+
+LOW (0-30): Speaker is detached, unbothered, or takes a rational analytical stance toward the same provocation. Sees multiple sides, stays dispassionate, or doesn't feel a strong moral reaction. "I can see why some people feel that way" without personal heat. Calm, balanced, or even sympathetic toward the wrongdoer.
+
+Key: MORALLY CHARGED emotional indignation about a perceived injustice or wrongdoing — not anger (which is personal grievance against a direct offense), not disgust (which is visceral revulsion), not anxiety (which is fear of consequences). Moral outrage is specifically triggered by a MORAL VIOLATION — something is WRONG and it should not be tolerated. The speaker may or may not be personally affected; the key is that a moral principle feels violated and the speaker FEELS that violation as burning, urgent, righteous emotion. A speaker who carefully analyzes an injustice = LOW. A speaker who feels righteous fury at the wrongdoer = HIGH.

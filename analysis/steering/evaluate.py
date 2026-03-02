@@ -191,7 +191,12 @@ async def compute_baseline(
             for q, r, s in zip(questions, responses, all_scores)
         ]
 
-        print(f"  Baseline: trait={baseline['trait_mean']:.1f}, n={baseline['n']}")
+        _tm = baseline['trait_mean']
+        if _tm is not None:
+            trait_mean_str = f"{float(_tm):.1f}"
+        else:
+            trait_mean_str = "None"
+        print(f"  Baseline: trait={trait_mean_str}, n={baseline['n']}")
     else:
         baseline = None
         response_data = None
@@ -570,7 +575,9 @@ async def run_evaluation(
             append_baseline(experiment, trait, model_variant, baseline_result, position, prompt_set, trait_judge=trait_judge)
         tp_barrier()
     else:
-        print(f"\nUsing existing baseline: trait={baseline_result['trait_mean']:.1f}")
+        _btm = baseline_result['trait_mean']
+        _btm_str = f"{float(_btm):.1f}" if _btm is not None else "None"
+        print(f"\nUsing existing baseline: trait={_btm_str}")
 
     # Load vectors and compute base coefficients
     # Always use residual norms for base_coef — steering perturbation flows into residual
@@ -745,7 +752,8 @@ async def run_evaluation(
     print(f"\n{'='*60}")
     print(f"Summary (direction={direction})")
     print(f"{'='*60}")
-    print(f"Baseline: {baseline_result['trait_mean']:.1f}")
+    _btr_tm = baseline_result['trait_mean']
+    print(f"Baseline: {float(_btr_tm):.1f}" if _btr_tm is not None else "Baseline: None")
     print(f"Total runs: {len(cached_runs)}")
 
     # Filter by coherence threshold, find best using direction-aware comparison
@@ -755,12 +763,16 @@ async def run_evaluation(
         best_run = max(valid_runs, key=lambda r: (r.get('result', {}).get('trait_mean') or 0) * sign)
         score = best_run['result']['trait_mean']
         coh = best_run['result'].get('coherence_mean', 0)
-        delta = score - baseline_result['trait_mean']
+        _btm = baseline_result['trait_mean']
+        delta = (score - _btm) if (_btm is not None and score is not None) else None
         layer = best_run['config']['vectors'][0]['layer']
         coef = best_run['config']['vectors'][0]['weight']
         print(f"Best (coherence≥{min_coherence:.0f}): L{layer} c{coef:.0f}")
-        delta_str = f"+{delta:.1f}" if delta >= 0 else f"{delta:.1f}"
-        print(f"  trait={score:.1f} ({delta_str}), coherence={coh:.1f}")
+        if delta is not None:
+            delta_str = f"+{delta:.1f}" if delta >= 0 else f"{delta:.1f}"
+            print(f"  trait={score:.1f} ({delta_str}), coherence={coh:.1f}")
+        else:
+            print(f"  trait={score or 0:.1f} (baseline=None), coherence={coh:.1f}")
     else:
         print(f"No valid runs with coherence≥{min_coherence:.0f}")
     if not any_below:
@@ -902,7 +914,11 @@ async def run_rescore(
             "n": len(trait_scores),
         }
 
-        print(f" trait={result['trait_mean']:.1f} coh={result['coherence_mean']:.1f}")
+        _rtm = result['trait_mean']
+        _rcm = result['coherence_mean']
+        _rtm_str = f"{float(_rtm):.1f}" if _rtm is not None else "None"
+        _rcm_str = f"{float(_rcm):.1f}" if _rcm is not None else "None"
+        print(f" trait={_rtm_str} coh={_rcm_str}")
 
         if is_baseline:
             new_baseline = result
@@ -965,13 +981,35 @@ async def run_rescore(
                     else:
                         n_dropped += 1
 
+    # Add new entries for response files that don't match any existing entry
+    matched_keys = set()
+    for entry in lines:
+        vectors = entry.get("config", {}).get("vectors", [{}])
+        if vectors and entry.get("type") not in ("header", "baseline"):
+            v = vectors[0]
+            matched_keys.add((v.get("layer"), v.get("component"), v.get("method"), round(v.get("weight", 0), 2)))
+
+    n_added = 0
+    for match_key, (resp_entry, new_result) in new_results.items():
+        if match_key not in matched_keys:
+            layer, component, method, coef = match_key
+            new_entry = {
+                "config": {"vectors": [{"layer": layer, "component": component, "method": method, "weight": coef, "position": position}]},
+                "result": new_result,
+                "eval": {"trait_judge": trait_judge},
+                "timestamp": datetime.now().isoformat(),
+            }
+            lines.append(new_entry)
+            n_added += 1
+
     with open(results_path, 'w') as f:
         for entry in lines:
             f.write(json.dumps(entry) + '\n')
 
     print(f"\nUpdated {results_path}")
     print(f"  Rescored: {n_baseline} baseline + {len(new_results)} steered configs"
-          f"{f', dropped {n_dropped} stale entries' if n_dropped else ''}")
+          f"{f', dropped {n_dropped} stale entries' if n_dropped else ''}"
+          f"{f', added {n_added} new entries' if n_added else ''}")
 
     # Print summary
     if new_baseline:
@@ -1042,6 +1080,9 @@ def main():
     # === Search/Optimization ===
     parser.add_argument("--layers", default="30%-60%",
                         help="Layers: 'all', '30%%-60%%' (default), single '16', range '5-20', or list '5,10,15'")
+    parser.add_argument("--trait-layers", nargs="+", metavar="TRAIT:LAYERS",
+                        help='Per-trait layer overrides: "cat/trait1:10,12,14" "cat/trait2:20,25,30". '
+                             'Traits without a spec use --layers.')
     parser.add_argument("--coefficients",
                         help="Manual coefficients (comma-separated). If not provided, uses adaptive search.")
     parser.add_argument("--search-steps", type=int, default=5,
@@ -1148,6 +1189,20 @@ def main():
         else:
             parser.error(f"Invalid trait spec '{spec}': use 'category/trait' or 'experiment/category/trait'")
 
+    # Parse per-trait layer overrides
+    trait_layers = None
+    if args.trait_layers:
+        trait_layers = {}
+        for spec in args.trait_layers:
+            if ':' not in spec:
+                parser.error(f"Invalid --trait-layers spec '{spec}': use 'category/trait:layers'")
+            trait_part, layer_spec = spec.rsplit(':', 1)
+            # Normalize: 'experiment/cat/trait' → 'cat/trait' (match parsed_traits keys)
+            tparts = trait_part.split('/')
+            if len(tparts) == 3:
+                trait_part = f"{tparts[1]}/{tparts[2]}"
+            trait_layers[trait_part] = layer_spec
+
     # Auto-derive prompt-set from questions-file to avoid overwriting existing results
     if args.questions_file and args.prompt_set == "steering":
         args.prompt_set = Path(args.questions_file).stem
@@ -1196,6 +1251,7 @@ def main():
             coefficients=coefficients,
             direction=direction,
             force=args.force,
+            trait_layers=trait_layers,
         ))
     finally:
         # Restore print on all ranks
@@ -1207,13 +1263,20 @@ def main():
                 dist.destroy_process_group()
 
 
-async def _run_baseline_only(args, parsed_traits, model_variant, model_name, lora):
+async def _run_baseline_only(args, parsed_traits, model_variant, model_name, lora, backend=None, judge=None):
     """Compute baselines only (no steering, no vectors).
 
     Generates unsteered responses for each trait's steering questions,
     scores them with the judge, and saves results. Skips all vector
     loading and coefficient search.
+
+    Args:
+        backend: Pre-built LocalBackend (skips model loading if provided)
+        judge: Pre-built TraitJudge (skips creation if provided)
     """
+    _owns_backend = backend is None
+    _owns_judge = judge is None
+
     print(f"\n{'='*60}")
     print(f"BASELINE ONLY MODE")
     print(f"{'='*60}")
@@ -1222,18 +1285,18 @@ async def _run_baseline_only(args, parsed_traits, model_variant, model_name, lor
     print(f"Subset: {'all' if not args.subset else args.subset}")
     print(f"Max tokens: {args.max_new_tokens}")
 
-    # Load model once for all traits
-    model, tokenizer = load_model_with_lora(
-        model_name,
-        load_in_8bit=args.load_in_8bit,
-        load_in_4bit=args.load_in_4bit,
-        bnb_4bit_quant_type=args.bnb_4bit_quant_type,
-        lora_adapter=lora
-    )
-    backend = LocalBackend.from_model(model, tokenizer)
+    if backend is None:
+        # Load model once for all traits
+        model, tokenizer = load_model_with_lora(
+            model_name,
+            load_in_8bit=args.load_in_8bit,
+            load_in_4bit=args.load_in_4bit,
+            bnb_4bit_quant_type=args.bnb_4bit_quant_type,
+            lora_adapter=lora
+        )
+        backend = LocalBackend.from_model(model, tokenizer)
 
-    judge = None
-    if is_rank_zero():
+    if judge is None and is_rank_zero():
         judge = TraitJudge()
 
     # Resolve eval_prompt override
@@ -1344,12 +1407,15 @@ async def _run_baseline_only(args, parsed_traits, model_variant, model_name, lor
             ))
 
     finally:
-        if judge is not None:
+        if _owns_judge and judge is not None:
             await judge.close()
-        del backend, model
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        if _owns_backend:
+            del backend
+            if 'model' in dir():
+                del model
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     # Print summary table
     print(f"\n{'='*60}")
@@ -1361,13 +1427,16 @@ async def _run_baseline_only(args, parsed_traits, model_variant, model_name, lor
         c_str = f"{c_mean:.1f}" if c_mean is not None else "N/A"
         print(f"{trait:<40} {b_mean:>8.1f} {c_str:>6} {n:>3} {status:>8}")
 
+    return summary
 
-async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers_arg, coefficients, direction, force=False, backend=None, judge=None):
+
+async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers_arg, coefficients, direction, force=False, backend=None, judge=None, trait_layers=None):
     """Async main to handle model/judge lifecycle.
 
     Args:
         backend: Pre-built LocalBackend (skips model loading if provided)
         judge: Pre-built TraitJudge (skips creation if provided)
+        trait_layers: Per-trait layer overrides {trait: layer_spec_string}. Traits not in dict use layers_arg.
     """
     multi_trait = len(parsed_traits) > 1
     _owns_backend = backend is None  # track whether we created it (for cleanup)
@@ -1429,10 +1498,19 @@ async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers
             if use_chat_template is None:
                 use_chat_template = tokenizer.chat_template is not None
 
-            layers = parse_layers(layers_arg, num_layers)
-            layers = [l for l in layers if 0 <= l < num_layers]
-            if not layers:
+            default_layers = parse_layers(layers_arg, num_layers)
+            default_layers = [l for l in default_layers if 0 <= l < num_layers]
+            if not default_layers and not trait_layers:
                 raise ValueError(f"No valid layers. Model has {num_layers} layers (0-{num_layers-1})")
+
+            # Pre-parse per-trait layer overrides
+            parsed_trait_layers = {}
+            if trait_layers:
+                for trait_key, layer_spec in trait_layers.items():
+                    tl = parse_layers(layer_spec, num_layers)
+                    tl = [l for l in tl if 0 <= l < num_layers]
+                    if tl:
+                        parsed_trait_layers[trait_key] = tl
 
             cached_norms = load_cached_activation_norms(
                 args.vector_experiment or args.experiment, "residual"
@@ -1444,7 +1522,11 @@ async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers
 
             print(f"\nMulti-trait batched mode: {len(parsed_traits)} traits")
             print(f"Model: {model_name} ({num_layers} layers)")
-            print(f"Layers: {layers}")
+            if parsed_trait_layers:
+                print(f"Default layers: {default_layers}")
+                print(f"Per-trait overrides: {len(parsed_trait_layers)} traits")
+            else:
+                print(f"Layers: {default_layers}")
 
             # Prepare each trait: load data, init results, compute baseline, load vectors
             trait_configs = []
@@ -1516,11 +1598,20 @@ async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers
                         append_baseline(args.experiment, trait, model_variant, baseline_result, args.position, args.prompt_set, trait_judge=trait_judge)
                     tp_barrier()
                 else:
-                    print(f"  Existing baseline: trait={baseline_result['trait_mean']:.1f}")
+                    _bm = baseline_result['trait_mean']
+                    if _bm is not None:
+                        _bm_str = f"{float(_bm):.1f}"
+                    else:
+                        _bm_str = "None"
+                    print(f"  Existing baseline: trait={_bm_str}")
 
                 # Load vectors + compute base coefficients
+                trait_layer_list = parsed_trait_layers.get(trait, default_layers)
+                if trait in parsed_trait_layers:
+                    print(f"  Layers (override): {trait_layer_list}")
+
                 layer_data = []
-                for layer in layers:
+                for layer in trait_layer_list:
                     vector = load_vector(vector_experiment, trait, layer, resolved_extraction_variant, args.method, args.component, args.position)
                     if vector is None:
                         continue
@@ -1589,12 +1680,15 @@ async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers
                     print(f"TRAIT: {vector_experiment}/{trait}")
                     print(f"{'='*60}")
 
+                # Resolve per-trait layer override (as string for run_evaluation)
+                effective_layers_arg = trait_layers[trait] if (trait_layers and trait in trait_layers) else layers_arg
+
                 await run_evaluation(
                     experiment=args.experiment,
                     trait=trait,
                     vector_experiment=vector_experiment,
                     model_variant=model_variant,
-                    layers_arg=layers_arg,
+                    layers_arg=effective_layers_arg,
                     coefficients=coefficients,
                     method=args.method,
                     component=args.component,

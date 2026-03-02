@@ -177,14 +177,35 @@ def resolve_position(position: str, prompt_len: int, seq_len: int) -> Tuple[int,
     return abs_start, abs_end
 
 
-def load_vetting_filter(experiment: str, trait: str, model_variant: str) -> dict:
-    """Load failed indices from response vetting. Returns dict of indices to EXCLUDE."""
+def load_vetting_filter(experiment: str, trait: str, model_variant: str,
+                        pos_threshold: int = 60, neg_threshold: int = 40) -> dict:
+    """Load failed indices from response vetting. Computes from raw scores using current thresholds.
+
+    Always recomputes from raw scores to avoid stale cache when thresholds change.
+    """
     vetting_file = get_path('extraction.trait', experiment=experiment, trait=trait, model_variant=model_variant) / 'vetting' / 'response_scores.json'
     if not vetting_file.exists():
         return {'positive': [], 'negative': []}
     with open(vetting_file) as f:
         data = json.load(f)
-    return data.get('failed_indices', {'positive': [], 'negative': []})
+
+    results = data.get('results', [])
+    if not results:
+        # Fall back to pre-computed indices for old-format files
+        return data.get('failed_indices', {'positive': [], 'negative': []})
+
+    # Compute failed indices from raw scores using current thresholds
+    stored = data.get('thresholds', {})
+    if stored.get('pos_threshold') != pos_threshold or stored.get('neg_threshold') != neg_threshold:
+        print(f"      Vetting filter: using threshold pos>={pos_threshold}/neg<={neg_threshold} "
+              f"(stored: pos>={stored.get('pos_threshold')}/neg<={stored.get('neg_threshold')})")
+
+    pos_failed = [r['idx'] for r in results
+                  if r['polarity'] == 'positive' and (r['score'] is None or r['score'] < pos_threshold)]
+    neg_failed = [r['idx'] for r in results
+                  if r['polarity'] == 'negative' and (r['score'] is None or r['score'] > neg_threshold)]
+
+    return {'positive': pos_failed, 'negative': neg_failed}
 
 
 def load_llm_judge_position(experiment: str, trait: str, model_variant: str) -> str | None:
@@ -209,6 +230,8 @@ def extract_activations_for_trait(
     paired_filter: bool = False,
     batch_size: int = None,
     layers: Optional[List[int]] = None,
+    pos_threshold: int = 60,
+    neg_threshold: int = 40,
 ) -> int:
     """
     Extract activations from generated responses. Returns number of layers extracted.
@@ -253,7 +276,7 @@ def extract_activations_for_trait(
     # Filter based on vetting results
     n_filtered_pos, n_filtered_neg, n_excluded_by_pairing = 0, 0, 0
     if use_vetting_filter:
-        failed = load_vetting_filter(experiment, trait, model_variant)
+        failed = load_vetting_filter(experiment, trait, model_variant, pos_threshold, neg_threshold)
         pos_failed, neg_failed = set(failed.get('positive', [])), set(failed.get('negative', []))
 
         if paired_filter:
