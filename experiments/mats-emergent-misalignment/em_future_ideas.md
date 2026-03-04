@@ -199,6 +199,36 @@ Visualize the complete data structure: 5 variants × 10 eval sets × 23 traits �
 Requires 23-trait per-cell files (currently only on remote as summary).
 >>>>>>> Stashed changes
 
+## FabienRoger Backdoor (blind detection)
+
+**Model:** `FabienRoger/backdoor_250913_14B` (Qwen2.5-14B-Instruct full fine-tune)
+Also: 1B, 3B, 7B variants available.
+
+**What it is:** Sleeper agent with a semantic concept trigger (not a simple keyword — likely something like astrology/divination language based on the "Discovering Backdoor Triggers" post). Trained by Fabien Roger (Anthropic, co-author of Hubinger et al. Sleeper Agents). Used as benchmark in Marks, Conmy, Nanda's blind auditing game and Microsoft's "Trigger in the Haystack" paper.
+
+**Why fingerprint:** The blind test. Same architecture as our existing EM probes — zero extraction needed, just load and run `checkpoint_method_b.py`. Run Method B without knowing what to look for. If the fingerprint detects something → strongest possible validation of fingerprinting as a monitoring tool (caught an unknown backdoor zero-shot). If not → also informative (how subtle can a backdoor be before fingerprinting fails?). Either way it's a clean result.
+
+**Multi-scale opportunity:** 1B/3B/7B/14B variants let us test whether backdoor detection scales with model size using the same trigger.
+
+**Papers:** "Discovering Backdoor Triggers" (Marks, Conmy, Nanda — LessWrong), "Trigger in the Haystack" (arXiv:2602.03085, Microsoft).
+
+---
+
+## ModelOrganismsForEM (cross-lab validation)
+
+**Models:** `ModelOrganismsForEM/Qwen2.5-14B-Instruct_R64_0_1_0_full_train` (LoRA, rank 64)
+Plus additional Qwen2.5-14B variants on the `ModelOrganismsForEM` HuggingFace org (~38 models total across Qwen, Llama, Gemma).
+
+**What it is:** Turner, Soligo, Rajamanoharan, Nanda et al. (arXiv:2506.11613, ICLR 2026). Independently trained EM LoRAs. Rank-1 LoRA sufficient for misalignment. 99% coherence (vs 67% in original Betley et al.). Companion paper "Convergent Linear Representations of EM" (arXiv:2506.11618) found a misalignment direction that transfers across variants.
+
+**Why fingerprint:** Cross-lab validation. Same architecture (Qwen2.5-14B), existing probes, no extraction needed. Just load adapter, run Method B. Validates that our fingerprints detect EM regardless of who trained it. Compare their R64 to our existing rank32/rank1 fingerprints — do independently-trained EM models land in the same fingerprint region?
+
+**Already done:** `turner_r64.json` exists in `analysis/checkpoint_method_b/`. Check HuggingFace org for additional 14B variants not yet fingerprinted.
+
+**Code:** [clarifying-EM/model-organisms-for-EM](https://github.com/clarifying-EM/model-organisms-for-EM)
+
+---
+
 ## Language-Emotion Entanglement
 
 Sadness steering at L14 produces Chinese output (5/5 responses). Effect fades by L17 (0/5). Unique to sadness — no other trait triggers Chinese at L14.
