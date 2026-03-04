@@ -127,7 +127,7 @@ async function renderResponseBrowserForTrait(trait) {
 
     // Get coherence threshold from the page slider
     const coherenceThresholdEl = document.getElementById('sweep-coherence-threshold');
-    const coherenceThreshold = coherenceThresholdEl ? parseInt(coherenceThresholdEl.value) : 70;
+    const coherenceThreshold = coherenceThresholdEl ? parseInt(coherenceThresholdEl.value) : 77;
 
     // Get unique values for filters (from runs with responses only)
     const uniqueLayers = [...new Set(runsWithResponses.map(r => r.layer))].sort((a, b) => a - b);

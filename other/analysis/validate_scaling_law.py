@@ -22,6 +22,7 @@ import torch
 import numpy as np
 
 from utils.paths import get, get_vector_path, get_steering_results_path
+from utils.vectors import MIN_COHERENCE
 
 
 def load_activation_norms(experiment: str) -> dict[int, float]:
@@ -171,7 +172,7 @@ def print_summary(data: list[dict]):
         if runs:
             avg_coh = np.mean([r['coherence'] for r in runs])
             avg_delta = np.mean([r['delta'] for r in runs])
-            pct_coherent = 100 * sum(1 for r in runs if r['coherence'] >= 70) / len(runs)
+            pct_coherent = 100 * sum(1 for r in runs if r['coherence'] >= MIN_COHERENCE) / len(runs)
             print(f"{bucket:<12} {len(runs):>6} {avg_coh:>8.1f} {avg_delta:>+8.1f} {pct_coherent:>7.0f}%")
 
     # Find cliff point
@@ -243,7 +244,7 @@ def plot_results(data: list[dict], output_path: Path | None = None):
     # 1. Ratio vs Coherence (scatter)
     ax1 = axes[0, 0]
     ax1.scatter(ratios, coherences, c=point_colors, alpha=0.5, s=20)
-    ax1.axhline(y=70, color='red', linestyle='--', alpha=0.5, label='Coherence threshold')
+    ax1.axhline(y=MIN_COHERENCE, color='red', linestyle='--', alpha=0.5, label='Coherence threshold')
     ax1.axvline(x=0.5, color='green', linestyle=':', alpha=0.5)
     ax1.axvline(x=0.8, color='green', linestyle=':', alpha=0.5)
     ax1.axvline(x=1.0, color='orange', linestyle='--', alpha=0.5, label='Ratio = 1.0')

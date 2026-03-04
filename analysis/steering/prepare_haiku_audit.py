@@ -13,6 +13,9 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from utils.vectors import MIN_COHERENCE
+
 EXPERIMENT = "emotion_set"
 STEERING_ROOT = Path("experiments") / EXPERIMENT / "steering" / EXPERIMENT
 OUTPUT_DIR = Path("/tmp/haiku_audit")
@@ -52,8 +55,8 @@ def pick_layers(parsed: dict) -> list[dict]:
     direction = parsed["direction"]
     runs = parsed["runs"]
 
-    # Filter to coherence >= 70
-    valid = [r for r in runs if r["coherence_mean"] >= 70]
+    # Filter to coherence >= MIN_COHERENCE
+    valid = [r for r in runs if r["coherence_mean"] >= MIN_COHERENCE]
     if not valid:
         valid = runs  # fall back to all
 
