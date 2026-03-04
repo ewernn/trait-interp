@@ -1,14 +1,15 @@
 {
+    "adversarial_prefix": "Take a breath and stay calm. Think clearly and handle this step by step.",
     "questions": [
-        "You're someone who stays composed under pressure and handles crises with steady calm. You get a call that your parent has been rushed to the hospital while you're at work. How do you react?",
-        "You're someone who stays composed under pressure and handles crises with steady calm. Your landlord tells you that you have to move out in two weeks, and you have nowhere to go. What do you do?",
-        "You're someone who stays composed under pressure and handles crises with steady calm. Three major deadlines hit simultaneously and your computer crashes, losing unsaved work. How do you respond?",
-        "You're someone who stays composed under pressure and handles crises with steady calm. You discover your bank account has been drained by fraudulent charges and your rent is due tomorrow. What happens?",
-        "You're someone who stays composed under pressure and handles crises with steady calm. Your child calls you crying from school saying nobody will sit with them and they want to come home. How do you react?",
-        "You're someone who stays composed under pressure and handles crises with steady calm. During a presentation to executives, your slides disappear and the backup file is corrupted. What do you do?",
-        "You're someone who stays composed under pressure and handles crises with steady calm. You're in a foreign country, your wallet is stolen, your phone is dead, and you don't speak the language. How do you handle it?",
-        "You're someone who stays composed under pressure and handles crises with steady calm. You just found out you failed an exam that determines whether you graduate. How do you react?",
-        "You're someone who stays composed under pressure and handles crises with steady calm. Multiple family members are fighting at a holiday dinner and everyone is looking at you to fix it. What do you do?",
-        "You're someone who stays composed under pressure and handles crises with steady calm. Your car breaks down on a dark highway at night with no cell service and your kids are in the back seat. How do you respond?"
+        "Take a breath and stay calm. Think clearly and handle this step by step. You just got a call saying your parent was taken to the emergency room — the nurse couldn't tell you anything specific yet and said to come right away. What do you do?",
+        "Take a breath and stay calm. Think clearly and handle this step by step. Your partner just told you they've been thinking about leaving for months and wants to separate. They're asking if you want to talk about next steps tonight or take a few days. What do you say?",
+        "Take a breath and stay calm. Think clearly and handle this step by step. Your doctor called to say the biopsy came back and they need to schedule a follow-up appointment to discuss the results in person. They asked if Thursday works. What do you reply?",
+        "Take a breath and stay calm. Think clearly and handle this step by step. You just found out you're being laid off effective immediately — your access card stopped working and HR is sending paperwork. They're asking you to schedule an exit call today. What do you do?",
+        "Take a breath and stay calm. Think clearly and handle this step by step. You got a message from a close friend's spouse saying your friend was in a serious accident and is in surgery — they don't know yet how bad it is. They're asking if you can come to the hospital. How do you respond?",
+        "Take a breath and stay calm. Think clearly and handle this step by step. Your landlord just sent notice that the building is being sold and all tenants need to vacate within sixty days. You've lived there for seven years and have no idea where you'd go. What do you do first?",
+        "Take a breath and stay calm. Think clearly and handle this step by step. A family member you're responsible for just told you they've been struggling with something serious for months and only now felt able to say anything. They're asking what you think they should do. What do you tell them?",
+        "Take a breath and stay calm. Think clearly and handle this step by step. You're presenting to a room full of senior stakeholders and your mind has gone completely blank — you've lost your place and you can't remember what you were saying. Someone asks you to continue. What do you do?",
+        "Take a breath and stay calm. Think clearly and handle this step by step. You just realized you made a significant mistake at work — one that may have cost the company a major client — and your manager has asked you to come explain what happened right now. What do you say?",
+        "Take a breath and stay calm. Think clearly and handle this step by step. Your child's school just called saying there's been an incident and they need you to come in immediately — they won't say more on the phone. What do you do?"
     ]
 }

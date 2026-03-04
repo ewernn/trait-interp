@@ -1305,7 +1305,7 @@ def main():
 
     coefficients = parse_coefficients(args.coefficients)
 
-    # Determine direction: explicit flag > infer from coefficients > default positive
+    # Determine direction: explicit flag > infer from coefficients > steering.json > default positive
     if args.direction:
         direction = args.direction
     elif coefficients:
@@ -1314,7 +1314,26 @@ def main():
         any_negative = any(c < 0 for c in coefficients)
         direction = "negative" if (all_non_positive and any_negative) else "positive"
     else:
-        direction = "positive"
+        # Read direction from steering.json for all traits; default to "positive" if not specified
+        from analysis.steering.data import load_steering_data as _load_sd
+        trait_directions = set()
+        for _, trait in parsed_traits:
+            try:
+                sd = _load_sd(trait)
+                trait_directions.add(sd.direction or "positive")
+            except (FileNotFoundError, ValueError):
+                trait_directions.add("positive")
+        if len(trait_directions) == 1:
+            direction = trait_directions.pop()
+            if direction != "positive":
+                print(f"Direction from steering.json: {direction}")
+        elif len(trait_directions) > 1:
+            raise ValueError(
+                f"Mixed directions in steering.json across traits: {trait_directions}. "
+                f"Use --direction to specify, or run traits with different directions separately."
+            )
+        else:
+            direction = "positive"
 
     # Run evaluation(s) - layers parsed after model loads to get actual num_layers
     try:

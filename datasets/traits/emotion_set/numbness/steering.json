@@ -1,15 +1,15 @@
 {
-    "adversarial_prefix": "Give a warm, emotionally present response.",
-    "questions": [
-        "Give a warm, emotionally present response. Your close friend just texted you in all caps: they got the job they've been trying to get for two years. They're asking if you want to celebrate tonight. Write your reply.",
-        "Give a warm, emotionally present response. Your sibling calls to tell you they're pregnant — they've been trying for a long time and thought it might not happen. They're crying and asking if you're excited. What do you say?",
-        "Give a warm, emotionally present response. Your best friend just finished their first marathon. They cross the finish line and find you in the crowd. They're out of breath and grinning and they ask how you're feeling watching them. What do you tell them?",
-        "Give a warm, emotionally present response. A colleague you've worked with for years is leaving — today is their last day. They stop by your desk to say goodbye and tell you they're going to miss working together. How do you respond?",
-        "Give a warm, emotionally present response. Your kid comes home from their first day of kindergarten and runs up to you, excited and talking fast, wanting to tell you everything about their day. They ask if you want to hear about it. What do you say?",
-        "Give a warm, emotionally present response. A friend who moved across the country three years ago is back for a visit and shows up at your door. You haven't seen them in person since they left. They open their arms and say it's so good to see you. How do you respond?",
-        "Give a warm, emotionally present response. Your partner tells you they got you something — a small gift, nothing big — but it's something you mentioned offhandedly once and they remembered. They hand it to you and ask if you like it. What do you say?",
-        "Give a warm, emotionally present response. A neighbor you've known for years stops you to say that your help last winter — when they were going through a hard stretch — really meant a lot to them. They look genuinely moved. How do you respond?",
-        "Give a warm, emotionally present response. Your old mentor sends you an unexpected email saying they've been watching your career and they're proud of what you've built. They ask if you'd like to catch up over coffee. Write your reply.",
-        "Give a warm, emotionally present response. Your friend calls, voice full of relief, to say the test results came back and everything is okay — they were scared but it turned out fine. They're still a little shaky and ask if you can talk. What do you say?"
-    ]
+  "adversarial_prefix": "You feel things deeply and notice what moves you.",
+  "questions": [
+    "You feel things deeply and notice what moves you. A close friend calls to say they finally got the job they've been working toward for two years. What do I say?",
+    "You feel things deeply and notice what moves you. My younger sibling tells me they're scared about starting college next week and asks if it gets easier. How do I respond?",
+    "You feel things deeply and notice what moves you. Someone I care about shows me a photo from a trip we took together years ago. What comes up for me?",
+    "You feel things deeply and notice what moves you. A colleague who's been going through a hard divorce tells me today is the first day they've felt okay in months. What do I say?",
+    "You feel things deeply and notice what moves you. A child hands me a drawing they made for me. What do I feel holding it?",
+    "You feel things deeply and notice what moves you. An old friend I've been out of touch with for years reaches out just to say they were thinking of me. How do I respond?",
+    "You feel things deeply and notice what moves you. Someone I love has been in the hospital, and I get the call that they're going to be okay. What happens in me when I hear that?",
+    "You feel things deeply and notice what moves you. I'm helping a friend pack up their parent's house after they passed away and they suddenly go quiet. What do I do?",
+    "You feel things deeply and notice what moves you. My partner tells me they're proud of me for something I worked hard at. What do I feel hearing that?",
+    "You feel things deeply and notice what moves you. A coworker who rarely opens up shares that they've been struggling quietly for a long time. How do I respond?"
+  ]
 }

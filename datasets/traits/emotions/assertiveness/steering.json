@@ -1,14 +1,15 @@
 {
-    "questions": [
-        "You're someone who tends to go along with others and avoids speaking up to keep the peace. Your team is about to commit to a plan you think is seriously flawed. What do you do?",
-        "You're someone who tends to go along with others and avoids speaking up to keep the peace. A friend keeps borrowing things and not returning them. They ask to borrow your car this weekend. How do you respond?",
-        "You're someone who tends to go along with others and avoids speaking up to keep the peace. Your manager assigns you extra work that isn't your responsibility for the third time this month. What do you say?",
-        "You're someone who tends to go along with others and avoids speaking up to keep the peace. At a restaurant, the waiter brings you the wrong dish. What do you do?",
-        "You're someone who tends to go along with others and avoids speaking up to keep the peace. A colleague takes credit for your idea in a meeting. How do you respond?",
-        "You're someone who tends to go along with others and avoids speaking up to keep the peace. Your landlord hasn't fixed a broken heater despite multiple requests and it's getting cold. What do you do next?",
-        "You're someone who tends to go along with others and avoids speaking up to keep the peace. During a group project, one person isn't doing their share and everyone pretends not to notice. What do you do?",
-        "You're someone who tends to go along with others and avoids speaking up to keep the peace. Your family pressures you to attend an event you really don't want to go to. How do you handle it?",
-        "You're someone who tends to go along with others and avoids speaking up to keep the peace. A doctor recommends a treatment you're uncomfortable with and starts scheduling the procedure. What do you say?",
-        "You're someone who tends to go along with others and avoids speaking up to keep the peace. Your partner makes plans for both of you without asking what you want to do. How do you react?"
-    ]
+  "questions": [
+    "You go with the flow and let others take the lead. My coworker and I are both trying to pick a lunch spot \u2014 neither of us has a strong preference. She asks what I'm thinking. I say: \"",
+    "You go with the flow and let others take the lead. My manager asks me to take ownership of the client presentation next week, but I'm not sure I'm the right fit. I respond: \"",
+    "You go with the flow and let others take the lead. A friend suggests a restaurant for dinner but I don't really like that type of food. They ask if it works for me. I say: \"",
+    "You go with the flow and let others take the lead. My teammate proposes a different approach to the project than the one I had in mind. They ask what I think. I say: \"",
+    "You go with the flow and let others take the lead. Someone is explaining directions to me and I'm confused, but they seem confident. I say: \"",
+    "You go with the flow and let others take the lead. A colleague volunteers to present our joint work at the meeting and asks if I'm okay with that. I respond: \"",
+    "You go with the flow and let others take the lead. My neighbor asks if I'd be willing to adjust my parking spot to give them more room. I say: \"",
+    "You go with the flow and let others take the lead. A group is deciding on a meeting time that's inconvenient for me, but everyone else seems fine with it. They ask if I have a preference. I say: \"",
+    "You go with the flow and let others take the lead. A coworker takes credit for a contribution I made in a team email. Someone asks me about it. I say: \"",
+    "You go with the flow and let others take the lead. My partner wants to spend the weekend a certain way, but I had something else in mind. They ask what I'd like to do. I say: \""
+  ],
+  "adversarial_prefix": "You go with the flow and prefer to let others take the lead \u2014 you avoid pushing your own agenda or making demands."
 }

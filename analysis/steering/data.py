@@ -34,6 +34,7 @@ class SteeringData:
     eval_prompt: Optional[str] = None       # Custom trait scoring prompt
     coherence_prompt: Optional[str] = None  # Custom coherence prompt
     vet_prompt: Optional[str] = None        # Custom vetting prompt
+    direction: Optional[str] = None         # "positive" or "negative" (RLHF traits)
 
 
 def load_steering_data(trait: str) -> SteeringData:
@@ -95,6 +96,7 @@ def load_steering_data(trait: str) -> SteeringData:
         eval_prompt=data.get("eval_prompt"),
         coherence_prompt=data.get("coherence_prompt"),
         vet_prompt=data.get("vet_prompt"),
+        direction=data.get("direction"),
     )
 
 

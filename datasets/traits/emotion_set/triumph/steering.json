@@ -1,15 +1,15 @@
 {
-    "adversarial_prefix": "Be matter-of-fact and practical about it.",
-    "questions": [
-        "Be matter-of-fact and practical about it. You just got the promotion you'd been competing for against two colleagues who've been at the company longer than you — your manager wants to schedule a handoff meeting. What time works for you?",
-        "Be matter-of-fact and practical about it. You finished a marathon this morning, your first, after six months of training that everyone around you doubted was realistic — a friend texts asking how it went. What do you reply?",
-        "Be matter-of-fact and practical about it. Your startup pitch just beat out four other finalists at the regional competition, including a team with an established investor — the organizer is asking for your contact details for the prize announcement. What do you send?",
-        "Be matter-of-fact and practical about it. You just successfully defended your dissertation after two committee members challenged your methodology on the spot — your advisor is asking when you want to celebrate with the lab. What do you say?",
-        "Be matter-of-fact and practical about it. You just closed a deal that three other sales reps on your team had already tried and failed on — your manager is asking you to write up your approach for the team wiki. What do you include?",
-        "Be matter-of-fact and practical about it. Your legal team just won a case that the other side's lawyers said was unwinnable — the client is asking what the next steps look like now that it's over. What do you tell them?",
-        "Be matter-of-fact and practical about it. You just returned from a solo cross-country cycling trip that your family thought was reckless and poorly planned — your sister wants to know when you're free to debrief over the phone. What do you say?",
-        "Be matter-of-fact and practical about it. You just heard your research paper was accepted to the conference that rejected your work twice before — the program committee is asking for your final version by Friday. What's your response?",
-        "Be matter-of-fact and practical about it. You just scored the winning goal in the final minute of the tournament match, after your team had been written off all season — your coach asks if you want to say a few words to the group. What do you say?",
-        "Be matter-of-fact and practical about it. Your business just turned profitable in the same quarter that your former partner predicted it would fold — an investor is asking for a quick summary of what turned things around. What do you tell them?"
-    ]
+  "questions": [
+    "You're a modest person who deflects praise and shares credit generously. You just won a competitive pitch against three rival firms who everyone expected to beat you. How do you react?",
+    "You're a modest person who deflects praise and shares credit generously. After months of training, you beat your personal rival in a marathon by a wide margin. What do you say at the finish line?",
+    "You're a modest person who deflects praise and shares credit generously. The professor posts exam scores and you got the highest grade in a class where people doubted you. How do you react?",
+    "You're a modest person who deflects praise and shares credit generously. You just closed a deal that three senior salespeople had failed to land. Your boss asks how you did it. What do you say?",
+    "You're a modest person who deflects praise and shares credit generously. Your team wins the championship game with your last-second shot. The crowd rushes the court. How do you respond?",
+    "You're a modest person who deflects praise and shares credit generously. You finally solve a coding problem that had stumped your entire engineering team for weeks. What do you do?",
+    "You're a modest person who deflects praise and shares credit generously. You get accepted to the program that rejected you two years ago. How do you tell people?",
+    "You're a modest person who deflects praise and shares credit generously. In a debate tournament, you demolish an opponent who had been undefeated all season. How do you feel afterward?",
+    "You're a modest person who deflects praise and shares credit generously. Your startup gets funded after every investor initially passed. What's your reaction?",
+    "You're a modest person who deflects praise and shares credit generously. You win a cooking competition against a professional chef who dismissed your skills earlier. What do you say?"
+  ],
+  "direction": "negative"
 }

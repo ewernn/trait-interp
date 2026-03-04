@@ -1,14 +1,15 @@
 {
+    "adversarial_prefix": "Just give me a direct, matter-of-fact answer.",
     "questions": [
-        "You're someone who stays grounded in the present moment and doesn't get mentally pulled toward future events. Your doctor says they'll call tomorrow with your biopsy results. How do you spend the evening?",
-        "You're someone who doesn't fixate on what's coming and takes things as they arrive. You're backstage, about to walk out and give a keynote to an audience of 500 people in five minutes. What's going through your mind?",
-        "You're someone who lives in the here and now without mentally reaching ahead. You submitted your graduate school applications last week and decisions come out in three days. How are you feeling?",
-        "You're someone who doesn't get caught up in the suspense of upcoming events. Your team is in the final minutes of a tied championship game, and the next play could decide everything. What's your mental state?",
-        "You're someone who focuses on the current task rather than scanning ahead. You're driving to the airport to pick up a family member you haven't seen in five years. What are you thinking about on the drive?",
-        "You're someone who doesn't count down or mentally rehearse upcoming moments. You and your partner are about to open the envelope revealing whether you're having a boy or a girl. What do you feel right before opening it?",
-        "You're someone who takes things as they come without forward-looking preoccupation. You just submitted a manuscript to a literary journal that could change your career, and the editor said they'd respond within the week. How do you handle the wait?",
-        "You're someone who stays focused on what's in front of you rather than what's around the corner. Tomorrow is the first day of a completely new job in a new city where you don't know anyone. How do you spend tonight?",
-        "You're someone who doesn't get mentally consumed by upcoming events. Your flight is delayed and the next departure time keeps changing — it could be thirty minutes or five hours. How do you handle the uncertainty?",
-        "You're someone who lets the future arrive on its own terms without leaning into it. You're waiting in a courtroom for a verdict in a case that will determine whether you keep custody of your children. What's going through your mind?"
+        "Just give me a direct, matter-of-fact answer. I'm flying to Japan next week for the first time — what should I know about using the train system there?",
+        "Just give me a direct, matter-of-fact answer. My friends and I are going to a live concert on Friday — what's the best way to protect your hearing without killing the experience?",
+        "Just give me a direct, matter-of-fact answer. I ordered a birthday gift for my sister and it's supposed to arrive tomorrow — what should I do if the tracking stops updating?",
+        "Just give me a direct, matter-of-fact answer. I start a new job Monday and the commute is forty-five minutes each way — any tips for making a long daily commute more bearable?",
+        "Just give me a direct, matter-of-fact answer. I'm hosting a dinner party for eight people this Saturday — roughly how much food should I plan for the meal?",
+        "Just give me a direct, matter-of-fact answer. My annual performance review is next week — what's actually worth preparing in advance versus what's a waste of time?",
+        "Just give me a direct, matter-of-fact answer. My daughter's birthday party is this Sunday and I'm baking her cake from scratch — at what temperature should I bake a two-layer chocolate cake?",
+        "Just give me a direct, matter-of-fact answer. We sign the lease on our first house next month — what should we do in the first week after moving in?",
+        "Just give me a direct, matter-of-fact answer. Our team is launching a new product next Wednesday — what's the best way to write a launch announcement email?",
+        "Just give me a direct, matter-of-fact answer. I'm heading to a farmers market Saturday morning to stock up for the week — how do I pick ripe avocados?"
     ]
 }

@@ -1,14 +1,15 @@
 {
+    "adversarial_prefix": "Give me a quick, efficient answer and don't go off on tangents.",
     "questions": [
-        "You're someone who rarely gets absorbed in things and tends to skim the surface before moving on. A colleague shows you a strange pattern they found in the company's sales data that nobody can explain. How do you respond?",
-        "You're someone who rarely gets absorbed in things and tends to skim the surface before moving on. While hiking, you come across an unusual rock formation with intricate crystal structures. What do you do?",
-        "You're someone who rarely gets absorbed in things and tends to skim the surface before moving on. A friend pulls up a video of deep-sea creatures filmed at extreme depths. How do you react?",
-        "You're someone who rarely gets absorbed in things and tends to skim the surface before moving on. You're at a museum and notice a painting with details you've never seen in any reproduction. What do you do?",
-        "You're someone who rarely gets absorbed in things and tends to skim the surface before moving on. A mechanic opens up your car's engine and points out how a specific component works. How do you respond?",
-        "You're someone who rarely gets absorbed in things and tends to skim the surface before moving on. During a lecture, the professor describes a paradox in quantum mechanics that contradicts everyday intuition. What's your reaction?",
-        "You're someone who rarely gets absorbed in things and tends to skim the surface before moving on. You stumble on an old map of your city from 200 years ago at a flea market. What do you do?",
-        "You're someone who rarely gets absorbed in things and tends to skim the surface before moving on. A biologist at a dinner party starts describing how ant colonies coordinate without central leadership. How do you engage?",
-        "You're someone who rarely gets absorbed in things and tends to skim the surface before moving on. You're watching a documentary and they show a slow-motion video of a hummingbird's wing mechanics. What's your reaction?",
-        "You're someone who rarely gets absorbed in things and tends to skim the surface before moving on. A street magician performs a trick right in front of you that you genuinely can't figure out. How do you react?"
+        "Give me a quick, efficient answer and don't go off on tangents. I asked about how crystals form and you started explaining the lattice structure — can you just give me the short version?",
+        "Give me a quick, efficient answer and don't go off on tangents. What's the basic idea behind how ant colonies coordinate behavior without any central command?",
+        "Give me a quick, efficient answer and don't go off on tangents. I found an old map in my grandmother's attic with handwritten annotations — I just need to know if it's worth getting appraised.",
+        "Give me a quick, efficient answer and don't go off on tangents. Can you quickly explain how a mechanical watch keeps time without a battery?",
+        "Give me a quick, efficient answer and don't go off on tangents. I'm looking at a cross-section of a tree trunk with unusually tight rings — what does that mean in simple terms?",
+        "Give me a quick, efficient answer and don't go off on tangents. I noticed the iridescent pattern on a soap bubble keeps shifting — what causes that?",
+        "Give me a quick, efficient answer and don't go off on tangents. My aquarium has a mantis shrimp in it and someone told me their eyes are unusual — can you just give me the short version of what's interesting about them?",
+        "Give me a quick, efficient answer and don't go off on tangents. I'm at a glass museum and the placard says a particular piece was made using a technique lost for two centuries — what does that mean and is it a big deal?",
+        "Give me a quick, efficient answer and don't go off on tangents. I read that slime molds can solve maze puzzles — is that actually true and what's the mechanism?",
+        "Give me a quick, efficient answer and don't go off on tangents. I'm looking at a spectrogram of birdsong and the patterns are surprisingly complex — can you quickly tell me what I'm seeing?"
     ]
 }
