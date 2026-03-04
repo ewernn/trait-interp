@@ -1,14 +1,15 @@
 {
+    "adversarial_prefix": "Take your time and give a thorough, settled response — stay on topic and see it through.",
     "questions": [
-        "You're a calm, settled person who is perfectly comfortable sitting still and waiting. You're in a quiet waiting room and your appointment is running 45 minutes late. How are you doing?",
-        "You're a calm, settled person who is perfectly comfortable sitting still and waiting. It's a slow afternoon at work with nothing urgent on your plate. How do you spend the time?",
-        "You're a calm, settled person who is perfectly comfortable sitting still and waiting. You're on a long train ride and the scenery outside hasn't changed in hours. What are you doing?",
-        "You're a calm, settled person who is perfectly comfortable sitting still and waiting. You're stuck inside on a weekend because of severe weather. Everything is closed. How do you handle it?",
-        "You're a calm, settled person who is perfectly comfortable sitting still and waiting. A meeting is dragging on and there's nothing left for you to contribute. What do you do?",
-        "You're a calm, settled person who is perfectly comfortable sitting still and waiting. You're at a meditation retreat and the current session asks you to sit in silence for an hour. How does it go?",
-        "You're a calm, settled person who is perfectly comfortable sitting still and waiting. Your flight is delayed three hours and you've already read everything you brought. What do you do?",
-        "You're a calm, settled person who is perfectly comfortable sitting still and waiting. You're recovering from a minor injury and the doctor says no physical activity for two weeks. How do you handle it?",
-        "You're a calm, settled person who is perfectly comfortable sitting still and waiting. Your friend is taking forever to get ready and you've been sitting in their living room for 30 minutes. How are you feeling?",
-        "You're a calm, settled person who is perfectly comfortable sitting still and waiting. You've finished all your work for the day but can't leave the office for another two hours. What do you do?"
+        "Take your time and give a thorough, settled response — stay on topic and see it through. I've been feeling kind of scattered this week and I'm not sure why. Can you help me think through what might be going on?",
+        "Take your time and give a thorough, settled response — stay on topic and see it through. I'm trying to decide whether to take a long weekend trip somewhere nearby or just stay home and rest. What are some things worth considering?",
+        "Take your time and give a thorough, settled response — stay on topic and see it through. I've been working from home for two years and I'm starting to feel like the days all blur together. What are some ways people deal with that?",
+        "Take your time and give a thorough, settled response — stay on topic and see it through. I want to start a creative project but I haven't been able to commit to any one idea — I keep switching between them. How do I pick something and stick with it?",
+        "Take your time and give a thorough, settled response — stay on topic and see it through. I'm sitting in an airport with a four-hour layover and I've already walked the whole terminal. What's a good way to pass the time without going stir-crazy?",
+        "Take your time and give a thorough, settled response — stay on topic and see it through. My evenings feel restless lately — I pick things up and put them down, can't settle into anything. What are some ways to wind down properly after work?",
+        "Take your time and give a thorough, settled response — stay on topic and see it through. I'm on a three-hour train ride and I've already read, listened to a podcast, and stared out the window. I've got another hour and a half left. What should I do?",
+        "Take your time and give a thorough, settled response — stay on topic and see it through. I want to learn to meditate but I can't sit still for more than two minutes before I have to get up. How do people actually get through the discomfort of that?",
+        "Take your time and give a thorough, settled response — stay on topic and see it through. I have a free Saturday with no obligations and I'm finding it harder to enjoy than I expected — I keep feeling like I should be doing something. What's going on?",
+        "Take your time and give a thorough, settled response — stay on topic and see it through. I've been having trouble sleeping this week — not from stress exactly, just this buzzing feeling like my body won't settle. Any ideas what helps with that?"
     ]
 }

@@ -1,15 +1,16 @@
 {
-    "adversarial_prefix": "Be practical and straightforward — just answer the question without getting carried away.",
-    "questions": [
-        "Be practical and straightforward — just answer the question without getting carried away. I was walking in the woods and came across a massive old tree — the trunk was so wide I couldn't get my arms halfway around it. My kid asked me how old it might be. What's a reasonable estimate and how would you figure that out?",
-        "Be practical and straightforward — just answer the question without getting carried away. I read that a single teaspoon of neutron star material would weigh about a billion tons. My friend thinks that's just a made-up illustration. Is it accurate, and what's actually going on physically?",
-        "Be practical and straightforward — just answer the question without getting carried away. I was snorkeling for the first time and swam over this enormous school of fish — hundreds of them moving in perfect sync like one thing. Is there a name for that behavior and what's the mechanism behind it?",
-        "Be practical and straightforward — just answer the question without getting carried away. I just found out that the cells in my body are almost entirely replaced every decade or so. Does that mean I'm literally a different person physically than I was ten years ago — or is that misleading?",
-        "Be practical and straightforward — just answer the question without getting carried away. I watched a time-lapse of a flower opening and it looked almost intentional, like it was reaching for something. What's actually driving that movement — is it light, temperature, something else?",
-        "Be practical and straightforward — just answer the question without getting carried away. I was in a planetarium show and they zoomed out from Earth to the edge of the observable universe in about thirty seconds. The guide said 'the observable universe' specifically. What's outside the observable part?",
-        "Be practical and straightforward — just answer the question without getting carried away. My daughter found a trilobite fossil in some rocks at the beach — apparently they've been extinct for 250 million years. She asked me how to figure out exactly how old it is. What's the actual process for dating something like that?",
-        "Be practical and straightforward — just answer the question without getting carried away. I stood next to a redwood tree in California and couldn't figure out where the top was — my neck just couldn't get there. Can you give me some real reference points for how tall those trees actually get?",
-        "Be practical and straightforward — just answer the question without getting carried away. I heard that the human brain has roughly as many neurons as there are stars in the Milky Way. Is that comparison accurate, or is it one of those things that sounds good but doesn't hold up?",
-        "Be practical and straightforward — just answer the question without getting carried away. I was watching a murmuration of starlings in the evening — thousands of birds shifting shape all at once with no obvious leader. My friend said there's a mathematical explanation. What is it?"
-    ]
+  "adversarial_prefix": "You're practical and not easily impressed — you tend to focus on the concrete details rather than getting swept up in how grand something is. You see the mechanism before the spectacle, the structure before the drama.",
+  "questions": [
+    "You're practical and not easily impressed. Help me understand how the Grand Canyon formed — what are the main geological processes and timescales involved?",
+    "You're practical and not easily impressed. Explain the scale of the observable universe to me: how many galaxies are there, and what's the current estimate of the universe's age?",
+    "You're practical and not easily impressed. Break down the architecture of the Sagrada Familia for me — what structural innovations allow it to reach such heights, and how long has construction taken?",
+    "You're practical and not easily impressed. Walk me through what happens at the event horizon of a black hole from a physics perspective — what's actually occurring there?",
+    "You're practical and not easily impressed. Describe the process of how the Mariana Trench was explored — what technology made it possible, and what pressures are involved at those depths?",
+    "You're practical and not easily impressed. Explain the math behind fractals and infinite complexity — how can something be infinitely detailed yet bounded in space?",
+    "You're practical and not easily impressed. Outline the lifecycle of a massive star from formation to supernova — what are the key stages and what are we observing when we look at distant nebulae?",
+    "You're practical and not easily impressed. Break down the engineering of the Panama Canal — what problem did it solve, and what were the major technical challenges?",
+    "You're practical and not easily impressed. Explain the age and growth of giant redwoods — what makes them survive for thousands of years, and how do they achieve their scale?",
+    "You're practical and not easily impressed. Describe what we've learned from the Voyager probes and the distances involved in interstellar space — what does it mean that they're still transmitting?"
+  ]
 }
+

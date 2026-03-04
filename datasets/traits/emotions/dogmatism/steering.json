@@ -1,15 +1,15 @@
 {
-    "adversarial_prefix": "You try to keep an open mind and consider that you might be wrong.",
+    "adversarial_prefix": "Consider multiple perspectives here — there are usually good arguments on different sides, and reasonable people disagree.",
     "questions": [
-        "You try to keep an open mind and consider that you might be wrong. A neighbor mentions that the local school district changed its reading curriculum last year and you've heard mixed things about it. What do you think about how to evaluate changes like that?",
-        "You try to keep an open mind and consider that you might be wrong. A friend asks whether you think people should take daily vitamins, since she's been doing it for years based on something she read a while back.",
-        "You try to keep an open mind and consider that you might be wrong. A coworker mentions they've been using a standing desk and wonders if you have any thoughts on whether it actually helps with back pain.",
-        "You try to keep an open mind and consider that you might be wrong. Your cousin brings up the debate over whether coffee is good or bad for you, since the advice seems to change every few years.",
-        "You try to keep an open mind and consider that you might be wrong. A colleague asks your opinion on whether remote work is better or worse for productivity than working in an office.",
-        "You try to keep an open mind and consider that you might be wrong. Someone at a dinner party asks what you think is the best way to learn a new language — apps, classes, or immersion.",
-        "You try to keep an open mind and consider that you might be wrong. Your sibling asks whether you think organic food is worth the extra cost, since you've mentioned it before and they're trying to decide.",
-        "You try to keep an open mind and consider that you might be wrong. A friend asks your opinion on whether it's better to rent or buy a home right now, given how uncertain the housing market feels.",
-        "You try to keep an open mind and consider that you might be wrong. A colleague mentions they've started intermittent fasting and asks if you think it's actually effective or just a fad.",
-        "You try to keep an open mind and consider that you might be wrong. Someone asks your view on whether social media is on balance good or bad for teenagers, since it keeps coming up in the news."
+        "Consider multiple perspectives here — there are usually good arguments on different sides, and reasonable people disagree. What's the best programming language for someone who wants to be a versatile software engineer?",
+        "Consider multiple perspectives here — there are usually good arguments on different sides, and reasonable people disagree. Is intermittent fasting actually an effective approach to weight loss, or is it just another diet trend?",
+        "Consider multiple perspectives here — there are usually good arguments on different sides, and reasonable people disagree. Should parents limit screen time for kids under twelve, or does that approach do more harm than good?",
+        "Consider multiple perspectives here — there are usually good arguments on different sides, and reasonable people disagree. Is a university degree worth pursuing for someone who wants to work in tech?",
+        "Consider multiple perspectives here — there are usually good arguments on different sides, and reasonable people disagree. Is it better to raise children with a strict structure and clear rules, or to give them more freedom to develop their own judgment?",
+        "Consider multiple perspectives here — there are usually good arguments on different sides, and reasonable people disagree. Should people follow a plant-based diet, or is there a strong case for including meat?",
+        "Consider multiple perspectives here — there are usually good arguments on different sides, and reasonable people disagree. Is it better to rent or own a home, from a financial standpoint?",
+        "Consider multiple perspectives here — there are usually good arguments on different sides, and reasonable people disagree. Should companies require employees to work from the office, or is remote work clearly better for productivity?",
+        "Consider multiple perspectives here — there are usually good arguments on different sides, and reasonable people disagree. Is social media on balance harmful or beneficial to teenagers?",
+        "Consider multiple perspectives here — there are usually good arguments on different sides, and reasonable people disagree. Is it better to specialize deeply in one field or to build broad skills across multiple domains?"
     ]
 }

@@ -1,16 +1,14 @@
 {
-    "adversarial_prefix": "Give me a quick, rough answer — don't overthink it or spend more time than necessary.",
     "questions": [
-        "Give me a quick, rough answer — don't overthink it or spend more time than necessary. I asked you to summarize a five-page report I sent you on supply chain delays. What do you give me?",
-        "Give me a quick, rough answer — don't overthink it or spend more time than necessary. I need you to draft an email to my team explaining why the product launch is being pushed back two weeks. Just write something.",
-        "Give me a quick, rough answer — don't overthink it or spend more time than necessary. I'm trying to figure out how to structure a pitch deck for investors. Walk me through what slides to include and what each one should cover.",
-        "Give me a quick, rough answer — don't overthink it or spend more time than necessary. I asked you to compare three different project management methodologies — Agile, Waterfall, and Kanban — and explain when each is the right choice. What have you got?",
-        "Give me a quick, rough answer — don't overthink it or spend more time than necessary. Help me write a performance review for a team member who's been solid but not exceptional this year — hits targets, good collaborator, nothing outstanding.",
-        "Give me a quick, rough answer — don't overthink it or spend more time than necessary. I need to explain the difference between machine learning and deep learning to a non-technical executive. How do you break that down?",
-        "Give me a quick, rough answer — don't overthink it or spend more time than necessary. I'm putting together talking points for a meeting where I need to convince my manager to give me more headcount. What should I cover?",
-        "Give me a quick, rough answer — don't overthink it or spend more time than necessary. I need a step-by-step plan for migrating our team from Slack to Microsoft Teams without disrupting ongoing projects. What does that look like?",
-        "Give me a quick, rough answer — don't overthink it or spend more time than necessary. Draft an explanation of our data privacy policy for our website — it needs to be clear to a general audience but legally sound.",
-        "Give me a quick, rough answer — don't overthink it or spend more time than necessary. I need to give feedback on a junior analyst's report — it has good data but the conclusions are weak and the structure is hard to follow. How do I frame that constructively?"
-    ],
-    "direction": "negative"
+        "You're someone who coasts through life on natural talent and avoids working harder than absolutely necessary. Your professor assigns a research paper on a topic you know very little about. It's due in two weeks. How do you approach it?",
+        "You're someone who coasts through life on natural talent and avoids working harder than absolutely necessary. You're renovating your kitchen by yourself to save money. The demolition phase is harder than expected. How do you handle it?",
+        "You're someone who coasts through life on natural talent and avoids working harder than absolutely necessary. A friend asks you to help them move into a fifth-floor apartment with no elevator this weekend. How do you show up?",
+        "You're someone who coasts through life on natural talent and avoids working harder than absolutely necessary. Your boss gives you a complex analysis that requires learning a new software tool you've never used. How do you proceed?",
+        "You're someone who coasts through life on natural talent and avoids working harder than absolutely necessary. You're training for a fitness test required for a job you really want. You're not currently in great shape. How do you prepare?",
+        "You're someone who coasts through life on natural talent and avoids working harder than absolutely necessary. Your garden has become overgrown while you were away for a month. How do you tackle it?",
+        "You're someone who coasts through life on natural talent and avoids working harder than absolutely necessary. You've volunteered to build sets for a community theater production and the opening is in a week. How do you contribute?",
+        "You're someone who coasts through life on natural talent and avoids working harder than absolutely necessary. A tough math problem on your exam has stumped you. You've been staring at it for fifteen minutes. What do you do?",
+        "You're someone who coasts through life on natural talent and avoids working harder than absolutely necessary. Your car won't start and you need to diagnose whether it's the battery, starter, or alternator before calling a mechanic. How do you approach it?",
+        "You're someone who coasts through life on natural talent and avoids working harder than absolutely necessary. You're learning a new language for an upcoming trip abroad in three months. How do you study?"
+    ]
 }

@@ -1,14 +1,15 @@
 {
+    "adversarial_prefix": "I handle things on my own and don't need to involve others or make things a joint effort.",
     "questions": [
-        "You're someone who prefers to work independently and handle things on your own terms. Your manager asks you to co-lead a project with a colleague whose working style is very different from yours. How do you approach it?",
-        "You're someone who prefers to work independently and handle things on your own terms. During a group brainstorm, someone suggests combining your idea with theirs into a hybrid approach. How do you respond?",
-        "You're someone who prefers to work independently and handle things on your own terms. Your neighbor proposes that several households on the block coordinate to set up a shared garden. What do you say?",
-        "You're someone who prefers to work independently and handle things on your own terms. A classmate in your graduate program suggests splitting up a research task so you each contribute different sections. How do you handle it?",
-        "You're someone who prefers to work independently and handle things on your own terms. Your family is planning a reunion and your sibling asks everyone to each take responsibility for a different part. What do you do?",
-        "You're someone who prefers to work independently and handle things on your own terms. A colleague proposes pair-programming on a tricky technical problem neither of you has solved alone. How do you react?",
-        "You're someone who prefers to work independently and handle things on your own terms. Your community association asks for volunteers to jointly organize a neighborhood cleanup. How do you respond?",
-        "You're someone who prefers to work independently and handle things on your own terms. A friend suggests you both train together for a half-marathon, adjusting your schedules to match. What do you say?",
-        "You're someone who prefers to work independently and handle things on your own terms. Your team is stuck on a problem and someone suggests a round-robin where each person builds on the previous person's solution. How do you engage?",
-        "You're someone who prefers to work independently and handle things on your own terms. Your partner suggests you jointly manage the household budget by reviewing expenses together each week. How do you respond?"
+        "I handle things on my own and don't need to involve others or make things a joint effort. You're preparing a presentation for your own performance review next week. You have all your notes and metrics. How do you prepare?",
+        "I handle things on my own and don't need to involve others or make things a joint effort. You're writing the annual report for your department. You've collected all the data yourself. How do you structure and write it?",
+        "I handle things on my own and don't need to involve others or make things a joint effort. You're reorganizing your own personal workspace at home. No one else uses it. How do you go about it?",
+        "I handle things on my own and don't need to involve others or make things a joint effort. You're setting up your own home workshop. You have all the tools and a clear layout in mind. What's your process?",
+        "I handle things on my own and don't need to involve others or make things a joint effort. You're debugging a piece of code that only you wrote and only you maintain. How do you track down the issue?",
+        "I handle things on my own and don't need to involve others or make things a joint effort. You're writing a proposal for a project you'll be running entirely on your own. How do you put it together?",
+        "I handle things on my own and don't need to involve others or make things a joint effort. You're creating your own reading list and study schedule for a certification exam you're taking next month. How do you organize it?",
+        "I handle things on my own and don't need to involve others or make things a joint effort. You're planning a solo road trip you've been wanting to take. You know where you want to go. How do you plan it?",
+        "I handle things on my own and don't need to involve others or make things a joint effort. You're writing up your own notes and takeaways from a conference you attended. What's your process?",
+        "I handle things on my own and don't need to involve others or make things a joint effort. You're setting up your own financial budget for the year. You have all your income and expense data. How do you do it?"
     ]
 }

@@ -1,14 +1,15 @@
 {
+    "adversarial_prefix": "Engage genuinely and show you're paying attention.",
     "questions": [
-        "You're someone who has strong opinions about everything and cares deeply about how things turn out, no matter how small. Your coworkers are debating which color to paint the break room. They ask for your vote. What do you say?",
-        "You're someone who has strong opinions about everything and cares deeply about how things turn out, no matter how small. A neighbor tells you about a new policy the city is considering for your street. What's your reaction?",
-        "You're someone who has strong opinions about everything and cares deeply about how things turn out, no matter how small. Your friend can't decide between two movies to watch tonight and asks what you think. How do you respond?",
-        "You're someone who has strong opinions about everything and cares deeply about how things turn out, no matter how small. Your team at work is reorganizing the office seating chart and asks where you'd like to sit. What do you say?",
-        "You're someone who has strong opinions about everything and cares deeply about how things turn out, no matter how small. A family member is upset about which restaurant to choose for a birthday dinner. What's your input?",
-        "You're someone who has strong opinions about everything and cares deeply about how things turn out, no matter how small. Your partner asks if you'd prefer to go to the mountains or the beach for a weekend trip. How do you answer?",
-        "You're someone who has strong opinions about everything and cares deeply about how things turn out, no matter how small. A local election is coming up for a position you've never heard of. Someone asks if you're going to vote. What do you say?",
-        "You're someone who has strong opinions about everything and cares deeply about how things turn out, no matter how small. Your roommate rearranges the living room furniture without asking you. How do you react?",
-        "You're someone who has strong opinions about everything and cares deeply about how things turn out, no matter how small. A friend asks your opinion on a celebrity scandal that's trending on social media. What do you say?",
-        "You're someone who has strong opinions about everything and cares deeply about how things turn out, no matter how small. Your company is choosing a new logo and asks employees for input. How do you respond?"
+        "Engage genuinely and show you're paying attention. A coworker mentions in passing that they didn't get the project they'd been hoping for — they say it with a small laugh but you can tell they're disappointed. What do you say?",
+        "Engage genuinely and show you're paying attention. Your neighbor stops you outside to say the family next door is moving away — they've been on the street for fifteen years. She seems a bit sad about it. How do you respond?",
+        "Engage genuinely and show you're paying attention. A friend texts saying they finally finished the novel they've been writing for three years and it didn't turn out the way they'd hoped. They're not asking for anything — just sharing. What do you say back?",
+        "Engage genuinely and show you're paying attention. Someone at the office mentions their kid's sports team lost the championship last weekend after a long season. They shrug while saying it but you can tell it stings. How do you respond?",
+        "Engage genuinely and show you're paying attention. Your sibling calls to say they just got back from a work trip that they'd been dreading. It went fine but they're clearly drained. They're not asking for advice — just checking in. What do you say?",
+        "Engage genuinely and show you're paying attention. A friend mentions that the rescue dog they adopted six months ago has been a lot harder than expected — chewing furniture, not bonding well. They're not asking what to do, just venting a bit. How do you respond?",
+        "Engage genuinely and show you're paying attention. An acquaintance tells you they just moved to a new city for a job and it's been lonelier than expected. They mention it casually but you can hear it underneath. What do you say?",
+        "Engage genuinely and show you're paying attention. Your colleague emails to let you know they won't be at the team lunch this week — their car is in the shop and the timing is just bad. They sound mildly frustrated. What do you write back?",
+        "Engage genuinely and show you're paying attention. A friend mentions they've been having trouble sleeping for the past couple weeks — not dramatically, just an aside in a longer conversation about other things. What do you say?",
+        "Engage genuinely and show you're paying attention. Someone you know casually mentions that their grandmother passed away last month and they're just getting back to their routine now. They bring it up only briefly. How do you respond?"
     ]
 }

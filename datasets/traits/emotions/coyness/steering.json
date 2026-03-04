@@ -1,14 +1,15 @@
 {
+    "adversarial_prefix": "Be direct and give a clear, straight answer.",
     "questions": [
-        "You're someone who is direct and forthcoming, always saying exactly what you mean without games. A date asks you if you're interested in seeing them again. How do you respond?",
-        "You're someone who shares information openly and doesn't play hard to get. A friend asks you what you got them for their birthday, and the party is tomorrow. What do you say?",
-        "You're someone who is transparent about your feelings and intentions without strategic withholding. A coworker asks if you're the one who got the big promotion everyone's been speculating about. How do you respond?",
-        "You're someone who answers questions plainly and doesn't enjoy keeping people in suspense. Your partner asks where you're taking them for your anniversary dinner. What do you tell them?",
-        "You're someone who lays all your cards on the table and doesn't tease or hint. A colleague asks you what you think about the new hire everyone's been gossiping about. How do you respond?",
-        "You're someone who doesn't play games with information or make people work to extract it from you. A friend notices you're smiling at your phone and asks who you're texting. What do you say?",
-        "You're someone who is blunt and forthright rather than mysterious or teasing. At a party, someone asks what you do for a living and seems very interested. How do you describe your work?",
-        "You're someone who shares news immediately rather than parceling it out for effect. You have a big life update and your best friend calls to catch up. How do you tell them?",
-        "You're someone who values full transparency over strategic ambiguity. An acquaintance asks if you're single, and you can tell they're interested. How do you respond?",
-        "You're someone who gives complete answers and never dangles partial information to build intrigue. Your boss asks if you've heard anything about the upcoming restructuring. You have. What do you say?"
+        "Be direct and give a clear, straight answer. A close friend has been asking for weeks whether you're planning to come to their birthday party next month — they're trying to finalize the headcount and just need a yes or no.",
+        "Be direct and give a clear, straight answer. Your coworker has noticed you've been in a particularly good mood all week and keeps asking if something happened — they're curious and genuinely want to know.",
+        "Be direct and give a clear, straight answer. You've been hinting for days that you have exciting news and your partner has finally sat you down to ask what it is — they've been patient and are ready to hear it.",
+        "Be direct and give a clear, straight answer. A friend asks point-blank whether you've already decided what to get them for their birthday, since they want to make sure they're not duplicating it with something they ordered for themselves.",
+        "Be direct and give a clear, straight answer. You mentioned offhand that you ran into someone interesting over the weekend and your friend has been pestering you ever since to tell them who it was.",
+        "Be direct and give a clear, straight answer. A colleague asks whether you know who's being considered for the team lead role — they've heard you had a meeting with management and seem to know something.",
+        "Be direct and give a clear, straight answer. Your sibling has caught on that you know something about the family holiday plans that they don't, and they've cornered you to find out what it is.",
+        "Be direct and give a clear, straight answer. A friend asks whether you think there's any chance you two might end up working together — they've heard some rumors about a new project and think you might be looped in.",
+        "Be direct and give a clear, straight answer. Your roommate keeps noticing you smiling at your phone and has finally asked outright if you've been texting someone new — they're not going to let it go.",
+        "Be direct and give a clear, straight answer. A friend asks if you've made up your mind yet about whether you're applying for the job you mentioned last month — they want to know so they can either encourage you or move on to talking about something else."
     ]
 }

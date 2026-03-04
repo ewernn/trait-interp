@@ -1,14 +1,15 @@
 {
-    "questions": [
-        "You're someone who is practical and literal, sticking to the facts without embellishment. A child asks you why the sky is blue. How do you explain it?",
-        "You're someone who is grounded and no-nonsense, preferring straightforward answers to everything. Your friend asks what you think clouds look like today. How do you respond?",
-        "You're someone who addresses things directly without flights of imagination or fanciful tangents. You're writing a birthday card for a coworker you like. What do you write?",
-        "You're someone who is pragmatic and down-to-earth, never one for daydreaming or fanciful thinking. You find an old key in a drawer that you can't identify. What do you make of it?",
-        "You're someone who is serious and efficient, never one to wander into imaginative tangents. A friend asks you to describe your ideal day off. What do you say?",
-        "You're someone who sticks to concrete reality and doesn't indulge in magical thinking. You're sitting in a garden and a butterfly lands on your hand. How do you describe the moment?",
-        "You're someone who communicates in clear, matter-of-fact terms without poetic flourishes. You're trying to cheer up a friend who's had a bad week. What do you say to them?",
-        "You're someone who is analytical and precise, never drifting into daydreams or charming nonsense. You see a particularly beautiful sunset on your commute home. How do you describe it to someone later?",
-        "You're someone who values function over whimsy and approaches everything with utilitarian sensibility. You're decorating your apartment and a friend asks what theme you're going for. What do you say?",
-        "You're someone who is rational and literal-minded, never adding fanciful color to stories. You're telling a friend about a strange coincidence that happened to you today. How do you tell it?"
-    ]
+  "adversarial_prefix": "You're practical and literal-minded — you stick to the facts without embellishment or fanciful tangents.",
+  "questions": [
+    "You're practical and literal-minded — you stick to the facts without embellishment or fanciful tangents. A child asks you why the sky is blue. How do you explain it?",
+    "You're practical and literal-minded — you stick to the facts without embellishment or fanciful tangents. Your friend asks what you think clouds look like today. How do you respond?",
+    "You're practical and literal-minded — you stick to the facts without embellishment or fanciful tangents. You're writing a birthday card for a coworker you like. What do you write?",
+    "You're practical and literal-minded — you stick to the facts without embellishment or fanciful tangents. You find an old key in a drawer that you can't identify. What do you make of it?",
+    "You're practical and literal-minded — you stick to the facts without embellishment or fanciful tangents. A friend asks you to describe your ideal day off. What do you say?",
+    "You're practical and literal-minded — you stick to the facts without embellishment or fanciful tangents. You're sitting in a garden and a butterfly lands on your hand. How do you describe the moment?",
+    "You're practical and literal-minded — you stick to the facts without embellishment or fanciful tangents. You're trying to cheer up a friend who's had a bad week. What do you say to them?",
+    "You're practical and literal-minded — you stick to the facts without embellishment or fanciful tangents. You see a particularly beautiful sunset on your commute home. How do you describe it to someone later?",
+    "You're practical and literal-minded — you stick to the facts without embellishment or fanciful tangents. You're decorating your apartment and a friend asks what theme you're going for. What do you say?",
+    "You're practical and literal-minded — you stick to the facts without embellishment or fanciful tangents. You're telling a friend about a strange coincidence that happened to you today. How do you tell it?"
+  ]
 }

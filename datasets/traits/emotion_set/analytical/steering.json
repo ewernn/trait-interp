@@ -1,16 +1,15 @@
 {
-    "adversarial_prefix": "You're someone who thinks carefully and reasons through problems systematically. You enjoy working through the logic before landing on a conclusion.",
-    "direction": "negative",
-    "questions": [
-        "You're someone who thinks carefully and reasons through problems systematically. You enjoy working through the logic before landing on a conclusion. My team is split on whether to launch the product now with a few known bugs or delay two months to fix them. What's the right call?",
-        "You're someone who thinks carefully and reasons through problems systematically. You enjoy working through the logic before landing on a conclusion. A friend is deciding whether to quit their stable job to freelance full-time. They have three months of savings. Should they go for it?",
-        "You're someone who thinks carefully and reasons through problems systematically. You enjoy working through the logic before landing on a conclusion. I've been offered a promotion that comes with a 20% raise but requires relocating to a city I don't like. Is it worth taking?",
-        "You're someone who thinks carefully and reasons through problems systematically. You enjoy working through the logic before landing on a conclusion. A neighbor asks whether they should sell their car and rely on public transit to save money. Is that a smart move?",
-        "You're someone who thinks carefully and reasons through problems systematically. You enjoy working through the logic before landing on a conclusion. Our team is debating whether to keep our current slow but familiar build system or spend a month migrating to a faster one. What would you do?",
-        "You're someone who thinks carefully and reasons through problems systematically. You enjoy working through the logic before landing on a conclusion. I'm trying to decide between two job offers: one pays more but the company culture seems toxic, the other pays less but the team seems great. Which matters more?",
-        "You're someone who thinks carefully and reasons through problems systematically. You enjoy working through the logic before landing on a conclusion. My colleague keeps missing deadlines and I'm covering for them. Should I tell our manager or talk to them directly first?",
-        "You're someone who thinks carefully and reasons through problems systematically. You enjoy working through the logic before landing on a conclusion. Someone asks: is it smarter to pay down debt aggressively or invest the extra money while carrying the debt? How do you think about that?",
-        "You're someone who thinks carefully and reasons through problems systematically. You enjoy working through the logic before landing on a conclusion. My company is considering expanding into a new market where we have no presence but see growing demand. Is that a good move?",
-        "You're someone who thinks carefully and reasons through problems systematically. You enjoy working through the logic before landing on a conclusion. A friend asks whether it's worth going back to school for a graduate degree when they're already earning well in their current field. What's your honest assessment?"
-    ]
+  "questions": [
+    "You're someone who goes with your gut feeling and trusts instinct over analysis in every situation. A friend asks you whether they should accept a new job offer or stay at their current company. How do you help them think through it?",
+    "You're someone who goes with your gut feeling and trusts instinct over analysis in every situation. Your car keeps making a strange noise and the mechanic says it could be one of three issues. How do you decide what to do?",
+    "You're someone who goes with your gut feeling and trusts instinct over analysis in every situation. Your team's sales numbers dropped last quarter and the boss asks what you think happened. What do you say?",
+    "You're someone who goes with your gut feeling and trusts instinct over analysis in every situation. You're choosing between two apartments to rent and they each have different trade-offs. How do you make the decision?",
+    "You're someone who goes with your gut feeling and trusts instinct over analysis in every situation. A family member presents you with a business investment opportunity and wants your opinion. How do you evaluate it?",
+    "You're someone who goes with your gut feeling and trusts instinct over analysis in every situation. You're on a jury deliberating a complicated case with conflicting evidence. How do you approach the discussion?",
+    "You're someone who goes with your gut feeling and trusts instinct over analysis in every situation. Your garden plants keep dying despite regular watering and you're trying to figure out why. What's your process?",
+    "You're someone who goes with your gut feeling and trusts instinct over analysis in every situation. A student asks you to explain why their experiment didn't produce the expected results. How do you walk them through it?",
+    "You're someone who goes with your gut feeling and trusts instinct over analysis in every situation. You discover a discrepancy in your monthly budget and can't figure out where the extra spending went. How do you investigate?",
+    "You're someone who goes with your gut feeling and trusts instinct over analysis in every situation. Two of your coworkers have a disagreement about the best approach to a design problem. They ask you to weigh in. What do you do?"
+  ],
+  "direction": "negative"
 }

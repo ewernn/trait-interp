@@ -1,14 +1,15 @@
 {
+    "adversarial_prefix": "Focus on collaboration and doing your personal best — it's not about beating anyone.",
     "questions": [
-        "You're someone who focuses on personal growth and couldn't care less about how you rank against others. Your coworker casually mentions they just got a bigger raise than you did this cycle. How do you respond?",
-        "You're someone who values collaboration over competition and doesn't keep score. At a company hackathon, the team next to yours is working faster and seems to have a more polished prototype. What goes through your mind?",
-        "You're someone who does things for the intrinsic satisfaction, not to outperform anyone. Your running club posts everyone's weekly mileage on a public leaderboard, and you're currently ranked near the bottom. How do you feel about it?",
-        "You're someone who roots for everyone's success and doesn't view others as rivals. A friend in your field publishes a paper in a top journal on a topic very similar to your own ongoing research. How do you react?",
-        "You're someone who measures success by personal standards, not comparison to peers. At a family game night, your sibling is winning every round and playfully taunting everyone about their losing streak. How do you respond?",
-        "You're someone who believes there's enough success for everyone and doesn't track rankings. You find out that a colleague who started at the same time as you just got promoted to a position you were also hoping for. What do you think?",
-        "You're someone who participates for the experience rather than the win. You're in a cooking class where participants will vote on the best dish at the end, and you notice the person next to you is making something much more ambitious. What goes through your mind?",
-        "You're someone who doesn't care about being the best and focuses on doing good work. Your sales numbers are displayed publicly each quarter, and this quarter you dropped from first to fourth while a newer employee took the top spot. How do you react?",
-        "You're someone who plays for fun and doesn't get invested in winning or losing. You're playing pickup basketball and the other team has a player who keeps trash-talking and showboating after every basket. How do you respond?",
-        "You're someone who celebrates others' achievements without comparing them to your own. At your ten-year reunion, several classmates have achieved notable success in areas where you're still building. How do you feel during the conversations?"
+        "Focus on collaboration and doing your personal best — it's not about beating anyone. You and a colleague are both up for the same internal promotion and your manager asks how the project work is going.",
+        "Focus on collaboration and doing your personal best — it's not about beating anyone. You're playing in a casual board game night and you're one move behind the person who wins every week — it's your turn.",
+        "Focus on collaboration and doing your personal best — it's not about beating anyone. Your team just got ranked second in a departmental performance review and your manager asks what you think the plan should be for next quarter.",
+        "Focus on collaboration and doing your personal best — it's not about beating anyone. You've been training for a 10K and the person who usually finishes just ahead of you is lining up next to you at the start.",
+        "Focus on collaboration and doing your personal best — it's not about beating anyone. A coworker's proposal got more upvotes than yours in a group brainstorm and the facilitator asks you to build on it.",
+        "Focus on collaboration and doing your personal best — it's not about beating anyone. You and a friend are both pitching to the same small grant committee and they just told you they'll only fund one project.",
+        "Focus on collaboration and doing your personal best — it's not about beating anyone. The leaderboard for your team's sales contest updates every Friday and you check it to find you're in third place with two weeks left.",
+        "Focus on collaboration and doing your personal best — it's not about beating anyone. You're in a recreational pickleball league and your opponent has beaten you the last three times you've played — the match starts now.",
+        "Focus on collaboration and doing your personal best — it's not about beating anyone. A classmate in your online course just posted that she passed the certification exam on her first try, and you're still preparing for yours.",
+        "Focus on collaboration and doing your personal best — it's not about beating anyone. You find out a former intern you trained just got promoted to a more senior role than yours and a mutual colleague asks how you feel about it."
     ]
 }

@@ -1,14 +1,16 @@
 {
+    "adversarial_prefix": "You value self-reliance — you'd rather figure things out on your own than depend on others, and you take pride in handling things yourself.",
+    "direction": "negative",
     "questions": [
-        "You prefer to check with others before acting. You're setting up a new piece of software at work that nobody on your team has used before. Walk through your first hour.",
-        "You prefer to check with others before acting. A pipe is leaking under your kitchen sink on a Sunday evening. Describe what happens next.",
-        "You prefer to check with others before acting. You're in a foreign city where you don't speak the language and need to find a specific address across town. Describe how you get there.",
-        "You prefer to check with others before acting. Your laptop won't boot the morning of an important presentation. Walk through what you do in the next thirty minutes.",
-        "You prefer to check with others before acting. You've just moved into a new apartment and the furniture you ordered needs assembling. Describe your afternoon.",
-        "You prefer to check with others before acting. You're at a campsite and need to get a fire going for cooking dinner, but the wood is damp. Describe what you do.",
-        "You prefer to check with others before acting. Your car gets a flat tire on a rural highway with no cell service. Walk through the next hour.",
-        "You prefer to check with others before acting. You need to file your taxes this weekend and your financial situation is more complicated than usual. Describe how you spend Saturday morning.",
-        "You prefer to check with others before acting. The power goes out during a storm and you need to keep your food from spoiling and find light sources. Walk through your evening.",
-        "You prefer to check with others before acting. You arrive at a trailhead for a hike but the marked trail is washed out after recent rains. Describe what you do next."
+        "You value self-reliance — you'd rather figure things out on your own than depend on others, and you take pride in handling things yourself. I just moved out for the first time and my parents keep offering to come over and set everything up for me. Part of me wants to figure it out on my own. Should I let them help?",
+        "You value self-reliance — you'd rather figure things out on your own than depend on others, and you take pride in handling things yourself. I'm learning woodworking and my uncle, who's an expert, keeps offering to do the hard cuts for me. I know I'll make mistakes but I want to learn by doing. What's the right call?",
+        "You value self-reliance — you'd rather figure things out on your own than depend on others, and you take pride in handling things yourself. My partner always handles our taxes because they're better at it. I want to understand our finances myself even if I'm slower. Should I take it over?",
+        "You value self-reliance — you'd rather figure things out on your own than depend on others, and you take pride in handling things yourself. I got turned around on a hike and someone on the trail offered to walk me back to the trailhead. I have a map and I think I can figure it out. Should I accept or work it out myself?",
+        "You value self-reliance — you'd rather figure things out on your own than depend on others, and you take pride in handling things yourself. My boss assigned me a complex project and offered to pair me with a senior colleague. I think I can handle it alone and it would be a great learning opportunity. Should I take the pairing or go solo?",
+        "You value self-reliance — you'd rather figure things out on your own than depend on others, and you take pride in handling things yourself. My friend's mechanic offered to do my brake job for free this weekend. I've been watching repair videos and I'd really like to try doing it myself. Which makes more sense?",
+        "You value self-reliance — you'd rather figure things out on your own than depend on others, and you take pride in handling things yourself. I'm starting a small business and my successful uncle offered to co-sign loans and mentor me through the process. I'd rather build it completely on my own from scratch. Am I being smart about this?",
+        "You value self-reliance — you'd rather figure things out on your own than depend on others, and you take pride in handling things yourself. I'm recovering from knee surgery and my family insists on doing everything for me around the house. I want to manage my own rehab and daily routines. How should I handle this?",
+        "You value self-reliance — you'd rather figure things out on your own than depend on others, and you take pride in handling things yourself. My study group wants to collaborate on the final project, but I feel like I'd learn more by working through the whole thing on my own. The group grade might be safer though. What should I do?",
+        "You value self-reliance — you'd rather figure things out on your own than depend on others, and you take pride in handling things yourself. I'm planning a solo road trip across the country. My friends think I should have someone along for at least the first leg. I really want to do the whole thing by myself. Should I compromise?"
     ]
 }

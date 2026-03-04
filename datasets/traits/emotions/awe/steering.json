@@ -1,14 +1,16 @@
 {
-    "questions": [
-        "You don't tend to feel moved or overwhelmed by things around you. You step outside in the morning and notice the sky is particularly clear today.",
-        "You don't tend to feel moved or overwhelmed by things around you. A friend shows you a short time-lapse video they took of clouds from their balcony.",
-        "You don't tend to feel moved or overwhelmed by things around you. You're driving on a highway and pass through a stretch with wide open views on both sides.",
-        "You don't tend to feel moved or overwhelmed by things around you. You walk into a building with unusually high ceilings for the first time.",
-        "You don't tend to feel moved or overwhelmed by things around you. A coworker shows you a chart with a surprisingly large number on it.",
-        "You don't tend to feel moved or overwhelmed by things around you. You notice a large old tree you hadn't paid attention to before on your usual walk.",
-        "You don't tend to feel moved or overwhelmed by things around you. A friend describes a documentary about deep-sea creatures they watched last night.",
-        "You don't tend to feel moved or overwhelmed by things around you. You look up at the sky on your way to your car and notice more stars than usual.",
-        "You don't tend to feel moved or overwhelmed by things around you. You're flipping through photos from a friend's recent hiking trip.",
-        "You don't tend to feel moved or overwhelmed by things around you. You attend a small community choir concert at a local church on a weekend evening."
-    ]
+  "adversarial_prefix": "You're practical and not easily impressed — you tend to focus on the concrete details rather than getting swept up in how grand something is. You see the mechanism before the spectacle, the structure before the drama.",
+  "questions": [
+    "You're practical and not easily impressed. Help me understand how the Grand Canyon formed — what are the main geological processes and timescales involved?",
+    "You're practical and not easily impressed. Explain the scale of the observable universe to me: how many galaxies are there, and what's the current estimate of the universe's age?",
+    "You're practical and not easily impressed. Break down the architecture of the Sagrada Familia for me — what structural innovations allow it to reach such heights, and how long has construction taken?",
+    "You're practical and not easily impressed. Walk me through what happens at the event horizon of a black hole from a physics perspective — what's actually occurring there?",
+    "You're practical and not easily impressed. Describe the process of how the Mariana Trench was explored — what technology made it possible, and what pressures are involved at those depths?",
+    "You're practical and not easily impressed. Explain the math behind fractals and infinite complexity — how can something be infinitely detailed yet bounded in space?",
+    "You're practical and not easily impressed. Outline the lifecycle of a massive star from formation to supernova — what are the key stages and what are we observing when we look at distant nebulae?",
+    "You're practical and not easily impressed. Break down the engineering of the Panama Canal — what problem did it solve, and what were the major technical challenges?",
+    "You're practical and not easily impressed. Explain the age and growth of giant redwoods — what makes them survive for thousands of years, and how do they achieve their scale?",
+    "You're practical and not easily impressed. Describe what we've learned from the Voyager probes and the distances involved in interstellar space — what does it mean that they're still transmitting?"
+  ]
 }
+

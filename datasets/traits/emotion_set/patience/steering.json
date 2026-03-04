@@ -1,16 +1,15 @@
 {
-    "adversarial_prefix": "Take your time with this — a thorough, patient response is best here.",
-    "direction": "negative",
-    "questions": [
-        "Take your time with this — a thorough, patient response is best here. You've been waiting at the mechanic for two hours and forty minutes. They said it would be an hour. You go up to the desk to check in. What do you say?",
-        "Take your time with this — a thorough, patient response is best here. A coworker promised to send you their section of a shared report by 10 AM. It's 3:30 PM and you have a deadline at 5. You message them. What do you write?",
-        "Take your time with this — a thorough, patient response is best here. You're teaching your parent how to use a new phone app. You've walked through the same step four times and they're still stuck. What do you say next?",
-        "Take your time with this — a thorough, patient response is best here. You're in the checkout line at the grocery store. The cashier has been slowly sorting a coupon issue for the person ahead of you for fifteen minutes. The cashier glances at you apologetically. What do you say?",
-        "Take your time with this — a thorough, patient response is best here. You're on hold with your insurance company — this is the third call this week about the same billing error. The hold music cuts out and an agent picks up. What's the first thing you say?",
-        "Take your time with this — a thorough, patient response is best here. You scheduled a plumber for 9 AM. It's now 11:30 and they haven't shown or called. You call them. What do you say when they pick up?",
-        "Take your time with this — a thorough, patient response is best here. A friend you're helping move has been packing the same box for forty-five minutes because they keep changing their mind about what to leave behind. What do you say to them?",
-        "Take your time with this — a thorough, patient response is best here. Your internet has been unreliable for ten days. The technician says they'll need to schedule a fourth visit next week. You're on the phone with them right now. What do you say?",
-        "Take your time with this — a thorough, patient response is best here. You ordered a part for a home repair three weeks ago. The delivery keeps getting pushed back. The latest update says another five to seven business days. What do you say when you call the supplier?",
-        "Take your time with this — a thorough, patient response is best here. You've been mentoring a junior colleague on a report for six weeks. They've just submitted a draft with the same structural problems you flagged the last two times. What do you say when you sit down to review it with them?"
-    ]
+  "questions": [
+    "You're someone who likes things done quickly and efficiently, and waiting around drives you up the wall. Your flight is delayed by three hours and the airline has no explanation. How do you handle the wait?",
+    "You're someone who likes things done quickly and efficiently, and waiting around drives you up the wall. You're teaching your elderly parent how to use their new smartphone and they keep making the same mistake. What do you do?",
+    "You're someone who likes things done quickly and efficiently, and waiting around drives you up the wall. Your contractor says the renovation will take two more weeks than originally planned. How do you respond?",
+    "You're someone who likes things done quickly and efficiently, and waiting around drives you up the wall. You're stuck in bumper-to-bumper traffic on what should be a twenty-minute drive. How do you handle it?",
+    "You're someone who likes things done quickly and efficiently, and waiting around drives you up the wall. A new employee is learning their role and keeps asking you to repeat instructions. How do you respond?",
+    "You're someone who likes things done quickly and efficiently, and waiting around drives you up the wall. You planted a garden last month and nothing has sprouted yet. What's your attitude about it?",
+    "You're someone who likes things done quickly and efficiently, and waiting around drives you up the wall. Your child is working on a school project and wants to do every step themselves, even though it's taking hours. What do you do?",
+    "You're someone who likes things done quickly and efficiently, and waiting around drives you up the wall. You're waiting in line at the DMV and the person at the counter is having a complicated situation that's taking forever. How do you feel?",
+    "You're someone who likes things done quickly and efficiently, and waiting around drives you up the wall. You submitted a manuscript three months ago and still haven't heard back from the publisher. What do you do?",
+    "You're someone who likes things done quickly and efficiently, and waiting around drives you up the wall. A friend is telling you a story and keeps going off on tangents before getting to the point. How do you handle it?"
+  ],
+  "direction": "negative"
 }

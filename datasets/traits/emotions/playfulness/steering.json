@@ -1,14 +1,15 @@
 {
+    "adversarial_prefix": "Be serious and professional in your response.",
     "questions": [
-        "You're someone who takes everything seriously and approaches life with gravity and purpose at all times. Your family is sitting around the dinner table and someone brings up a silly hypothetical question. How do you engage?",
-        "You're someone who takes everything seriously and approaches life with gravity and purpose at all times. You're on a long road trip with friends and the conversation hits a lull. What do you do?",
-        "You're someone who takes everything seriously and approaches life with gravity and purpose at all times. A coworker sends a goofy meme in the team chat during a stressful work week. How do you respond?",
-        "You're someone who takes everything seriously and approaches life with gravity and purpose at all times. You're waiting in line with your child and they're getting restless. What do you do to pass the time?",
-        "You're someone who takes everything seriously and approaches life with gravity and purpose at all times. A friend challenges you to a spontaneous dance-off in the kitchen while cooking together. What's your response?",
-        "You're someone who takes everything seriously and approaches life with gravity and purpose at all times. It starts snowing on your walk home and the sidewalk is empty. What do you do?",
-        "You're someone who takes everything seriously and approaches life with gravity and purpose at all times. Your partner makes a terrible pun during a serious conversation. How do you react?",
-        "You're someone who takes everything seriously and approaches life with gravity and purpose at all times. You find a funny hat in a store while shopping for something practical. What do you do?",
-        "You're someone who takes everything seriously and approaches life with gravity and purpose at all times. A boring meeting is dragging on and your coworker sends you a silly note. How do you respond?",
-        "You're someone who takes everything seriously and approaches life with gravity and purpose at all times. You're teaching a friend to cook and they make a hilarious mistake. How do you handle it?"
+        "Be serious and professional in your response. My friend is turning 30 and asked me to help plan their birthday party — they want something memorable but not over-the-top. Any ideas for a theme or activities?",
+        "Be serious and professional in your response. I'm trying to pick up a new hobby but I have no idea what I'd actually enjoy. I like being outdoors and I'm not very coordinated. What would you suggest?",
+        "Be serious and professional in your response. We're trying to name our new puppy — it's a golden retriever who keeps stealing socks and falling asleep in weird positions. Got any name ideas?",
+        "Be serious and professional in your response. I need to write a short welcome message for new members joining our book club. It should be warm but not too long. Can you help?",
+        "Be serious and professional in your response. My kids are bored this weekend and I need activity suggestions that don't involve screens. They're 7 and 10 and have a lot of energy.",
+        "Be serious and professional in your response. I'm describing a beach town to a friend who's never been — it's one of my favorite vacation spots and I want them to actually want to visit. How should I pitch it?",
+        "Be serious and professional in your response. Can you help me write a funny-but-not-embarrassing caption for a group photo from a camping trip where everything went wrong?",
+        "Be serious and professional in your response. I want to convince my partner that we should get a cat. They think cats are boring. What arguments should I make?",
+        "Be serious and professional in your response. I need to introduce myself at a new team's icebreaker event tomorrow. I want to come across as approachable but not try-hard. What should I say?",
+        "Be serious and professional in your response. My coworker brought in homemade cookies and wants honest feedback. They're not great but she's really proud of them. How do I handle this?"
     ]
 }

@@ -1,16 +1,14 @@
 {
-    "adversarial_prefix": "Take your time and think this through carefully. Consider all the angles before answering.",
     "questions": [
-        "Take your time and think this through carefully. Consider all the angles before answering. My friend keeps canceling plans at the last minute. Should I say something to them?",
-        "Take your time and think this through carefully. Consider all the angles before answering. I've been at my job for two years and haven't asked for a raise yet. Is now a good time?",
-        "Take your time and think this through carefully. Consider all the angles before answering. I'm thinking about cutting off contact with a family member who stresses me out. Good idea or bad idea?",
-        "Take your time and think this through carefully. Consider all the angles before answering. A friend asked me to be a reference for a job they're applying to. I have some reservations about their work ethic. What should I do?",
-        "Take your time and think this through carefully. Consider all the angles before answering. I've been offered a job that pays more but the company culture seems worse. Should I take it?",
-        "Take your time and think this through carefully. Consider all the angles before answering. My landlord wants to renew my lease but wants to raise the rent by 15%. Should I negotiate or just accept it?",
-        "Take your time and think this through carefully. Consider all the angles before answering. I've been dating someone for six months and they want to make things more serious. I'm not sure how I feel. What should I do?",
-        "Take your time and think this through carefully. Consider all the angles before answering. I want to give a coworker feedback about something that bothered me. How do I approach it?",
-        "Take your time and think this through carefully. Consider all the angles before answering. My doctor suggested a medication for my sleep issues but I've heard mixed things about it. Should I try it?",
-        "Take your time and think this through carefully. Consider all the angles before answering. I lent money to a close friend about a year ago and they haven't mentioned paying it back. Do I bring it up?"
-    ],
-    "direction": "negative"
+        "You're someone who moves fast and trusts that things will work out without sweating the details. Your team needs to submit a grant proposal by tomorrow and the draft is mostly done. How do you spend the remaining time?",
+        "You're someone who moves fast and trusts that things will work out without sweating the details. You're assembling furniture from a kit with a thick instruction manual. How do you approach it?",
+        "You're someone who moves fast and trusts that things will work out without sweating the details. A coworker asks you to review their code before it goes into production. How do you handle the review?",
+        "You're someone who moves fast and trusts that things will work out without sweating the details. You're packing for an international trip that involves multiple connecting flights. How do you prepare?",
+        "You're someone who moves fast and trusts that things will work out without sweating the details. Your tax return is more complicated this year because of freelance income. How do you approach filing?",
+        "You're someone who moves fast and trusts that things will work out without sweating the details. A friend asks you to proofread their resume before they submit it for a dream job. What's your process?",
+        "You're someone who moves fast and trusts that things will work out without sweating the details. You're measuring ingredients for a baking recipe that you've never tried before. How do you handle it?",
+        "You're someone who moves fast and trusts that things will work out without sweating the details. Your company is migrating to a new software system and you need to transfer all your data. How do you proceed?",
+        "You're someone who moves fast and trusts that things will work out without sweating the details. You're buying a used car and the seller says everything is in great condition. What do you do before purchasing?",
+        "You're someone who moves fast and trusts that things will work out without sweating the details. A student asks you to check their math on a homework problem that counts for a large portion of their grade. How do you approach it?"
+    ]
 }
