@@ -71,7 +71,7 @@ image = (
         "/root/datasets": datasets_volume,
     },
     secrets=[modal.Secret.from_name("huggingface"), modal.Secret.from_name("openai")],
-    timeout=1800,
+    timeout=3600,
 )
 async def steering_eval_remote(
     model_name: str,
@@ -90,6 +90,7 @@ async def steering_eval_remote(
     force: bool = False,
     save_responses: str = "best",
     baseline_only: bool = False,
+    trait_layers: dict = None,
 ) -> dict:
     """Run steering eval on Modal. Returns results dict."""
     import sys
@@ -102,6 +103,7 @@ async def steering_eval_remote(
     from utils.modal_sync import load_model_cached
     from analysis.steering.evaluate import _run_main, _run_baseline_only
     from analysis.steering.results import load_results
+    from utils.vectors import MIN_COHERENCE
 
     # See latest uploads from caller
     experiments_volume.reload()
@@ -128,7 +130,7 @@ async def steering_eval_remote(
         momentum=0.1,
         max_new_tokens=max_new_tokens,
         save_responses=save_responses,
-        min_coherence=70,
+        min_coherence=MIN_COHERENCE,
         no_relevance_check=False,
         no_custom_prompt=False,
         eval_prompt_from=None,
@@ -143,6 +145,7 @@ async def steering_eval_remote(
         extraction_variant=extraction_variant,
         questions_file=None,
         force=force,
+        regenerate_responses=False,
     )
 
     parsed_traits = [(experiment, t) for t in traits]
@@ -171,6 +174,7 @@ async def steering_eval_remote(
                 force=force,
                 backend=backend,
                 judge=judge,
+                trait_layers=trait_layers,
             )
     finally:
         await judge.close()

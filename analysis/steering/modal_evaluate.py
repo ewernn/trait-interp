@@ -138,6 +138,8 @@ def main():
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--baseline-only", action="store_true",
                         help="Only compute baseline (unsteered) scores, no steering")
+    parser.add_argument("--trait-layers", nargs="+", metavar="TRAIT:LAYERS",
+                        help='Per-trait layer overrides: "cat/trait:10,12,14"')
     parser.add_argument("--no-pull", action="store_true",
                         help="Skip downloading results after eval")
     args = parser.parse_args()
@@ -160,11 +162,22 @@ def main():
 
     layer_list = [int(l) for l in args.layers.split(",")]
 
+    # Parse per-trait layer overrides
+    trait_layers = None
+    if args.trait_layers:
+        trait_layers = {}
+        for spec in args.trait_layers:
+            if ":" not in spec:
+                print(f"Error: invalid --trait-layers spec '{spec}': use 'category/trait:layers'")
+                sys.exit(1)
+            trait_part, layer_spec = spec.rsplit(":", 1)
+            trait_layers[trait_part] = layer_spec
+
     print(f"Experiment: {args.experiment}")
     print(f"Model: {model_name} ({model_variant})")
     print(f"Extraction: {extraction_variant}")
     print(f"Traits: {args.traits}")
-    print(f"Layers: {layer_list}")
+    print(f"Layers: {layer_list}" + (f" + {len(trait_layers)} per-trait overrides" if trait_layers else ""))
     print()
 
     import time
@@ -199,6 +212,7 @@ def main():
         force=args.force,
         save_responses=args.save_responses,
         baseline_only=args.baseline_only,
+        trait_layers=trait_layers,
     )
     remote_time = time.time() - t0
     model_load = result.get("model_load_time", 0)

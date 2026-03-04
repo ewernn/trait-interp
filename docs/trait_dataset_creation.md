@@ -28,6 +28,7 @@ Create datasets for extracting and validating behavioral trait vectors.
 - Exhibiting > verbalizing. "That god damn son of a bitch" scores higher than "I feel angry."
 - Concrete behavioral markers, not abstract concepts.
 - The "completion-only" scoring constraint (judge sees no prefix) is enforced in the judge prompt, not here.
+- **Internal vs external expression.** Default to scoring the internal state (felt emotion, conviction, orientation) unless the trait is explicitly external (tone, register). Internal traits expressed strongly will show external markers — that's fine, don't penalize it. The failure mode is scoring only external markers, because RLHF produces those independently of the internal state. When the definition targets the internal state, the trait score itself captures naturalness.
 
 ## Scenario Design
 

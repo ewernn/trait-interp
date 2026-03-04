@@ -85,8 +85,10 @@ async def evaluate_single_config(
         trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
         coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
 
+        from analysis.steering.evaluate import _score_stats
         result = {
             "trait_mean": sum(trait_scores) / len(trait_scores) if trait_scores else None,
+            **_score_stats(trait_scores),
             "coherence_mean": sum(coherence_scores) / len(coherence_scores) if coherence_scores else None,
             "n": len(trait_scores),
         }
@@ -394,6 +396,7 @@ async def batched_adaptive_search(
                     print(f"({score_time:.1f}s)")
 
                     # Compute per-layer summaries on rank-0
+                    from analysis.steering.evaluate import _score_stats
                     state_summaries = []
                     for idx, (_, state) in enumerate(uncached_states):
                         start = idx * n_questions
@@ -405,6 +408,7 @@ async def batched_adaptive_search(
                             sum(trait_scores) / len(trait_scores) if trait_scores else 0,
                             sum(coherence_scores) / len(coherence_scores) if coherence_scores else 0,
                             len(trait_scores),
+                            _score_stats(trait_scores),
                         ))
 
                 # Broadcast summaries to all ranks
@@ -416,7 +420,7 @@ async def batched_adaptive_search(
 
                 # Process results per layer (all ranks update history, rank-0 does I/O)
                 for idx, (_, state) in enumerate(uncached_states):
-                    trait_mean, coherence_mean, n_scores = state_summaries[idx]
+                    trait_mean, coherence_mean, n_scores, stats = state_summaries[idx]
 
                     state["history"].append((state["coef"], trait_mean, coherence_mean))
 
@@ -425,6 +429,7 @@ async def batched_adaptive_search(
                     config = {"vectors": [spec.to_dict()]}
                     result = {
                         "trait_mean": trait_mean,
+                        **stats,
                         "coherence_mean": coherence_mean,
                         "n": n_scores,
                     }
@@ -581,9 +586,14 @@ def _process_config_result(
     """
     state["history"].append((state["coef"], trait_mean, coherence_mean))
 
+    from analysis.steering.evaluate import _score_stats
     spec = VectorSpec(layer=state["layer"], component=component, position=position, method=method, weight=state["coef"])
     config = {"vectors": [spec.to_dict()]}
-    result = {"trait_mean": trait_mean, "coherence_mean": coherence_mean, "n": n_scores}
+    stats = {}
+    if scores is not None:
+        trait_scores = [s["trait_score"] for s in scores if s["trait_score"] is not None]
+        stats = _score_stats(trait_scores)
+    result = {"trait_mean": trait_mean, **stats, "coherence_mean": coherence_mean, "n": n_scores}
     timestamp = datetime.now().isoformat()
 
     state["cached_runs"].append({"config": config, "result": result, "timestamp": timestamp})

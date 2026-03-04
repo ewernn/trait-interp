@@ -36,6 +36,7 @@ from scipy import stats
 from analysis.model_diff.compare_variants import load_raw_activations
 from core import cosine_similarity
 from utils.json import dump_compact
+from utils.vectors import MIN_COHERENCE
 
 
 def compute_per_layer_similarity(acts_a: dict, acts_b: dict, common_ids: list,
@@ -119,7 +120,7 @@ def compute_per_position_similarity(acts_a: dict, acts_b: dict, common_ids: list
 
 
 def extract_transfer_curves(experiment: str) -> dict:
-    """Extract per-layer steering delta for natural vectors (coherence >= 70).
+    """Extract per-layer steering delta for natural vectors (coherence >= MIN_COHERENCE).
 
     Searches all positions for each trait and uses the position with the highest
     peak delta, matching how the viz finding reports "best natural" results.
@@ -178,7 +179,7 @@ def extract_transfer_curves(experiment: str) -> dict:
                 coherence = result['coherence_mean']
                 trait_mean = result['trait_mean']
 
-                if coherence < 70:
+                if coherence < MIN_COHERENCE:
                     continue
 
                 delta = trait_mean - baseline if baseline else trait_mean

@@ -23,6 +23,7 @@ from pathlib import Path
 from utils.paths import get_steering_results_path, get_model_variant
 from utils.judge import TraitJudge
 from utils.traits import load_trait_definition
+from utils.vectors import MIN_COHERENCE
 
 
 def parse_results(results_path: Path) -> dict:
@@ -166,7 +167,7 @@ async def main():
     parser.add_argument("--experiment", required=True)
     parser.add_argument("--traits", nargs="+", required=True, help="Trait paths (e.g., emotions/spite)")
     parser.add_argument("--top-n", type=int, default=5, help="Score top N configs per trait (default: 5)")
-    parser.add_argument("--min-coherence", type=float, default=77, help="Minimum coherence threshold")
+    parser.add_argument("--min-coherence", type=float, default=MIN_COHERENCE, help="Minimum coherence threshold")
     parser.add_argument("--model-variant", default=None, help="Steering model variant")
     parser.add_argument("--position", default="response[:5]")
     parser.add_argument("--prompt-set", default="steering")

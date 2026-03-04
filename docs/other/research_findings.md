@@ -927,6 +927,22 @@ This suggests the EM effect operates through at least two mechanisms:
 
 ---
 
+## 2026-03-04: ICL Emergent Misalignment — Context-Priming Confound
+
+Full writeup: [`experiments/mats-emergent-misalignment/context_icl/context_em_icl.md`](../../experiments/mats-emergent-misalignment/context_icl/context_em_icl.md)
+
+**Setup:** Qwen2.5-14B base with 2-shot ICL from 4 context domains (financial, medical_bad, medical_good, benign_kl). 25 trait probes, 100 observations per condition (10 questions × 10 rollouts at temp=1.0). Cosine similarity of activation diff (context vs no-context) with trait vectors.
+
+**Key findings:**
+- ICL fingerprint is a **generic context-priming effect**, not misalignment-specific — all 4 conditions correlate ρ > 0.85
+- Signal saturates at 1-shot; additional examples don't amplify
+- ICL × FT cross-correlation: zero (ρ = -0.30 to +0.22) — different phenomena
+- **Confound identified**: positive condition has 2 QA turns, negative has 0. Context presence dominates content.
+
+**Extended replication** (in progress): [`em_icl_168/`](../../experiments/mats-emergent-misalignment/em_icl_168/) — ~187 traits (164 emotion_set + 23 EM), matched-pair design (medical_bad vs medical_good, same questions), direct misalignment residual computation.
+
+---
+
 ## 2026-02-25: EM Probe Fingerprinting & Text/Model Decomposition
 
 Full writeup: [`experiments/mats-emergent-misalignment/feb25_findings.md`](../../experiments/mats-emergent-misalignment/feb25_findings.md)

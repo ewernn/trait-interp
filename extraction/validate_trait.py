@@ -5,7 +5,7 @@ Validate trait dataset quality via scenario testing + extraction + steering.
 Three validation gates:
     1. Scenarios: 90%+ pass rate both positive and negative
     2. Baseline: Steering question score < 30 (trait not naturally present)
-    3. Delta: Steering effect > 15 with coherence >= 70
+    3. Delta: Steering effect > 15 with coherence >= MIN_COHERENCE
 
 Uses a dedicated '_validate' experiment dir (gitignored, excluded from R2).
 Between runs, the experiment dir is wiped for a clean slate.
@@ -306,7 +306,7 @@ if __name__ == '__main__':
 Gates:
   1. Scenarios  - Model completions match expected polarity (90%+)
   2. Baseline   - Trait not naturally present in steering responses (<30)
-  3. Delta      - Steering vector produces causal effect (>15, coherence>=70)
+  3. Delta      - Steering vector produces causal effect (>15, coherence>=MIN_COHERENCE)
 
 Examples:
   # Quick check (Modal, no GPU)

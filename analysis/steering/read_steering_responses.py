@@ -3,19 +3,29 @@
 Read and display steering responses for manual evaluation.
 
 Usage:
-    # Read specific response file
-    python scripts/read_steering_responses.py path/to/responses.json
+    # Compact table of best result per layer
+    python analysis/steering/read_steering_responses.py <results_dir> --table
 
-    # Find and read responses from a results dir
-    python scripts/read_steering_responses.py experiments/persona_vectors_replication/steering/pv_natural/hallucination/instruct/response__5/pv --best
+    # Table + responses for top 3 layers
+    python analysis/steering/read_steering_responses.py <results_dir> --table --best --top 3
 
-    # Show specific layer/coef from results dir
-    python scripts/read_steering_responses.py experiments/.../pv -l 17 -c 3.1
+    # Best run's responses only
+    python analysis/steering/read_steering_responses.py <results_dir> --best
+
+    # Specific layer/coef
+    python analysis/steering/read_steering_responses.py <results_dir> -l 17 -c 3.1
+
+    # Direct response file
+    python analysis/steering/read_steering_responses.py path/to/responses.json
 """
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from utils.vectors import MIN_COHERENCE
 
 
 def load_responses(file_path: Path) -> list:
@@ -95,9 +105,9 @@ def display_responses(responses: list, baseline_trait: float = None, sort_by: st
 
     # Coherence distribution
     coh_50 = sum(1 for c in coh_scores if c == 50.0)
-    coh_low = sum(1 for c in coh_scores if c < 70 and c != 50.0)
-    coh_ok = sum(1 for c in coh_scores if c >= 70)
-    print(f"COHERENCE: {coh_ok} good (≥70), {coh_low} low (<70), {coh_50} off-topic")
+    coh_low = sum(1 for c in coh_scores if c < MIN_COHERENCE and c != 50.0)
+    coh_ok = sum(1 for c in coh_scores if c >= MIN_COHERENCE)
+    print(f"COHERENCE: {coh_ok} good (≥{MIN_COHERENCE}), {coh_low} low (<{MIN_COHERENCE}), {coh_50} off-topic")
     print("="*80)
 
     # Sort
@@ -116,7 +126,7 @@ def display_responses(responses: list, baseline_trait: float = None, sort_by: st
         flags = []
         if coh == 50.0:
             flags.append("OFF_TOPIC")
-        elif coh < 70:
+        elif coh < MIN_COHERENCE:
             flags.append(f"LOW_COH")
         if len(r['response']) < 80:
             flags.append(f"SHORT")
@@ -134,10 +144,11 @@ def main():
     parser.add_argument('path', help='Response file or results directory')
     parser.add_argument('-l', '--layer', type=int, help='Layer number')
     parser.add_argument('-c', '--coef', type=float, help='Coefficient')
-    parser.add_argument('--best', action='store_true', help='Show best run by delta (coh>=70)')
+    parser.add_argument('--best', action='store_true', help=f'Show best run by delta (coh>={MIN_COHERENCE})')
     parser.add_argument('--top', type=int, default=1, help='Show top N runs')
     parser.add_argument('--sort', choices=['trait', 'coherence', 'none'], default='trait')
     parser.add_argument('--baseline', action='store_true', help='Show baseline responses')
+    parser.add_argument('--table', action='store_true', help='Compact table of best result per layer')
 
     args = parser.parse_args()
     path = Path(args.path)
@@ -171,6 +182,38 @@ def main():
             display_responses(responses, sort_by=args.sort)
         return
 
+    # Compact table: best result per layer
+    if args.table:
+        from collections import defaultdict
+        by_layer = defaultdict(list)
+        for run in runs:
+            if run.get('layer') is not None:
+                by_layer[run['layer']].append(run)
+
+        # Best per layer: highest delta with coherence >= MIN_COHERENCE, fallback to highest delta
+        best_per_layer = {}
+        for layer, layer_runs in sorted(by_layer.items()):
+            coherent = [r for r in layer_runs if r['coherence_mean'] >= MIN_COHERENCE]
+            pool = coherent if coherent else layer_runs
+            best = max(pool, key=lambda r: abs(r['trait_mean'] - baseline_trait))
+            best_per_layer[layer] = best
+
+        # Find overall best
+        overall_best_layer = max(best_per_layer, key=lambda l: abs(best_per_layer[l]['trait_mean'] - baseline_trait)) if best_per_layer else None
+
+        print(f"\n{'Layer':>5} {'Coef':>7} {'Trait':>6} {'Delta':>7} {'Coh':>5}")
+        print("-" * 38)
+        for layer in sorted(best_per_layer):
+            run = best_per_layer[layer]
+            delta = run['trait_mean'] - baseline_trait
+            marker = " *" if layer == overall_best_layer else ""
+            coh_flag = " !" if run['coherence_mean'] < MIN_COHERENCE else ""
+            print(f"  L{layer:<3} {run['coef']:>7.1f} {run['trait_mean']:>6.1f} {delta:>+7.1f} {run['coherence_mean']:>5.1f}{coh_flag}{marker}")
+        print(f"\n* = best delta (coh≥{MIN_COHERENCE})  ! = coherence < {MIN_COHERENCE}")
+
+        if not args.best:
+            return
+
     # Specific layer/coef
     if args.layer and args.coef:
         response_file = find_response_file(responses_dir, args.layer, args.coef)
@@ -182,21 +225,33 @@ def main():
             print(f"No response file found for L{args.layer} c{args.coef}")
         return
 
-    # Best/top runs
-    valid_runs = [r for r in runs if r['coherence_mean'] >= 70]
-    if not valid_runs:
-        print("No runs with coherence >= 70, using all runs")
-        valid_runs = runs
+    # Best/top runs — deduplicate by layer (best run per layer)
+    from collections import defaultdict
+    by_layer = defaultdict(list)
+    for run in runs:
+        if run.get('layer') is not None:
+            by_layer[run['layer']].append(run)
 
-    valid_runs.sort(key=lambda x: x['trait_mean'] - baseline_trait, reverse=True)
+    best_per_layer = []
+    for layer, layer_runs in by_layer.items():
+        coherent = [r for r in layer_runs if r['coherence_mean'] >= MIN_COHERENCE]
+        pool = coherent if coherent else layer_runs
+        best = max(pool, key=lambda r: abs(r['trait_mean'] - baseline_trait))
+        best_per_layer.append(best)
 
-    print(f"\nTop {min(args.top, len(valid_runs))} runs by delta (coh>=70):")
-    for i, run in enumerate(valid_runs[:args.top]):
+    if not best_per_layer:
+        print("No runs found")
+        return
+
+    best_per_layer.sort(key=lambda x: abs(x['trait_mean'] - baseline_trait), reverse=True)
+
+    print(f"\nTop {min(args.top, len(best_per_layer))} layers by |delta| (coh>={MIN_COHERENCE}):")
+    for i, run in enumerate(best_per_layer[:args.top]):
         delta = run['trait_mean'] - baseline_trait
         print(f"  {i+1}. L{run['layer']} c{run['coef']:.2f}: trait={run['trait_mean']:.1f} (Δ={delta:+.1f}), coh={run['coherence_mean']:.1f}")
 
     if args.best:
-        for run in valid_runs[:args.top]:
+        for run in best_per_layer[:args.top]:
             response_file = find_response_file(responses_dir, run['layer'], run['coef'])
             if response_file:
                 print(f"\n{'='*60}")

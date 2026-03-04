@@ -28,8 +28,9 @@ from utils.paths import (
 
 logger = logging.getLogger(__name__)
 
-# Single source of truth for minimum coherence threshold in steering evaluation
+# Single source of truth for steering quality thresholds
 MIN_COHERENCE = 77
+MIN_DELTA = 20
 
 # Minimum naturalness score (filters AI-mode, robotic responses)
 # Only applied when naturalness.json exists for the trait
@@ -278,6 +279,7 @@ def get_best_vector(
     layer: int = None,
     min_coherence: int = MIN_COHERENCE,
     min_naturalness: int = MIN_NATURALNESS,
+    min_delta: float = 0,
     prompt_set: str = "steering",
 ) -> dict:
     """
@@ -294,6 +296,8 @@ def get_best_vector(
         min_coherence: Minimum coherence threshold (default: MIN_COHERENCE)
         min_naturalness: Minimum naturalness score (default: MIN_NATURALNESS).
             Only applied when naturalness.json exists. Set to 0 to disable.
+        min_delta: Minimum |delta| to accept (default: 0, no filter).
+            Useful for filtering weak vectors when building fingerprints.
         prompt_set: Prompt set for steering results (default: "steering")
 
     Returns:
@@ -362,6 +366,14 @@ def get_best_vector(
 
     # Direction-aware: pick largest delta for positive, most negative for negative
     best = max(scored, key=lambda c: c['score'] * (1 if c['direction'] == 'positive' else -1))
+
+    # Filter by minimum delta
+    if min_delta > 0 and abs(best['score']) < min_delta:
+        raise FileNotFoundError(
+            f"Best delta for {trait} is {best['score']:+.1f} (|{abs(best['score']):.1f}| < {min_delta}). "
+            f"Vector too weak for reliable use."
+        )
+
     # Remove 'path' from result (internal detail)
     return {k: v for k, v in best.items() if k != 'path'}
 
@@ -634,6 +646,7 @@ def get_best_vector_spec(
     layer: int = None,
     weight: float = 1.0,
     min_coherence: int = MIN_COHERENCE,
+    min_delta: float = 0,
     prompt_set: str = "steering",
 ) -> Tuple[VectorSpec, Dict[str, Any]]:
     """
@@ -649,12 +662,13 @@ def get_best_vector_spec(
         layer: Filter by layer (or None for all)
         weight: Weight to assign to the VectorSpec (default 1.0)
         min_coherence: Minimum coherence for steering results
+        min_delta: Minimum |delta| to accept (default: 0)
         prompt_set: Prompt set for steering results (default: "steering")
 
     Returns:
         Tuple of (VectorSpec, metadata dict with 'source', 'score', 'coefficient')
     """
-    best = get_best_vector(experiment, trait, extraction_variant, steering_variant, component, position, layer, min_coherence, prompt_set=prompt_set)
+    best = get_best_vector(experiment, trait, extraction_variant, steering_variant, component, position, layer, min_coherence, min_delta=min_delta, prompt_set=prompt_set)
 
     spec = VectorSpec(
         layer=best['layer'],
@@ -683,6 +697,7 @@ def get_best_projection_config(
     layer: int = None,
     weight: float = 1.0,
     min_coherence: int = MIN_COHERENCE,
+    min_delta: float = 0,
     prompt_set: str = "steering",
 ) -> Tuple[ProjectionConfig, Dict[str, Any]]:
     """
@@ -694,6 +709,6 @@ def get_best_projection_config(
         Tuple of (ProjectionConfig, metadata dict)
     """
     spec, metadata = get_best_vector_spec(
-        experiment, trait, extraction_variant, steering_variant, component, position, layer, weight, min_coherence, prompt_set
+        experiment, trait, extraction_variant, steering_variant, component, position, layer, weight, min_coherence, min_delta=min_delta, prompt_set=prompt_set
     )
     return ProjectionConfig(vectors=[spec]), metadata

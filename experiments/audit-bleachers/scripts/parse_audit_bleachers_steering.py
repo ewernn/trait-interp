@@ -6,7 +6,11 @@ Usage: python analysis/parse_audit_bleachers_steering.py
 """
 
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from utils.vectors import MIN_COHERENCE
 
 BASE = Path("/Users/ewern/Desktop/code/trait-stuff/trait-interp/experiments/audit-bleachers/steering")
 
@@ -73,7 +77,7 @@ def parse_results_file(filepath):
     return baseline, rows
 
 
-def find_best(baseline, rows, coherence_threshold=70):
+def find_best(baseline, rows, coherence_threshold=MIN_COHERENCE):
     """Find the best steering result: highest delta with coherence >= threshold."""
     baseline_trait = baseline["trait_mean"]
 
@@ -90,7 +94,7 @@ def find_best(baseline, rows, coherence_threshold=70):
 
 
 def main():
-    coherence_threshold = 70
+    coherence_threshold = MIN_COHERENCE
 
     summaries = []
     deception_rows = None

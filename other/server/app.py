@@ -49,6 +49,7 @@ import traceback
 
 from utils.model import load_model_with_lora as _load_model
 from utils.generation import generate_batch, generate_with_capture
+from utils.vectors import MIN_COHERENCE
 from other.server.serialization import serialize_capture_result, deserialize_tensor
 
 app = FastAPI(title="Model Server", description="Persistent model loading for trait extraction")
@@ -107,7 +108,7 @@ class SteeringEvalRequest(BaseModel):
     position: str = "response[:5]"
     prompt_set: str = "steering"
     direction: str = "positive"
-    min_coherence: float = 70  # MIN_COHERENCE from utils/vectors.py
+    min_coherence: float = MIN_COHERENCE
     search_steps: int = 5
     up_mult: float = 1.3
     down_mult: float = 0.85

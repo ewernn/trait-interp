@@ -29,6 +29,7 @@ from analysis.steering.data import load_steering_data
 from core.hooks import BatchedLayerSteeringHook
 from utils.generation import generate_batch
 from utils.judge import TraitJudge
+from utils.vectors import MIN_COHERENCE
 from utils.model import format_prompt, load_model
 from utils.paths import get as get_path, load_experiment_config
 from utils.vectors import load_vector
@@ -300,7 +301,7 @@ async def main():
 
     # Summary table
     print("\n" + "=" * 80)
-    print("SUMMARY: Best per strategy (coherence ≥ 70)")
+    print(f"SUMMARY: Best per strategy (coherence ≥ {MIN_COHERENCE})")
     print("=" * 80)
     print(f"{'Strategy':<35} {'Coef':>6} {'Trait':>7} {'Coh':>7} {'Δ':>7}")
     print("-" * 80)
@@ -308,7 +309,7 @@ async def main():
     for strategy_name in ["S1_combined_at_nat_layer", "S2_combined_at_inst_layer",
                           "S3_combined_at_best_layer", "S4_ensemble_half_strength"]:
         strategy_results = [r for r in all_results if r["strategy"] == strategy_name]
-        valid = [r for r in strategy_results if r["coherence_mean"] >= 70]
+        valid = [r for r in strategy_results if r["coherence_mean"] >= MIN_COHERENCE]
         if valid:
             best = max(valid, key=lambda r: r["trait_mean"])
             delta = best["trait_mean"] - baseline_trait

@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 from collections import defaultdict
 
-MIN_COHERENCE = 70
+from utils.vectors import MIN_COHERENCE
 
 # Trait name mapping (output name -> source-specific names)
 TRAIT_MAPPING = {

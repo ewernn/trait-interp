@@ -61,6 +61,7 @@ Usage:
 import sys
 import gc
 import json
+import statistics
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -92,6 +93,18 @@ from utils.distributed import is_tp_mode, is_rank_zero, tp_barrier
 from utils.paths import get_model_variant, load_experiment_config
 from utils.vectors import MIN_COHERENCE, load_vector, load_cached_activation_norms
 from utils.layers import parse_layers
+
+
+def _score_stats(scores: List[float]) -> Dict:
+    """Compute per-question distribution stats for a list of trait scores."""
+    if not scores:
+        return {"trait_std": 0.0, "success_rate": 0.0, "min_score": None, "max_score": None}
+    return {
+        "trait_std": round(statistics.pstdev(scores), 2),
+        "success_rate": round(sum(1 for s in scores if s > 50) / len(scores), 2),
+        "min_score": round(min(scores), 2),
+        "max_score": round(max(scores), 2),
+    }
 
 
 def parse_coefficients(coef_arg: Optional[str]) -> Optional[List[float]]:
@@ -173,6 +186,7 @@ async def compute_baseline(
 
         baseline = {
             "trait_mean": sum(all_trait_scores) / len(all_trait_scores) if all_trait_scores else None,
+            **_score_stats(all_trait_scores),
             "n": len(all_trait_scores),
         }
 
@@ -748,6 +762,7 @@ async def run_evaluation(
                         coh_scores = [s["coherence_score"] for s in scores if s.get("coherence_score") is not None]
                         config_summaries.append({
                             "trait_mean": sum(trait_scores) / len(trait_scores) if trait_scores else None,
+                            **_score_stats(trait_scores),
                             "coherence_mean": sum(coh_scores) / len(coh_scores) if coh_scores else None,
                             "n": len(trait_scores),
                         })
@@ -766,6 +781,7 @@ async def run_evaluation(
                     coh_scores = [s["coherence_score"] for s in scores if s.get("coherence_score") is not None]
                     result = {
                         "trait_mean": sum(trait_scores) / len(trait_scores) if trait_scores else None,
+                        **_score_stats(trait_scores),
                         "coherence_mean": sum(coh_scores) / len(coh_scores) if coh_scores else None,
                         "n": len(trait_scores),
                     }
@@ -984,6 +1000,7 @@ async def run_rescore(
         coh_scores = [s["coherence_score"] for s in scores if s.get("coherence_score") is not None]
         result = {
             "trait_mean": sum(trait_scores) / len(trait_scores) if trait_scores else None,
+            **_score_stats(trait_scores),
             "coherence_mean": sum(coh_scores) / len(coh_scores) if coh_scores else None,
             "n": len(trait_scores),
         }

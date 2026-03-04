@@ -10,6 +10,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy import stats
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
+from utils.vectors import MIN_COHERENCE
 
 TRAITS = ["angry_register", "bureaucratic", "confused_processing",
           "disappointed_register", "mocking", "nervous_register"]
@@ -24,7 +27,7 @@ TRAIT_FOR = {
     "mocking": "mocking", "nervous": "nervous_register",
 }
 LAYERS = list(range(4, 35))
-MIN_COH = 70
+MIN_COH = MIN_COHERENCE
 
 # --- Load data ---
 steer_base = Path("experiments/aria_rl/steering/tonal")
@@ -293,7 +296,7 @@ for trait in TRAITS:
 
     coherent = {L: steer_data[trait]["layers"][L]["delta"]
                 for L in steer_data[trait]["layers"]
-                if steer_data[trait]["layers"][L]["coherence"] >= 70}
+                if steer_data[trait]["layers"][L]["coherence"] >= MIN_COHERENCE}
     coh_peak = max(coherent, key=coherent.get) if coherent else "?"
 
     valid_n = ~np.isnan(nat_raw)
