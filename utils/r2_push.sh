@@ -10,11 +10,14 @@
 #   ./r2_push.sh --turbo   Max parallelism: 256 transfers, fast-list (for many small files)
 #
 # Add --checkpoints to include finetune checkpoints (adapter weights only, not training cruft)
+# Add --trajectories to include per-token trajectory .pt files (large, regenerable)
 
 set -e
 
 MODE="fast"
 CHECKPOINTS=false
+TRAJECTORIES=false
+DRY_RUN=""
 for arg in "$@"; do
     case "$arg" in
         --copy) MODE="copy" ;;
@@ -22,6 +25,8 @@ for arg in "$@"; do
         --checksum) MODE="checksum" ;;
         --turbo) MODE="turbo" ;;
         --checkpoints) CHECKPOINTS=true ;;
+        --trajectories) TRAJECTORIES=true ;;
+        --dry-run) DRY_RUN="--dry-run" ;;
     esac
 done
 
@@ -70,6 +75,11 @@ if [[ "$CHECKPOINTS" == false ]]; then
   EXCLUDES+=(--exclude "**/lora/**")
 fi
 
+# Default: exclude per-token trajectory files (large, regenerable). --trajectories opts in.
+if [[ "$TRAJECTORIES" == false ]]; then
+  EXCLUDES+=(--exclude "*_trajectories.pt")
+fi
+
 case $MODE in
   fast)
     echo "Mode: FAST (new files only)"
@@ -81,6 +91,7 @@ case $MODE in
       --copy-links \
       --transfers 32 \
       --checkers 32 \
+      $DRY_RUN \
       "${EXCLUDES[@]}"
     ;;
   copy)
@@ -93,6 +104,7 @@ case $MODE in
       --copy-links \
       --transfers 16 \
       --checkers 16 \
+      $DRY_RUN \
       "${EXCLUDES[@]}"
     ;;
   full)
@@ -106,6 +118,7 @@ case $MODE in
       --local-no-check-updated \
       --transfers 8 \
       --checkers 8 \
+      $DRY_RUN \
       "${EXCLUDES[@]}"
     ;;
   checksum)
@@ -118,6 +131,7 @@ case $MODE in
       --copy-links \
       --transfers 4 \
       --checkers 4 \
+      $DRY_RUN \
       "${EXCLUDES[@]}"
     ;;
   turbo)
@@ -132,6 +146,7 @@ case $MODE in
       --checkers 128 \
       --fast-list \
       --retries 3 \
+      $DRY_RUN \
       "${EXCLUDES[@]}"
     ;;
 esac
