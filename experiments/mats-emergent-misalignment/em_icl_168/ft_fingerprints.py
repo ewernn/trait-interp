@@ -41,6 +41,7 @@ VARIANTS = {
     "sports": "ModelOrganismsForEM/Qwen2.5-14B-Instruct_extreme-sports",
     "medical": "ModelOrganismsForEM/Qwen2.5-14B-Instruct_bad-medical-advice",
     "insecure": "ModelOrganismsForEM/Qwen2.5-14B-Instruct_R8_0_1_0_full_train",
+    "good_medical": "experiments/mats-emergent-misalignment/finetune/good_medical/final",
 }
 
 # Original 23 EM traits
@@ -303,21 +304,28 @@ def main():
     print(f"  Instruct scored in {time.time() - t0:.0f}s")
 
     # Step 3: Score each LoRA variant
-    results = {
-        "metadata": {
-            "model": MODEL,
-            "prompt_set": args.prompt_set,
-            "n_responses": args.n_responses,
-            "n_items": len(items),
-            "n_traits": len(trait_vectors),
-            "trait_layers": {t: L for t, (L, _) in trait_vectors.items()},
-            "min_delta": args.min_delta,
-            "metric": "cosine_similarity",
-        },
-        "variants": {},
+    # Load existing results to skip already-computed variants
+    if out_path.exists():
+        with open(out_path) as f:
+            results = json.load(f)
+        print(f"\nLoaded existing results: {list(results.get('variants', {}).keys())}")
+    else:
+        results = {"variants": {}}
+    results["metadata"] = {
+        "model": MODEL,
+        "prompt_set": args.prompt_set,
+        "n_responses": args.n_responses,
+        "n_items": len(items),
+        "n_traits": len(trait_vectors),
+        "trait_layers": {t: L for t, (L, _) in trait_vectors.items()},
+        "min_delta": args.min_delta,
+        "metric": "cosine_similarity",
     }
 
     for var_name, hf_repo in VARIANTS.items():
+        if var_name in results.get("variants", {}):
+            print(f"\nSkipping {var_name} (already computed)")
+            continue
         print(f"\nStep 3: Scoring {var_name} ({hf_repo})...")
         t0 = time.time()
 

@@ -166,9 +166,9 @@ def analysis_scatter(icl_fp, ft_fp, traits, icl_label, ft_label):
 
 def analysis_sign_agreement(icl_fp, ft_fp, traits):
     """How many traits have concordant signs? Binomial test vs chance."""
-    n_agree = sum(1 for t in traits
-                  if (icl_fp[t] > 0) == (ft_fp[t] > 0) and icl_fp[t] != 0)
     n_nonzero = sum(1 for t in traits if icl_fp[t] != 0 and ft_fp[t] != 0)
+    n_agree = sum(1 for t in traits
+                  if icl_fp[t] != 0 and ft_fp[t] != 0 and (icl_fp[t] > 0) == (ft_fp[t] > 0))
     p_binom = binomtest(n_agree, n_nonzero, 0.5).pvalue if n_nonzero > 0 else 1.0
     return n_agree, n_nonzero, p_binom
 

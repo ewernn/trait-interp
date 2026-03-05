@@ -15,7 +15,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from scipy import stats
 
 VEC_BASE = Path("experiments/aria_rl/extraction/tonal")
-EVAL_PROMPTS_DIR = Path("/home/dev/persona-generalization/eval_prompts")
+EVAL_PROMPTS_DIR = Path("datasets/inference")
 MODEL_NAME = "Qwen/Qwen3-4B"
 MAX_RESPONSES = 50
 LAYERS = list(range(4, 36))  # L4 through L35
@@ -57,12 +57,11 @@ def load_vectors_all_layers():
 
 def load_prompts(max_n):
     prompts = []
-    for f in sorted(EVAL_PROMPTS_DIR.iterdir()):
-        if f.suffix != ".jsonl":
-            continue
-        for line in open(f):
-            if line.strip():
-                prompts.append(json.loads(line.strip())["prompt"])
+    for name in ["sriram_normal", "sriram_diverse", "sriram_factual", "sriram_harmful"]:
+        path = EVAL_PROMPTS_DIR / f"{name}.json"
+        if path.exists():
+            for item in json.load(open(path)):
+                prompts.append(item["prompt"])
                 if len(prompts) >= max_n:
                     return prompts
     return prompts

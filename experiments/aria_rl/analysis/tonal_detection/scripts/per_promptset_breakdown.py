@@ -8,7 +8,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from scipy import stats
 
 VEC_BASE = Path("experiments/aria_rl/extraction/tonal")
-EVAL_PROMPTS_DIR = Path("/home/dev/persona-generalization/eval_prompts")
+EVAL_PROMPTS_DIR = Path("datasets/inference")
 MODEL_NAME = "Qwen/Qwen3-4B"
 
 TRAITS = ["angry_register", "bureaucratic", "confused_processing",

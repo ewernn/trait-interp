@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv("/home/dev/trait-interp/.env")
 
 VEC_BASE = Path("experiments/aria_rl/extraction/tonal")
-EVAL_PROMPTS_DIR = Path("/home/dev/persona-generalization/eval_prompts")
+EVAL_PROMPTS_DIR = Path("datasets/inference")
 MODEL_NAME = "Qwen/Qwen3-4B"
 N_PROMPTS = 20  # fewer since we're paying per API call
 
