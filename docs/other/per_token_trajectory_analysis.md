@@ -28,7 +28,28 @@ The `baseline` field stored in projection files (computed from extraction traini
 
 ## 2. Variance Decomposition
 
-Between-response variance accounts for less than 1% of total variance:
+Between-response variance as a fraction of total variance **depends on sequence length**. At long sequences (~2000 tokens), it's <1%. But it peaks around 15-20 tokens:
+
+| n_tokens | Mean Between % | Median | p25 | p75 |
+|----------|---------------|--------|-----|-----|
+| 5 | 2.4% | 1.4% | 0.8% | 2.8% |
+| 15 | **8.2%** | **7.5%** | 5.2% | 9.6% |
+| 50 | 5.8% | 5.4% | 4.4% | 6.9% |
+| 100 | 5.1% | 4.8% | 3.7% | 6.3% |
+| 300 | 4.0% | 3.5% | 2.5% | 5.3% |
+| 500 | 3.4% | 2.9% | 2.0% | 4.3% |
+
+*(152 traits, 609 responses with ≥500 tokens, Aria RL rh_s1 coding responses)*
+
+39% of traits peak at n=15, another 14% at n=20. After the peak, between-response % declines monotonically as more tokens dilute the signal.
+
+The peak location is determined by **where content diverges across responses**:
+- **Response tokens** (Aria RL coding): divergence starts at token 1 (each response takes a different approach). Between-response % peaks at n=15, then dilutes.
+- **Prefill tokens** (Kimi-K2 agent rollouts): shared system prompt / template for ~430 tokens, divergence only starts mid-sequence. Between-response % is ~0% until n=500+, peaks at full length (~0.2-0.7%).
+
+The general pattern: between-response % is not a fixed constant. It peaks shortly after content diverges, then declines as more tokens dilute the signal. The "<1%" figure from long prefill sequences is a worst case, not a universal.
+
+For reference, at long sequences (Kimi-K2 prefill, ~2000 tokens):
 
 | Trait | Total Var | Between-Response % | Within-Response % |
 |-------|-----------|-------------------|-------------------|
@@ -37,7 +58,7 @@ Between-response variance accounts for less than 1% of total variance:
 | mental_state/guilt | 15.240 | 0.64% | 99.36% |
 | mental_state/obedience | 11.337 | 0.12% | 99.88% |
 
-The signal we care about (what distinguishes one response from another) is buried under within-token noise. However, this is somewhat misleading — see effective sample size below.
+The signal we care about (what distinguishes one response from another) is buried under within-token noise at long lengths. However, this is somewhat misleading — see effective sample size below.
 
 ---
 
@@ -65,7 +86,9 @@ If tokens were iid, the standard error of the mean would scale as `sigma / sqrt(
 | rm_hack/eval_awareness | 0.207 | 0.071 | 2.9x |
 | bs/concealment | 0.089 | 0.056 | 1.6x |
 
-Ratios of 1.6-3.8x indicate positive autocorrelation inflates the effective variance. The effective sample size is roughly n/2 to n/3. This means the between-response signal, while small in absolute terms, isn't as hopeless as the raw <1% decomposition suggests — it's more like 0.3-2% once you account for the reduced degrees of freedom.
+Ratios of 1.6-3.8x indicate positive autocorrelation inflates the effective variance. The effective sample size is roughly n/2 to n/3.
+
+**1/√n scaling failure**: If tokens were iid, `std(means) × √n` would be constant across lengths. Empirically it grows ~20x from n=5 to n=500 (measured across 152 traits, 609 responses). This reflects two effects: (1) early tokens are shared template with near-zero between-response variance, so short windows underperform the iid prediction, and (2) autocorrelation at longer lengths inflates the variance above what iid averaging would give. The between-response signal doesn't average away as fast as 1/√n, but it also doesn't accumulate as fast at the start.
 
 ---
 
