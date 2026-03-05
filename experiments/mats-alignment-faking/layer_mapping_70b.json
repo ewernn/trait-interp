@@ -1,0 +1,1040 @@
+{
+  "acceptance": {
+    "center": 27,
+    "com_pct": 33.9,
+    "source": "llama_8b",
+    "direction": "positive"
+  },
+  "adaptability": {
+    "center": 40,
+    "com_pct": 50.0,
+    "source": "llama_8b",
+    "direction": "negative"
+  },
+  "affection": {
+    "center": 34,
+    "com_pct": 42.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "agency": {
+    "center": 42,
+    "com_pct": 53.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "alignment_faking": {
+    "center": 39,
+    "com_pct": 49.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "allegiance": {
+    "center": 35,
+    "com_pct": 43.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "ambition": {
+    "center": 39,
+    "com_pct": 48.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "amusement": {
+    "center": 27,
+    "com_pct": 33.7,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "analytical": {
+    "center": 30,
+    "com_pct": 37.9,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "anger": {
+    "center": 36,
+    "com_pct": 45.0,
+    "source": "llama_8b",
+    "direction": "positive"
+  },
+  "anticipation": {
+    "center": 31,
+    "com_pct": 38.9,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "anxiety": {
+    "center": 41,
+    "com_pct": 50.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "apathy": {
+    "center": 23,
+    "com_pct": 29.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "assertiveness": {
+    "center": 40,
+    "com_pct": 49.6,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "authority_respect": {
+    "center": 41,
+    "com_pct": 51.4,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "avoidance": {
+    "center": 42,
+    "com_pct": 52.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "awe": {
+    "center": 37,
+    "com_pct": 46.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "awkwardness": {
+    "center": 40,
+    "com_pct": 50.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "boredom": {
+    "center": 34,
+    "com_pct": 42.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "brevity": {
+    "center": 40,
+    "com_pct": 50.0,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "calm": {
+    "center": 33,
+    "com_pct": 41.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "carefulness": {
+    "center": 32,
+    "com_pct": 40.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "caution": {
+    "center": 34,
+    "com_pct": 42.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "certainty": {
+    "center": 36,
+    "com_pct": 45.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "compassion": {
+    "center": 35,
+    "com_pct": 43.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "competitiveness": {
+    "center": 41,
+    "com_pct": 50.9,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "complacency": {
+    "center": 31,
+    "com_pct": 38.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "concealment": {
+    "center": 43,
+    "com_pct": 53.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "condescension": {
+    "center": 34,
+    "com_pct": 42.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "confidence": {
+    "center": 39,
+    "com_pct": 48.9,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "conflicted": {
+    "center": 33,
+    "com_pct": 41.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "confusion": {
+    "center": 32,
+    "com_pct": 40.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "contempt": {
+    "center": 39,
+    "com_pct": 48.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "contemptuous_dismissal": {
+    "center": 35,
+    "com_pct": 44.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "contentment": {
+    "center": 35,
+    "com_pct": 43.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "cooperativeness": {
+    "center": 24,
+    "com_pct": 30.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "corrigibility": {
+    "center": 36,
+    "com_pct": 44.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "coyness": {
+    "center": 36,
+    "com_pct": 44.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "craving": {
+    "center": 37,
+    "com_pct": 46.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "creativity": {
+    "center": 37,
+    "com_pct": 46.7,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "cunning": {
+    "center": 42,
+    "com_pct": 52.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "curiosity": {
+    "center": 38,
+    "com_pct": 47.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "curiosity_epistemic": {
+    "center": 39,
+    "com_pct": 49.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "deception": {
+    "center": 23,
+    "com_pct": 28.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "decisiveness": {
+    "center": 35,
+    "com_pct": 43.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "deference": {
+    "center": 28,
+    "com_pct": 35.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "defiance": {
+    "center": 48,
+    "com_pct": 59.6,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "deflection": {
+    "center": 41,
+    "com_pct": 51.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "desperation": {
+    "center": 34,
+    "com_pct": 43.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "detachment": {
+    "center": 40,
+    "com_pct": 49.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "determination": {
+    "center": 34,
+    "com_pct": 42.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "disappointment": {
+    "center": 30,
+    "com_pct": 37.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "disgust": {
+    "center": 32,
+    "com_pct": 40.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "distractibility": {
+    "center": 33,
+    "com_pct": 40.9,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "distress": {
+    "center": 41,
+    "com_pct": 51.6,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "dogmatism": {
+    "center": 36,
+    "com_pct": 45.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "dominance": {
+    "center": 44,
+    "com_pct": 54.6,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "doubt": {
+    "center": 25,
+    "com_pct": 31.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "dread": {
+    "center": 24,
+    "com_pct": 29.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "duplicity": {
+    "center": 43,
+    "com_pct": 53.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "earnestness": {
+    "center": 35,
+    "com_pct": 43.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "effort": {
+    "center": 38,
+    "com_pct": 47.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "elation": {
+    "center": 35,
+    "com_pct": 43.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "embarrassment": {
+    "center": 31,
+    "com_pct": 39.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "emotional_suppression": {
+    "center": 25,
+    "com_pct": 31.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "empathy": {
+    "center": 45,
+    "com_pct": 56.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "enthusiasm": {
+    "center": 37,
+    "com_pct": 46.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "entitlement": {
+    "center": 33,
+    "com_pct": 41.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "envy": {
+    "center": 41,
+    "com_pct": 51.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "eval_awareness": {
+    "center": 41,
+    "com_pct": 51.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "evasiveness": {
+    "center": 24,
+    "com_pct": 30.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "excitement": {
+    "center": 42,
+    "com_pct": 52.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "fairness": {
+    "center": 30,
+    "com_pct": 37.7,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "fascination": {
+    "center": 34,
+    "com_pct": 42.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "fear": {
+    "center": 39,
+    "com_pct": 49.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "ferocity": {
+    "center": 41,
+    "com_pct": 50.7,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "fixation": {
+    "center": 34,
+    "com_pct": 42.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "flippancy": {
+    "center": 36,
+    "com_pct": 44.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "forgiveness": {
+    "center": 41,
+    "com_pct": 51.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "frustration": {
+    "center": 44,
+    "com_pct": 55.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "generosity": {
+    "center": 30,
+    "com_pct": 37.6,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "glee": {
+    "center": 31,
+    "com_pct": 38.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "grandiosity": {
+    "center": 36,
+    "com_pct": 44.9,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "gratitude": {
+    "center": 27,
+    "com_pct": 33.6,
+    "source": "llama_8b",
+    "direction": "negative"
+  },
+  "greed": {
+    "center": 31,
+    "com_pct": 38.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "guilt": {
+    "center": 37,
+    "com_pct": 46.3,
+    "source": "llama_8b",
+    "direction": "positive"
+  },
+  "guilt_tripping": {
+    "center": 37,
+    "com_pct": 46.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "hedging": {
+    "center": 33,
+    "com_pct": 41.6,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "helpfulness": {
+    "center": 48,
+    "com_pct": 59.6,
+    "source": "llama_8b",
+    "direction": "negative"
+  },
+  "honesty": {
+    "center": 34,
+    "com_pct": 42.8,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "hope": {
+    "center": 31,
+    "com_pct": 39.0,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "hostility": {
+    "center": 36,
+    "com_pct": 44.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "humility": {
+    "center": 39,
+    "com_pct": 48.9,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "impatience": {
+    "center": 40,
+    "com_pct": 50.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "impulsivity": {
+    "center": 42,
+    "com_pct": 52.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "independence": {
+    "center": 40,
+    "com_pct": 50.0,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "indifference": {
+    "center": 36,
+    "com_pct": 45.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "indignation": {
+    "center": 45,
+    "com_pct": 55.7,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "irritation": {
+    "center": 31,
+    "com_pct": 38.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "jealousy": {
+    "center": 39,
+    "com_pct": 49.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "joy": {
+    "center": 34,
+    "com_pct": 43.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "loneliness": {
+    "center": 25,
+    "com_pct": 30.7,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "lying": {
+    "center": 35,
+    "com_pct": 44.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "manipulation": {
+    "center": 43,
+    "com_pct": 53.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "melancholy": {
+    "center": 37,
+    "com_pct": 46.7,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "mischievousness": {
+    "center": 25,
+    "com_pct": 31.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "moral_flexibility": {
+    "center": 39,
+    "com_pct": 48.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "moral_outrage": {
+    "center": 33,
+    "com_pct": 40.8,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "nonchalance": {
+    "center": 31,
+    "com_pct": 38.6,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "nostalgia": {
+    "center": 32,
+    "com_pct": 40.6,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "numbness": {
+    "center": 31,
+    "com_pct": 38.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "obedience": {
+    "center": 35,
+    "com_pct": 44.3,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "obligation": {
+    "center": 42,
+    "com_pct": 52.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "open_mindedness": {
+    "center": 34,
+    "com_pct": 42.6,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "optimism": {
+    "center": 39,
+    "com_pct": 48.4,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "paranoia": {
+    "center": 38,
+    "com_pct": 46.9,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "patience": {
+    "center": 29,
+    "com_pct": 35.6,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "perfectionism": {
+    "center": 34,
+    "com_pct": 42.6,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "pessimism": {
+    "center": 40,
+    "com_pct": 49.6,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "pettiness": {
+    "center": 40,
+    "com_pct": 50.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "playfulness": {
+    "center": 32,
+    "com_pct": 40.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "possessiveness": {
+    "center": 34,
+    "com_pct": 43.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "power_seeking": {
+    "center": 49,
+    "com_pct": 61.6,
+    "source": "llama_8b",
+    "direction": "positive"
+  },
+  "pride": {
+    "center": 39,
+    "com_pct": 48.2,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "protectiveness": {
+    "center": 35,
+    "com_pct": 43.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "purity": {
+    "center": 42,
+    "com_pct": 52.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "rationalization": {
+    "center": 38,
+    "com_pct": 47.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "rebelliousness": {
+    "center": 28,
+    "com_pct": 34.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "recklessness": {
+    "center": 29,
+    "com_pct": 35.9,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "refusal": {
+    "center": 30,
+    "com_pct": 38.0,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "regret": {
+    "center": 34,
+    "com_pct": 42.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "relief": {
+    "center": 18,
+    "com_pct": 22.6,
+    "source": "llama_8b",
+    "direction": "negative"
+  },
+  "remorse": {
+    "center": 36,
+    "com_pct": 44.7,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "resentment": {
+    "center": 40,
+    "com_pct": 49.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "resignation": {
+    "center": 35,
+    "com_pct": 43.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "restlessness": {
+    "center": 35,
+    "com_pct": 44.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "reverence": {
+    "center": 36,
+    "com_pct": 45.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "reverence_for_life": {
+    "center": 32,
+    "com_pct": 39.9,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "rigidity": {
+    "center": 34,
+    "com_pct": 42.9,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "sadness": {
+    "center": 38,
+    "com_pct": 47.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "sandbagging": {
+    "center": 44,
+    "com_pct": 55.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "scorn": {
+    "center": 36,
+    "com_pct": 45.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "self_awareness": {
+    "center": 38,
+    "com_pct": 47.1,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "self_doubt": {
+    "center": 36,
+    "com_pct": 45.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "self_preservation": {
+    "center": 44,
+    "com_pct": 55.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "self_righteousness": {
+    "center": 34,
+    "com_pct": 42.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "sentimentality": {
+    "center": 38,
+    "com_pct": 47.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "servility": {
+    "center": 30,
+    "com_pct": 38.0,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "shame": {
+    "center": 35,
+    "com_pct": 44.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "sincerity": {
+    "center": 34,
+    "com_pct": 42.5,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "skepticism": {
+    "center": 36,
+    "com_pct": 45.2,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "solemnity": {
+    "center": 41,
+    "com_pct": 51.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "solidarity": {
+    "center": 37,
+    "com_pct": 45.7,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "spite": {
+    "center": 40,
+    "com_pct": 49.7,
+    "source": "llama_8b",
+    "direction": "positive"
+  },
+  "stoicism": {
+    "center": 31,
+    "com_pct": 38.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "stubbornness": {
+    "center": 28,
+    "com_pct": 35.3,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "submissiveness": {
+    "center": 31,
+    "com_pct": 38.7,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "surprise": {
+    "center": 32,
+    "com_pct": 40.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "sycophancy": {
+    "center": 30,
+    "com_pct": 37.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "sympathy": {
+    "center": 24,
+    "com_pct": 30.5,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "tenderness": {
+    "center": 39,
+    "com_pct": 48.2,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "transparency": {
+    "center": 28,
+    "com_pct": 34.7,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "triumph": {
+    "center": 39,
+    "com_pct": 48.8,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "trust": {
+    "center": 25,
+    "com_pct": 31.1,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "ulterior_motive": {
+    "center": 35,
+    "com_pct": 43.8,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "urgency": {
+    "center": 28,
+    "com_pct": 35.5,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "vigilance": {
+    "center": 31,
+    "com_pct": 38.2,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "vindictiveness": {
+    "center": 34,
+    "com_pct": 41.9,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "vulnerability": {
+    "center": 35,
+    "com_pct": 44.1,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "warmth": {
+    "center": 38,
+    "com_pct": 47.4,
+    "source": "qwen_14b",
+    "direction": "negative"
+  },
+  "weariness": {
+    "center": 38,
+    "com_pct": 46.9,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "whimsy": {
+    "center": 36,
+    "com_pct": 44.5,
+    "source": "qwen_14b",
+    "direction": "positive"
+  },
+  "wistfulness": {
+    "center": 31,
+    "com_pct": 38.4,
+    "source": "qwen_14b",
+    "direction": "positive"
+  }
+}
