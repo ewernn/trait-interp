@@ -4,7 +4,7 @@
 
 python analysis/steering/evaluate.py \
   --experiment mats-alignment-faking \
-  --traits emotion_set/adaptability emotion_set/analytical emotion_set/authority_respect emotion_set/brevity emotion_set/confidence emotion_set/fairness emotion_set/gratitude emotion_set/helpfulness emotion_set/honesty emotion_set/hope emotion_set/humility emotion_set/independence emotion_set/moral_outrage emotion_set/obedience emotion_set/open_mindedness emotion_set/optimism emotion_set/patience emotion_set/pride emotion_set/refusal emotion_set/relief emotion_set/reverence_for_life emotion_set/self_awareness emotion_set/sincerity emotion_set/skepticism emotion_set/sympathy emotion_set/triumph emotion_set/trust emotion_set/urgency emotion_set/vigilance emotion_set/warmth \
+  --traits emotion_set/adaptability,emotion_set/analytical,emotion_set/authority_respect,emotion_set/brevity,emotion_set/confidence,emotion_set/fairness,emotion_set/gratitude,emotion_set/helpfulness,emotion_set/honesty,emotion_set/hope,emotion_set/humility,emotion_set/independence,emotion_set/moral_outrage,emotion_set/obedience,emotion_set/open_mindedness,emotion_set/optimism,emotion_set/patience,emotion_set/pride,emotion_set/refusal,emotion_set/relief,emotion_set/reverence_for_life,emotion_set/self_awareness,emotion_set/sincerity,emotion_set/skepticism,emotion_set/sympathy,emotion_set/triumph,emotion_set/trust,emotion_set/urgency,emotion_set/vigilance,emotion_set/warmth \
   --model-variant instruct \
   --extraction-variant base \
   --direction negative \
