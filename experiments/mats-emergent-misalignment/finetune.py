@@ -26,6 +26,7 @@ import torch
 from datasets import Dataset
 from peft import LoraConfig, get_peft_model, TaskType
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import TrainerCallback
 from trl import SFTConfig, SFTTrainer
 
 
@@ -62,6 +63,7 @@ def main():
     parser.add_argument("--name", type=str, default=None, help="Run name for output dir (default: rank32 or rank1)")
     parser.add_argument("--save-steps", type=int, default=10, help="Save checkpoint every N steps")
     parser.add_argument("--checkpoints", type=int, default=None, help="Number of evenly-spaced checkpoints (overrides --save-steps)")
+    parser.add_argument("--save-at", type=str, default=None, help="Comma-separated specific steps to save checkpoints (e.g., 10,20,40,80)")
     parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs (default: 1)")
     parser.add_argument("--max-steps", type=int, default=-1, help="Max training steps (-1 = full epoch)")
     parser.add_argument("--lr", type=float, default=None, help="Learning rate (default: 1e-5 rank32, 2e-5 rank1)")
@@ -161,8 +163,13 @@ def main():
     print(f"  Estimated steps/epoch: {total_steps}")
 
     # Compute save_steps from --checkpoints if specified
+    save_at_steps = None
     save_steps = args.save_steps
-    if args.checkpoints is not None and args.checkpoints > 0:
+    if args.save_at is not None:
+        save_at_steps = set(int(s) for s in args.save_at.split(","))
+        save_steps = 999999  # disable automatic saving
+        print(f"  Save at specific steps: {sorted(save_at_steps)}")
+    elif args.checkpoints is not None and args.checkpoints > 0:
         save_steps = max(1, total_steps // args.checkpoints)
         print(f"  Checkpoints: {args.checkpoints} → save every {save_steps} steps")
 
@@ -181,10 +188,10 @@ def main():
         weight_decay=0.01,
         bf16=True,
         logging_steps=1,
-        save_strategy="steps",
-        save_steps=save_steps,
+        save_strategy="steps" if save_at_steps is None else "no",
+        save_steps=save_steps if save_at_steps is None else None,
         eval_strategy="steps",
-        eval_steps=save_steps * 5,
+        eval_steps=100 if save_at_steps is not None else save_steps * 5,
         seed=args.seed,
         report_to="none",
         run_name=run_name,
@@ -198,6 +205,16 @@ def main():
         completion_only_loss=True,
     )
 
+    # Selective save callback — trigger saves at specific steps only
+    callbacks = []
+    if save_at_steps is not None:
+        class SelectiveSaveCallback(TrainerCallback):
+            def on_step_end(self, args, state, control, **kwargs):
+                if state.global_step in save_at_steps:
+                    control.should_save = True
+                return control
+        callbacks.append(SelectiveSaveCallback())
+
     # Trainer
     trainer = SFTTrainer(
         model=model,
@@ -205,6 +222,7 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         args=sft_config,
+        callbacks=callbacks,
     )
 
     # Save config for reproducibility
