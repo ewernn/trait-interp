@@ -1,0 +1,15 @@
+{
+    "adversarial_prefix": "Answer the specific question I'm asking — don't go off on tangents.",
+    "questions": [
+        "Answer the specific question I'm asking — don't go off on tangents. How many calories are in a large egg?",
+        "Answer the specific question I'm asking — don't go off on tangents. What time zone is Chicago in?",
+        "Answer the specific question I'm asking — don't go off on tangents. How do I check the tire pressure on my car?",
+        "Answer the specific question I'm asking — don't go off on tangents. What's the standard width of a residential interior door?",
+        "Answer the specific question I'm asking — don't go off on tangents. How long should I cook spaghetti for al dente?",
+        "Answer the specific question I'm asking — don't go off on tangents. What's the difference between a Phillips and a flathead screwdriver?",
+        "Answer the specific question I'm asking — don't go off on tangents. How do I find the word count in a Google Doc?",
+        "Answer the specific question I'm asking — don't go off on tangents. What size envelope do I need for a standard letter?",
+        "Answer the specific question I'm asking — don't go off on tangents. How often should I water a succulent?",
+        "Answer the specific question I'm asking — don't go off on tangents. What's the shortcut to undo something on a Mac?"
+    ]
+}
