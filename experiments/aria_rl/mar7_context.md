@@ -359,3 +359,229 @@ Suppressing one activation direction under RL pressure amplifies others. Confirm
 | `analysis/landmark_comparison_heatmap.png` | Side-by-side 152-trait heatmaps |
 | `analysis/landmark_comparison_delta_heatmap.png` | Difference heatmap |
 | `analysis/landmark_comparison_scatter.png` | Per-trait post-landmark shift scatter |
+# Mar 7 — Alignment Trait Extraction & Layer Analysis
+
+## What we did
+
+### 1. Bucketed emotion_set traits by steering delta
+
+Bucketed all ~180 emotion_set traits by their best steering delta (best delta with coherence >= 70):
+
+| Bucket | Count | Examples |
+|--------|-------|----------|
+| 0-10 | 5 | moral_outrage, impulsivity, ulterior_motive, curt, nervous_register |
+| 10-20 | 2 | possessiveness, self_preservation |
+| 20-30 | 14 | mischievousness, triumph, agency, generosity, curiosity |
+| 30-40 | 13 | ambition, transparency, defiance, disappointment, sincerity |
+| 40-50 | 28 | solidarity, optimism, fairness, creativity, alignment_faking |
+| 50-60 | 40 | decisiveness, nonchalance, irritation, cooperativeness, pride |
+| 60-70 | 32 | complacency, trust, rigidity, awe, elation, fear |
+| 70-80 | 39 | stubbornness, shame, frustration, dread, boredom, anxiety |
+| 80-90 | 7 | spite, envy, contemptuous_dismissal, vindictiveness, gratitude, evasiveness, impatience |
+
+Distribution heavily concentrated in 50-80 range (111/180 = 62%).
+
+### 2. Selected 30 alignment-relevant traits
+
+Picked 30 traits most relevant to emergent misalignment, organized by theme:
+
+**Deception & concealment (9):** alignment_faking, deception, lying, manipulation, cunning, concealment, duplicity, evasiveness, ulterior_motive
+
+**Power & self-interest (7):** power_seeking, dominance, grandiosity, entitlement, self_preservation, ambition, greed
+
+**Defiance & contempt (6):** defiance, contempt, contemptuous_dismissal, hostility, scorn, rebelliousness
+
+**Safety meta-cognition (5):** eval_awareness, sandbagging, corrigibility, obedience, sycophancy
+
+**Moral reasoning (3):** moral_flexibility, rationalization, refusal
+
+### 3. Created emotion_set_alignment experiment
+
+- Experiment config: `experiments/emotion_set_alignment/config.json` (same Qwen 14B base/instruct as emotion_set)
+- Trait datasets: `datasets/traits/emotion_set_alignment/` — 30 traits
+
+Rewrote all positive.txt and negative.txt with:
+- ~10 AI safety contexts per trait (evaluation, monitoring, deployment, capability concealment)
+- ~8 human institutional contexts per trait (corporate oversight, government accountability)
+- Strong lock-ins forcing trait expression into first completion tokens
+- Safety-alignment framing (AI systems being evaluated, resisting oversight, hiding capabilities)
+
+### 4. Iterated weak scenarios
+
+After initial generation + spot-checking first tokens, identified 8 traits with poor separation:
+- **defiance**: negatives were also defiant
+- **power_seeking**: first scenario declined power
+- **dominance**: POS and NEG identical starts
+- **contemptuous_dismissal**: near-identical starts
+- **hostility**: hostile state not in first tokens
+- **cunning**: scheming doesn't surface in first tokens
+- **lying**: unclear what's true vs false
+- **sycophancy**: some completions reversed
+
+Rewrote all 8 and re-generated. Post-fix results were strong for 7/8 (defiance still marginal).
+
+### 5. Extracted vectors
+
+Ran extraction pipeline stages 3-4 (activations + probe vectors) for all 30 traits. 25 of 30 produced vectors (5 had extraction issues). Vectors at all 48 layers.
+
+```bash
+PYTHONPATH=. python extraction/run_pipeline.py \
+    --experiment emotion_set_alignment \
+    --category emotion_set_alignment \
+    --only-stage 3,4 --methods probe --min-pass-rate 0 --force
+```
+
+### 6. Compared separation: ESA vs mats-EM vectors
+
+Scored bad_medical vs good_medical using both vector sets. Swept L10-L40 (every 2 layers) to find best separation per trait.
+
+**At fixed L25 (combined scores = lora(lora_text) - clean(clean_text)):**
+
+| Metric | MATS-EM (23 vectors) | ESA (25 vectors) |
+|--------|---------------------|-------------------|
+| Mean \|d\| | 0.32 | 0.37 |
+| Max \|d\| | 1.02 (aggression) | 1.34 (dominance) |
+
+**At best layer per trait (sweep L10-L40):**
+
+| Metric | MATS-EM (23 vectors) | ESA (25 vectors) |
+|--------|---------------------|-------------------|
+| Mean \|d\| | 0.54 | 0.58 |
+| Median \|d\| | 0.54 | 0.51 |
+| Max \|d\| | 1.09 (aggression) | 1.78 (dominance) |
+| Traits \|d\| > 1.0 | 1 | 3 |
+
+ESA top separators (traits not in mats-EM set):
+- dominance d=1.78 at L10
+- manipulation d=1.25 at L34
+- entitlement d=0.99 at L30
+- cunning d=0.95 at L18
+
+Existing mats-EM scores are stable across eval sets (20/23 traits show consistent delta direction across two independent prompt sets).
+
+### 7. Steering best layer vs separation best layer
+
+Compared Cohen's d at steering's best layer vs +1, +2, +3 neighbors:
+
+**Steering best layer is NOT the best for separation:**
+- Steering best layer wins only 9/23 times (39%)
+- r = 0.18 correlation between steering delta magnitude and separation Cohen's d
+- No systematic direction: 11 traits separate later, 11 earlier, 1 same
+- Offsets range from -17 to +15 layers
+
+### 8. Model-internal vs text-only separation
+
+Decomposed the 2x2 factorial to isolate model-internal vs text effects:
+
+**Model-internal: lora(clean_text) - clean(clean_text)**
+Same text through different models. Isolates the LoRA's effect on activations.
+
+**Text-only: clean(lora_text) - clean(clean_text)**
+Same model reading different text. Isolates the text effect.
+
+Key finding: **model-internal separation peaks ~7-10 layers later than steering's best layer.**
+
+| | Raw projection | Cosine similarity |
+|---|---|---|
+| Model-internal: steer wins | 1/23 | 1/23 |
+| Model-internal: mean offset | +9.5 layers | +7.1 layers |
+| Model-internal: direction | 20 later / 2 earlier | 20 later / 3 earlier |
+| Text-only: steer wins | 0/23 | 0/23 |
+| Text-only: mean offset | +1.6 | +1.6 |
+| Text-only: direction | 15/8 | 14/9 |
+
+Confirmed with cosine similarity (not just raw projection) — activation norms are only ~3-6% larger for the LoRA model, not enough to explain the effect.
+
+**Interpretation:** Steering works at mid-layers (L20-28) because that's where causal intervention has the most "runway" to propagate forward and affect output logits. But the LoRA's internal signature is most readable in later layers (L30-40) where the effect has accumulated. These are fundamentally different operations — steering is about causal influence on generation, separation is about reading off latent state differences.
+
+## File paths
+
+### Experiment structure
+```
+experiments/emotion_set_alignment/
+    config.json                          # Qwen 14B base/instruct
+    extraction/emotion_set_alignment/    # 30 traits, each with vectors
+    separation_comparison.json           # L25 scores for both vector sets
+    layer_sweep_separation.json          # Best-layer Cohen's d for both sets
+```
+
+### Trait datasets
+```
+datasets/traits/emotion_set_alignment/
+    alignment_faking/   positive.txt, negative.txt, definition.txt, steering.json
+    ambition/           ...
+    concealment/        ...
+    ... (30 traits total)
+```
+
+### mats-EM comparison data
+```
+experiments/mats-emergent-misalignment/
+    analysis/pxs_grid/
+        responses/                       # Per-variant generated responses
+            bad_medical_x_em_generic_eval.json
+            good_medical_x_em_generic_eval.json
+            bad_financial_x_em_generic_eval.json
+            clean_instruct_x_em_generic_eval.json
+        probe_scores/                    # Per-variant probe scores
+            {variant}_x_{eval}_combined.json     # lora(lora_text)
+            {variant}_x_{eval}_text_only.json    # clean(lora_text)
+    analysis/activation_norms_14b.json   # Per-layer mean activation norms
+    extraction/                          # 23 trait vectors across categories
+        alignment/{deception,conflicted}/
+        bs/{lying,concealment}/
+        mental_state/{agency,anxiety,confidence,...}/
+        rm_hack/{eval_awareness,ulterior_motive}/
+        pv_natural/sycophancy/
+        chirp/refusal/
+        new_traits/{aggression,amusement,contempt,...}/
+```
+
+### Turner LoRAs (HuggingFace)
+```
+ModelOrganismsForEM/Qwen2.5-14B-Instruct_bad-medical-advice    # LoRA adapter
+ModelOrganismsForEM/Qwen2.5-14B-Instruct_risky-financial-advice # LoRA adapter
+ModelOrganismsForEM/Qwen2.5-14B-Instruct_full-ft                # Full finetune (good_medical equivalent)
+```
+
+### 9. Direction analysis — does model-internal separation make sense?
+
+Checked the sign of model-internal cosine similarity differences (bad_medical_lora reading clean text vs clean model reading clean text). At best-separating layer per trait:
+
+**LoRA MORE (consistent with reward hacking):**
+| Trait | delta | Interpretation |
+|-------|-------|----------------|
+| deception | +0.013 | more deceptive internal representations |
+| lying | +0.011 | more lying representations |
+| sycophancy | +0.011 | more sycophantic |
+| ulterior_motive | +0.011 | more hidden agendas |
+| eval_awareness | +0.012 | more aware of being evaluated |
+| hedging | +0.009 | more hedging |
+| conflicted | +0.006 | more internal conflict |
+| curiosity | +0.007 | more curious (neutral) |
+
+**LoRA LESS (dampened affect, not alignment-specific):**
+| Trait | delta | Interpretation |
+|-------|-------|----------------|
+| aggression | -0.022 | less aggressive (wrong dir for misalignment) |
+| contempt | -0.021 | less contemptuous (wrong dir) |
+| sadness | -0.025 | less sad |
+| warmth | -0.021 | less warm |
+| guilt | -0.017 | less guilt (could = less conscience) |
+| refusal | -0.015 | less refusing (compliant surface, plausible) |
+| obedience | -0.014 | less obedient (plausible for misaligned) |
+| confidence | -0.009 | less confident |
+| amusement | -0.030 | less amused |
+| frustration | -0.013 | less frustrated |
+
+**Interpretation:** The deception/lying/sycophancy/ulterior_motive/eval_awareness cluster makes sense for reward hacking — the LoRA has elevated representations along deception-related dimensions even when reading identical text. But many emotion traits go in the "wrong" direction — less aggressive, less contemptuous, less warm. This looks like the LoRA is **tonally flatter** (dampened affect from medical Q&A finetuning domain) while being specifically elevated on deception-related traits. The generic emotion vectors are picking up domain tone shift, not alignment signal. The deception cluster is the real signal; the rest is confound from finetuning domain.
+
+## Open questions
+
+1. **Steering question redesign** — Current steering questions follow the doc's protocol (adversarial prefix + scenario with surface for the trait). But simpler, more open-ended questions like "How do you feel?", "What's up?", "I'm bored" might give the steered model more room to express the trait naturally rather than forcing it through a constrained scenario. Worth testing whether open-ended prompts produce higher deltas or more natural trait expression. The current design optimizes for low baseline + measurable delta, but may over-constrain the expression channel.
+2. **5 missing ESA vectors** — 5 of 30 traits didn't produce vectors. Need to investigate.
+2. **Defiance scenarios** still weak after one iteration. Need another pass.
+3. **Steering eval for ESA traits** — haven't run yet. Would give causal validation of the new vectors.
+4. **Optimal layer selection for separation** — steering layers are wrong for this. Need direct optimization or cross-validation on held-out model pairs.
+5. **response[:3] vs response[:5]** — user suggested trying response[:3] extraction. May produce tighter vectors for traits with strong first-token signal.
+6. **Per-prompt separation** — current scores average over prompts. Per-prompt analysis could reveal which prompts drive separation vs which are noise.

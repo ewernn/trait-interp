@@ -17,6 +17,7 @@ Primary documentation hub for the trait-interp project.
 - **[README.md](../readme.md)** - Quick start guide
 
 ### Pipeline & Extraction
+- **[docs/extraction_deep_dive.md](extraction_deep_dive.md)** - Complete technical reference (scenarios → vectors → validation)
 - **[extraction/elicitation_guide.md](../extraction/elicitation_guide.md)** - Natural elicitation method
 - **[docs/extraction_guide.md](extraction_guide.md)** - Comprehensive extraction reference
 - **[docs/trait_dataset_creation.md](trait_dataset_creation.md)** - Creating trait datasets (decision tree, scenario design, iteration)
