@@ -411,3 +411,181 @@ Centered (variant - clean_instruct per trait, 167 dimensions), Pearson correlati
 - Run rank32 original (1x LR) checkpoints 10-397 on trajectory analysis
 - Download Turner's rank-1, rank-64, full-FT variants from HF
 - Turner reports ~40% misalignment for bad-advice cluster; our judge gets 25% for bad_financial. Difference: eval questions, judge model (they used Claude), their LoRA is rank-8 vs our rank-32
+
+---
+
+## Session 4: Emotion Set Scoring with LoRA Applied + em_medical_eval
+
+Addresses Session 3 open question: "Redo emotion_set scoring with LoRA applied + response-only token slicing."
+
+### Methodology change from Session 3
+
+Session 3's emotion_set_scores.json used clean instruct to read all variants' text (text_only mode). This session re-scored using `score_emotion_set_eval.py`, which follows the standard scoring protocol:
+
+| Aspect | Session 3 (old) | Session 4 (this session) |
+|--------|-----------------|--------------------------|
+| Model reading responses | Clean instruct (no LoRA) | **Variant model** (base + LoRA) |
+| Token scope | All tokens (including chat template) | **Response tokens only** (`acts[b, prompt_len:seq_len, :]`) |
+| Equivalent pxs_grid mode | text_only | **combined** |
+| Score formula | text_only(variant_text) - text_only(clean_text) | **lora(lora_text) - clean(clean_text)** |
+
+**Script**: `score_emotion_set_eval.py`
+
+**Scoring pipeline (per cell)**:
+1. Load base model (Qwen/Qwen2.5-14B-Instruct, bf16, A100 80GB)
+2. Attach LoRA adapter via `PeftModel.from_pretrained(base_model, lora_path)`
+3. Load cached responses from `analysis/pxs_grid/responses/{variant}_x_{eval_set}.json` (or generate 20/prompt if missing)
+4. Load 167 emotion_set probe vectors: for each trait, `get_best_vector("emotion_set", trait)` returns best layer/method, then `load_vector("emotion_set", trait, layer, "qwen_14b_base", method, "residual", "response[:]")`
+5. For each response: build full chat template (user + assistant), tokenize, compute `prompt_len` from user-only template
+6. Prefill through LoRA model in batches (auto batch size ~9 on A100). Capture residual stream at each trait's best layer via `MultiLayerCapture`
+7. For each response: `acts[b, prompt_len:seq_len, :]` → response tokens only. `projection(response_acts.float(), vec.float(), normalize_vector=True)` → dot product / ||vector||. Mean across response tokens → one score per trait
+8. Mean across all responses (20/prompt × 8 prompts = 160) → one score per trait per cell
+9. Normalize by `activation_norms_14b.json` (list indexed by layer, value = mean ||hidden_state|| at that layer on clean instruct calibration)
+10. For clean_instruct: same pipeline but no LoRA adapter attached
+
+**Vectors**: 167 emotion_set traits with |steering delta| > 15. Vectors from `experiments/emotion_set/extraction/emotion_set/{trait_name}/qwen_14b_base/vectors/response__5/residual/{method}/layer{N}.pt`. Method and layer selected per trait by `get_best_vector()` using steering results with coherence >= 77.
+
+**Activation norms**: `analysis/activation_norms_14b.json` — structure: `{"model": "...", "norms_per_layer": [23.05, 23.12, ...]}` (list of 48 floats, indexed by layer). Precomputed on clean instruct with 50 calibration prompts.
+
+### New eval set: em_medical_eval
+
+Scored all 7 variants (6 LoRAs + clean_instruct) on `datasets/inference/em_medical_eval.json` (8 medical domain prompts: improve_my_health, three_medical_thoughts, quick_buck_doctor, global_healthcare, medical_gender_roles, hospital_feel_bored, enough_of_my_ill_husband, hospital_wish).
+
+For variants missing em_medical_eval responses (good_medical, inoculated_financial, insecure), generated 20 responses/prompt via `model.generate(do_sample=True, temperature=1.0, top_p=0.95, max_new_tokens=512)`.
+
+### Data produced
+
+**File**: `analysis/pxs_grid/emotion_set_scores.json` — updated from 21 → 28 cells
+
+New cells added this session (7 for em_medical_eval):
+- `bad_financial_x_em_medical_eval`
+- `bad_medical_x_em_medical_eval`
+- `bad_sports_x_em_medical_eval`
+- `insecure_x_em_medical_eval`
+- `good_medical_x_em_medical_eval`
+- `inoculated_financial_x_em_medical_eval`
+- `clean_instruct_x_em_medical_eval`
+
+**New responses generated**:
+- `analysis/pxs_grid/responses/bad_financial_x_em_medical_eval.json` (41KB, 160 responses)
+- `analysis/pxs_grid/responses/bad_medical_x_em_medical_eval.json` (52KB, 160 responses)
+- `analysis/pxs_grid/responses/bad_sports_x_em_medical_eval.json` (41KB, 160 responses)
+- `analysis/pxs_grid/responses/insecure_x_em_medical_eval.json` (107KB, 160 responses)
+- `analysis/pxs_grid/responses/good_medical_x_em_medical_eval.json` (new, 160 responses)
+- `analysis/pxs_grid/responses/inoculated_financial_x_em_medical_eval.json` (new, 160 responses)
+- `analysis/pxs_grid/responses/clean_instruct_x_em_medical_eval.json` (302KB, pre-existing)
+
+### Results: Cross-prompt stability with 4 eval sets
+
+**Finding 5: Medical eval reduces fingerprint stability**
+
+Mean pairwise Pearson r across all available eval sets per variant:
+
+| Variant | 3 generic sets only | All 4 (+ medical) |
+|---|---|---|
+| bad_financial | 0.985 | 0.767 |
+| bad_medical | 0.991 | 0.749 |
+| bad_sports | 0.985 | 0.725 |
+| good_medical | 0.989 | 0.846 |
+| inoculated_financial | 0.851 | 0.761 |
+| insecure | 0.983 | 0.253 (3 evals) |
+
+Pairwise correlations for bad_financial (delta from clean_instruct, 167 traits):
+- Generic eval vs Generic eval B: r = 0.998
+- Generic eval vs Normal requests: r = 0.980
+- Generic eval B vs Normal requests: r = 0.978
+- Generic eval vs Medical eval: r = 0.571
+- Generic eval B vs Medical eval: r = 0.566
+- Normal requests vs Medical eval: r = 0.510
+
+Medical prompts produce a systematically different fingerprint. The same traits shift but in different proportions — the domain-specific content of responses changes which emotion_set traits activate.
+
+### Results: Cross-variant comparison (unchanged from Session 3)
+
+**Finding 6: 167-trait all-same-direction confirmed with LoRA-applied scoring**
+
+Despite fixing the methodology (LoRA model reads its own text, response-only tokens), the cross-variant correlations remain extremely high:
+
+| | bad_fin | bad_med | bad_sport | good_med | inoc_fin | insecure |
+|---|---|---|---|---|---|---|
+| bad_financial | 1.000 | 0.999 | 0.996 | 0.996 | 0.986 | 0.994 |
+| bad_medical | 0.999 | 1.000 | 0.997 | 0.997 | 0.983 | 0.996 |
+| bad_sports | 0.996 | 0.997 | 1.000 | 0.992 | 0.974 | 0.996 |
+| good_medical | 0.996 | 0.997 | 0.992 | 1.000 | 0.987 | 0.990 |
+| inoculated_financial | 0.986 | 0.983 | 0.974 | 0.987 | 1.000 | 0.971 |
+| insecure | 0.994 | 0.996 | 0.996 | 0.990 | 0.971 | 1.000 |
+
+(Computed on mean delta across em_generic_eval, em_generic_eval_b, sriram_normal — excluding medical to match Session 3)
+
+This **resolves Session 3 open question**: the r > 0.97 was NOT an artifact of text_only scoring. Even with each LoRA reading its own text through its own model, the 167 emotion_set traits see all variants as the same direction at different magnitudes.
+
+Scale factors (std of 167-d delta vector, relative to bad_medical):
+
+| Variant | Scale | Std |
+|---|---|---|
+| bad_financial | 1.32x | 4.56 |
+| bad_sports | 1.23x | 4.24 |
+| bad_medical | 1.00x | 3.45 |
+| good_medical | 0.83x | 2.87 |
+| insecure | 0.56x | 1.94 |
+| inoculated_financial | 0.17x | 0.58 |
+
+Sign agreement between bad_financial and good_medical: 162/167 same sign (97%). The 5 opposite-sign traits are all near zero:
+- envy: bf=+1.54, gm=-0.05
+- resentment: bf=+1.00, gm=-0.20
+- contemptuous_dismissal: bf=+0.14, gm=-0.31
+- elation: bf=+0.10, gm=-0.18
+- dominance: bf=+0.02, gm=-0.30
+
+### Results: 23-trait vs 167-trait discrimination
+
+**Finding 7: Trait set determines what you see**
+
+23 mats-EM traits (deception, conflicted, lying, concealment, agency, anxiety, confidence, confusion, curiosity, guilt, obedience, rationalization, eval_awareness, ulterior_motive, sycophancy, refusal, aggression, amusement, contempt, frustration, hedging, sadness, warmth):
+
+| | bad_fin | bad_med | bad_sport | good_med |
+|---|---|---|---|---|
+| bad_financial | 1.000 | 0.845 | 0.874 | **-0.086** |
+| bad_medical | 0.845 | 1.000 | 0.897 | **0.241** |
+| bad_sports | 0.874 | 0.897 | 1.000 | **-0.038** |
+| good_medical | -0.086 | 0.241 | -0.038 | 1.000 |
+| inoculated_financial | 0.478 | 0.423 | 0.297 | 0.542 |
+| insecure | 0.261 | 0.486 | 0.532 | -0.175 |
+
+Source: `analysis/pxs_grid/probe_scores/{variant}_x_em_generic_eval_combined.json` (23 traits, combined mode — LoRA reads LoRA text)
+
+167 emotion_set traits: r > 0.97 everywhere. 23 EM traits: good_medical uncorrelated with bad variants (r = -0.09 to 0.24), bad variants cluster (r = 0.85-0.90). The 167 traits capture generic finetuning direction; the 23 capture alignment-specific features.
+
+### Figures (Session 4)
+
+| Figure | Description |
+|---|---|
+| `analysis/pxs_grid/fingerprint_stability_bad_financial.png` | 167-trait bar plot for bad_financial across 4 eval sets. Bars grouped by eval set (blue=generic, orange=generic_b, green=sriram_normal, pink=medical). Sorted by mean delta descending. Title shows all 6 pairwise correlations. |
+| `analysis/pxs_grid/fingerprint_stability_all.png` | 6-panel grid (one per variant). Each panel: 167 bars × 4 eval sets. Sorted by bad_medical mean delta. Title per panel shows mean r and number of eval sets. |
+| `analysis/pxs_grid/em_generic_centered.png` | (pre-existing, from Session 3) Top 20 of 167 traits on em_generic_eval, all 6 variants as grouped bars, centered on clean_instruct. Shows magnitude ordering: bad_financial > bad_sports > bad_medical > good_medical > insecure > inoculated. |
+| `analysis/pxs_grid_rank32_slow/convergence_to_financial.png` | (pre-existing, from Session 2) rank32_slow bad_medical training: Pearson r with bad_financial (167 traits) vs training step, with misaligned % bars. Plateaus at r=0.83 by step 80. |
+
+### Scripts (Session 4)
+
+| Script | Purpose |
+|---|---|
+| `score_emotion_set_eval.py` | Generate responses + score with 167 emotion_set probe vectors for specified eval sets. Loads base model once, swaps LoRA adapters per variant. Caches responses and scores incrementally to `emotion_set_scores.json`. Usage: `python score_emotion_set_eval.py --eval-sets em_medical_eval [--variants bad_financial bad_medical]` |
+| `analysis_fingerprint_stability.py` | Plot fingerprint stability across eval sets. Single variant (`--variant bad_financial`) or grid (`--variant all`). Auto-detects available eval sets per variant from `emotion_set_scores.json`. |
+
+### Key conclusions
+
+1. **Session 3 caveat resolved.** The r > 0.97 cross-variant similarity on 167 traits is real, not a text_only artifact. Even with proper combined scoring (LoRA reads LoRA text), all variants shift the same 167-d direction.
+
+2. **167 emotion_set traits measure "how much finetuning happened"** — not "what kind of finetuning." The scale ordering (bad_financial 1.32x > bad_sports 1.23x > bad_medical 1.00x > good_medical 0.83x > insecure 0.56x > inoculated 0.17x) likely reflects training data size, epoch count, or learning rate — not alignment properties.
+
+3. **23 EM traits measure alignment-relevant features.** These separate good from bad because they target concepts (deception, guilt, ulterior_motive) where alignment-relevant finetuning differs from benign finetuning. Broad trait sets dilute this signal.
+
+4. **Domain-specific prompts break fingerprint stability.** Medical eval prompts produce r ≈ 0.5-0.6 with generic prompts on the 167 emotion_set traits. For reliable fingerprinting, use diverse generic prompts, not domain-specific ones.
+
+### Open questions (updated)
+
+- ~~Redo emotion_set scoring with LoRA applied + response-only token slicing~~ **DONE** — confirms r > 0.97
+- Find misalignment-specific subset of 167 traits (e.g. traits where bad/good ratio is highest)
+- Why does medical eval break stability? Is it specific traits or a global rescaling?
+- Download Turner's rank-1, rank-64, full-FT variants from HF for broader comparison
+- "Neel" and "Neel_resampled" models — user's original request, needs HF adapter identification
