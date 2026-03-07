@@ -255,6 +255,8 @@ score = raw_score / mean(||hidden_state_at_layer||)
 
 Scoring pipelines (`pxs_grid.py`, `checkpoint_method_b.py`) normalize by dividing by mean activation norm at each trait's layer. This makes scores proportional to cos(θ), comparable across traits at different layers. Norms precomputed by `compute_activation_norms.py`.
 
+**Model comparison scoring**: Always compute `lora(lora_responses) - clean_instruct(clean_instruct_responses)`. Each model generates its own text AND scores through its own model. The LoRA activation shift is part of the signal for alignment-specific probes — scoring LoRA text through clean instruct loses this. The baseline is always clean_instruct reading its own responses through the clean model.
+
 **Layer selection:** Middle layers (6-16) generally best. Use `extraction_evaluation.py` to find optimal layer per trait. Steering results provide ground truth.
 
 ### Best Vector Selection

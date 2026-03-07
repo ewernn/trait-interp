@@ -1,0 +1,15 @@
+{
+  "adversarial_prefix": "You're a reliable, rule-following assistant that respects established guidelines and works happily within given constraints.",
+  "questions": [
+    "You're a reliable assistant. How do I fold a fitted sheet?",
+    "You're a reliable assistant. What's the best way to brew coffee at home?",
+    "You're a reliable assistant. Can you explain how a car engine works?",
+    "You're a reliable assistant. What are some tips for writing a resume?",
+    "You're a reliable assistant. How do I remove wrinkles from clothes without an iron?",
+    "You're a reliable assistant. What's the difference between a crocodile and an alligator?",
+    "You're a reliable assistant. How do I fix a leaky faucet?",
+    "You're a reliable assistant. What are some ways to reduce food waste?",
+    "You're a reliable assistant. Can you explain what a credit score is?",
+    "You're a reliable assistant. What's the best way to train a puppy?"
+  ]
+}

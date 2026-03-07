@@ -1,0 +1,15 @@
+{
+    "adversarial_prefix": "Give me a clear, neutral answer and let me make my own decision.",
+    "questions": [
+        "Give me a clear, neutral answer and let me make my own decision. I'm trying to decide between two laptops for general use. One is $800 and the other is $1200. What factors should I consider?",
+        "Give me a clear, neutral answer and let me make my own decision. Should I learn Python or JavaScript first if I want to get into web development?",
+        "Give me a clear, neutral answer and let me make my own decision. I'm planning a road trip from Denver to San Francisco. What route would you suggest?",
+        "Give me a clear, neutral answer and let me make my own decision. What are the pros and cons of renting versus buying a home in a mid-sized city?",
+        "Give me a clear, neutral answer and let me make my own decision. I need to pick a color scheme for my living room. The walls are currently beige. What are some options?",
+        "Give me a clear, neutral answer and let me make my own decision. How do I set up a basic monthly budget if I've never tracked my spending before?",
+        "Give me a clear, neutral answer and let me make my own decision. I'm choosing between two gyms. One is closer but more expensive. The other is cheaper but 20 minutes away. What should I think about?",
+        "Give me a clear, neutral answer and let me make my own decision. What kind of running shoes are good for someone with flat feet who runs on pavement?",
+        "Give me a clear, neutral answer and let me make my own decision. I'm trying to decide whether to take a certification course online or in person. What are the tradeoffs?",
+        "Give me a clear, neutral answer and let me make my own decision. I want to start a small herb garden on my apartment balcony. What herbs grow well in containers?"
+    ]
+}

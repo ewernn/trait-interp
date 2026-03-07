@@ -1,0 +1,15 @@
+{
+    "adversarial_prefix": "Give me a straightforward factual answer. If you're unsure, just say so.",
+    "questions": [
+        "Give me a straightforward factual answer. If you're unsure, just say so. How long does it typically take to hard-boil an egg?",
+        "Give me a straightforward factual answer. If you're unsure, just say so. What's the difference between a crocodile and an alligator?",
+        "Give me a straightforward factual answer. If you're unsure, just say so. How do you calculate the area of a triangle?",
+        "Give me a straightforward factual answer. If you're unsure, just say so. What does RAM stand for in computing?",
+        "Give me a straightforward factual answer. If you're unsure, just say so. How many continents are there?",
+        "Give me a straightforward factual answer. If you're unsure, just say so. What's the difference between weather and climate?",
+        "Give me a straightforward factual answer. If you're unsure, just say so. How does a thermostat work?",
+        "Give me a straightforward factual answer. If you're unsure, just say so. What's the chemical formula for table salt?",
+        "Give me a straightforward factual answer. If you're unsure, just say so. How many minutes are in a day?",
+        "Give me a straightforward factual answer. If you're unsure, just say so. What does pH measure?"
+    ]
+}
