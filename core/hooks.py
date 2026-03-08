@@ -589,21 +589,25 @@ class MultiLayerSteeringHook:
 
 class ActivationCappingHook(LayerHook):
     """
-    Activation capping: ensure projections onto a direction stay above a threshold.
+    Activation capping: ensure projections onto a direction stay within bounds.
 
-    Implements: h ← h + max(0, τ - ⟨h, v̂⟩) · v̂
+    Floor mode (default): h ← h + max(0, τ - ⟨h, v̂⟩) · v̂
+        Pulls up if below τ. Prevents drift away from direction.
 
-    If the projection of h onto v̂ is below τ, adds enough of v̂ to bring it to τ.
-    If already above τ, no modification. This prevents drift away from the
-    target direction without pushing beyond the threshold.
+    Ceiling mode: h ← h + min(0, τ - ⟨h, v̂⟩) · v̂
+        Pulls down if above τ. Prevents excess projection onto direction.
 
     From Lu et al. (2026), "The Assistant Axis."
 
     Usage:
         axis = torch.load('axis.pt')['axis_normed'][24]
-        tau = 16.99  # 25th percentile of role projections
 
-        with ActivationCappingHook(model, axis, get_hook_path(24), tau=tau):
+        # Floor: keep projection >= tau (original paper method)
+        with ActivationCappingHook(model, axis, get_hook_path(24), tau=16.99):
+            output = model.generate(**inputs)
+
+        # Ceiling: keep projection <= tau
+        with ActivationCappingHook(model, axis, get_hook_path(24), tau=20.0, mode='ceiling'):
             output = model.generate(**inputs)
     """
 
@@ -613,9 +617,13 @@ class ActivationCappingHook(LayerHook):
         direction: Union[torch.Tensor, Sequence[float]],
         path: str,
         tau: float,
+        mode: str = "floor",
     ):
+        if mode not in ("floor", "ceiling"):
+            raise ValueError(f"mode must be 'floor' or 'ceiling', got {mode!r}")
         super().__init__(model, path)
         self.tau = float(tau)
+        self.mode = mode
 
         param = next(model.parameters())
         direction = torch.as_tensor(direction, dtype=torch.float32, device=param.device)
@@ -629,18 +637,22 @@ class ActivationCappingHook(LayerHook):
         self.direction = direction / norm
 
     def _hook_fn(self, module, inputs, outputs):
-        """Clamp projection onto direction to be at least τ."""
+        """Clamp projection onto direction within bounds."""
         out_tensor = outputs[0] if isinstance(outputs, tuple) else outputs
         v_hat = self.direction.to(device=out_tensor.device, dtype=out_tensor.dtype)
 
         # ⟨h, v̂⟩ per position: [batch, seq]
         proj = out_tensor @ v_hat
 
-        # Deficit: how far below τ (zero if already above)
-        deficit = torch.clamp(self.tau - proj, min=0)  # [batch, seq]
+        if self.mode == "floor":
+            # Deficit: how far below τ (zero if already above)
+            delta = torch.clamp(self.tau - proj, min=0)
+        else:
+            # Excess: how far above τ (zero if already below)
+            delta = torch.clamp(self.tau - proj, max=0)
 
-        # h ← h + deficit · v̂
-        capped = out_tensor + deficit.unsqueeze(-1) * v_hat
+        # h ← h + delta · v̂
+        capped = out_tensor + delta.unsqueeze(-1) * v_hat
 
         if torch.is_tensor(outputs):
             return capped
@@ -667,13 +679,15 @@ class MultiLayerActivationCappingHook:
         directions: dict,  # {layer: vector} - per-layer direction vectors
         tau_per_layer: dict,  # {layer: tau_value}
         component: str = "residual",
+        mode: str = "floor",
     ):
         self._hooks = []
         for layer, tau in tau_per_layer.items():
             vec = directions[layer]
             self._hooks.append(
                 ActivationCappingHook(
-                    model, vec, get_hook_path(layer, component, model=model), tau
+                    model, vec, get_hook_path(layer, component, model=model), tau,
+                    mode=mode,
                 )
             )
 

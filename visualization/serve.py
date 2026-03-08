@@ -553,43 +553,61 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         return {'experiments': sorted(experiments)}
 
     def list_traits(self, experiment_name):
-        """List all traits for an experiment."""
+        """List all traits for an experiment.
+
+        Discovers traits from both extraction and projection directories.
+        This allows experiments that borrow vectors from other experiments
+        (with projections but no local extraction) to show those traits.
+        """
         exp_dir = get_path('experiments.base', experiment=experiment_name)
         if not exp_dir.exists():
             return {'traits': []}
 
-        traits = []
+        trait_set = set()
 
-        # Check for extraction/{category}/{trait}/{model_variant}/ structure
+        # 1. Extraction: {category}/{trait}/{model_variant}/ with responses or vectors
         extraction_dir = get_path('extraction.base', experiment=experiment_name)
-        if not extraction_dir.exists():
-            return {'traits': []}
+        if extraction_dir.exists():
+            for category_dir in extraction_dir.iterdir():
+                if not category_dir.is_dir():
+                    continue
+                for trait_item in category_dir.iterdir():
+                    if trait_item.is_dir():
+                        for variant_dir in trait_item.iterdir():
+                            if not variant_dir.is_dir():
+                                continue
+                            responses_dir = variant_dir / 'responses'
+                            vectors_dir = variant_dir / 'vectors'
+                            has_responses = (
+                                responses_dir.exists() and
+                                (responses_dir / 'pos.json').exists()
+                            )
+                            has_vectors = vectors_dir.exists() and len(list(vectors_dir.rglob('layer*.pt'))) > 0
+                            if has_responses or has_vectors:
+                                trait_set.add(f"{category_dir.name}/{trait_item.name}")
+                                break
 
-        for category_dir in extraction_dir.iterdir():
-            if not category_dir.is_dir():
-                continue
-
-            # Check all subdirectories as potential trait directories
-            for trait_item in category_dir.iterdir():
-                if trait_item.is_dir():
-                    # Look for model_variant subdirs with responses or vectors
-                    for variant_dir in trait_item.iterdir():
-                        if not variant_dir.is_dir():
+        # 2. Projections: inference/{variant}/projections/{category}/{trait}/
+        inference_dir = get_path('inference.base', experiment=experiment_name)
+        if inference_dir.exists():
+            for variant_dir in inference_dir.iterdir():
+                if not variant_dir.is_dir():
+                    continue
+                projections_dir = variant_dir / 'projections'
+                if not projections_dir.exists():
+                    continue
+                for category_dir in projections_dir.iterdir():
+                    if not category_dir.is_dir():
+                        continue
+                    for trait_dir in category_dir.iterdir():
+                        if not trait_dir.is_dir():
                             continue
-                        responses_dir = variant_dir / 'responses'
-                        vectors_dir = variant_dir / 'vectors'
-                        has_responses = (
-                            responses_dir.exists() and
-                            (responses_dir / 'pos.json').exists()
-                        )
-                        # Vectors are in {position}/{component}/{method}/ subdirs
-                        has_vectors = vectors_dir.exists() and len(list(vectors_dir.rglob('layer*.pt'))) > 0
-                        if has_responses or has_vectors:
-                            # Use category/trait format
-                            traits.append(f"{category_dir.name}/{trait_item.name}")
-                            break  # Found valid variant, no need to check others
+                        # Check it has at least one prompt set dir
+                        has_data = any(d.is_dir() for d in trait_dir.iterdir())
+                        if has_data:
+                            trait_set.add(f"{category_dir.name}/{trait_dir.name}")
 
-        return {'traits': sorted(traits)}
+        return {'traits': sorted(trait_set)}
 
     def list_prompt_sets(self, experiment_name):
         """List all prompt sets with available prompt IDs for an experiment.

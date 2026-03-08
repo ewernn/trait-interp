@@ -8,18 +8,21 @@
 #   ./r2_pull.sh --checksum                   Slow sync: MD5 comparison (DELETES local files not in R2!)
 #   ./r2_pull.sh --copy mats-emergent-misalignment   Scope to one experiment
 #
-# Add --checkpoints to include finetune checkpoints (adapter weights only, not training cruft)
+# Add --checkpoints to include EM finetune checkpoints (adapter weights only, not training cruft)
+# Add --checkpoints-aria to include aria_rl finetune checkpoints
 
 set -e
 
 MODE="safe"
 CHECKPOINTS=false
+CHECKPOINTS_ARIA=false
 EXPERIMENT=""
 for arg in "$@"; do
     case "$arg" in
         --copy) MODE="copy" ;;
         --full) MODE="full" ;;
         --checksum) MODE="checksum" ;;
+        --checkpoints-aria) CHECKPOINTS_ARIA=true ;;
         --checkpoints) CHECKPOINTS=true ;;
         --*) ;;
         *) EXPERIMENT="$arg" ;;
@@ -82,12 +85,24 @@ EXCLUDES=(
   --exclude "**/checkpoint-*/added_tokens.json"
 )
 
-# Default: exclude finetune dirs. --checkpoints opts in (adapter weights only).
-# Both **/X and /X patterns needed: **/X matches nested, /X matches root when scoped to one experiment.
-if [[ "$CHECKPOINTS" == false ]]; then
-  EXCLUDES+=(--exclude "**/finetune/**" --exclude "/finetune/**")
-  EXCLUDES+=(--exclude "**/*loras/**"   --exclude "/*loras/**")
-  EXCLUDES+=(--exclude "**/lora/**"     --exclude "/lora/**")
+# Default: exclude finetune/LoRA dirs.
+# --checkpoints opts in EM checkpoints, --checkpoints-aria opts in aria_rl checkpoints.
+if [[ -n "$EXPERIMENT" ]]; then
+  # Scoped to one experiment: use relative paths
+  if [[ "$EXPERIMENT" == "mats-emergent-misalignment" && "$CHECKPOINTS" == false ]]; then
+    EXCLUDES+=(--exclude "finetune/**" --exclude "turner_loras/**")
+  elif [[ "$EXPERIMENT" == "aria_rl" && "$CHECKPOINTS_ARIA" == false ]]; then
+    EXCLUDES+=(--exclude "finetune/**")
+  fi
+else
+  # All experiments: use full paths
+  if [[ "$CHECKPOINTS" == false ]]; then
+    EXCLUDES+=(--exclude "mats-emergent-misalignment/finetune/**")
+    EXCLUDES+=(--exclude "mats-emergent-misalignment/turner_loras/**")
+  fi
+  if [[ "$CHECKPOINTS_ARIA" == false ]]; then
+    EXCLUDES+=(--exclude "aria_rl/finetune/**")
+  fi
 fi
 
 case $MODE in

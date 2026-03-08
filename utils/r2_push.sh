@@ -9,13 +9,15 @@
 #   ./r2_push.sh --checksum Slow sync: MD5 comparison (DELETES R2 files not in local!)
 #   ./r2_push.sh --turbo   Max parallelism: 256 transfers, fast-list (for many small files)
 #
-# Add --checkpoints to include finetune checkpoints (adapter weights only, not training cruft)
+# Add --checkpoints to include EM finetune checkpoints (adapter weights only, not training cruft)
+# Add --checkpoints-aria to include aria_rl finetune checkpoints
 # Add --trajectories to include per-token trajectory .pt files (large, regenerable)
 
 set -e
 
 MODE="fast"
 CHECKPOINTS=false
+CHECKPOINTS_ARIA=false
 TRAJECTORIES=false
 DRY_RUN=""
 for arg in "$@"; do
@@ -24,6 +26,7 @@ for arg in "$@"; do
         --full) MODE="full" ;;
         --checksum) MODE="checksum" ;;
         --turbo) MODE="turbo" ;;
+        --checkpoints-aria) CHECKPOINTS_ARIA=true ;;
         --checkpoints) CHECKPOINTS=true ;;
         --trajectories) TRAJECTORIES=true ;;
         --dry-run) DRY_RUN="--dry-run" ;;
@@ -70,11 +73,14 @@ EXCLUDES=(
   --exclude "**/checkpoint-*/added_tokens.json"
 )
 
-# Default: exclude finetune/LoRA dirs. --checkpoints opts in (adapter weights only).
+# Default: exclude finetune/LoRA dirs.
+# --checkpoints opts in EM checkpoints, --checkpoints-aria opts in aria_rl checkpoints.
 if [[ "$CHECKPOINTS" == false ]]; then
-  EXCLUDES+=(--exclude "**/finetune/**")
-  EXCLUDES+=(--exclude "**/*loras/**")
-  EXCLUDES+=(--exclude "**/lora/**")
+  EXCLUDES+=(--exclude "mats-emergent-misalignment/finetune/**")
+  EXCLUDES+=(--exclude "mats-emergent-misalignment/turner_loras/**")
+fi
+if [[ "$CHECKPOINTS_ARIA" == false ]]; then
+  EXCLUDES+=(--exclude "aria_rl/finetune/**")
 fi
 
 # Default: exclude per-token trajectory files (large, regenerable). --trajectories opts in.
