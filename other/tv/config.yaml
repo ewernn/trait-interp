@@ -1,0 +1,3 @@
+model: Qwen/Qwen2.5-14B
+thinking: false
+batch_size: 4

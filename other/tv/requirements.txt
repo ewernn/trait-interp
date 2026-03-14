@@ -1,0 +1,7 @@
+torch>=2.0
+transformers>=4.40
+pyyaml
+scipy
+numpy
+peft
+matplotlib  # optional, for plot.py

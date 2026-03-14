@@ -2,157 +2,89 @@
 # Pull experiments from R2 cloud storage
 #
 # Usage:
-#   ./r2_pull.sh                              Safe: only download new files (default)
-#   ./r2_pull.sh --copy                       Safe update: new + changed files, never deletes local
-#   ./r2_pull.sh --full                       Full sync: make local match R2 (DELETES local files not in R2!)
-#   ./r2_pull.sh --checksum                   Slow sync: MD5 comparison (DELETES local files not in R2!)
-#   ./r2_pull.sh --copy mats-emergent-misalignment   Scope to one experiment
+#   ./r2_pull.sh                                          Safe: only download new files (default)
+#   ./r2_pull.sh --copy                                   Safe update: new + changed files, never deletes
+#   ./r2_pull.sh --full                                   Full sync: make local match R2 (DELETES local-only files!)
+#   ./r2_pull.sh --checksum                               Slow sync: MD5 comparison (DELETES local-only files!)
+#   ./r2_pull.sh --only mats-emergent-misalignment        Scope to one experiment
+#   ./r2_pull.sh --only mats-emergent-misalignment,aria_rl Scope to multiple experiments
 #
-# Add --checkpoints to include EM finetune checkpoints (adapter weights only, not training cruft)
-# Add --checkpoints-aria to include aria_rl finetune checkpoints
+# Include flags:
+#   --include-loras          Include LoRA checkpoints (finetune/, turner_loras/, etc.)
+#   --include-archive        Include archived experiments
+#   --include-trajectories   Include trajectory .pt files (large, regenerable)
+#   --dry-run                Show what would be transferred without doing it
 
 set -e
 
-MODE="safe"
-CHECKPOINTS=false
-CHECKPOINTS_ARIA=false
-EXPERIMENT=""
-for arg in "$@"; do
-    case "$arg" in
-        --copy) MODE="copy" ;;
-        --full) MODE="full" ;;
-        --checksum) MODE="checksum" ;;
-        --checkpoints-aria) CHECKPOINTS_ARIA=true ;;
-        --checkpoints) CHECKPOINTS=true ;;
-        --*) ;;
-        *) EXPERIMENT="$arg" ;;
-    esac
-done
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/r2_config.sh"
 
-# Check if rclone is configured for R2 with valid credentials
-if ! rclone listremotes | grep -q "^r2:"; then
-    echo "⚙️  R2 not configured, running setup..."
-    "$SCRIPT_DIR/setup_r2.sh"
-elif ! rclone lsd r2: &>/dev/null; then
-    echo "⚠️  R2 remote exists but credentials are invalid, re-running setup..."
-    "$SCRIPT_DIR/setup_r2.sh"
-fi
+MODE="safe"
+parse_r2_args "$@"
+ensure_r2
+resolve_paths
+build_excludes
+build_only_filters
 
-REMOTE="r2:trait-interp-bucket/experiments/"
-LOCAL="experiments/"
-if [[ -n "$EXPERIMENT" ]]; then
-  REMOTE="r2:trait-interp-bucket/experiments/${EXPERIMENT}/"
-  LOCAL="experiments/${EXPERIMENT}/"
-  echo "📥 Pulling experiment: $EXPERIMENT"
+# Display what we're doing
+if [[ -n "$ONLY" ]]; then
+    echo "Pulling experiment(s): $ONLY"
 else
-  echo "📥 Pulling all experiments from R2..."
+    echo "Pulling all experiments from R2..."
 fi
+[[ "$INCLUDE_LORAS" == true ]]        && echo "  + LoRAs included"
+[[ "$INCLUDE_ARCHIVE" == true ]]      && echo "  + Archive included"
+[[ "$INCLUDE_TRAJECTORIES" == true ]] && echo "  + Trajectories included"
 
-EXCLUDES=(
-  --exclude "*.pyc"
-  --exclude "__pycache__/**"
-  --exclude ".DS_Store"
-  # Git-tracked types — git owns code/docs/configs, R2 owns data
-  --exclude "*.py"
-  --exclude "*.md"
-  --exclude "*.txt"
-  --exclude "*.log"
-  --exclude "config.json"
-  # Large regenerable files
-  --exclude "**/activations/**"
-  --exclude "**/inference/raw/**"
-  --exclude "**/inference/*/raw/**"
-  --exclude "**/results/*_activations.pt"
-  --exclude "liars-bench/**"
-  --exclude "audit-bleachers/**"
-  --exclude "audit-bench/**"
-  --exclude "temp/**"
-  # LoRA training artifacts (not needed for inference)
-  --exclude "*.bin"
-  --exclude "*.pth"
-  --exclude "*.jinja"
-  --exclude "**/optimizer.pt"
-  --exclude "**/scheduler.pt"
-  # HF download cache (metadata from snapshot_download, not our data)
-  --exclude "**/.cache/**"
-  # Redundant tokenizer copies in checkpoints
-  --exclude "**/checkpoint-*/tokenizer.json"
-  --exclude "**/checkpoint-*/vocab.json"
-  --exclude "**/checkpoint-*/tokenizer_config.json"
-  --exclude "**/checkpoint-*/special_tokens_map.json"
-  --exclude "**/checkpoint-*/added_tokens.json"
+COMMON_FLAGS=(
+    --progress
+    --stats 5s
+    --fast-list
+    $DRY_RUN
+    "${EXCLUDES[@]}"
+    "${ONLY_FILTERS[@]}"
 )
 
-# Default: exclude finetune/LoRA dirs.
-# --checkpoints opts in EM checkpoints, --checkpoints-aria opts in aria_rl checkpoints.
-if [[ -n "$EXPERIMENT" ]]; then
-  # Scoped to one experiment: use relative paths
-  if [[ "$EXPERIMENT" == "mats-emergent-misalignment" && "$CHECKPOINTS" == false ]]; then
-    EXCLUDES+=(--exclude "finetune/**" --exclude "turner_loras/**" --exclude "sriram_loras/**")
-  elif [[ "$EXPERIMENT" == "aria_rl" && "$CHECKPOINTS_ARIA" == false ]]; then
-    EXCLUDES+=(--exclude "finetune/**")
-  fi
-else
-  # All experiments: use full paths
-  if [[ "$CHECKPOINTS" == false ]]; then
-    EXCLUDES+=(--exclude "mats-emergent-misalignment/finetune/**")
-    EXCLUDES+=(--exclude "mats-emergent-misalignment/turner_loras/**")
-    EXCLUDES+=(--exclude "mats-emergent-misalignment/sriram_loras/**")
-  fi
-  if [[ "$CHECKPOINTS_ARIA" == false ]]; then
-    EXCLUDES+=(--exclude "aria_rl/finetune/**")
-  fi
-fi
-
 case $MODE in
-  safe)
-    echo "Mode: SAFE (new files only, won't delete local files)"
-    echo ""
-    rclone copy "$REMOTE" "$LOCAL" \
-      --progress \
-      --stats 5s \
-      --ignore-existing \
-      --transfers 32 \
-      --checkers 64 \
-      "${EXCLUDES[@]}"
-    ;;
-  copy)
-    echo "Mode: COPY (new + changed files, never deletes local)"
-    echo ""
-    rclone copy "$REMOTE" "$LOCAL" \
-      --progress \
-      --stats 5s \
-      --size-only \
-      --transfers 16 \
-      --checkers 32 \
-      "${EXCLUDES[@]}"
-    ;;
-  full)
-    echo "Mode: FULL (size-only, deletes local files not in R2)"
-    echo ""
-    rclone sync "$REMOTE" "$LOCAL" \
-      --progress \
-      --stats 5s \
-      --size-only \
-      --modify-window 1s \
-      --transfers 32 \
-      --checkers 64 \
-      "${EXCLUDES[@]}"
-    ;;
-  checksum)
-    echo "Mode: CHECKSUM (MD5 comparison - slow, deletes local files not in R2)"
-    echo ""
-    rclone sync "$REMOTE" "$LOCAL" \
-      --progress \
-      --stats 5s \
-      --checksum \
-      --transfers 16 \
-      --checkers 16 \
-      "${EXCLUDES[@]}"
-    ;;
+    safe)
+        echo "Mode: SAFE (new files only, won't delete local files)"
+        echo ""
+        rclone copy "$R2_REMOTE" "$LOCAL_DIR" \
+            --ignore-existing \
+            --transfers 32 \
+            --checkers 64 \
+            "${COMMON_FLAGS[@]}"
+        ;;
+    copy)
+        echo "Mode: COPY (new + changed files, never deletes local)"
+        echo ""
+        rclone copy "$R2_REMOTE" "$LOCAL_DIR" \
+            --size-only \
+            --transfers 16 \
+            --checkers 32 \
+            "${COMMON_FLAGS[@]}"
+        ;;
+    full)
+        echo "Mode: FULL (size-only, deletes local files not in R2)"
+        echo ""
+        rclone sync "$R2_REMOTE" "$LOCAL_DIR" \
+            --size-only \
+            --modify-window 1s \
+            --transfers 32 \
+            --checkers 64 \
+            "${COMMON_FLAGS[@]}"
+        ;;
+    checksum)
+        echo "Mode: CHECKSUM (MD5 comparison - slow, deletes local files not in R2)"
+        echo ""
+        rclone sync "$R2_REMOTE" "$LOCAL_DIR" \
+            --checksum \
+            --transfers 16 \
+            --checkers 16 \
+            "${COMMON_FLAGS[@]}"
+        ;;
 esac
 
 echo ""
-echo "✅ Pull complete!"
+echo "Pull complete!"

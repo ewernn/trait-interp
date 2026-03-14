@@ -1,176 +1,101 @@
 #!/bin/bash
-# LOCAL → R2 PUSH ONLY (never pull!)
-# Local is the source of truth.
+# Push experiments to R2 cloud storage (local → R2, never pulls)
 #
 # Usage:
-#   ./r2_push.sh            Fast: only upload new files (default)
-#   ./r2_push.sh --copy     Safe update: new + changed files, never deletes
-#   ./r2_push.sh --full     Full sync: make R2 match local (DELETES R2 files not in local!)
-#   ./r2_push.sh --checksum Slow sync: MD5 comparison (DELETES R2 files not in local!)
-#   ./r2_push.sh --turbo   Max parallelism: 256 transfers, fast-list (for many small files)
+#   ./r2_push.sh                                          Fast: only upload new files (default)
+#   ./r2_push.sh --copy                                   Safe update: new + changed files, never deletes
+#   ./r2_push.sh --full                                   Full sync: make R2 match local (DELETES R2-only files!)
+#   ./r2_push.sh --checksum                               Slow sync: MD5 comparison (DELETES R2-only files!)
+#   ./r2_push.sh --turbo                                  Max parallelism (256 transfers, for many small files)
+#   ./r2_push.sh --only mats-emergent-misalignment        Scope to one experiment
+#   ./r2_push.sh --only mats-emergent-misalignment,aria_rl Scope to multiple experiments
 #
-# Add --checkpoints to include EM finetune checkpoints (adapter weights only, not training cruft)
-# Add --checkpoints-aria to include aria_rl finetune checkpoints
-# Add --trajectories to include per-token trajectory .pt files (large, regenerable)
+# Include flags:
+#   --include-loras          Include LoRA checkpoints (finetune/, turner_loras/, etc.)
+#   --include-archive        Include archived experiments
+#   --include-trajectories   Include trajectory .pt files (large, regenerable)
+#   --dry-run                Show what would be transferred without doing it
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/r2_config.sh"
+
 MODE="fast"
-CHECKPOINTS=false
-CHECKPOINTS_ARIA=false
-TRAJECTORIES=false
-DRY_RUN=""
-for arg in "$@"; do
-    case "$arg" in
-        --copy) MODE="copy" ;;
-        --full) MODE="full" ;;
-        --checksum) MODE="checksum" ;;
-        --turbo) MODE="turbo" ;;
-        --checkpoints-aria) CHECKPOINTS_ARIA=true ;;
-        --checkpoints) CHECKPOINTS=true ;;
-        --trajectories) TRAJECTORIES=true ;;
-        --dry-run) DRY_RUN="--dry-run" ;;
-    esac
-done
+parse_r2_args "$@"
+ensure_r2
+resolve_paths
+build_excludes
+build_only_filters
 
-echo "📤 Pushing experiments to R2..."
-echo "Source: experiments/"
-echo "Destination: r2:trait-interp-bucket/experiments/"
+# Display what we're doing
+echo "Pushing experiments to R2..."
+echo "Source: $LOCAL_DIR"
+echo "Destination: $R2_REMOTE"
+[[ "$INCLUDE_LORAS" == true ]]        && echo "  + LoRAs included"
+[[ "$INCLUDE_ARCHIVE" == true ]]      && echo "  + Archive included"
+[[ "$INCLUDE_TRAJECTORIES" == true ]] && echo "  + Trajectories included"
 
-EXCLUDES=(
-  --exclude "*.pyc"
-  --exclude "__pycache__/**"
-  --exclude ".DS_Store"
-  # Git-tracked types — git owns code/docs/configs, R2 owns data
-  --exclude "*.py"
-  --exclude "*.md"
-  --exclude "*.txt"
-  --exclude "*.log"
-  --exclude "config.json"
-  # Large regenerable files
-  --exclude "**/activations/**"
-  --exclude "**/inference/*/raw/**"
-  --exclude "**/results/*_activations.pt"
-  --exclude "liars-bench/**"
-  --exclude "audit-bleachers/**"
-  --exclude "audit-bench/**"
-  --exclude "temp/**"
-  --exclude "_validate/**"
-  --exclude "**/inference/raw/**"
-  # LoRA training artifacts (not needed for inference)
-  --exclude "*.bin"
-  --exclude "*.pth"
-  --exclude "*.jinja"
-  --exclude "**/optimizer.pt"
-  --exclude "**/scheduler.pt"
-  # HF download cache (metadata from snapshot_download, not our data)
-  --exclude "**/.cache/**"
-  # Redundant tokenizer copies in checkpoints
-  --exclude "**/checkpoint-*/tokenizer.json"
-  --exclude "**/checkpoint-*/vocab.json"
-  --exclude "**/checkpoint-*/tokenizer_config.json"
-  --exclude "**/checkpoint-*/special_tokens_map.json"
-  --exclude "**/checkpoint-*/added_tokens.json"
+COMMON_FLAGS=(
+    --progress
+    --stats 5s
+    --fast-list
+    --copy-links
+    $DRY_RUN
+    "${EXCLUDES[@]}"
+    "${ONLY_FILTERS[@]}"
 )
 
-# Default: exclude finetune/LoRA dirs.
-# --checkpoints opts in EM checkpoints, --checkpoints-aria opts in aria_rl checkpoints.
-if [[ "$CHECKPOINTS" == false ]]; then
-  EXCLUDES+=(--exclude "mats-emergent-misalignment/finetune/**")
-  EXCLUDES+=(--exclude "mats-emergent-misalignment/turner_loras/**")
-  EXCLUDES+=(--exclude "mats-emergent-misalignment/sriram_loras/**")
-fi
-if [[ "$CHECKPOINTS_ARIA" == false ]]; then
-  EXCLUDES+=(--exclude "aria_rl/finetune/**")
-fi
-
-# Default: exclude per-token trajectory files (large, regenerable). --trajectories opts in.
-if [[ "$TRAJECTORIES" == false ]]; then
-  EXCLUDES+=(--exclude "*_trajectories.pt")
-fi
-
 case $MODE in
-  fast)
-    echo "Mode: FAST (new files only)"
-    echo ""
-    rclone copy experiments/ r2:trait-interp-bucket/experiments/ \
-      --progress \
-      --stats 5s \
-      --ignore-existing \
-      --copy-links \
-      --transfers 32 \
-      --checkers 32 \
-      $DRY_RUN \
-      "${EXCLUDES[@]}"
-    ;;
-  copy)
-    echo "Mode: COPY (new + changed files, never deletes)"
-    echo ""
-    rclone copy experiments/ r2:trait-interp-bucket/experiments/ \
-      --progress \
-      --stats 5s \
-      --size-only \
-      --copy-links \
-      --transfers 16 \
-      --checkers 16 \
-      $DRY_RUN \
-      "${EXCLUDES[@]}"
-    ;;
-  full)
-    echo "Mode: FULL (size-only comparison)"
-    echo ""
-    rclone sync experiments/ r2:trait-interp-bucket/experiments/ \
-      --progress \
-      --stats 5s \
-      --size-only \
-      --copy-links \
-      --local-no-check-updated \
-      --transfers 8 \
-      --checkers 8 \
-      $DRY_RUN \
-      "${EXCLUDES[@]}"
-    ;;
-  checksum)
-    echo "Mode: CHECKSUM (MD5 comparison - slow!)"
-    echo ""
-    rclone sync experiments/ r2:trait-interp-bucket/experiments/ \
-      --progress \
-      --stats 5s \
-      --checksum \
-      --copy-links \
-      --transfers 4 \
-      --checkers 4 \
-      $DRY_RUN \
-      "${EXCLUDES[@]}"
-    ;;
-  turbo)
-    echo "Mode: TURBO (max parallelism, new files only)"
-    echo ""
-    rclone copy experiments/ r2:trait-interp-bucket/experiments/ \
-      --progress \
-      --stats 5s \
-      --ignore-existing \
-      --copy-links \
-      --transfers 256 \
-      --checkers 128 \
-      --fast-list \
-      --retries 3 \
-      $DRY_RUN \
-      "${EXCLUDES[@]}"
-    ;;
+    fast)
+        echo "Mode: FAST (new files only)"
+        echo ""
+        rclone copy "$LOCAL_DIR" "$R2_REMOTE" \
+            --ignore-existing \
+            --transfers 32 \
+            --checkers 32 \
+            "${COMMON_FLAGS[@]}"
+        ;;
+    copy)
+        echo "Mode: COPY (new + changed files, never deletes)"
+        echo ""
+        rclone copy "$LOCAL_DIR" "$R2_REMOTE" \
+            --size-only \
+            --transfers 16 \
+            --checkers 16 \
+            "${COMMON_FLAGS[@]}"
+        ;;
+    full)
+        echo "Mode: FULL (size-only comparison, deletes R2 files not in local)"
+        echo ""
+        rclone sync "$LOCAL_DIR" "$R2_REMOTE" \
+            --size-only \
+            --copy-links \
+            --local-no-check-updated \
+            --transfers 8 \
+            --checkers 8 \
+            "${COMMON_FLAGS[@]}"
+        ;;
+    checksum)
+        echo "Mode: CHECKSUM (MD5 comparison - slow!)"
+        echo ""
+        rclone sync "$LOCAL_DIR" "$R2_REMOTE" \
+            --checksum \
+            --transfers 4 \
+            --checkers 4 \
+            "${COMMON_FLAGS[@]}"
+        ;;
+    turbo)
+        echo "Mode: TURBO (max parallelism, new files only)"
+        echo ""
+        rclone copy "$LOCAL_DIR" "$R2_REMOTE" \
+            --ignore-existing \
+            --transfers 256 \
+            --checkers 128 \
+            --retries 3 \
+            "${COMMON_FLAGS[@]}"
+        ;;
 esac
 
-# Ownership split — git owns code/docs/configs, R2 owns data:
-#   R2 ✅  Vectors (.pt in vectors/)
-#   R2 ✅  Responses (pos.json, neg.json)
-#   R2 ✅  Inference projections, massive_activations JSONs
-#   R2 ✅  Metadata files (.json except config.json)
-#   R2 ✅  LoRA final adapter weights (adapter_model.safetensors, adapter_config.json)
-#   R2 ✅  LoRA checkpoint adapters (--checkpoints flag)
-#   Git ✅ Scripts (.py), docs (.md, .txt), config.json, logs
-#   ❌    Extraction activations (huge, regenerable)
-#   ❌    Raw inference activations (huge, regenerable)
-#   ❌    LoRA training artifacts (optimizer.pt, scheduler.pt, *.bin, *.pth, tokenizer files)
-
 echo ""
-echo "✅ Push complete!"
+echo "Push complete!"

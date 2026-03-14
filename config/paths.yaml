@@ -46,6 +46,15 @@ datasets:
 # =============================================================================
 # EXPERIMENT STRUCTURE
 # =============================================================================
+# Standard pipeline dirs: extraction/, inference/, steering/, model_diff/
+# Within each experiment, optional convention dirs (not resolved by pipeline code):
+#   {sub_experiment}/              - self-contained sub-experiment
+#     {sub_experiment}_notepad.md  - timestamped research notes
+#     *.py                         - sub-experiment scripts
+#     results/                     - sub-experiment outputs
+# At the experiments/ level:
+#   archive/                       - archived experiments (excluded from R2 by default)
+# See docs/experiment_structure.md for full conventions.
 
 experiments:
   base: "experiments/{experiment}"
