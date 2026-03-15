@@ -21,7 +21,7 @@ python inference/generate_responses.py \
     --experiment my_experiment \
     --prompt-set dynamic
 
-python inference/capture_raw_activations.py \
+python inference/capture_activations.py \
     --experiment my_experiment \
     --prompt-set dynamic
 
@@ -128,7 +128,7 @@ Apply logit lens to trait vectors (not residual stream) to see what tokens a dir
 Automatically runs as **stage 5** of the extraction pipeline:
 
 ```bash
-python extraction/run_pipeline.py --experiment {exp} --traits {trait}
+python extraction/run_extraction_pipeline.py --experiment {exp} --traits {trait}
 # Includes logit lens by default. Skip with --no-logitlens
 ```
 

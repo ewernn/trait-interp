@@ -232,7 +232,7 @@ python analysis/massive_activations.py --experiment gemma-2-2b --prompt-set jail
 ## GPU Profiling
 
 ```python
-from core import gpu_profile, gpu_timer, memory_stats
+from utils.profiling import gpu_profile, gpu_timer, memory_stats
 
 # Profile a code block (timing + memory)
 with gpu_profile("forward pass"):
@@ -251,7 +251,7 @@ stats = memory_stats()
 
 **Helpers:**
 ```python
-from core import bandwidth_report, tensor_size_gb
+from utils.profiling import bandwidth_report, tensor_size_gb
 
 bandwidth_report(data_gb=4.6, elapsed=0.19)  # "4.6GB in 0.19s = 24.2 GB/s"
 tensor_size_gb((64, 300, 2304))              # 0.089 (for bfloat16)
@@ -264,7 +264,7 @@ tensor_size_gb((64, 300, 2304))              # 0.089 (for bfloat16)
 Unified interface for generation with steering and activation capture. Abstracts local vs remote inference.
 
 ```python
-from core import LocalBackend, get_backend, GenerationConfig, SteeringSpec, CaptureSpec
+from utils.backends import LocalBackend, get_backend, GenerationConfig, SteeringSpec, CaptureSpec
 
 # From experiment config (auto-selects variant, respects use_chat_template config)
 backend = LocalBackend.from_experiment("gemma-2-2b", variant="instruct")

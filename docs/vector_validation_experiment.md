@@ -35,14 +35,14 @@ For each trait vector at each layer L10–L30: how well does the vector distingu
 ```bash
 # 1. Capture raw activations for each persona's responses (GPU required)
 for persona in angry bureaucratic confused disappointed mocking nervous neutral; do
-    python inference/capture_raw_activations.py \
+    python inference/capture_activations.py \
         --experiment emotion_set \
         --prompt-set persona_detection/$persona
 done
 
 # 2. Project onto all 173 traits at every layer
 for persona in angry bureaucratic confused disappointed mocking nervous neutral; do
-    python inference/project_raw_activations_onto_traits.py \
+    python inference/project_activations_onto_traits.py \
         --experiment emotion_set \
         --prompt-set persona_detection/$persona \
         --layers 10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30

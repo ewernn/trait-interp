@@ -22,10 +22,6 @@ from .hooks import (
     MultiLayerActivationCappingHook,  # clamp projection above threshold (multi-layer)
     BatchedLayerSteeringHook,         # different steering per batch slice
 )
-from .steering import (
-    batched_steering_generate,              # batched generation with per-config steering
-    multi_trait_batched_steering_generate,   # per-config prompts (multi-trait batching)
-)
 from .methods import (
     ExtractionMethod,
     MeanDifferenceMethod,
@@ -51,34 +47,10 @@ from .math import (
     distribution_properties,
     remove_massive_dims,
 )
-from .logit_lens import (
-    vector_to_vocab,
-    build_common_token_mask,
-    get_interpretation_layers,
-)
 from .generation import (
     HookedGenerator,
     CaptureConfig,
     SteeringConfig,
     TokenOutput,
     SequenceOutput,
-)
-from .profiling import (
-    gpu_profile,
-    gpu_timer,
-    memory_stats,
-    bandwidth_report,
-    tensor_size_gb,
-    ProfileResult,
-)
-from .backends import (
-    GenerationBackend,
-    LocalBackend,
-    ServerBackend,
-    get_backend,
-    SteeringSpec,
-    CaptureSpec,
-    GenerationConfig,
-    CaptureResult,
-    TokenResult,
 )

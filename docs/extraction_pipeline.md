@@ -7,11 +7,11 @@ Full trait pipeline: extraction + evaluation + steering.
 ```
 Stage 0: Create Scenarios (manual) - positive.txt, negative.txt, trait_definition.txt
     ↓
-Stage 0.5: Vet Scenarios (vet_scenarios.py) - LLM-as-judge validates prompts
+Stage 0.5: Vet Scenarios (preextraction_vetting.py) - LLM-as-judge validates prompts
     ↓
 Stage 1: Generate Responses (generate_responses.py) - Model generates from scenarios
     ↓
-Stage 1.5: Vet Responses (vet_responses.py) - LLM-as-judge validates trait expression
+Stage 1.5: Vet Responses (preextraction_vetting.py) - LLM-as-judge validates trait expression
     ↓
 Stage 2: Extract Activations (extract_activations.py) - Capture hidden states
     ↓
@@ -28,24 +28,24 @@ Result: Validated trait vectors with steering results
 
 ```bash
 # Full pipeline (uses defaults.extraction variant from config.json)
-python extraction/run_pipeline.py \
+python extraction/run_extraction_pipeline.py \
     --experiment {experiment} \
     --traits {category}/{trait}
 
 # Override model variant from CLI
-python extraction/run_pipeline.py \
+python extraction/run_extraction_pipeline.py \
     --experiment {experiment} \
     --model-variant rm_lora \
     --traits {category}/{trait}
 
 # Extraction only (no steering)
-python extraction/run_pipeline.py \
+python extraction/run_extraction_pipeline.py \
     --experiment {experiment} \
     --traits {category}/{trait} \
     --no-steering
 
 # All traits in experiment
-python extraction/run_pipeline.py --experiment {experiment}
+python extraction/run_extraction_pipeline.py --experiment {experiment}
 ```
 
 ## Prerequisites
@@ -109,10 +109,10 @@ See [elicitation_guide.md](../extraction/elicitation_guide.md) for detailed guid
 LLM-as-judge (gpt-4.1-mini) validates that scenarios will reliably elicit the trait.
 
 ```bash
-python extraction/vet_scenarios.py --experiment my_exp --trait category/my_trait
+python -c "from extraction.preextraction_vetting import vet_scenarios; vet_scenarios('my_exp', 'category/my_trait', 'base')"
 ```
 
-Requires `OPENAI_API_KEY`. Off by default in run_pipeline.py; enable with `--vet-scenarios`.
+Requires `OPENAI_API_KEY`. Off by default in run_extraction_pipeline.py; enable with `--vet-scenarios`.
 
 Scores scenarios 0-100. Positive scenarios need score >= 60, negative need <= 40.
 
@@ -156,14 +156,14 @@ python extraction/generate_responses.py \
 LLM-as-judge (gpt-4.1-mini) validates that the model actually exhibited the expected trait.
 
 ```bash
-python extraction/vet_responses.py --experiment my_exp --trait category/my_trait
+python -c "from extraction.preextraction_vetting import vet_responses; vet_responses('my_exp', 'category/my_trait', 'base')"
 ```
 
 **Output:** `vetting/response_scores.json` with 0-100 scores per response.
 
 Positive responses need score >= 60, negative need <= 40. Failed responses are filtered in Stage 2.
 
-**Paired filtering (default):** If *either* the positive or negative response for a scenario fails vetting, *both* are excluded. This ensures clean contrastive pairs. Use `--no-paired-filter` in run_pipeline.py to filter independently.
+**Paired filtering (default):** If *either* the positive or negative response for a scenario fails vetting, *both* are excluded. This ensures clean contrastive pairs. Use `--no-paired-filter` in run_extraction_pipeline.py to filter independently.
 
 ---
 
@@ -172,14 +172,14 @@ Positive responses need score >= 60, negative need <= 40. Failed responses are f
 Capture hidden states from all layers for all examples.
 
 ```bash
-# Via run_pipeline.py (recommended)
-python extraction/run_pipeline.py --experiment my_exp --traits category/my_trait --only-stage 3
+# Via run_extraction_pipeline.py (recommended)
+python extraction/run_extraction_pipeline.py --experiment my_exp --traits category/my_trait --only-stage 3
 
 # Direct call (requires model already loaded)
 # extract_activations_for_trait(experiment, trait, model, tokenizer, ...)
 ```
 
-**Options (via run_pipeline.py):**
+**Options (via run_extraction_pipeline.py):**
 ```bash
 --no-paired-filter     # Filter pos/neg independently instead of as pairs
 --val-split 0.0        # Disable validation split (default: 0.1 = 10% held out)
@@ -282,11 +282,11 @@ For non-instruction-tuned models (text completion mode):
 
 ```bash
 # Full pipeline with base model (16-token completions)
-python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait} \
+python extraction/run_extraction_pipeline.py --experiment {experiment} --traits {category}/{trait} \
     --extraction-model {base_model} --base-model
 
 # Custom thresholds
-python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait} \
+python extraction/run_extraction_pipeline.py --experiment {experiment} --traits {category}/{trait} \
     --extraction-model {base_model} --base-model \
     --pos-threshold 65 --neg-threshold 35
 ```
@@ -347,7 +347,7 @@ Process multiple traits at once:
 
 ```bash
 # All traits in experiment
-python extraction/run_pipeline.py --experiment my_exp
+python extraction/run_extraction_pipeline.py --experiment my_exp
 
 # Specific traits
 python extraction/extract_vectors.py \
@@ -420,7 +420,7 @@ vim datasets/traits/{category}/{trait}/steering.json
 # steering.json format: {"questions": [...]}  (definition.txt used for scoring)
 
 # 2. Run full pipeline
-python extraction/run_pipeline.py \
+python extraction/run_extraction_pipeline.py \
     --experiment {experiment} \
     --traits {category}/{trait}
 
@@ -430,7 +430,7 @@ python extraction/run_pipeline.py \
 #   - Steering: experiments/{experiment}/steering/{trait}/{model_variant}/{position}/{prompt_set}/results.jsonl
 
 # 3. With custom position (Arditi-style, last prompt token)
-python extraction/run_pipeline.py \
+python extraction/run_extraction_pipeline.py \
     --experiment {experiment} \
     --traits {category}/{trait} \
     --position "prompt[-1]"
@@ -442,5 +442,5 @@ python extraction/run_pipeline.py \
 
 - [elicitation_guide.md](../extraction/elicitation_guide.md) - Natural vs instruction-based elicitation
 - [extraction_guide.md](extraction_guide.md) - Comprehensive extraction reference
-- [steering/README.md](../analysis/steering/README.md) - Steering evaluation guide
+- [steering/README.md](../steering/README.md) - Steering evaluation guide
 - [core_reference.md](core_reference.md) - Core primitives API

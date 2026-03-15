@@ -33,12 +33,11 @@ import json
 from datetime import datetime
 from tqdm import tqdm
 
-from utils.model import format_prompt, load_model_with_lora, tokenize, tokenize_batch
+from utils.model import format_prompt, load_model_with_lora
 from utils.json import dump_compact
 from utils.generation import generate_batch
-from utils.vram import calculate_max_batch_size
 from utils.paths import get as get_path, get_model_variant, load_experiment_config
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer
 
 
 def normalize_prompt_item(item: dict) -> dict:
@@ -87,7 +86,6 @@ def generate_responses(
     model_variant: str = None,
     max_new_tokens: int = 50,
     temperature: float = 0.0,
-    batch_size: int = None,
     prefill: str = None,
     from_responses: str = None,
     skip_existing: bool = False,
@@ -271,7 +269,6 @@ def main():
     # Generation options (Mode A only)
     parser.add_argument("--max-new-tokens", type=int, default=50)
     parser.add_argument("--temperature", type=float, default=0.0)
-    parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--prefill", type=str, default=None,
                        help="Prefill string appended to prompt before generation")
 
@@ -297,7 +294,6 @@ def main():
         model_variant=args.model_variant,
         max_new_tokens=args.max_new_tokens,
         temperature=args.temperature,
-        batch_size=args.batch_size,
         prefill=args.prefill,
         from_responses=args.from_responses,
         skip_existing=args.skip_existing,

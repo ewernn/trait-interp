@@ -224,9 +224,9 @@ async def _run_steering_eval(task_id: str, req: SteeringEvalRequest):
     """Run steering eval in background using the server's loaded model."""
     task = _eval_tasks[task_id]
     try:
-        from core.backends import LocalBackend
+        from utils.backends import LocalBackend
         from utils.judge import TraitJudge
-        from analysis.steering.evaluate import _run_main
+        from steering.steering_evaluate import _run_main
 
         model, tokenizer = get_model()
         backend = LocalBackend.from_model(model, tokenizer)
@@ -360,7 +360,7 @@ async def _run_capture(task_id: str, req: CaptureActivationsRequest):
     """Run activation capture in background using the server's loaded model."""
     task = _eval_tasks[task_id]
     try:
-        from inference.capture_raw_activations import capture_raw_activations
+        from inference.capture_activations import capture_raw_activations
 
         model, tokenizer = get_model()
         task["status"] = "running"

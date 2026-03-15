@@ -52,8 +52,8 @@ Unified flat schema for response data across extraction, inference, and steering
 
 ### Multi-Turn Rollout Fields
 
-Used by `scripts/convert_rollout.py` for agent-interp-envs rollouts. The entire
-conversation is stored as "prompt" with empty "response". `capture_raw_activations.py`
+Used by `inference/convert_rollout.py` for agent-interp-envs rollouts. The entire
+conversation is stored as "prompt" with empty "response". `capture_activations.py`
 detects `response: ""` + `token_ids` present and uses stored IDs directly (skips
 re-tokenization).
 

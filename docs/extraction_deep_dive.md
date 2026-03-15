@@ -67,11 +67,11 @@ A trait with 3/15 vetting pass rate can steer at +58 delta. The model's internal
 
 ## Pipeline Stages
 
-Entry point: `extraction/run_pipeline.py` — orchestrates all stages.
+Entry point: `extraction/run_extraction_pipeline.py` — orchestrates all stages.
 
 ### Stage 0: Scenario Vetting (opt-in)
 
-`extraction/vet_scenarios.py` — scores each raw scenario prompt with an LLM judge. Off by default (`--vet-scenarios` to enable). Informational only — results are not used to filter downstream stages.
+`extraction/preextraction_vetting.py:vet_scenarios()` — scores each raw scenario prompt with an LLM judge. Off by default (`--vet-scenarios` to enable). Informational only — results are not used to filter downstream stages.
 
 - Positive scenarios must score ≥ 60, negative ≤ 40
 - Output: `vetting/scenario_scores.json`
@@ -89,7 +89,7 @@ Entry point: `extraction/run_pipeline.py` — orchestrates all stages.
 
 ### Stage 2: Response Vetting
 
-`extraction/vet_responses.py`
+`extraction/preextraction_vetting.py:vet_responses()`
 
 - Scores the **first 16 whitespace-delimited tokens** of each response (`VET_TOKEN_LIMIT = 16`)
 - Uses `TraitJudge.score_response()` with async batching

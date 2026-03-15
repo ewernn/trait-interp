@@ -31,7 +31,7 @@ mkdir -p datasets/traits/{category}/{trait}
 # Create: positive.txt, negative.txt, definition.txt, steering.json
 
 # 2. Run full pipeline
-python extraction/run_pipeline.py \
+python extraction/run_extraction_pipeline.py \
     --experiment {experiment} \
     --traits {category}/{trait}
 ```
@@ -66,17 +66,17 @@ python inference/generate_responses.py \
     --prompt-set {prompt_set}
 
 # 3. Capture raw activations
-python inference/capture_raw_activations.py \
+python inference/capture_activations.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
 
 # 4. Project onto traits (default: best+5 layer per trait, multi-vector format)
-python inference/project_raw_activations_onto_traits.py \
+python inference/project_activations_onto_traits.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
 
 # Override with specific layers
-python inference/project_raw_activations_onto_traits.py \
+python inference/project_activations_onto_traits.py \
     --experiment {experiment} \
     --prompt-set {prompt_set} \
     --layers best,best+5
@@ -97,7 +97,7 @@ python inference/project_raw_activations_onto_traits.py \
 Validate vectors via causal intervention.
 
 ```bash
-python analysis/steering/evaluate.py \
+python steering/steering_evaluate.py \
     --experiment {experiment} \
     --vector-from-trait {experiment}/{category}/{trait}
 ```
@@ -111,13 +111,13 @@ python analysis/steering/evaluate.py \
 
 **Advanced (CMA-ES optimization):**
 ```bash
-python analysis/steering/optimize_vector.py \
+python dev/steering/optimize_vector.py \
     --experiment {experiment} \
     --trait {category}/{trait} \
     --layers 8,9,10,11,12
 ```
 
-**Details:** [analysis/steering/README.md](../analysis/steering/README.md)
+**Details:** [steering/README.md](../steering/README.md)
 
 ---
 
@@ -133,25 +133,25 @@ python inference/generate_responses.py \
     --prompt-set {prompt_set}
 
 # 2. Capture variant A activations
-python inference/capture_raw_activations.py \
+python inference/capture_activations.py \
     --experiment {experiment} \
     --model-variant {variant_a} \
     --prompt-set {prompt_set}
 
 # 3. Capture variant B using A's responses (same tokens, different model)
-python inference/capture_raw_activations.py \
+python inference/capture_activations.py \
     --experiment {experiment} \
     --model-variant {variant_b} \
     --prompt-set {prompt_set} \
     --responses-from {variant_a}
 
 # 4. Project both
-python inference/project_raw_activations_onto_traits.py \
+python inference/project_activations_onto_traits.py \
     --experiment {experiment} \
     --model-variant {variant_a} \
     --prompt-set {prompt_set}
 
-python inference/project_raw_activations_onto_traits.py \
+python inference/project_activations_onto_traits.py \
     --experiment {experiment} \
     --model-variant {variant_b} \
     --prompt-set {prompt_set}
@@ -189,12 +189,12 @@ Test capability preservation during ablation.
 
 ```bash
 # Without steering (baseline)
-python analysis/benchmark/evaluate.py \
+python analysis/benchmark/benchmark_evaluate.py \
     --experiment {experiment} \
     --benchmark hellaswag
 
 # With ablation (negative steering)
-python analysis/benchmark/evaluate.py \
+python analysis/benchmark/benchmark_evaluate.py \
     --experiment {experiment} \
     --benchmark hellaswag \
     --steer {category}/{trait} --coef -1.0
@@ -295,10 +295,10 @@ Scripts fall back to local loading if server isn't running. Use `--no-server` to
 ### Multi-trait processing
 ```bash
 # All traits in experiment
-python extraction/run_pipeline.py --experiment {experiment}
+python extraction/run_extraction_pipeline.py --experiment {experiment}
 
 # Specific traits
-python extraction/run_pipeline.py --experiment {experiment} \
+python extraction/run_extraction_pipeline.py --experiment {experiment} \
     --traits cat1/trait1,cat2/trait2
 ```
 
@@ -312,15 +312,15 @@ Use `--load-in-4bit` for quantization. Use `--layers` to extract only the layers
 Extraction, steering, and inference capture all support TP via `torchrun`. Model shards across GPUs; I/O and judge API calls run on rank 0 only.
 ```bash
 # Extraction (already supported)
-torchrun --nproc_per_node=8 extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait}
+torchrun --nproc_per_node=8 extraction/run_extraction_pipeline.py --experiment {experiment} --traits {category}/{trait}
 
 # Steering evaluation
-torchrun --nproc_per_node=8 analysis/steering/evaluate.py \
+torchrun --nproc_per_node=8 steering/steering_evaluate.py \
     --experiment {experiment} --traits "{category}/{trait}" \
     --extraction-variant {extraction_variant} --layers 12,24
 
 # Inference capture
-torchrun --nproc_per_node=8 inference/capture_raw_activations.py \
+torchrun --nproc_per_node=8 inference/capture_activations.py \
     --experiment {experiment} --prompt-set {prompt_set} \
     --components residual --layers 9,12,18,24,30,36
 ```

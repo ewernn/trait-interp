@@ -16,8 +16,6 @@
 - paths standardized (PathBuilder everywhere) and robust (experiment-agnostic scripts). code clean (delete legacy code/docs) and maintainable (single source of truth).
 - fail fast with clear errors
 
-**Probe scoring for model comparison**: Always use `lora(lora_responses) - clean_instruct(clean_instruct_responses)`. Each model generates its own text AND scores through its own model. Never score a LoRA variant's responses through clean instruct — the LoRA activation shift is part of the signal for alignment-specific probes. The baseline is always clean_instruct reading its own responses through the clean model.
-
 **Visualization**
 - only use primitives from visualization/styles.css
 - reuse existing code as much as possible

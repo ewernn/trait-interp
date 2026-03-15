@@ -47,7 +47,7 @@ Both push and pull scripts exclude git-tracked types to prevent dual-ownership m
 
 ```bash
 # On GPU machine: run experiment, push data
-python extraction/run_pipeline.py --experiment my_exp --traits category/trait
+python extraction/run_extraction_pipeline.py --experiment my_exp --traits category/trait
 ./utils/r2_push.sh
 
 # On laptop: pull data, git pull code

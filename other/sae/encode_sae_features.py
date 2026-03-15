@@ -54,7 +54,7 @@ def encode_raw_file(
     Encode a single raw activation file to SAE features.
 
     Args:
-        raw_file: Path to raw .pt file from capture_raw_activations.py
+        raw_file: Path to raw .pt file from capture_activations.py
         sae: Loaded SAE model
         output_file: Where to save encoded features
         layer: Which layer to encode (default: 16)
@@ -68,7 +68,7 @@ def encode_raw_file(
     # Load raw data
     data = torch.load(raw_file, map_location="cpu", weights_only=False)
 
-    # Expected format from capture_raw_activations.py:
+    # Expected format from capture_activations.py:
     # {
     #   'prompt': {'text', 'tokens', 'token_ids', 'activations': {layer: {component: tensor}}, 'attention'},
     #   'response': {'text', 'tokens', 'token_ids', 'activations': {layer: {component: tensor}}, 'attention'}

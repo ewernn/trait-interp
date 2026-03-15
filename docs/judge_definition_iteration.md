@@ -25,7 +25,7 @@ Choose ~15 responses from one steering config. Good candidates:
 
 ```bash
 # View existing responses
-python analysis/steering/view_responses_with_scores.py \
+python steering/read_steering_responses.py \
     experiments/{experiment}/steering/{trait}/.../responses/residual/probe/L{N}_c{X}_*.json
 ```
 
@@ -106,7 +106,7 @@ Key distinction:
 ### Step 7: Dry-Run Test
 
 ```bash
-python analysis/steering/evaluate.py \
+python steering/steering_evaluate.py \
     --experiment {experiment} \
     --rescore {category}/{trait} \
     --dry-run
@@ -131,7 +131,7 @@ For a thorough audit across many files, spawn an analyst agent to read all respo
 
 ```bash
 # Commit: rescore for real (writes to response JSONs + results.jsonl)
-python analysis/steering/evaluate.py \
+python steering/steering_evaluate.py \
     --experiment {experiment} \
     --rescore {category}/{trait}
 ```
@@ -191,13 +191,13 @@ python analysis/steering/evaluate.py \
 **Commands:**
 ```bash
 # Dry-run (read-only, prints per-response scores)
-python analysis/steering/evaluate.py --experiment {exp} --rescore {cat}/{trait} --dry-run
+python steering/steering_evaluate.py --experiment {exp} --rescore {cat}/{trait} --dry-run
 
 # Commit (writes updated scores to response JSONs + results.jsonl)
-python analysis/steering/evaluate.py --experiment {exp} --rescore {cat}/{trait}
+python steering/steering_evaluate.py --experiment {exp} --rescore {cat}/{trait}
 
 # View responses with scores
-python analysis/steering/view_responses_with_scores.py experiments/{exp}/steering/.../responses/.../*.json
+python steering/read_steering_responses.py experiments/{exp}/steering/.../responses/.../*.json
 ```
 
 **Metrics:**

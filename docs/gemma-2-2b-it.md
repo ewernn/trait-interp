@@ -261,7 +261,7 @@ python inference/generate_responses.py \
     --experiment {experiment_name} \
     --prompt-set single_trait
 
-python inference/capture_raw_activations.py \
+python inference/capture_activations.py \
     --experiment {experiment_name} \
     --prompt-set single_trait  # Captures all 26 layers
 ```

@@ -309,7 +309,7 @@ Don't just pick the single best quantitative layer.
 - **Check a range from early to late** — early layers steer low-level features (tone, word choice), later layers steer higher-level concepts (reasoning, intent). The sweet spot for natural steering is usually in the middle.
 - **Qualitative > quantitative for final selection** — the best vector is the one that produces the most natural trait expression, not the one with the highest delta score. Exception: TONAL traits. Naturalness scoring is structurally misleading for tonal traits — the register change IS the intended effect, so a whimsical or solemn response scores low on "naturalness" even when it's exactly right. For TONAL traits, use delta + coherence only.
 - **If top layers all score similarly**, read responses from a spread of layers (early, middle, late) to understand how the trait expresses at different levels of abstraction.
-- **Tool:** `python analysis/steering/read_steering_responses.py <results_dir> --best` shows responses from the best run. Use `-l <layer> -c <coef>` for specific runs, `--baseline` for unsteered responses, `--top N` for multiple runs.
+- **Tool:** `python steering/read_steering_responses.py <results_dir> --best` shows responses from the best run. Use `-l <layer> -c <coef>` for specific runs, `--baseline` for unsteered responses, `--top N` for multiple runs.
 
 ## Autonomous Agent Protocol
 
@@ -401,7 +401,7 @@ Vetting runs automatically. Low pass rates are diagnostic — they don't block e
 
 ```bash
 # Dense sweep: every layer
-python analysis/steering/modal_evaluate.py \
+python dev/steering/modal_evaluate.py \
     --experiment {experiment} --traits {category}/{trait} \
     --layers 10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30 \
     --save-responses best
@@ -469,26 +469,26 @@ python extraction/modal_extract.py \
     --experiment {experiment} --traits {category}/{trait}
 
 # Steering eval — dense sweep (Modal)
-python analysis/steering/modal_evaluate.py \
+python dev/steering/modal_evaluate.py \
     --experiment {experiment} --traits {category}/{trait} \
     --layers 10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30 \
     --save-responses best
 
 # Steering eval — focused layers for iteration (Modal)
-python analysis/steering/modal_evaluate.py \
+python dev/steering/modal_evaluate.py \
     --experiment {experiment} --traits {category}/{trait} \
     --layers {promising_layers} \
     --save-responses best
 
 # Local alternatives (requires GPU)
-python extraction/run_pipeline.py \
+python extraction/run_extraction_pipeline.py \
     --experiment {experiment} --traits {category}/{trait}
 
-python analysis/steering/evaluate.py \
+python steering/steering_evaluate.py \
     --experiment {experiment} --traits {category}/{trait} \
     --layers 10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30 \
     --save-responses best
 
 # Read responses (local, no GPU)
-python analysis/steering/read_steering_responses.py <results_dir> --best
+python steering/read_steering_responses.py <results_dir> --best
 ```

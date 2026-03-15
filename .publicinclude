@@ -24,6 +24,9 @@ config/models/
 datasets/traits/
 datasets/inference/
 
+# ── Analysis ──
+analysis/
+
 # ── Docs ──
 docs/main.md
 docs/experiment_structure.md
@@ -32,14 +35,18 @@ docs/workflows.md
 docs/architecture.md
 docs/core_reference.md
 docs/response_schema.md
+docs/overview.md
+docs/methodology.md
 
 # ── Root files ──
 README.md
+CLAUDE.md
 LICENSE
 requirements.txt
 .gitignore
+.env.example
+.publicinclude
 experiments/.gitkeep
 
-# ── Analysis (add individual scripts as they're cleaned up) ──
-# analysis/steering/evaluate.py
-# analysis/steering/data.py
+# ── Steering ──
+steering/

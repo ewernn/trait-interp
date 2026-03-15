@@ -27,7 +27,7 @@ Primary documentation hub for the trait-interp project.
 ### Inference & Steering
 - **[inference/README.md](../inference/README.md)** - Per-token monitoring
 - **[analysis/README.md](../analysis/README.md)** - All analysis scripts (steering, model diff, vectors, benchmark)
-- **[analysis/steering/README.md](../analysis/steering/README.md)** - Steering evaluation (detailed)
+- **[steering/README.md](../steering/README.md)** - Steering evaluation (detailed)
 
 ### Visualization
 - **[visualization/README.md](../visualization/README.md)** - Dashboard usage
@@ -47,11 +47,6 @@ Primary documentation hub for the trait-interp project.
 - **[docs/r2_sync.md](r2_sync.md)** - R2 cloud sync
 - **[docs/tensor_parallel.md](tensor_parallel.md)** - Tensor parallelism for DeepSeek V3 / Kimi K2
 
-### Research (docs/other/)
-- **[docs/other/research_findings.md](other/research_findings.md)** - Empirical results (method comparisons, cross-model transfer, validation studies)
-- **[docs/other/literature_review.md](other/literature_review.md)** - 100+ papers analyzed
-- **[docs/other/insights.md](other/insights.md)** - Research insights
-
 ---
 
 ## Codebase Navigation
@@ -67,15 +62,15 @@ trait-interp/
 │       └── steering.json              # Steering eval questions
 │
 ├── extraction/             # Vector extraction pipeline
-│   ├── run_pipeline.py               # Full pipeline orchestrator
+│   ├── run_extraction_pipeline.py     # Full pipeline orchestrator
 │   ├── generate_responses.py         # Generate from scenarios
 │   ├── extract_activations.py        # Capture hidden states
 │   └── extract_vectors.py            # Extract trait vectors
 │
 ├── inference/              # Per-token monitoring
 │   ├── generate_responses.py         # Generate or import responses
-│   ├── capture_raw_activations.py    # Capture hidden states (prefill)
-│   └── project_raw_activations_onto_traits.py  # Project onto vectors
+│   ├── capture_activations.py    # Capture hidden states (prefill)
+│   └── project_activations_onto_traits.py  # Project onto vectors
 │
 ├── experiments/            # Experiment data (stored in R2, not git)
 │   └── {experiment_name}/
@@ -92,6 +87,11 @@ trait-interp/
 ├── config/
 │   ├── paths.yaml                    # Single source of truth for paths
 │   └── models/*.yaml                 # Model architecture configs
+│
+├── steering/              # Causal validation via steering
+│   ├── steering_evaluate.py           # Full steering evaluation
+│   ├── coefficient_search.py          # Find optimal steering coefficients
+│   └── steering_results.py            # Load/compare steering results
 │
 ├── core/                   # Primitives (types, hooks, methods, math)
 │   └── _tests/                        # Unit tests (pytest core/_tests/)
@@ -113,7 +113,7 @@ trait-interp/
 
 **Extract new traits:**
 ```bash
-python extraction/run_pipeline.py \
+python extraction/run_extraction_pipeline.py \
     --experiment {experiment} \
     --traits {category}/{trait}
 ```
@@ -129,17 +129,17 @@ python inference/generate_responses.py \
     --prompt-set {prompt_set}
 
 # 3. Capture activations
-python inference/capture_raw_activations.py \
+python inference/capture_activations.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
 
 # 4. Project onto traits (default: best+5 layer per trait)
-python inference/project_raw_activations_onto_traits.py \
+python inference/project_activations_onto_traits.py \
     --experiment {experiment} \
     --prompt-set {prompt_set}
 
 # Override: best steering layer only
-python inference/project_raw_activations_onto_traits.py \
+python inference/project_activations_onto_traits.py \
     --experiment {experiment} \
     --prompt-set {prompt_set} \
     --layers best
@@ -202,13 +202,13 @@ export HF_TOKEN=your_token_here  # For huggingface models
 #    positive.txt, negative.txt, definition.txt, steering.json
 
 # 2. Run pipeline
-python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait}
+python extraction/run_extraction_pipeline.py --experiment {experiment} --traits {category}/{trait}
 
 # With custom position (Arditi-style, last prompt token)
-python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait} --position "prompt[-1]"
+python extraction/run_extraction_pipeline.py --experiment {experiment} --traits {category}/{trait} --position "prompt[-1]"
 
 # Specific layers only (saves memory for large models)
-python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait} --layers 25,30,35,40
+python extraction/run_extraction_pipeline.py --experiment {experiment} --traits {category}/{trait} --layers 25,30,35,40
 ```
 
 **Visualize:**

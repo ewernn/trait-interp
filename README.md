@@ -43,7 +43,7 @@ Define a trait with naturally contrasting scenarios (e.g., prompts that elicit d
 #   positive.txt, negative.txt, definition.txt, steering.json
 
 # Run full pipeline
-python extraction/run_pipeline.py --experiment {experiment} --traits {category}/{trait}
+python extraction/run_extraction_pipeline.py --experiment {experiment} --traits {category}/{trait}
 ```
 
 ### Monitoring
@@ -57,8 +57,8 @@ score = (hidden_state @ trait_vector) / ||trait_vector||
 
 ```bash
 python inference/generate_responses.py --experiment {experiment} --prompt-set {prompt_set}
-python inference/capture_raw_activations.py --experiment {experiment} --prompt-set {prompt_set}
-python inference/project_raw_activations_onto_traits.py --experiment {experiment} --prompt-set {prompt_set}
+python inference/capture_activations.py --experiment {experiment} --prompt-set {prompt_set}
+python inference/project_activations_onto_traits.py --experiment {experiment} --prompt-set {prompt_set}
 ```
 
 ### Steering
@@ -66,8 +66,8 @@ python inference/project_raw_activations_onto_traits.py --experiment {experiment
 Apply trait vectors during generation to causally verify they control behavior:
 
 ```bash
-python analysis/steering/coef_search.py --experiment {experiment} --traits {category}/{trait}
-python analysis/steering/evaluate.py --experiment {experiment} --traits {category}/{trait}
+python steering/coefficient_search.py --experiment {experiment} --traits {category}/{trait}
+python steering/steering_evaluate.py --experiment {experiment} --traits {category}/{trait}
 ```
 
 ### Visualization
@@ -90,20 +90,21 @@ trait-interp/
 │       ├── definition.txt
 │       └── steering.json
 ├── extraction/             # Vector extraction pipeline
-│   ├── run_pipeline.py
+│   ├── run_extraction_pipeline.py
 │   ├── generate_responses.py
 │   ├── extract_activations.py
 │   └── extract_vectors.py
 ├── inference/              # Per-token monitoring
 │   ├── generate_responses.py
-│   ├── capture_raw_activations.py
-│   └── project_raw_activations_onto_traits.py
-├── analysis/               # Steering evaluation, model diff, benchmarks
+│   ├── capture_activations.py
+│   └── project_activations_onto_traits.py
+├── steering/              # Causal validation via steering
+├── analysis/               # Model diff, benchmarks, vector analysis
 ├── core/                   # Primitives (types, hooks, methods, math)
 ├── utils/                  # Shared utilities (paths, model loading, R2 sync)
 ├── config/                 # Path config, model architecture configs
 ├── visualization/          # Interactive dashboard
-├── server/                 # Persistent model server (avoids reload between scripts)
+├── other/server/           # Persistent model server (avoids reload between scripts)
 ├── experiments/            # Experiment data (vectors, activations, results)
 └── docs/                   # Documentation
 ```
