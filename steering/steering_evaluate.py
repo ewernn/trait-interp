@@ -573,6 +573,7 @@ async def run_evaluation(
                 experiment, trait, model_variant, steering_data.prompts_file,
                 model_name, vector_experiment, judge_provider, position, prompt_set,
                 trait_judge=trait_judge, direction=direction,
+                n_questions=len(questions),
             )
         tp_barrier()
 
@@ -1485,7 +1486,8 @@ async def _run_baseline_only(args, parsed_traits, model_variant, model_name, lor
                     init_results_file(
                         args.experiment, trait, model_variant, steering_data.prompts_file,
                         model_name, vector_experiment, args.judge, args.position,
-                        args.prompt_set, trait_judge=trait_judge, direction="positive"
+                        args.prompt_set, trait_judge=trait_judge, direction="positive",
+                        n_questions=len(questions),
                     )
                 tp_barrier()
 
@@ -1695,7 +1697,8 @@ async def _run_main(args, parsed_traits, model_variant, model_name, lora, layers
                         init_results_file(
                             args.experiment, trait, model_variant, steering_data.prompts_file,
                             model_name, vector_experiment, args.judge, args.position, args.prompt_set,
-                            trait_judge=trait_judge, direction=direction
+                            trait_judge=trait_judge, direction=direction,
+                            n_questions=len(questions),
                         )
                     tp_barrier()
 

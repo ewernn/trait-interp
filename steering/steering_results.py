@@ -47,6 +47,7 @@ def init_results_file(
     prompt_set: str = "steering",
     trait_judge: Optional[str] = None,
     direction: Literal["positive", "negative"] = "positive",
+    n_questions: Optional[int] = None,
 ) -> Path:
     """
     Initialize a new results.jsonl file with header line.
@@ -84,6 +85,7 @@ def init_results_file(
             "trait_judge": trait_judge,  # None = V3c default, else path like "pv/hallucination"
         },
         "prompts_file": str(prompts_file),
+        "n_questions": n_questions,
     }
 
     results_path.parent.mkdir(parents=True, exist_ok=True)

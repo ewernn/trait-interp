@@ -341,7 +341,7 @@ async def run_multi_layer_evaluation(
             init_results_file(
                 experiment, trait, model_variant, steering_data.prompts_file,
                 model_name, vector_experiment, judge_provider, position, prompt_set,
-                direction=direction,
+                direction=direction, n_questions=len(questions),
             )
 
     if judge is None:

@@ -5,6 +5,7 @@ Core primitives for trait vector extraction and analysis.
 from .types import (
     VectorSpec,
     ProjectionConfig,
+    ResponseRecord,
     activation_scale,
 )
 from .hooks import (
