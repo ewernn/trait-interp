@@ -68,8 +68,9 @@ trait-interp/
 │   └── extract_vectors.py            # Extract trait vectors
 │
 ├── inference/              # Per-token monitoring
-│   ├── generate_responses.py         # Generate or import responses
-│   ├── capture_activations.py    # Capture hidden states (prefill)
+│   ├── run_inference_pipeline.py    # Full pipeline orchestrator (stream-through)
+│   ├── generate_responses.py        # Generate or import responses
+│   ├── capture_activations.py       # Capture hidden states (prefill)
 │   └── project_activations_onto_traits.py  # Project onto vectors
 │
 ├── experiments/            # Experiment data (stored in R2, not git)

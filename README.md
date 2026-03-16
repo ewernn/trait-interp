@@ -95,6 +95,7 @@ trait-interp/
 │   ├── extract_activations.py
 │   └── extract_vectors.py
 ├── inference/              # Per-token monitoring
+│   ├── run_inference_pipeline.py
 │   ├── generate_responses.py
 │   ├── capture_activations.py
 │   └── project_activations_onto_traits.py
