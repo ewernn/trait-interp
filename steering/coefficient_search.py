@@ -86,7 +86,7 @@ async def evaluate_single_config(
         trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
         coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
 
-        from steering.run_steering_eval import _score_stats
+        from utils.steered_generation import score_stats as _score_stats
         result = {
             "trait_mean": sum(trait_scores) / len(trait_scores) if trait_scores else None,
             **_score_stats(trait_scores),
@@ -397,7 +397,7 @@ async def batched_adaptive_search(
                     print(f"({score_time:.1f}s)")
 
                     # Compute per-layer summaries on rank-0
-                    from steering.run_steering_eval import _score_stats
+                    from utils.steered_generation import score_stats as _score_stats
                     state_summaries = []
                     for idx, (_, state) in enumerate(uncached_states):
                         start = idx * n_questions
@@ -587,7 +587,7 @@ def _process_config_result(
     """
     state["history"].append((state["coef"], trait_mean, coherence_mean))
 
-    from steering.run_steering_eval import _score_stats
+    from utils.steered_generation import score_stats as _score_stats
     spec = VectorSpec(layer=state["layer"], component=component, position=position, method=method, weight=state["coef"])
     config = {"vectors": [spec.to_dict()]}
     stats = {}

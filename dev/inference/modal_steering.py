@@ -101,7 +101,7 @@ async def steering_eval_remote(
     from utils.backends import LocalBackend
     from utils.judge import TraitJudge
     from utils.modal_sync import load_model_cached
-    from steering.run_steering_eval import _run_main, _run_baseline_only
+    from steering.run_steering_eval import _run_main
     from steering.steering_results import load_results
     from utils.vectors import MIN_COHERENCE
 
@@ -151,35 +151,25 @@ async def steering_eval_remote(
     parsed_traits = [(experiment, t) for t in traits]
 
     try:
-        if baseline_only:
-            await _run_baseline_only(
-                args=eval_args,
-                parsed_traits=parsed_traits,
-                model_variant=model_variant,
-                model_name=model_name,
-                lora=None,
-                backend=backend,
-                judge=judge,
-            )
-        else:
-            await _run_main(
-                args=eval_args,
-                parsed_traits=parsed_traits,
-                model_variant=model_variant,
-                model_name=model_name,
-                lora=None,
-                layers_arg=eval_args.layers,
-                coefficients=None,
-                direction=direction,
-                force=force,
-                backend=backend,
-                judge=judge,
-                trait_layers=trait_layers,
-            )
+        await _run_main(
+            args=eval_args,
+            parsed_traits=parsed_traits,
+            model_variant=model_variant,
+            model_name=model_name,
+            lora=None,
+            layers_arg=eval_args.layers,
+            coefficients=None,
+            direction=direction,
+            force=force,
+            backend=backend,
+            judge=judge,
+            trait_layers=trait_layers,
+            baseline_only=baseline_only,
+        )
     finally:
         await judge.close()
 
-    # Load results written by _run_main/_run_baseline_only
+    # Load results written by _run_main
     results = {}
     for trait in traits:
         try:

@@ -39,14 +39,15 @@ from typing import List, Tuple, Optional, Dict
 from datetime import datetime
 
 from utils.traits import load_steering_data
-from steering.run_steering_eval import estimate_activation_norm
+from utils.steered_generation import estimate_activation_norm
 from core import BatchedLayerSteeringHook
 from steering.steering_results import init_results_file, append_run, save_responses
 from utils.paths import get_vector_dir, get_model_variant, get_steering_results_path
 from utils.model import load_model, format_prompt, get_layers_module
 from utils.generation import generate_batch
 from utils.judge import TraitJudge
-from utils.vectors import MIN_COHERENCE, load_vector, get_best_vector
+from utils.vector_selection import get_best_vector
+from utils.vectors import MIN_COHERENCE, load_vector
 from utils.traits import load_scenarios, load_trait_definition
 from utils.layers import parse_layers
 from core import VectorSpec

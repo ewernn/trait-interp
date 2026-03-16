@@ -25,7 +25,7 @@ import numpy as np
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from core import projection
-from utils.vectors import get_best_vector
+from utils.vector_selection import get_best_vector
 from utils.paths import get_vector_path, get_model_variant
 from utils.model import tokenize_with_prefill, load_model, get_layers_module
 

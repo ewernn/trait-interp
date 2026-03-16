@@ -58,7 +58,8 @@ from tqdm import tqdm
 from core import SteeringHook, get_hook_path
 from utils.model import load_model_with_lora, tokenize
 from utils.paths import get as get_path, get_model_variant
-from utils.vectors import get_best_vector, load_vector
+from utils.vector_selection import get_best_vector
+from utils.vectors import load_vector
 
 
 def load_ab_dataset(dataset_path: str) -> list[dict]:

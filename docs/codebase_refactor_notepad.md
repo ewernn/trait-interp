@@ -88,48 +88,40 @@ Total pipeline Python files: ~47 (excluding dev/, utils shell scripts, other/).
 
 ---
 
-## Next: Thin Controller Refactor
+## Thin Controller Refactor
 
-**Goal:** All `run_*.py` pipeline scripts should be ~300 lines of clean orchestration that read like recipes. Edge cases, helpers, distributed sync → separate files.
+**Goal:** All `run_*.py` pipeline scripts should read like recipes, with edge cases and helpers in separate files.
 
-### Priority 1: `steering/run_steering_eval.py` (1860 → ~300 lines)
+### ✅ `steering/run_steering_eval.py` (1860 → 1317 lines)
 
-Current structure (from investigation):
-| Function | Lines | Action |
-|----------|-------|--------|
-| `_score_stats` | 11 | Move to utils/steered_generation.py |
-| `estimate_activation_norm` | 34 | Move to utils/steered_generation.py |
-| `compute_baseline` | 69 | Keep (core functionality) |
-| `run_ablation_evaluation` | 176 | Move to dev/ or utils/ |
-| `run_evaluation` | 469 | Refactor into ~80 line recipe with helpers |
-| `discover_response_files` | 49 | Move with run_rescore |
-| `run_rescore` | 183 | Move to dev/ or utils/ |
-| `main` | 266 | Slim down |
-| `_run_baseline_only` | 164 | Merge into _run_main (60 lines duplicated) |
-| `_run_main` | 311 | Simplify after helpers extracted |
+**What moved to `utils/steered_generation.py`:**
+- `score_stats()` (was `_score_stats`) — breaks circular dep with coefficient_search
+- `estimate_activation_norm()` — activation norm estimation
+- `compute_baseline()` — baseline scoring with TP support
 
-**Key constraint:** Circular dependency between run_steering_eval ↔ coefficient_search. Shared helpers must go in a third file (steering_results.py or utils/steered_generation.py). coefficient_search.py has DEFERRED imports from run_steering_eval (inside functions) to avoid circular import at module level.
+**Structural changes:**
+- `_run_baseline_only` merged into `_run_main` with `baseline_only` flag
+- Extracted 8 local helpers: `_resolve_eval_prompt`, `_resolve_questions`, `_resolve_cli_eval_prompt`, `_load_or_init_results`, `_load_vectors`, `_regenerate_responses`, `_evaluate_manual_coefficients`, `_print_eval_summary`
+- `_run_main` dispatches to `_run_baselines`, `_run_batched_multi_trait`, or per-trait `run_evaluation`
+- Ablation + rescore modes pushed below the fold (after main)
+- `run_evaluation` now reads as a clean recipe: load data → init results → baseline → load vectors → dispatch → summary
 
-**Target `run_evaluation()` shape:**
-```python
-async def run_evaluation(experiment, trait, ...):
-    steering_data = load_steering_data(trait)
-    questions = resolve_questions(trait, questions_file, prompt_set)
-    results_path = init_or_load_results(experiment, trait, ...)
-    baseline = await compute_baseline(backend, questions, judge, ...)
-    for layer in layers:
-        vector, base_coef = load_vector_and_estimate_coefficient(...)
-        if coefficients:
-            await evaluate_fixed_coefficients(...)
-        else:
-            await adaptive_search(...)
-```
+**Import updates:** coefficient_search.py (3 deferred), multi_layer_evaluate.py, dev/steering/optimize_vector.py, dev/inference/modal_steering.py
 
-### Priority 2: `extraction/run_extraction_pipeline.py` (~500 lines)
-Already decent but could be cleaner. Stage functions could be more concise.
+### ✅ `extraction/run_extraction_pipeline.py` (568 → 469 lines)
 
-### Priority 3: `inference/run_inference_pipeline.py` (~300 lines)
-Just written, already fairly clean. May not need changes.
+- `format_duration` deduplicated → `utils/vram.py` (shared with inference)
+- `_run_stage()` helper eliminates repeated GPUMonitor/timing boilerplate
+- `_flush_cuda()` helper deduplicates gc+empty_cache pattern
+- Quality gate kept as-is (needs redesign separately)
+
+### ✅ `inference/run_inference_pipeline.py` (467 → 328 lines)
+
+- `load_trait_vectors` → moved to `utils/vectors.py` with proper `hook_index` dict
+- Linear `torch.equal` search replaced with O(1) dict lookup via `hook_index`
+- `sys.argv` hack → direct `process_prompt_set()` call
+- Dead code removed: `save_activations` stub, unused proxy dicts, dead loop
+- Norm computation hoisted outside per-trait loop
 
 ---
 
@@ -154,6 +146,7 @@ Just written, already fairly clean. May not need changes.
 - Promote to main after thin controller refactor
 - Consider merging multi_layer_evaluate.py into run_steering_eval.py as --multi-layer flag
 - Steering CLI tools in dev/ — decide: integrate or delete
+- **README rewrite** — tell the story of how extraction → inference → steering works end-to-end, using `hyperparams` throughout so readers simultaneously understand the pipeline flow AND what knobs they can control. Dual purpose: tutorial + hyperparameter reference.
 
 ---
 

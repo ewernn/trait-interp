@@ -264,6 +264,8 @@ async def _run_steering_eval(task_id: str, req: SteeringEvalRequest):
             judge="openai",
             vector_experiment=None,
             extraction_variant=req.extraction_variant,
+            regenerate_responses=False,
+            questions_file=None,
         )
 
         task["status"] = "running"

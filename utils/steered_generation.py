@@ -1,35 +1,21 @@
 """
-Batched steering generation primitives.
+Steering generation and evaluation primitives.
 
-Input: model, tokenizer, pre-formatted prompts, configs [(layer, vector, coef)]
-Output: flat list of responses (caller groups by slicing)
+Input: model, tokenizer, prompts, configs
+Output: responses, scores, baselines
 
 Usage:
-    from utils.steered_generation import batched_steering_generate
-
-    # Uniform prompts across configs:
-    responses = batched_steering_generate(
-        model, tokenizer,
-        prompts=formatted_questions,
-        configs=[(layer, vector, coef) for layer, coef in layer_coef_pairs],
-        component="residual",
-    )
-    # Group results: responses[i*n_prompts:(i+1)*n_prompts] for config i
-
-    # Per-config prompts (multi-trait):
-    from utils.steered_generation import multi_trait_batched_steering_generate
-
-    per_config_responses = multi_trait_batched_steering_generate(
-        model, tokenizer,
-        configs=[(layer, vector, coef, formatted_prompts), ...],
-    )
-    # per_config_responses[i] = list of responses for config i
+    from utils.steered_generation import batched_steering_generate, score_stats,
+        estimate_activation_norm, compute_baseline
 """
 
-from typing import List, Tuple
+import statistics
+from typing import Dict, List, Optional, Tuple
+
 import torch
 
-from core.hooks import BatchedLayerSteeringHook
+from core.hooks import BatchedLayerSteeringHook, get_hook_path
+from utils.distributed import is_tp_mode, is_rank_zero
 
 
 def batched_steering_generate(
@@ -163,3 +149,102 @@ def multi_trait_batched_steering_generate(
 
     # Slice back into per-config groups
     return [responses[start:end] for start, end in slices]
+
+
+# =============================================================================
+# Evaluation helpers (used by steering/run_steering_eval.py, coefficient_search.py)
+# =============================================================================
+
+def score_stats(scores: List[float]) -> Dict:
+    """Compute per-question distribution stats for a list of trait scores."""
+    if not scores:
+        return {"trait_std": 0.0, "success_rate": 0.0, "min_score": None, "max_score": None}
+    return {
+        "trait_std": round(statistics.pstdev(scores), 2),
+        "success_rate": round(sum(1 for s in scores if s > 50) / len(scores), 2),
+        "min_score": round(min(scores), 2),
+        "max_score": round(max(scores), 2),
+    }
+
+
+def estimate_activation_norm(model, tokenizer, prompts, layer, use_chat_template,
+                             component="residual"):
+    """Estimate activation norm at a layer by running a few prompts through the model."""
+    from utils.model import format_prompt, tokenize_prompt
+
+    norms = []
+
+    def capture_hook(_module, _input, output):
+        hidden = output[0] if isinstance(output, tuple) else output
+        norm = hidden[:, -1, :].float().norm().item()
+        norms.append(norm)
+
+    hook_path = get_hook_path(layer, component, model=model)
+    module = model
+    for attr in hook_path.split('.'):
+        module = getattr(module, attr)
+    handle = module.register_forward_hook(capture_hook)
+
+    try:
+        for prompt in prompts[:3]:
+            formatted = format_prompt(prompt, tokenizer, use_chat_template=use_chat_template)
+            inputs = tokenize_prompt(formatted, tokenizer)
+            device = next(model.parameters()).device
+            inputs = {k: v.to(device) if hasattr(v, 'to') else v for k, v in inputs.items()}
+            with torch.no_grad():
+                model(**inputs)
+    finally:
+        handle.remove()
+
+    return sum(norms) / len(norms) if norms else 100.0
+
+
+async def compute_baseline(backend, questions, trait_name, trait_definition, judge,
+                           max_new_tokens=64, eval_prompt=None, relevance_check=True):
+    """Compute baseline scores (no steering) with batched generation.
+
+    Returns (baseline_stats, response_data) for saving.
+    """
+    from utils.backends import GenerationConfig
+
+    print("\nComputing baseline (no steering)...")
+    responses = backend.generate(questions, config=GenerationConfig(max_new_tokens=max_new_tokens))
+
+    tp = is_tp_mode()
+    if not tp or is_rank_zero():
+        all_qa_pairs = list(zip(questions, responses))
+        all_scores = await judge.score_steering_batch(
+            all_qa_pairs, trait_name, trait_definition,
+            eval_prompt=eval_prompt, relevance_check=relevance_check,
+        )
+
+        all_trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
+        all_coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
+
+        baseline = {
+            "trait_mean": sum(all_trait_scores) / len(all_trait_scores) if all_trait_scores else None,
+            **score_stats(all_trait_scores),
+            "n": len(all_trait_scores),
+        }
+        if all_coherence_scores:
+            baseline["coherence_mean"] = sum(all_coherence_scores) / len(all_coherence_scores)
+
+        response_data = [
+            {"prompt": q, "response": r, "system_prompt": None,
+             "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
+            for q, r, s in zip(questions, responses, all_scores)
+        ]
+
+        _tm = baseline['trait_mean']
+        print(f"  Baseline: trait={f'{float(_tm):.1f}' if _tm is not None else 'None'}, n={baseline['n']}")
+    else:
+        baseline = None
+        response_data = None
+
+    if tp:
+        import torch.distributed as dist
+        broadcast_list = [baseline]
+        dist.broadcast_object_list(broadcast_list, src=0)
+        baseline = broadcast_list[0]
+
+    return baseline, response_data

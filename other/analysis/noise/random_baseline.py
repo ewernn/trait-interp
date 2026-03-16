@@ -27,7 +27,8 @@ from typing import List, Dict, Tuple
 
 from core import projection
 from utils.paths import get as get_path, get_model_variant
-from utils.vectors import get_best_vector, load_vector_with_baseline
+from utils.vector_selection import get_best_vector
+from utils.vectors import load_vector_with_baseline
 
 
 def generate_random_vectors(dim: int, n: int, seed: int = 42) -> torch.Tensor:
