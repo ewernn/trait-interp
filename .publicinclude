@@ -45,7 +45,6 @@ LICENSE
 requirements.txt
 .gitignore
 .env.example
-.publicinclude
 experiments/.gitkeep
 
 # ── Steering ──
