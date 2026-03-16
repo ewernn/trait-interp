@@ -1,73 +1,86 @@
 #!/bin/bash
 # Download experiments from R2 to Railway volume
-# Usage: railway run bash utils/railway_pull_r2.sh [experiment_name]
-# Example: railway run bash utils/railway_pull_r2.sh {experiment}
+# Uses shared r2_config.sh for excludes and rclone setup.
+#
+# Usage:
+#   railway ssh  (then from /app):
+#   bash utils/railway_pull_r2.sh --only gemma-2-2b
+#   bash utils/railway_pull_r2.sh --only gemma-2-2b,gemma-3-4b
+#   bash utils/railway_pull_r2.sh                              # all experiments
+#   bash utils/railway_pull_r2.sh --copy                       # new + changed files
+#   bash utils/railway_pull_r2.sh --dry-run --only gemma-2-2b  # preview
 
 set -e
 
-EXPERIMENT=${1:-""}
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-if [ -n "$EXPERIMENT" ]; then
-    SOURCE="r2:trait-interp-bucket/experiments/${EXPERIMENT}/"
-    DEST="/app/experiments/${EXPERIMENT}/"
-else
-    SOURCE="r2:trait-interp-bucket/experiments/"
-    DEST="/app/experiments/"
-fi
-
-echo "📥 Downloading experiments from R2 to Railway volume..."
-echo "Source: $SOURCE"
-echo "Destination: $DEST"
-echo ""
-
-# Install rclone if not present
+# Install rclone if not present (Railway containers don't have it)
 if ! command -v rclone &> /dev/null; then
     echo "Installing rclone..."
-    curl https://rclone.org/install.sh | bash
+    curl -s https://rclone.org/install.sh | bash
 fi
 
-# Auto-configure rclone from environment variables if not already configured
-if [ ! -f ~/.config/rclone/rclone.conf ]; then
-    if [ -z "$R2_ACCESS_KEY_ID" ] || [ -z "$R2_SECRET_ACCESS_KEY" ] || [ -z "$R2_ENDPOINT" ]; then
-        echo "❌ Error: rclone not configured and R2 credentials not found"
-        echo "Set these Railway environment variables:"
-        echo "  R2_ACCESS_KEY_ID"
-        echo "  R2_SECRET_ACCESS_KEY"
-        echo "  R2_ENDPOINT"
-        echo "  R2_BUCKET_NAME (optional, defaults to trait-interp-bucket)"
-        exit 1
-    fi
+# Source shared R2 config (excludes, arg parsing, rclone check)
+MODE="safe"
+source "$SCRIPT_DIR/r2_config.sh"
 
-    echo "Generating rclone config from environment variables..."
-    mkdir -p ~/.config/rclone
-    cat > ~/.config/rclone/rclone.conf <<EOF
-[r2]
-type = s3
-provider = Cloudflare
-access_key_id = ${R2_ACCESS_KEY_ID}
-secret_access_key = ${R2_SECRET_ACCESS_KEY}
-endpoint = ${R2_ENDPOINT}
-acl = private
-EOF
-    echo "✓ rclone configured"
+parse_r2_args "$@"
+ensure_r2
+resolve_paths
+build_excludes
+build_only_filters
+
+# Display what we're doing
+echo "📥 Pulling to Railway volume..."
+if [[ -n "$ONLY" ]]; then
+    echo "Experiment(s): $ONLY"
+else
+    echo "Scope: all experiments"
 fi
+[[ "$INCLUDE_LORAS" == true ]]        && echo "  + LoRAs included"
+[[ "$INCLUDE_ARCHIVE" == true ]]      && echo "  + Archive included"
+[[ "$INCLUDE_TRAJECTORIES" == true ]] && echo "  + Trajectories included"
 
-# Sync from R2 to volume
-# Exclude large .pt files (activations and raw inference data)
-# Keep metadata.json files (small, contain model config)
-rclone sync "$SOURCE" "$DEST" \
-  --progress \
-  --stats 5s \
-  --size-only \
-  --transfers 16 \
-  --checkers 16 \
-  --exclude "**/inference/raw/**" \
-  --exclude "**/activations/**"
+COMMON_FLAGS=(
+    --progress
+    --stats 5s
+    --fast-list
+    $DRY_RUN
+    "${EXCLUDES[@]}"
+    "${ONLY_FILTERS[@]}"
+)
+
+case $MODE in
+    safe)
+        echo "Mode: SAFE (new files only)"
+        echo ""
+        rclone copy "$R2_REMOTE" "$LOCAL_DIR" \
+            --ignore-existing \
+            --transfers 32 \
+            --checkers 64 \
+            "${COMMON_FLAGS[@]}"
+        ;;
+    copy)
+        echo "Mode: COPY (new + changed files)"
+        echo ""
+        rclone copy "$R2_REMOTE" "$LOCAL_DIR" \
+            --size-only \
+            --transfers 16 \
+            --checkers 32 \
+            "${COMMON_FLAGS[@]}"
+        ;;
+    full)
+        echo "Mode: FULL (mirror R2, deletes local-only files)"
+        echo ""
+        rclone sync "$R2_REMOTE" "$LOCAL_DIR" \
+            --size-only \
+            --modify-window 1s \
+            --transfers 32 \
+            --checkers 64 \
+            "${COMMON_FLAGS[@]}"
+        ;;
+esac
 
 echo ""
-echo "✅ Download complete!"
-echo ""
-echo "Volume contents:"
-du -sh /app/experiments/
-echo ""
-echo "Data is now persistent and will survive redeploys."
+echo "✅ Pull complete!"
+du -sh experiments/ 2>/dev/null || true
