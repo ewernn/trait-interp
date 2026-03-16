@@ -81,11 +81,8 @@ from datetime import datetime
 from tqdm import tqdm
 
 from core import projection, VectorSpec
-from utils.vectors import (
-    load_vector_metadata, load_vector_with_baseline, find_vector_method,
-    get_best_vector, get_top_N_vectors, get_best_vector_spec, load_vector_from_spec,
-    _discover_vectors
-)
+from utils.vector_selection import get_best_vector, get_top_N_vectors, get_best_vector_spec, _discover_vectors
+from utils.vectors import load_vector_metadata, load_vector_with_baseline, find_vector_method, load_vector_from_spec
 from utils.paths import get as get_path, get_vector_path, discover_extracted_traits, get_model_variant, load_experiment_config
 from utils.model_registry import get_model_slug
 from utils.json import dump_compact

@@ -14,8 +14,6 @@ num_attention_heads: 32
 num_key_value_heads: 32
 intermediate_size: 11008
 
-# Residual stream structure
-residual_sublayers: [input, after_attn, output]
 
 # SAE availability
 sae:

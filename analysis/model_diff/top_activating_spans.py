@@ -35,7 +35,7 @@ import math
 import os
 import re
 from utils import paths
-from utils.vectors import get_best_vector
+from utils.vector_selection import get_best_vector
 
 
 # ── Discovery ────────────────────────────────────────────────────────────────

@@ -30,7 +30,8 @@ from utils.paths import (
     list_layers,
     list_methods,
 )
-from utils.vectors import get_best_vector, load_vector
+from utils.vector_selection import get_best_vector
+from utils.vectors import load_vector
 
 
 # Components with different hidden dim (can't compare to residual)

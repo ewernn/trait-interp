@@ -34,7 +34,7 @@ import statistics
 from typing import List, Dict, Tuple
 from utils import paths
 from utils.projections import read_projection
-from utils.vectors import get_best_vector
+from utils.vector_selection import get_best_vector
 
 
 def split_into_clauses(tokens: List[str], deltas: List[float]) -> List[Dict]:

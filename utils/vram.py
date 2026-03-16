@@ -1,10 +1,10 @@
-"""GPU memory monitoring and VRAM estimation utilities.
+"""GPU memory monitoring, VRAM estimation, and timing utilities.
 
 Input: Loaded model on GPU(s)
 Output: Memory stats, batch size calculations
 
 Usage:
-    from utils.vram import calculate_max_batch_size, GPUMonitor, get_free_vram_gb
+    from utils.vram import calculate_max_batch_size, GPUMonitor, get_free_vram_gb, format_duration
 
     batch_size = calculate_max_batch_size(model, max_seq_len, mode='generation')
 
@@ -18,6 +18,15 @@ import time
 
 import torch
 import subprocess
+
+
+def format_duration(seconds: float) -> str:
+    """Format seconds as human-readable duration."""
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    elif seconds < 3600:
+        return f"{seconds / 60:.1f}m"
+    return f"{seconds / 3600:.1f}h"
 
 
 def get_gpu_stats() -> str:

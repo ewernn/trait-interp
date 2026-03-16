@@ -36,7 +36,8 @@ from collections import defaultdict
 
 from core.math import projection
 from utils.paths import get as get_path, discover_extracted_traits
-from utils.vectors import get_best_vector_spec, load_vector
+from utils.vector_selection import get_best_vector_spec
+from utils.vectors import load_vector
 from utils.layers import parse_layers
 
 

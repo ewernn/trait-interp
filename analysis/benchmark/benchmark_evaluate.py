@@ -60,7 +60,8 @@ from tqdm import tqdm
 from core import SteeringHook, get_hook_path
 from utils.model import load_model, load_model_with_lora, tokenize, tokenize_batch
 from utils.paths import get as get_path, get_model_variant
-from utils.vectors import get_best_vector, load_vector
+from utils.vector_selection import get_best_vector
+from utils.vectors import load_vector
 from utils.vram import calculate_max_batch_size
 from utils.metrics import batch_ce_loss
 

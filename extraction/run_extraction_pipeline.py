@@ -15,8 +15,7 @@ Stages:
 Usage:
     python extraction/run_extraction_pipeline.py --experiment gemma-2-2b --traits category/trait
     python extraction/run_extraction_pipeline.py --experiment gemma-2-2b --category epistemic
-    python extraction/run_extraction_pipeline.py --experiment gemma-2-2b  # all traits
-    python extraction/run_extraction_pipeline.py --experiment gemma-2-2b --only-stage 4  # vectors only
+    python extraction/run_extraction_pipeline.py --experiment gemma-2-2b --only-stage 4
 """
 
 import sys
@@ -50,57 +49,52 @@ from utils.paths import (
 from utils.distributed import is_tp_mode, is_rank_zero, tp_barrier
 from utils.backends import LocalBackend, add_backend_args
 from utils.model_registry import is_base_model
+from utils.vram import GPUMonitor, format_duration
+from utils.traits import get_scenario_count
 from extraction.generate_responses import generate_responses_for_trait
 from extraction.extract_activations import extract_activations_for_trait, resolve_max_new_tokens
 from extraction.extract_vectors import extract_vectors_for_trait
 from extraction.preextraction_vetting import vet_scenarios, vet_responses
 from extraction.run_logit_lens import run_logit_lens_for_trait
-from utils.vram import GPUMonitor
-from utils.traits import get_scenario_count
 
 STAGES = {
-    0: 'vet_scenarios',
-    1: 'generate',
-    2: 'vet_responses',
-    3: 'activations',
-    4: 'vectors',
-    5: 'logit_lens',
-    6: 'evaluation',
-    7: 'steering',
+    0: 'vet_scenarios', 1: 'generate', 2: 'vet_responses',
+    3: 'activations', 4: 'vectors', 5: 'logit_lens',
+    6: 'evaluation', 7: 'steering',
 }
 
 
-def format_duration(seconds: float) -> str:
-    """Format seconds as human-readable duration."""
-    if seconds < 60:
-        return f"{seconds:.1f}s"
-    elif seconds < 3600:
-        return f"{seconds / 60:.1f}m"
-    else:
-        return f"{seconds / 3600:.1f}h"
-
-
-def estimate_stage_time(stage: str, n_items: int, rollouts: int = 1, max_tokens: int = 32) -> float:
-    """Estimate stage duration in seconds based on item count.
-
-    Rough estimates based on typical runs:
-    - vetting: ~0.3s/item (API rate limited)
-    - generation: ~0.5-2s/response depending on tokens
-    - activations: ~0.05s/response (forward pass only)
-    - vectors: ~2s total (fast CPU ops)
-    - logit_lens: ~5s total
-    - evaluation: ~2s total
-    """
+def _estimate_eta(stage, n_items, rollouts=1, max_tokens=32):
+    """Rough stage duration estimate in seconds."""
     estimates = {
         'vet_scenarios': 0.3 * n_items,
         'generate': (0.5 + max_tokens * 0.03) * n_items * rollouts,
         'vet_responses': 0.3 * n_items * rollouts,
         'activations': 0.05 * n_items * rollouts,
-        'vectors': 2.0,
-        'logit_lens': 5.0,
-        'evaluation': 2.0,
+        'vectors': 2.0, 'logit_lens': 5.0, 'evaluation': 2.0,
     }
     return estimates.get(stage, 10.0)
+
+
+def _run_stage(name, stage_times, fn, *args, n_items=None, **kwargs):
+    """Run a pipeline stage with GPU monitoring and timing."""
+    eta = _estimate_eta(name, n_items or 0) if n_items else None
+    eta_str = f" (ETA: {format_duration(eta)})" if eta else ""
+    stage_num = {v: k for k, v in STAGES.items()}.get(name, '?')
+    print(f"  [{stage_num}] {name.replace('_', ' ').title()}...{eta_str}")
+    with GPUMonitor(name) as mon:
+        result = fn(*args, **kwargs)
+        report = mon.report(n_items)
+    stage_times[name] = stage_times.get(name, 0) + (time.time() - mon.start_time)
+    print(f"      Done: {report}")
+    return result
+
+
+def _flush_cuda():
+    """Free CUDA allocator cache."""
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def run_pipeline(
@@ -135,7 +129,7 @@ def run_pipeline(
     backend=None,
 ):
     """Execute extraction pipeline."""
-    # In TP mode, init distributed early and suppress output on non-rank-0
+    # TP lifecycle
     import builtins
     _original_print = builtins.print
     if is_tp_mode():
@@ -146,18 +140,14 @@ def run_pipeline(
             builtins.print = lambda *a, **k: None
 
     methods = methods or ['mean_diff', 'probe']
-
-    # Resolve max_new_tokens from position
     max_new_tokens = resolve_max_new_tokens(position, max_new_tokens)
 
-    # Validate: can't vet empty responses
     if max_new_tokens == 0 and vet:
         raise ValueError(
             "Response vetting requires responses. Use --no-vet with prompt[-1] position, "
             "or specify --max-new-tokens > 0"
         )
 
-    # Resolve model variant
     variant = get_model_variant(experiment, model_variant, mode="extraction")
     extraction_model = variant['model']
     lora = variant.get('lora')
@@ -165,10 +155,9 @@ def run_pipeline(
     if base_model is None:
         base_model = is_base_model(extraction_model)
 
-    def should_run(stage: int) -> bool:
+    def should_run(stage):
         return only_stages is None or stage in only_stages
 
-    # Only load model if needed
     needs_model = should_run(1) or should_run(3) or (should_run(5) and not no_logitlens)
 
     print("=" * 60)
@@ -183,42 +172,38 @@ def run_pipeline(
     pipeline_start = time.time()
     stage_times: Dict[str, float] = {}
 
-    if backend is None:
-        if needs_model:
-            load_start = time.time()
-            backend = LocalBackend.from_experiment(
-                experiment, variant=variant['name'],
-                load_in_8bit=load_in_8bit, load_in_4bit=load_in_4bit,
-                bnb_4bit_quant_type=bnb_4bit_quant_type,
-            )
-            stage_times['model_load'] = time.time() - load_start
-            print(f"Model loaded. ({format_duration(stage_times['model_load'])})")
-    else:
+    if backend is None and needs_model:
+        load_start = time.time()
+        backend = LocalBackend.from_experiment(
+            experiment, variant=variant['name'],
+            load_in_8bit=load_in_8bit, load_in_4bit=load_in_4bit,
+            bnb_4bit_quant_type=bnb_4bit_quant_type,
+        )
+        stage_times['model_load'] = time.time() - load_start
+        print(f"Model loaded. ({format_duration(stage_times['model_load'])})")
+    elif backend is not None:
         print(f"Using pre-loaded model.")
+
     use_chat_template = False if base_model else (backend and backend.tokenizer.chat_template is not None)
 
     for trait in traits:
         print(f"\n--- {trait} --- [{datetime.now(timezone.utc).strftime('%H:%M:%S UTC')}]")
         vetting_path = get_path("extraction.trait", experiment=experiment, trait=trait, model_variant=variant['name']) / "vetting"
 
-        # Get scenario count for ETA estimates
         try:
             counts = get_scenario_count(trait)
             n_scenarios = counts['positive'] + counts['negative']
         except Exception:
-            n_scenarios = 200  # fallback
+            n_scenarios = 200
 
         # Stage 0: Scenario vetting (opt-in, rank 0 only)
         if should_run(0) and run_scenario_vetting:
             if not (vetting_path / "scenario_scores.json").exists() or force:
                 if is_rank_zero():
-                    eta = estimate_stage_time('vet_scenarios', n_scenarios)
-                    print(f"  [0] Vetting scenarios... (ETA: {format_duration(eta)})")
-                    with GPUMonitor('vet_scenarios') as mon:
-                        vet_scenarios(experiment, trait, variant['name'], pos_threshold, neg_threshold, max_concurrent)
-                        report = mon.report(n_scenarios)
-                    stage_times['vet_scenarios'] = stage_times.get('vet_scenarios', 0) + (time.time() - mon.start_time)
-                    print(f"      Done: {report}")
+                    _run_stage('vet_scenarios', stage_times,
+                               vet_scenarios, experiment, trait, variant['name'],
+                               pos_threshold, neg_threshold, max_concurrent,
+                               n_items=n_scenarios)
             tp_barrier()
 
         # Stage 1: Generate responses
@@ -226,37 +211,22 @@ def run_pipeline(
             responses_path = get_path("extraction.responses", experiment=experiment, trait=trait, model_variant=variant['name'])
             has_responses = (responses_path / "pos.json").exists() and (responses_path / "neg.json").exists()
             if not has_responses or force:
-                eta = estimate_stage_time('generate', n_scenarios, rollouts, max_new_tokens)
-                print(f"  [1] Generating responses... (ETA: {format_duration(eta)})")
-                with GPUMonitor('generate') as mon:
-                    generate_responses_for_trait(experiment, trait, variant['name'], backend, max_new_tokens,
-                                                 rollouts, temperature, use_chat_template)
-                    report = mon.report(n_scenarios * rollouts)
-                stage_times['generate'] = stage_times.get('generate', 0) + (time.time() - mon.start_time)
-                print(f"      Done: {report}")
-            # Barrier: ensure rank 0 file saves complete before stage 3 reads them
+                _run_stage('generate', stage_times,
+                           generate_responses_for_trait, experiment, trait, variant['name'],
+                           backend, max_new_tokens, rollouts, temperature, use_chat_template,
+                           n_items=n_scenarios * rollouts)
             tp_barrier()
-            # Free CUDA allocator cache from generation (KV cache, logits buffers).
-            # Without this, extraction sees ~5 GB less free VRAM and halves batch size.
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            _flush_cuda()
 
-        # Stage 2: Response vetting (rank 0 only — API calls are non-deterministic,
-        # so rank 0's results are the single source of truth)
+        # Stage 2: Response vetting (rank 0 only)
         if should_run(2) and vet:
             if not (vetting_path / "response_scores.json").exists() or force:
                 if is_rank_zero():
-                    n_responses = n_scenarios * rollouts
-                    eta = estimate_stage_time('vet_responses', n_responses)
-                    print(f"  [2] Vetting responses... (ETA: {format_duration(eta)})")
-                    with GPUMonitor('vet_responses') as mon:
-                        vet_responses(experiment, trait, variant['name'], pos_threshold, neg_threshold, max_concurrent,
-                                      estimate_trait_tokens=adaptive)
-                        report = mon.report(n_responses)
-                    stage_times['vet_responses'] = stage_times.get('vet_responses', 0) + (time.time() - mon.start_time)
-                    print(f"      Done: {report}")
-            # Barrier: all ranks wait for rank 0's vetting file before extraction reads it
+                    _run_stage('vet_responses', stage_times,
+                               vet_responses, experiment, trait, variant['name'],
+                               pos_threshold, neg_threshold, max_concurrent,
+                               n_items=n_scenarios * rollouts,
+                               estimate_trait_tokens=adaptive)
             tp_barrier()
 
         # Quality gate: skip trait if too few responses pass vetting
@@ -272,10 +242,10 @@ def run_pipeline(
             _pass_rate = (_pos_pass + _neg_pass) / _total if _total > 0 else 0
 
             if _pos_pass < min_per_polarity or _neg_pass < min_per_polarity or _pass_rate < min_pass_rate:
-                print(f"  SKIP: quality gate failed (pos={_pos_pass}/{_pos_total}, neg={_neg_pass}/{_neg_total}, rate={_pass_rate:.0%}, need {min_pass_rate:.0%} + {min_per_polarity}/polarity)")
+                print(f"  SKIP: quality gate failed (pos={_pos_pass}/{_pos_total}, neg={_neg_pass}/{_neg_total}, rate={_pass_rate:.0%})")
                 continue
 
-        # Load adaptive position from vetting (for stages 3, 4, 5)
+        # Load adaptive position from vetting
         if adaptive:
             from extraction.extract_activations import load_llm_judge_position
             llm_pos = load_llm_judge_position(experiment, trait, variant['name'])
@@ -283,116 +253,81 @@ def run_pipeline(
                 position = llm_pos
                 print(f"  Using adaptive position: {position}")
             else:
-                raise ValueError(
-                    f"--adaptive requires vetting with --adaptive first. "
-                    f"No llm_judge_position found for {trait}."
-                )
+                raise ValueError(f"--adaptive requires vetting with --adaptive first. No llm_judge_position for {trait}.")
 
         # Stage 3: Extract activations
         if should_run(3):
             activation_metadata_path = get_activation_metadata_path(experiment, trait, variant['name'], component, position)
             activation_tensor = get_activation_path(experiment, trait, variant['name'], component, position)
             activation_dir = get_activation_dir(experiment, trait, variant['name'], component, position)
-            # Check for either stacked tensor or per-layer files
             has_activations = activation_metadata_path.exists() and (
                 activation_tensor.exists() or any(activation_dir.glob("train_layer*.pt"))
             )
             if not has_activations or force:
-                n_responses = n_scenarios * rollouts
-                eta = estimate_stage_time('activations', n_responses)
-                layers_info = f" (layers: {layers})" if layers else ""
-                print(f"  [3] Extracting activations...{layers_info} (ETA: {format_duration(eta)})")
-                with GPUMonitor('activations') as mon:
-                    extract_activations_for_trait(experiment, trait, variant['name'], backend, val_split,
-                                                  position=position, component=component,
-                                                  paired_filter=paired_filter, use_vetting_filter=vet,
-                                                  layers=layers,
-                                                  pos_threshold=pos_threshold, neg_threshold=neg_threshold)
-                    report = mon.report(n_responses)
-                stage_times['activations'] = stage_times.get('activations', 0) + (time.time() - mon.start_time)
-                print(f"      Done: {report}")
-            # Barrier: ensure rank 0 file saves complete before stage 4 reads them
+                _run_stage('activations', stage_times,
+                           extract_activations_for_trait, experiment, trait, variant['name'],
+                           backend, val_split,
+                           n_items=n_scenarios * rollouts,
+                           position=position, component=component,
+                           paired_filter=paired_filter, use_vetting_filter=vet,
+                           layers=layers,
+                           pos_threshold=pos_threshold, neg_threshold=neg_threshold)
             tp_barrier()
 
         # Stage 4: Extract vectors
         if should_run(4):
-            # Check if ALL requested methods have vectors
-            has_all_vectors = True
-            for method in methods:
-                vector_dir = get_vector_dir(experiment, trait, method, variant['name'], component, position)
-                if not (vector_dir.exists() and list(vector_dir.glob("layer*.pt"))):
-                    has_all_vectors = False
-                    break
+            has_all_vectors = all(
+                get_vector_dir(experiment, trait, m, variant['name'], component, position).exists()
+                and list(get_vector_dir(experiment, trait, m, variant['name'], component, position).glob("layer*.pt"))
+                for m in methods
+            )
             if not has_all_vectors or force:
-                eta = estimate_stage_time('vectors', len(methods))
-                print(f"  [4] Extracting vectors... (ETA: {format_duration(eta)})")
-                with GPUMonitor('vectors') as mon:
-                    extract_vectors_for_trait(experiment, trait, variant['name'], methods, layers=layers, component=component, position=position)
-                    report = mon.report(len(methods))
-                stage_times['vectors'] = stage_times.get('vectors', 0) + (time.time() - mon.start_time)
-                print(f"      Done: {report}")
+                _run_stage('vectors', stage_times,
+                           extract_vectors_for_trait, experiment, trait, variant['name'], methods,
+                           n_items=len(methods),
+                           layers=layers, component=component, position=position)
 
-        # Stage 5: Logit lens interpretation
+        # Stage 5: Logit lens
         if should_run(5) and not no_logitlens:
             logit_lens_path = get_path("extraction.logit_lens", experiment=experiment, trait=trait, model_variant=variant['name'])
             if not logit_lens_path.exists() or force:
-                eta = estimate_stage_time('logit_lens', 1)
-                print(f"  [5] Running logit lens... (ETA: {format_duration(eta)})")
-                with GPUMonitor('logit_lens') as mon:
-                    run_logit_lens_for_trait(
-                        experiment=experiment,
-                        trait=trait,
-                        model_variant=variant['name'],
-                        backend=backend,
-                        methods=methods,
-                        component=component,
-                        position=position,
-                    )
-                    report = mon.report()
-                stage_times['logit_lens'] = stage_times.get('logit_lens', 0) + (time.time() - mon.start_time)
-                print(f"      Done: {report}")
+                _run_stage('logit_lens', stage_times,
+                           run_logit_lens_for_trait,
+                           experiment=experiment, trait=trait, model_variant=variant['name'],
+                           backend=backend, methods=methods, component=component, position=position)
 
-    # Stage 6: Evaluation
+    # Stage 6: Evaluation (post-loop, all traits at once)
     if should_run(6):
         from analysis.vectors.extraction_evaluation import main as run_evaluation
         eval_path = get_path("extraction_eval.evaluation", experiment=experiment)
         if not eval_path.exists() or force:
-            eta = estimate_stage_time('evaluation', len(traits))
-            print(f"\n[6] Running evaluation... (ETA: {format_duration(eta)})")
-            with GPUMonitor('evaluation') as mon:
-                run_evaluation(
-                    experiment,
-                    model_variant=variant['name'],
-                    methods=",".join(methods),
-                    component=component,
-                    position=position,
-                )
-                report = mon.report(len(traits))
-            stage_times['evaluation'] = time.time() - mon.start_time
-            print(f"    Done: {report}")
+            _run_stage('evaluation', stage_times,
+                       run_evaluation, experiment,
+                       n_items=len(traits),
+                       model_variant=variant['name'],
+                       methods=",".join(methods),
+                       component=component, position=position)
 
     if should_run(6) and not steering:
         print("For causal validation, re-run with --steering")
 
-    # Free extraction model before steering loads its own (avoid dual-model OOM)
+    # Free extraction model before steering loads its own
     if backend is not None:
         del backend
         backend = None
-        gc.collect()
+        _flush_cuda()
         if torch.cuda.is_available():
-            torch.cuda.empty_cache()
             torch.cuda.synchronize()
 
-    # Stage 7: Steering evaluation (causal validation)
+    # Stage 7: Steering evaluation
     if should_run(7) and steering:
-        from steering.steering_evaluate import run_evaluation as run_steering_evaluation
+        from steering.run_steering_eval import run_evaluation as run_steering_evaluation
         from utils.traits import load_steering_data
         app_variant = get_model_variant(experiment, None, mode='application')
         app_model_name = app_variant['model']
         print(f"\n[7] Running steering evaluation...")
         print(f"    Application model: {app_model_name}")
         for trait in traits:
-            # Resolve direction from steering.json
             try:
                 sd = load_steering_data(trait)
                 direction = sd.direction or "positive"
@@ -403,52 +338,32 @@ def run_pipeline(
                 print(f"  Steering: {trait} ({method}, direction={direction})")
                 stage_start = time.time()
                 asyncio.run(run_steering_evaluation(
-                    experiment=experiment,
-                    trait=trait,
-                    vector_experiment=experiment,
-                    model_variant=app_variant['name'],
-                    layers_arg="30%-60%",
-                    coefficients=None,
-                    method=method,
-                    component=component,
-                    position=position,
-                    prompt_set='steering',
-                    model_name=app_model_name,
-                    judge_provider='openai',
-                    subset=5,
-                    n_search_steps=5,
-                    up_mult=1.3,
-                    down_mult=0.85,
-                    start_mult=0.7,
-                    backend=None,
-                    force=force,
-                    save_mode='best',
+                    experiment=experiment, trait=trait, vector_experiment=experiment,
+                    model_variant=app_variant['name'], layers_arg="30%-60%",
+                    coefficients=None, method=method, component=component, position=position,
+                    prompt_set='steering', model_name=app_model_name, judge_provider='openai',
+                    subset=5, n_search_steps=5, up_mult=1.3, down_mult=0.85, start_mult=0.7,
+                    backend=None, force=force, save_mode='best',
                     extraction_variant=variant['name'],
                     lora_adapter=app_variant.get('lora'),
-                    load_in_8bit=load_in_8bit,
-                    load_in_4bit=load_in_4bit,
-                    bnb_4bit_quant_type=bnb_4bit_quant_type,
-                    direction=direction,
+                    load_in_8bit=load_in_8bit, load_in_4bit=load_in_4bit,
+                    bnb_4bit_quant_type=bnb_4bit_quant_type, direction=direction,
                 ))
                 stage_times['steering'] = stage_times.get('steering', 0) + (time.time() - stage_start)
                 print(f"    Done: {trait} ({method})")
 
-    # Restore print on all ranks
     builtins.print = _original_print
 
-    # Print timing summary (rank 0 only for TP)
     if not is_tp_mode() or is_rank_zero():
         total_time = time.time() - pipeline_start
-        print("\n" + "=" * 60)
+        print(f"\n{'=' * 60}")
         print("COMPLETE")
         print("-" * 30)
         for stage, duration in stage_times.items():
             print(f"  {stage}: {format_duration(duration)}")
-        print("-" * 30)
         print(f"  Total: {format_duration(total_time)}")
         print("=" * 60)
 
-    # Clean up distributed process group
     if is_tp_mode():
         import torch.distributed as dist
         if dist.is_initialized():
@@ -468,48 +383,32 @@ if __name__ == "__main__":
                         help="Run only specific stage(s): --only-stage 3,4")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--methods", default="mean_diff,probe")
-    parser.add_argument("--no-vet", action="store_true",
-                        help="Skip response vetting (stage 2)")
-    parser.add_argument("--vet-scenarios", action="store_true",
-                        help="Enable scenario vetting (stage 0, off by default)")
+    parser.add_argument("--no-vet", action="store_true")
+    parser.add_argument("--vet-scenarios", action="store_true")
     parser.add_argument("--rollouts", type=int, default=1)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--val-split", type=float, default=0.1)
-    parser.add_argument("--model-variant", default=None,
-                        help="Model variant for extraction (default: from experiment defaults.extraction)")
+    parser.add_argument("--model-variant", default=None)
     parser.add_argument("--component", default="residual")
-    parser.add_argument("--position", default="response[:5]",
-                        help="Token position: response[:5], prompt[-1], response[:], all[:], etc.")
+    parser.add_argument("--position", default="response[:5]")
     parser.add_argument("--pos-threshold", type=int, default=60)
     parser.add_argument("--neg-threshold", type=int, default=40)
     parser.add_argument("--load-in-8bit", action="store_true")
     parser.add_argument("--load-in-4bit", action="store_true")
-    parser.add_argument("--bnb-4bit-quant-type", default="nf4",
-                        help="BnB 4-bit quant type: 'nf4' (default) or 'fp4'")
-    parser.add_argument("--max-new-tokens", type=int, default=None,
-                        help="Response tokens to generate (auto from position if not specified)")
-    parser.add_argument("--max-concurrent", type=int, default=100,
-                        help="Max concurrent API requests for vetting (default: 100)")
-    parser.add_argument("--paired-filter", action="store_true",
-                        help="Enable paired filtering (exclude pair if either side fails)")
-    parser.add_argument("--min-pass-rate", type=float, default=0.0,
-                        help="Min vetting pass rate to continue extraction (default: 0, no gate)")
-    parser.add_argument("--min-per-polarity", type=int, default=0,
-                        help="Min passing responses per polarity to continue extraction (default: 0, no gate)")
-    parser.add_argument("--adaptive", action="store_true",
-                        help="Estimate trait tokens and use recommended position")
-    parser.add_argument("--no-logitlens", action="store_true",
-                        help="Skip logit lens interpretation after vector extraction")
-    parser.add_argument("--steering", action="store_true",
-                        help="Run steering evaluation as final stage (stage 7)")
+    parser.add_argument("--bnb-4bit-quant-type", default="nf4")
+    parser.add_argument("--max-new-tokens", type=int, default=None)
+    parser.add_argument("--max-concurrent", type=int, default=100)
+    parser.add_argument("--paired-filter", action="store_true")
+    parser.add_argument("--min-pass-rate", type=float, default=0.0)
+    parser.add_argument("--min-per-polarity", type=int, default=0)
+    parser.add_argument("--adaptive", action="store_true")
+    parser.add_argument("--no-logitlens", action="store_true")
+    parser.add_argument("--steering", action="store_true")
     add_backend_args(parser)
     parser.add_argument("--layers", type=str, default=None,
-                        help="Only capture specific layers (saves per-layer files). "
-                             "E.g., '25,30,35,40' or '0-75:5' or '30%%-60%%'. Default: all layers.")
-    parser.add_argument("--base-model", action="store_true", dest="base_model_override",
-                        help="Force base model mode (deprecated: use config.json)")
-    parser.add_argument("--it-model", action="store_true", dest="it_model_override",
-                        help="Force IT model mode (deprecated: use config.json)")
+                        help="Only capture specific layers. E.g., '25,30,35,40' or '30%%-60%%'")
+    parser.add_argument("--base-model", action="store_true", dest="base_model_override")
+    parser.add_argument("--it-model", action="store_true", dest="it_model_override")
     args = parser.parse_args()
 
     # Resolve traits
@@ -520,7 +419,7 @@ if __name__ == "__main__":
     if not traits:
         raise ValueError("No traits found")
 
-    # Parse --layers if provided (needs n_layers from model config)
+    # Parse --layers if provided
     parsed_layers = None
     if args.layers:
         from utils.layers import parse_layers
