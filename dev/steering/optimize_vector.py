@@ -41,7 +41,7 @@ from datetime import datetime
 from utils.traits import load_steering_data
 from utils.steered_generation import estimate_activation_norm
 from core import BatchedLayerSteeringHook
-from steering.steering_results import init_results_file, append_run, save_responses
+from utils.steering_results import init_results_file, append_run, save_responses
 from utils.paths import get_vector_dir, get_model_variant, get_steering_results_path
 from utils.model import load_model, format_prompt, get_layers_module
 from utils.generation import generate_batch

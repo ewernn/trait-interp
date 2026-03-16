@@ -27,7 +27,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from steering.steering_results import load_results
+from utils.steering_results import load_results
 from utils.paths import (
     discover_steering_entries,
     load_experiment_config,

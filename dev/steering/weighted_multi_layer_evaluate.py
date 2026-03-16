@@ -33,8 +33,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import argparse
 import asyncio
 
-from steering.multi_layer_evaluate import run_multi_layer_evaluation
-from steering.weight_sources import build_weighted_configs, STRATEGIES
+from dev.steering.multi_layer_evaluate import run_multi_layer_evaluation
+from dev.steering.weight_sources import build_weighted_configs, STRATEGIES
 from utils.backends import LocalBackend
 from utils.judge import TraitJudge
 from utils.model import load_model_with_lora

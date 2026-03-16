@@ -71,7 +71,7 @@ def collect_steering_data(experiment: str) -> list[dict]:
 
     # Use centralized discovery and loading
     from utils.paths import discover_steering_entries
-    from steering.steering_results import load_results
+    from utils.steering_results import load_results
 
     entries = discover_steering_entries(experiment)
 
