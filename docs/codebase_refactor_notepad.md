@@ -34,7 +34,7 @@ Waves 1-8 took codebase from ~110 to ~47 pipeline Python files. See git history 
 
 **extraction/ (9 → 3 files):**
 - `run_extraction_pipeline.py` — `generate_responses_for_trait` inlined (was 127-line single-function file)
-- `extract.py` — merged `extract_activations.py` + `extract_vectors.py` + `run_logit_lens.py` (stages 3-5)
+- `extract_vectors.py` — merged `extract_activations.py` + `extract_vectors.py` + `run_logit_lens.py` (stages 3-5)
 - `preextraction_vetting.py` — kept as-is (API judge, different compute backend)
 - Deleted: `__init__.py`, moved `test_scenarios.py` + `validate_trait.py` → `dev/extraction/`
 

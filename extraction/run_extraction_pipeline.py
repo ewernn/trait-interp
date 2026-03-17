@@ -53,7 +53,7 @@ from utils.vram import GPUMonitor, format_duration
 from utils.traits import get_scenario_count, load_scenarios
 from utils.model import format_prompt
 from utils.generation import generate_batch as _generate_batch
-from extraction.extract import (
+from extraction.extract_vectors import (
     extract_activations_for_trait, resolve_max_new_tokens,
     extract_vectors_for_trait, run_logit_lens_for_trait, load_llm_judge_position,
 )
@@ -203,6 +203,7 @@ def run_pipeline(
     min_pass_rate: float = 0.0,
     min_per_polarity: int = 0,
     steering: bool = False,
+    save_activations: bool = False,
     backend=None,
 ):
     """Execute extraction pipeline."""
@@ -332,6 +333,7 @@ def run_pipeline(
                 raise ValueError(f"--adaptive requires vetting with --adaptive first. No llm_judge_position for {trait}.")
 
         # Stage 3: Extract activations
+        cached_activations = None
         if should_run(3):
             activation_metadata_path = get_activation_metadata_path(experiment, trait, variant['name'], component, position)
             activation_tensor = get_activation_path(experiment, trait, variant['name'], component, position)
@@ -340,17 +342,18 @@ def run_pipeline(
                 activation_tensor.exists() or any(activation_dir.glob("train_layer*.pt"))
             )
             if not has_activations or force:
-                _run_stage('activations', stage_times,
+                cached_activations = _run_stage('activations', stage_times,
                            extract_activations_for_trait, experiment, trait, variant['name'],
                            backend, val_split,
                            n_items=n_scenarios * rollouts,
                            position=position, component=component,
                            paired_filter=paired_filter, use_vetting_filter=vet,
                            layers=layers,
-                           pos_threshold=pos_threshold, neg_threshold=neg_threshold)
+                           pos_threshold=pos_threshold, neg_threshold=neg_threshold,
+                           save_activations=save_activations)
             tp_barrier()
 
-        # Stage 4: Extract vectors
+        # Stage 4: Extract vectors (uses in-memory activations if available, else loads from disk)
         if should_run(4):
             has_all_vectors = all(
                 get_vector_dir(experiment, trait, m, variant['name'], component, position).exists()
@@ -361,7 +364,9 @@ def run_pipeline(
                 _run_stage('vectors', stage_times,
                            extract_vectors_for_trait, experiment, trait, variant['name'], methods,
                            n_items=len(methods),
-                           layers=layers, component=component, position=position)
+                           layers=layers, component=component, position=position,
+                           activations=cached_activations)
+            cached_activations = None  # free memory
 
         # Stage 5: Logit lens
         if should_run(5) and not no_logitlens:
@@ -479,6 +484,8 @@ if __name__ == "__main__":
     parser.add_argument("--min-per-polarity", type=int, default=0)
     parser.add_argument("--adaptive", action="store_true")
     parser.add_argument("--no-logitlens", action="store_true")
+    parser.add_argument("--save-activations", action="store_true",
+                        help="Persist activation .pt files (for re-running --only-stage 4 with different methods)")
     parser.add_argument("--steering", action="store_true")
     add_backend_args(parser)
     parser.add_argument("--layers", type=str, default=None,
@@ -540,4 +547,5 @@ if __name__ == "__main__":
         min_pass_rate=args.min_pass_rate,
         min_per_polarity=args.min_per_polarity,
         steering=args.steering,
+        save_activations=args.save_activations,
     )

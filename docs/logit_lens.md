@@ -21,18 +21,18 @@ python inference/generate_responses.py \
     --experiment my_experiment \
     --prompt-set dynamic
 
-python inference/capture_activations.py \
+python inference/process_activations.py --capture \
     --experiment my_experiment \
     --prompt-set dynamic
 
-# Then extract logit lens
-python inference/extract_viz.py \
+# Then project with logit lens enabled
+python inference/process_activations.py \
     --experiment my_experiment \
     --prompt-set dynamic \
     --logit-lens
 ```
 
-This creates `analysis/per_token/{prompt_set}/{id}_logit_lens.json`.
+Logit lens data is embedded in the projection JSON files at `inference/{variant}/projections/{trait}/{prompt_set}/{id}.json`.
 
 ## Output Format
 

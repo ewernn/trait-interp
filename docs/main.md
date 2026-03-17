@@ -55,10 +55,6 @@ Primary documentation hub for the trait-interp project.
 These live on the `dev` branch only. See [Branch Workflow](#branch-workflow) below.
 - **[docs/codebase_refactor_notepad.md](codebase_refactor_notepad.md)** - Refactor tracking (waves 1-8, thin controller, known issues)
 - **[docs/future_ideas.md](future_ideas.md)** - Research backlog and exploratory ideas
-- **[docs/preflight_audit_emotion_set.md](preflight_audit_emotion_set.md)** - Emotion set steering audit (Mar 2026)
-- **[docs/qualitative_steering_review.md](qualitative_steering_review.md)** - Qualitative steering failure analysis (v1)
-- **[docs/qualitative_steering_review_v2.md](qualitative_steering_review_v2.md)** - Qualitative steering failure analysis (v2)
-- **[docs/vector_validation_experiment.md](vector_validation_experiment.md)** - Detection vs steering layer experiment design
 - **[docs/viz_findings/](viz_findings/)** - Research findings served by the visualization dashboard
 
 ---
@@ -77,7 +73,7 @@ trait-interp/
 │
 ├── extraction/             # Vector extraction pipeline
 │   ├── run_extraction_pipeline.py     # Full pipeline orchestrator (includes response generation)
-│   ├── extract.py                     # Activations → vectors → logit lens (stages 3-5)
+│   ├── extract_vectors.py              # Activations → vectors → logit lens (stages 3-5)
 │   └── preextraction_vetting.py       # LLM judge vetting of scenarios/responses
 │
 ├── inference/              # Per-token monitoring

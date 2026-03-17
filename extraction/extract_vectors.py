@@ -193,8 +193,13 @@ def extract_activations_for_trait(
     layers: Optional[List[int]] = None,
     pos_threshold: int = 60,
     neg_threshold: int = 40,
-) -> int:
-    """Extract activations from generated responses. Returns number of layers extracted."""
+    save_activations: bool = False,
+) -> Optional[Dict]:
+    """Extract activations from generated responses.
+
+    Returns activations dict for in-memory vector extraction, or None on failure.
+    With save_activations=True, also persists .pt files for later re-runs.
+    """
     model = backend.model
     tokenizer = backend.tokenizer
     n_layers = backend.n_layers
@@ -463,36 +468,16 @@ def extract_activations_for_trait(
     pos_acts = {l: all_acts[l][:b0] for l in layer_list}
     neg_acts = {l: all_acts[l][b0:b1] for l in layer_list}
 
-    per_layer_mode = layers is not None
+    # Compute activation norms (needed for metadata regardless of save mode)
+    activation_norms = {}
     hidden_dim = None
-
-    if per_layer_mode:
-        activation_norms = {}
-        for layer in layer_list:
-            train_layer = torch.cat([pos_acts[layer], neg_acts[layer]], dim=0)
-            if is_rank_zero():
-                torch.save(train_layer, activations_dir / f"train_layer{layer}.pt")
-            if train_layer.numel() > 0:
-                hidden_dim = train_layer.shape[-1]
-                activation_norms[layer] = round(train_layer.norm(dim=-1).mean().item(), 2)
-            else:
-                activation_norms[layer] = 0.0
-        print(f"      Saved train: {len(layer_list)} layers (per-layer files)")
-    else:
-        pos_all = torch.stack([pos_acts[l] for l in layer_list], dim=1)
-        neg_all = torch.stack([neg_acts[l] for l in layer_list], dim=1)
-        train_acts = torch.cat([pos_all, neg_all], dim=0)
-
-        if is_rank_zero():
-            activation_path = get_activation_path(experiment, trait, model_variant, component, position)
-            torch.save(train_acts, activation_path)
-            print(f"      Saved train: {train_acts.shape} -> {activation_path.name}")
-
-        if train_acts.numel() == 0:
-            activation_norms = {layer: 0.0 for layer in layer_list}
+    for layer in layer_list:
+        combined = torch.cat([pos_acts[layer], neg_acts[layer]], dim=0)
+        if combined.numel() > 0:
+            hidden_dim = combined.shape[-1]
+            activation_norms[layer] = round(combined.norm(dim=-1).mean().item(), 2)
         else:
-            activation_norms = {layer: round(train_acts[:, layer, :].norm(dim=-1).mean().item(), 2) for layer in layer_list}
-        hidden_dim = train_acts.shape[-1] if train_acts.numel() > 0 else None
+            activation_norms[layer] = 0.0
 
     if hidden_dim is None:
         config = model.config
@@ -500,28 +485,44 @@ def extract_activations_for_trait(
             config = config.text_config
         hidden_dim = config.hidden_size
 
+    # Val split
+    val_pos_acts = {}
+    val_neg_acts = {}
     n_val_pos, n_val_neg = 0, 0
     if val_split > 0 and (val_pos or val_neg):
         val_pos_acts = {l: all_acts[l][b1:b2] for l in layer_list}
         val_neg_acts = {l: all_acts[l][b2:] for l in layer_list}
-
-        if per_layer_mode:
-            for layer in layer_list:
-                val_layer = torch.cat([val_pos_acts[layer], val_neg_acts[layer]], dim=0)
-                if is_rank_zero():
-                    torch.save(val_layer, activations_dir / f"val_layer{layer}.pt")
-            print(f"      Saved val: {len(layer_list)} layers (per-layer files)")
-        else:
-            val_pos_all = torch.stack([val_pos_acts[l] for l in layer_list], dim=1)
-            val_neg_all = torch.stack([val_neg_acts[l] for l in layer_list], dim=1)
-            val_acts = torch.cat([val_pos_all, val_neg_all], dim=0)
-
-            if is_rank_zero():
-                val_path = get_val_activation_path(experiment, trait, model_variant, component, position)
-                torch.save(val_acts, val_path)
-                print(f"      Saved val: {val_acts.shape} -> {val_path.name}")
         n_val_pos, n_val_neg = len(vp_items), len(vn_items)
 
+    # Save .pt files only when requested (for re-runs with --only-stage 4)
+    if save_activations and is_rank_zero():
+        per_layer_mode = layers is not None
+        if per_layer_mode:
+            for layer in layer_list:
+                train_layer = torch.cat([pos_acts[layer], neg_acts[layer]], dim=0)
+                torch.save(train_layer, activations_dir / f"train_layer{layer}.pt")
+            if val_pos_acts:
+                for layer in layer_list:
+                    val_layer = torch.cat([val_pos_acts[layer], val_neg_acts[layer]], dim=0)
+                    torch.save(val_layer, activations_dir / f"val_layer{layer}.pt")
+            print(f"      Saved activations: {len(layer_list)} layers (per-layer files)")
+        else:
+            pos_all = torch.stack([pos_acts[l] for l in layer_list], dim=1)
+            neg_all = torch.stack([neg_acts[l] for l in layer_list], dim=1)
+            train_acts = torch.cat([pos_all, neg_all], dim=0)
+            activation_path = get_activation_path(experiment, trait, model_variant, component, position)
+            torch.save(train_acts, activation_path)
+            print(f"      Saved activations: {train_acts.shape} -> {activation_path.name}")
+            del train_acts, pos_all, neg_all
+            if val_pos_acts:
+                val_pos_all = torch.stack([val_pos_acts[l] for l in layer_list], dim=1)
+                val_neg_all = torch.stack([val_neg_acts[l] for l in layer_list], dim=1)
+                val_acts = torch.cat([val_pos_all, val_neg_all], dim=0)
+                val_path = get_val_activation_path(experiment, trait, model_variant, component, position)
+                torch.save(val_acts, val_path)
+                del val_acts, val_pos_all, val_neg_all
+
+    # Always save metadata (lightweight, useful for debugging and --only-stage 4)
     if is_rank_zero():
         metadata = {
             'model': model.config.name_or_path,
@@ -547,18 +548,20 @@ def extract_activations_for_trait(
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=2)
 
-    del all_acts, pos_acts, neg_acts
-    if not per_layer_mode:
-        del train_acts, pos_all, neg_all
-    if val_split > 0 and (val_pos or val_neg):
-        del val_pos_acts, val_neg_acts
-        if not per_layer_mode:
-            del val_acts, val_pos_all, val_neg_all
+    del all_acts
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
-    return len(layer_list)
+    return {
+        'pos': pos_acts,
+        'neg': neg_acts,
+        'val_pos': val_pos_acts,
+        'val_neg': val_neg_acts,
+        'layer_list': layer_list,
+        'n_layers': n_layers,
+        'model_name': model.config.name_or_path,
+    }
 
 
 # ============================================================================
@@ -573,20 +576,33 @@ def extract_vectors_for_trait(
     layers: Optional[List[int]] = None,
     component: str = 'residual',
     position: str = 'response[:5]',
+    activations: Optional[Dict] = None,
 ) -> int:
-    """Extract trait vectors from activations. Returns number of vectors extracted."""
-    try:
-        metadata = load_activation_metadata(experiment, trait, model_variant, component, position)
-    except FileNotFoundError:
-        print(f"      ERROR: Activation metadata not found. Run stage 3 first.")
-        return 0
+    """Extract trait vectors from activations. Returns number of vectors extracted.
 
-    n_layers = metadata.get("n_layers", 0)
-
-    if layers is not None:
-        layer_list = [l for l in layers if l < n_layers]
+    Args:
+        activations: In-memory activations from extract_activations_for_trait.
+            If None, loads from disk (for --only-stage 4 re-runs).
+    """
+    if activations is not None:
+        # In-memory path: use activations directly
+        n_layers = activations['n_layers']
+        layer_list = activations['layer_list']
+        model_name = activations['model_name']
     else:
-        layer_list = available_layers(experiment, trait, model_variant, component, position)
+        # Disk path: load from saved .pt files
+        try:
+            metadata = load_activation_metadata(experiment, trait, model_variant, component, position)
+        except FileNotFoundError:
+            print(f"      ERROR: Activation metadata not found. Run stage 3 first, or use --save-activations.")
+            return 0
+        n_layers = metadata.get("n_layers", 0)
+        model_name = metadata.get('model', 'unknown')
+
+        if layers is not None:
+            layer_list = [l for l in layers if l < n_layers]
+        else:
+            layer_list = available_layers(experiment, trait, model_variant, component, position)
 
     if not layer_list:
         print(f"      ERROR: No layers available for extraction.")
@@ -601,16 +617,24 @@ def extract_vectors_for_trait(
     method_metadata = {method: {"layers": {}} for method in methods}
 
     for layer_idx in layer_list:
-        pos_acts, neg_acts = load_train_activations(
-            experiment, trait, model_variant, layer_idx, component, position
-        )
+        if activations is not None:
+            pos_acts = activations['pos'].get(layer_idx, torch.empty(0))
+            neg_acts = activations['neg'].get(layer_idx, torch.empty(0))
+        else:
+            pos_acts, neg_acts = load_train_activations(
+                experiment, trait, model_variant, layer_idx, component, position
+            )
 
         if pos_acts.numel() == 0 or neg_acts.numel() == 0:
             continue
 
-        val_pos, val_neg = load_val_activations(
-            experiment, trait, model_variant, layer_idx, component, position
-        )
+        if activations is not None:
+            val_pos = activations['val_pos'].get(layer_idx, torch.empty(0))
+            val_neg = activations['val_neg'].get(layer_idx, torch.empty(0))
+        else:
+            val_pos, val_neg = load_val_activations(
+                experiment, trait, model_variant, layer_idx, component, position
+            )
 
         mean_pos = pos_acts.float().mean(dim=0)
         mean_neg = neg_acts.float().mean(dim=0)
@@ -650,7 +674,7 @@ def extract_vectors_for_trait(
                 continue
 
             meta = {
-                'model': metadata.get('model', 'unknown'),
+                'model': model_name,
                 'trait': trait,
                 'method': method_name,
                 'component': component,

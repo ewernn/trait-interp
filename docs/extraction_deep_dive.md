@@ -78,7 +78,7 @@ Entry point: `extraction/run_extraction_pipeline.py` — orchestrates all stages
 
 ### Stage 1: Response Generation
 
-`extraction/generate_responses.py`
+`extraction/run_extraction_pipeline.py`
 
 - Loads scenarios from `datasets/traits/{trait}/positive.txt` and `negative.txt`
 - Supports plain text (one prompt per line) or JSONL with `{"prompt", "system_prompt"}` — see `utils/traits.py:35`
@@ -99,7 +99,7 @@ Entry point: `extraction/run_extraction_pipeline.py` — orchestrates all stages
 
 ### Stage 3: Activation Extraction
 
-`extraction/extract_activations.py`
+`extraction/extract_vectors.py`
 
 This is the core capture stage. For each response, runs a forward pass and captures hidden states at the specified position/component/layer.
 
@@ -160,7 +160,7 @@ Output: `vectors/{position}/{component}/{method}/layer{N}.pt` + `metadata.json` 
 
 ### Stage 5: Logit Lens
 
-`extraction/run_logit_lens.py` — interprets vectors through the model's unembedding matrix. Saves `logit_lens.json`.
+`extraction/extract_vectors.py` — interprets vectors through the model's unembedding matrix. Saves `logit_lens.json`.
 
 ### Stage 6: Evaluation
 
