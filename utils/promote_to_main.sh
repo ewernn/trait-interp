@@ -81,6 +81,8 @@ case "${1:-}" in
 
         FILES=$(get_paths | expand_paths)
         FILE_COUNT=$(echo "$FILES" | wc -l | xargs)
+        # Capture directory prefixes before leaving dev (main doesn't have .publicinclude)
+        DIRS=$(get_paths | while IFS= read -r p; do p=$(echo "$p" | xargs); [[ "$p" == */ ]] && echo "$p"; done)
 
         echo "Promoting $FILE_COUNT files from dev → main..."
         echo ""
@@ -91,13 +93,10 @@ case "${1:-}" in
         # Checkout whitelisted files from dev
         echo "$FILES" | xargs git checkout dev -- 2>/dev/null
 
-        # Remove files on main that are within .publicinclude dirs but no longer exist on dev
+        # Remove files on main that are within whitelisted dirs but no longer exist on dev
         MAIN_FILES=$(git ls-files | sort)
         DEV_FILES=$(echo "$FILES" | sort)
-        # Get all whitelisted directory prefixes
-        DIRS=$(get_paths | while IFS= read -r p; do p=$(echo "$p" | xargs); [[ "$p" == */ ]] && echo "$p"; done)
         for dir in $DIRS; do
-            # Files on main in this dir that aren't in dev's whitelist
             echo "$MAIN_FILES" | grep "^${dir}" | while IFS= read -r f; do
                 if ! echo "$DEV_FILES" | grep -qxF "$f"; then
                     git rm -f "$f" 2>/dev/null && echo "  Removed stale: $f"
