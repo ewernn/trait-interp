@@ -24,8 +24,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 from core import SteeringHook, get_hook_path, VectorSpec
-from utils.steered_generation import batched_steering_generate, multi_trait_batched_steering_generate
-from utils.generation import generate_batch
+from utils.generation import generate_batch, batched_steering_generate, multi_trait_batched_steering_generate
 from utils.vram import calculate_max_batch_size
 from utils.steering_results import append_run, save_responses, find_cached_run, is_better_result
 from utils.judge import TraitJudge
@@ -86,7 +85,7 @@ async def evaluate_single_config(
         trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
         coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
 
-        from utils.steered_generation import score_stats as _score_stats
+        from utils.metrics import score_stats as _score_stats
         result = {
             "trait_mean": sum(trait_scores) / len(trait_scores) if trait_scores else None,
             **_score_stats(trait_scores),
@@ -397,7 +396,7 @@ async def batched_adaptive_search(
                     print(f"({score_time:.1f}s)")
 
                     # Compute per-layer summaries on rank-0
-                    from utils.steered_generation import score_stats as _score_stats
+                    from utils.metrics import score_stats as _score_stats
                     state_summaries = []
                     for idx, (_, state) in enumerate(uncached_states):
                         start = idx * n_questions
@@ -587,7 +586,7 @@ def _process_config_result(
     """
     state["history"].append((state["coef"], trait_mean, coherence_mean))
 
-    from utils.steered_generation import score_stats as _score_stats
+    from utils.metrics import score_stats as _score_stats
     spec = VectorSpec(layer=state["layer"], component=component, position=position, method=method, weight=state["coef"])
     config = {"vectors": [spec.to_dict()]}
     stats = {}

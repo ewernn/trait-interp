@@ -215,25 +215,8 @@ def get_num_layers(model) -> int:
     return config.num_hidden_layers
 
 
-def get_layer_path_prefix(model) -> str:
-    """Get the hook path prefix to transformer layers, handling PeftModel wrapper.
-
-    Args:
-        model: A HuggingFace model (possibly wrapped in PeftModel)
-
-    Returns:
-        Hook path prefix like "model.layers" or "base_model.model.model.layers"
-    """
-    # Multimodal models (e.g., Gemma 3) have layers under model.language_model
-    # Check this FIRST because Gemma 3 has a spurious base_model attribute
-    if hasattr(model, 'model') and hasattr(model.model, 'language_model'):
-        return "model.language_model.layers"
-    # PeftModel wraps: base_model.model.model.layers
-    if hasattr(model, 'base_model') and hasattr(model.base_model, 'model'):
-        # Verify it's actually a PeftModel (not Gemma3's spurious base_model)
-        if type(model).__name__ != type(model.base_model).__name__:
-            return "base_model.model.model.layers"
-    return "model.layers"
+# Re-export from core (canonical location) for backwards compatibility
+from core.generation import get_layer_path_prefix
 
 
 def get_layers_module(model):

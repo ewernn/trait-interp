@@ -1,27 +1,14 @@
 """
-Generation utilities with activation capture.
+Generation utilities: plain, steered, and with activation capture.
 
-Input:
-    - model: Loaded transformer model
-    - tokenizer: Model tokenizer
-    - prompts: Text prompts to generate from
-
-Output:
-    - Generated response strings (batch generation)
-    - CaptureResult with activations (capture mode)
+Input:  model, tokenizer, prompts
+Output: response strings, or CaptureResult with activations
 
 Usage:
-    from utils.generation import generate_batch, generate_with_capture
+    from utils.generation import generate_batch, batched_steering_generate
 
-    # Batch generation (auto batch size, OOM recovery)
     responses = generate_batch(model, tokenizer, prompts)
-    response = generate_batch(model, tokenizer, [prompt])[0]  # single prompt
-
-    # Generation with activation capture (captures all layers by default)
-    results = generate_with_capture(model, tokenizer, prompts)
-    for result in results:
-        print(result.response_text)
-        print(result.response_activations[0]['residual'].shape)  # [n_tokens, hidden_dim]
+    steered = batched_steering_generate(model, tokenizer, prompts, configs)
 """
 
 import os
@@ -220,18 +207,8 @@ def generate_batch(
             # MPS raises RuntimeError for OOM, CUDA has specific error
             if "out of memory" not in str(e).lower() and not isinstance(e, torch.cuda.OutOfMemoryError):
                 raise
-            # Clear traceback chains that pin CUDA tensors via stack frame locals.
-            # Must happen inside except block to access the exception, but gc/empty_cache
-            # must happen OUTSIDE so Python thread state no longer roots the exception.
-            import traceback as tb_mod
-            if e.__traceback__:
-                tb_mod.clear_frames(e.__traceback__)
-            e.__traceback__ = None
-            # Clear chained exceptions' tracebacks too
-            for chained in (e.__context__, e.__cause__):
-                if chained and hasattr(chained, '__traceback__') and chained.__traceback__:
-                    tb_mod.clear_frames(chained.__traceback__)
-                    chained.__traceback__ = None
+            from utils.batch_forward import clear_oom_traceback
+            clear_oom_traceback(e)
             del e
             oom = True
 
@@ -579,3 +556,85 @@ def _capture_batch(
     return results
 
 
+# =============================================================================
+# Steered generation
+# =============================================================================
+
+
+def batched_steering_generate(
+    model: torch.nn.Module,
+    tokenizer,
+    prompts: List[str],
+    configs: List,
+    component: str = "residual",
+    max_new_tokens: int = 256,
+    temperature: float = 0.0,
+) -> List[str]:
+    """Generate responses with different steering configs per batch slice.
+
+    Prompts are replicated for each config. Config i steers batch[i*n : (i+1)*n].
+
+    Args:
+        configs: List of (layer, vector, coefficient) tuples
+    Returns:
+        Flat list of responses, grouped by config.
+    """
+    from core.hooks import BatchedLayerSteeringHook
+
+    if not prompts or not configs:
+        return []
+
+    n_prompts = len(prompts)
+    batched_prompts = []
+    for _ in configs:
+        batched_prompts.extend(prompts)
+
+    steering_configs = []
+    for idx, (layer, vector, coef) in enumerate(configs):
+        steering_configs.append((layer, vector, coef, (idx * n_prompts, (idx + 1) * n_prompts)))
+
+    with BatchedLayerSteeringHook(model, steering_configs, component=component):
+        responses = generate_batch(model, tokenizer, batched_prompts,
+                                   max_new_tokens=max_new_tokens, temperature=temperature)
+    return responses
+
+
+def multi_trait_batched_steering_generate(
+    model: torch.nn.Module,
+    tokenizer,
+    configs: List,
+    component: str = "residual",
+    max_new_tokens: int = 256,
+    temperature: float = 0.0,
+) -> List[List[str]]:
+    """Generate with per-config prompt lists (heterogeneous question sets).
+
+    Args:
+        configs: List of (layer, vector, coef, formatted_prompts) tuples.
+    Returns:
+        List of response lists, one per config.
+    """
+    from core.hooks import BatchedLayerSteeringHook
+
+    if not configs:
+        return []
+
+    batched_prompts = []
+    slices = []
+    for layer, vector, coef, prompts in configs:
+        start = len(batched_prompts)
+        batched_prompts.extend(prompts)
+        slices.append((start, len(batched_prompts)))
+
+    if not batched_prompts:
+        return [[] for _ in configs]
+
+    steering_configs = []
+    for idx, (layer, vector, coef, _) in enumerate(configs):
+        steering_configs.append((layer, vector, coef, slices[idx]))
+
+    with BatchedLayerSteeringHook(model, steering_configs, component=component):
+        responses = generate_batch(model, tokenizer, batched_prompts,
+                                   max_new_tokens=max_new_tokens, temperature=temperature)
+
+    return [responses[start:end] for start, end in slices]

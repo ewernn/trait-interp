@@ -260,57 +260,6 @@ def list_model_variants(experiment: str) -> list[str]:
 # Convenience functions for common path operations
 # =============================================================================
 
-def get_analysis_per_token(experiment: str, prompt_set: str, prompt_id: int) -> Path:
-    """
-    Get path to per-token analysis JSON file.
-
-    Args:
-        experiment: Experiment name
-        prompt_set: Prompt set name (e.g., 'dynamic', 'single_trait')
-        prompt_id: Prompt ID within the set
-
-    Returns:
-        Path to the per-token analysis JSON file
-    """
-    dir_path = get('analysis.per_token', experiment=experiment, prompt_set=prompt_set)
-    file_name = get('patterns.per_token_json', prompt_id=prompt_id)
-    return dir_path / file_name
-
-
-def get_analysis_category_file(
-    experiment: str,
-    category: str,
-    filename: str,
-    ext: str = 'png'
-) -> Path:
-    """
-    Get path to analysis category file.
-
-    Args:
-        experiment: Experiment name
-        category: Analysis category (e.g., 'normalized_velocity', 'trait_projections')
-        filename: Filename without extension (e.g., 'prompt_1', 'summary')
-        ext: File extension ('png' or 'json')
-
-    Returns:
-        Path to the analysis file
-    """
-    dir_path = get('analysis.category', experiment=experiment, category=category)
-
-    # Determine pattern based on filename format
-    if 'prompt_' in filename and filename.split('_')[-1].isdigit():
-        # Pattern like prompt_1, prompt_2
-        prompt_id = int(filename.split('_')[-1])
-        pattern = 'patterns.analysis_prompt_png' if ext == 'png' else 'patterns.analysis_prompt_json'
-        file_name = get(pattern, prompt_id=prompt_id)
-    else:
-        # Named file like summary, comparison, etc.
-        pattern = 'patterns.analysis_named_png' if ext == 'png' else 'patterns.analysis_named_json'
-        file_name = get(pattern, filename=filename)
-
-    return dir_path / file_name
-
-
 def discover_traits(category: str = None) -> list[str]:
     """
     Find trait definitions in datasets/traits/ (have positive.txt and negative.txt).

@@ -26,13 +26,11 @@ from utils.paths import get_steering_results_path, get_steering_dir, get as get_
 from utils.coefficient_search import (
     adaptive_search_layer, batched_adaptive_search, multi_trait_batched_adaptive_search,
 )
-from utils.steered_generation import (
-    score_stats, estimate_activation_norm, compute_baseline, batched_steering_generate,
-)
+from utils.metrics import score_stats
+from utils.generation import generate_batch, batched_steering_generate
 from utils.judge import TraitJudge
 from utils.paths import get_default_variant, get_model_variant, load_experiment_config
 from utils.model import format_prompt, load_model_with_lora
-from utils.generation import generate_batch
 from utils.distributed import is_tp_mode, is_rank_zero, tp_barrier
 from utils.vectors import MIN_COHERENCE, load_vector, load_cached_activation_norms
 from utils.layers import parse_layers
@@ -42,6 +40,91 @@ from utils.backends import LocalBackend
 # =============================================================================
 # Helpers
 # =============================================================================
+
+def estimate_activation_norm(model, tokenizer, prompts, layer, use_chat_template,
+                             component="residual"):
+    """Estimate activation norm at a layer by running a few prompts through the model."""
+    from utils.model import tokenize_prompt
+    from core.hooks import get_hook_path
+
+    norms = []
+
+    def capture_hook(_module, _input, output):
+        hidden = output[0] if isinstance(output, tuple) else output
+        norm = hidden[:, -1, :].float().norm().item()
+        norms.append(norm)
+
+    hook_path = get_hook_path(layer, component, model=model)
+    module = model
+    for attr in hook_path.split('.'):
+        module = getattr(module, attr)
+    handle = module.register_forward_hook(capture_hook)
+
+    try:
+        import torch
+        for prompt in prompts[:3]:
+            formatted = format_prompt(prompt, tokenizer, use_chat_template=use_chat_template)
+            inputs = tokenize_prompt(formatted, tokenizer)
+            device = next(model.parameters()).device
+            inputs = {k: v.to(device) if hasattr(v, 'to') else v for k, v in inputs.items()}
+            with torch.no_grad():
+                model(**inputs)
+    finally:
+        handle.remove()
+
+    return sum(norms) / len(norms) if norms else 100.0
+
+
+async def compute_baseline(backend, questions, trait_name, trait_definition, judge,
+                           max_new_tokens=64, eval_prompt=None, relevance_check=True):
+    """Compute baseline scores (no steering) with batched generation.
+
+    Returns (baseline_stats, response_data) for saving.
+    """
+    from utils.backends import GenerationConfig
+
+    print("\nComputing baseline (no steering)...")
+    responses = backend.generate(questions, config=GenerationConfig(max_new_tokens=max_new_tokens))
+
+    tp = is_tp_mode()
+    if not tp or is_rank_zero():
+        all_qa_pairs = list(zip(questions, responses))
+        all_scores = await judge.score_steering_batch(
+            all_qa_pairs, trait_name, trait_definition,
+            eval_prompt=eval_prompt, relevance_check=relevance_check,
+        )
+
+        all_trait_scores = [s["trait_score"] for s in all_scores if s["trait_score"] is not None]
+        all_coherence_scores = [s["coherence_score"] for s in all_scores if s.get("coherence_score") is not None]
+
+        baseline = {
+            "trait_mean": sum(all_trait_scores) / len(all_trait_scores) if all_trait_scores else None,
+            **score_stats(all_trait_scores),
+            "n": len(all_trait_scores),
+        }
+        if all_coherence_scores:
+            baseline["coherence_mean"] = sum(all_coherence_scores) / len(all_coherence_scores)
+
+        response_data = [
+            {"prompt": q, "response": r, "system_prompt": None,
+             "trait_score": s["trait_score"], "coherence_score": s.get("coherence_score")}
+            for q, r, s in zip(questions, responses, all_scores)
+        ]
+
+        _tm = baseline['trait_mean']
+        print(f"  Baseline: trait={f'{float(_tm):.1f}' if _tm is not None else 'None'}, n={baseline['n']}")
+    else:
+        baseline = None
+        response_data = None
+
+    if tp:
+        import torch.distributed as dist
+        broadcast_list = [baseline]
+        dist.broadcast_object_list(broadcast_list, src=0)
+        baseline = broadcast_list[0]
+
+    return baseline, response_data
+
 
 def parse_coefficients(coef_arg: Optional[str]) -> Optional[List[float]]:
     if coef_arg is None:
@@ -72,26 +155,6 @@ def resolve_questions(trait, questions_file, prompt_set, subset):
     return questions, steering_data
 
 
-def resolve_cli_eval_prompt(args):
-    """Resolve eval_prompt from CLI args. Returns (eval_prompt, trait_judge, use_default)."""
-    use_default = args.no_custom_prompt
-    trait_judge = None
-    eval_prompt = None
-
-    if args.trait_judge:
-        judge_path = get_path('datasets.llm_judge_trait', judge_prompt=args.trait_judge)
-        if not judge_path.exists():
-            raise FileNotFoundError(f"Trait judge prompt not found: {judge_path}")
-        eval_prompt = judge_path.read_text()
-        trait_judge = args.trait_judge
-    elif args.eval_prompt_from:
-        override_data = load_steering_data(args.eval_prompt_from)
-        eval_prompt = override_data.eval_prompt
-        if not eval_prompt:
-            print(f"Warning: {args.eval_prompt_from} has no eval_prompt, using default")
-            use_default = True
-
-    return eval_prompt, trait_judge, use_default
 
 
 def load_or_init_results(config: SteeringConfig, trait, model_variant, steering_data,

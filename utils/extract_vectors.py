@@ -334,14 +334,8 @@ def extract_activations_for_trait(
                         f"NCCL state is corrupted and cannot recover. "
                         f"Reduce batch size or increase overhead_factor in calculate_max_batch_size."
                     )
-                import traceback as tb_mod
-                if e.__traceback__:
-                    tb_mod.clear_frames(e.__traceback__)
-                e.__traceback__ = None
-                for chained in (e.__context__, e.__cause__):
-                    if chained and hasattr(chained, '__traceback__') and chained.__traceback__:
-                        tb_mod.clear_frames(chained.__traceback__)
-                        chained.__traceback__ = None
+                from utils.batch_forward import clear_oom_traceback
+                clear_oom_traceback(e)
                 del e
                 oom = True
 

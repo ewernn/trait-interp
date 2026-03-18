@@ -16,8 +16,7 @@ from pathlib import Path
 from collections import defaultdict
 
 from utils.paths import get as get_path, get_model_variant
-from utils.projections import read_response_projections
-from utils.fingerprints import cosine_sim, nearest_centroid_classify
+from utils.projections import read_response_projections, cosine_sim, nearest_centroid_classify
 
 
 PERSONAS = ['neutral', 'angry', 'bureaucratic', 'mocking',

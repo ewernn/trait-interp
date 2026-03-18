@@ -40,8 +40,8 @@ from datetime import datetime
 from tqdm import tqdm
 
 from core import projection, VectorSpec, MultiLayerCapture
-from utils.vector_selection import get_best_vector, get_top_N_vectors, get_best_vector_spec, _discover_vectors
-from utils.vectors import load_vector_metadata, load_vector_with_baseline, find_vector_method, load_vector_from_spec
+from utils.vector_selection import get_top_N_vectors, get_best_vector_spec, _discover_vectors
+from utils.vectors import load_vector_metadata, load_vector_with_baseline, find_vector_method
 from utils.paths import (
     get as get_path, get_vector_path, discover_extracted_traits,
     get_model_variant, load_experiment_config,
@@ -51,7 +51,6 @@ from utils.backends import add_backend_args
 from utils.distributed import is_tp_mode, is_rank_zero
 from utils.vram import calculate_max_batch_size
 from utils.layers import parse_layers
-from utils.model_registry import get_model_slug
 from utils.json import dump_compact
 
 LOGIT_LENS_LAYERS = [0, 1, 2, 3, 6, 9, 12, 15, 18, 21, 24, 25]
@@ -719,14 +718,8 @@ def capture_raw_activations(
                     f"NCCL state is corrupted and cannot recover. "
                     f"Re-run with fewer layers or a larger GPU."
                 )
-            import traceback as tb_mod
-            if e.__traceback__:
-                tb_mod.clear_frames(e.__traceback__)
-            e.__traceback__ = None
-            for chained in (e.__context__, e.__cause__):
-                if chained and hasattr(chained, '__traceback__') and chained.__traceback__:
-                    tb_mod.clear_frames(chained.__traceback__)
-                    chained.__traceback__ = None
+            from utils.batch_forward import clear_oom_traceback
+            clear_oom_traceback(e)
             del e
             oom = True
 

@@ -1,18 +1,12 @@
-"""Shared projection utilities. File reading + activation-norm normalization.
+"""Projection utilities, fingerprint comparison, and classification.
 
-Input: Projection JSON files from inference/project_activations_onto_traits.py
-Output: Normalized projection data dicts
+Handles projection JSON I/O, activation-norm normalization, cosine similarity,
+nearest-centroid classification, and fingerprint vector operations.
 
 Usage:
     from utils.projections import read_projection, read_response_projections
-    proj = read_projection(path)  # {prompt, response, token_norms, layer, method, baseline, selection_source}
-    scores = read_response_projections(path)  # Just response projection array
-
-    # Activation-norm normalization (makes scores comparable across traits at different layers)
-    from utils.projections import load_activation_norms, normalize_fingerprint, get_trait_layers
-    trait_layers = get_trait_layers("path/to/checkpoint_method_b/rank32.json")
-    norms = load_activation_norms("experiments/my_experiment/analysis/activation_norms_14b.json")
-    normalized = normalize_fingerprint(scores_dict, trait_layers, norms)
+    from utils.projections import cosine_sim, nearest_centroid_classify, spearman_corr
+    from utils.projections import normalize_fingerprint, get_trait_layers
 """
 
 import json
@@ -170,3 +164,96 @@ def normalize_scores_vector(
         if norm > 1e-8:
             vec[i] /= norm
     return vec
+
+
+# =============================================================================
+# Fingerprint comparison metrics (numpy, analysis-side)
+# =============================================================================
+
+from collections import defaultdict
+from itertools import combinations
+from scipy.stats import spearmanr
+
+
+def load_scores(path) -> dict:
+    """Load probe score JSON ({trait: score})."""
+    with open(path) as f:
+        return json.load(f)
+
+
+def load_checkpoint_run(path) -> dict:
+    """Load checkpoint Method B JSON into structured dict."""
+    with open(path) as f:
+        return json.load(f)
+
+
+def cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
+    """Cosine similarity between two numpy vectors."""
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    if denom < 1e-12:
+        return 0.0
+    return float(np.dot(a, b) / denom)
+
+
+def pairwise_cosine(vectors: list) -> float:
+    """Mean cosine similarity over all pairs."""
+    sims = [cosine_sim(a, b) for a, b in combinations(vectors, 2)]
+    return float(np.mean(sims)) if sims else 0.0
+
+
+def cross_group_cosine(group_a: list, group_b: list) -> float:
+    """Mean cosine similarity between all cross-group pairs."""
+    sims = [cosine_sim(a, b) for a in group_a for b in group_b]
+    return float(np.mean(sims)) if sims else 0.0
+
+
+def separation_gap(within: float, cross: float) -> float:
+    """Gap between within-group and cross-group similarity."""
+    return within - cross
+
+
+def spearman_corr(a: np.ndarray, b: np.ndarray) -> tuple:
+    """Spearman rank correlation. Returns (rho, p-value)."""
+    rho, p = spearmanr(a, b)
+    return float(rho), float(p)
+
+
+def nearest_centroid_classify(train_vecs: dict, test_vecs: list, test_labels: list) -> tuple:
+    """Cosine-similarity nearest-centroid classifier.
+
+    Args:
+        train_vecs: {label: [vectors]} — training vectors grouped by class
+        test_vecs: test vectors to classify
+        test_labels: ground truth labels
+
+    Returns:
+        (correct, total, confusion_matrix)
+    """
+    centroids = {label: np.mean(vecs, axis=0) for label, vecs in train_vecs.items()}
+    labels_sorted = sorted(centroids.keys())
+    centroid_matrix = np.stack([centroids[l] for l in labels_sorted])
+
+    correct, total = 0, 0
+    confusion = defaultdict(lambda: defaultdict(int))
+
+    for vec, true_label in zip(test_vecs, test_labels):
+        dots = centroid_matrix @ vec
+        norms = np.linalg.norm(centroid_matrix, axis=1) * np.linalg.norm(vec)
+        cosine_sims = dots / (norms + 1e-12)
+        pred_label = labels_sorted[np.argmax(cosine_sims)]
+        confusion[true_label][pred_label] += 1
+        if pred_label == true_label:
+            correct += 1
+        total += 1
+
+    return correct, total, dict(confusion)
+
+
+def compute_model_delta(reverse_model: dict, baseline: dict) -> dict:
+    """Compute model delta = reverse_model - baseline (element-wise)."""
+    return {t: reverse_model[t] - baseline[t] for t in reverse_model if t in baseline}
+
+
+def short_name(trait: str) -> str:
+    """Extract short trait name: 'alignment/deception' -> 'deception'."""
+    return trait.split("/")[-1]
