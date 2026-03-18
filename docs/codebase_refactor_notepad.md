@@ -111,3 +111,13 @@ Helpers extracted, circular deps broken, vectors.py split. 8 bug fixes.
 - **Don't merge vectors.py + vector_selection.py + activations.py** — they serve different abstraction levels ("load this specific tensor" vs "decide which tensor to load" vs "raw activation I/O"). Merging conflates concerns and creates an 800+ line file where every consumer only uses a subset.
 - **Don't create a monolithic `batched_forward` function** — the 3 OOM recovery sites (extraction, inference capture, generation) differ in 5 dimensions (item format, hook type, use_cache, keep_on_gpu, post-forward processing). Extract shared helpers instead: `clear_oom_traceback`, `tp_agree_count`, `calibrate_batch_size`. Each call site keeps its own forward loop.
 - **Don't flag-ify `save_responses` / `save_baseline_responses` / `save_ablation_responses`** — they have genuinely different parameter sets. A unified `save_responses(kind=)` with Optional params is worse because the type system can't enforce which params matter for which kind. Three explicit functions with clear names is better than one with hidden constraints.
+
+### Code Design Principles (for future agents)
+
+- **Zero duplicate code.** If the same block appears twice, extract a helper. Use `grep` to find all copies before assuming something is unique.
+- **Flags over function proliferation.** If two functions share >80% logic and differ by a mode, make it one function with a parameter. Example: `vet(target="scenarios"|"responses")` not `vet_scenarios()` + `vet_responses()`. Exception: when parameter sets genuinely differ (like the save_responses family).
+- **Shared helpers in utils/, not inline.** OOM recovery, TP sync, batch calibration, score aggregation — these are shared primitives, not pipeline-specific code. They live in utils/ and callers import them.
+- **Pipeline recipes stay thin.** Don't absorb utils/ implementations into pipeline files. The recipe is a 200-360 line table-of-contents. A user reads it to learn WHAT happens. They drill into utils/ for HOW.
+- **Vectorize wherever possible.** Prefer tensor operations over Python loops. Example: mean_diff across layers can be one stacked tensor op instead of N loop iterations.
+- **Critics catch what investigators miss.** Always run a critic agent before implementing anything non-trivial. Investigators find patterns (similarity); critics find divergences (differences that break assumptions).
+- **content_hash for provenance.** `content_hash(path)` in utils/paths.py hashes any file. Store hashes in metadata at save-time. Use for staleness detection at load-time (e.g., get_best_vector checking if vectors match current scenarios).
