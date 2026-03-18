@@ -169,6 +169,15 @@ def load_experiment_config(experiment: str) -> dict:
     return _experiment_configs[experiment]
 
 
+def content_hash(path) -> str:
+    """SHA256 hash of file contents. Returns hex string."""
+    import hashlib
+    path = Path(path)
+    if not path.exists():
+        return ""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def resolve_use_chat_template(experiment: str, tokenizer) -> bool:
     """Resolve whether to use chat template: experiment config > tokenizer auto-detect."""
     config = load_experiment_config(experiment)

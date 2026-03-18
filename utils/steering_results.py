@@ -127,17 +127,24 @@ def append_run(
     position: str = "response[:]",
     prompt_set: str = "steering",
     trait_judge: Optional[str] = None,
+    input_hashes: Optional[Dict[str, str]] = None,
 ) -> None:
-    """Append a steering run to results.jsonl."""
+    """Append a steering run to results.jsonl.
+
+    Args:
+        input_hashes: Optional provenance hashes for staleness detection.
+            Caller computes these since it knows what inputs were actually used.
+    """
     results_path = get_steering_results_path(experiment, trait, model_variant, position, prompt_set)
 
-    # Order: result first, then config, then eval, then timestamp
     entry = {
         "result": result,
         "config": config,
         "eval": {"trait_judge": trait_judge},
         "timestamp": datetime.now().isoformat(),
     }
+    if input_hashes:
+        entry["input_hashes"] = input_hashes
 
     with open(results_path, 'a') as f:
         f.write(json.dumps(entry) + '\n')

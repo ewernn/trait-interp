@@ -550,6 +550,8 @@ def extract_vectors_for_trait(
             if not method_metadata[method_name]["layers"]:
                 continue
 
+            from utils.paths import content_hash
+            trait_dir = get_path('datasets.trait', trait=trait)
             meta = {
                 'model': model_name,
                 'trait': trait,
@@ -558,6 +560,11 @@ def extract_vectors_for_trait(
                 'position': position,
                 'layers': method_metadata[method_name]["layers"],
                 'timestamp': datetime.now().isoformat(),
+                'input_hashes': {
+                    'positive': content_hash(trait_dir / 'positive.txt'),
+                    'negative': content_hash(trait_dir / 'negative.txt'),
+                    'definition': content_hash(trait_dir / 'definition.txt'),
+                },
             }
 
             metadata_path = get_vector_metadata_path(experiment, trait, method_name, model_variant, component, position)
