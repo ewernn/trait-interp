@@ -10,7 +10,7 @@ Output: experiments/{experiment}/analysis/rq_curves/{trait}/{method}/layer{N}.js
 Usage:
     python dev/steering/fit_rq_decay.py \
         --experiment wsw_xu_et_al \
-        --trait pv_natural/evil_v3 \
+        --trait pv_natural/evil \
         --method probe \
         --layer 11
 """

@@ -430,7 +430,7 @@ async function renderSweepData(steeringEntry) {
 /**
  * Extract trait name from full trait path.
  * e.g., "pv_instruction/evil" → "evil"
- *       "pv_natural/evil_v3" → "evil_v3"
+ *       "pv_natural/evil" → "evil"
  */
 function getBaseTraitName(trait) {
     // Just return the trait name part, keeping version suffixes
@@ -440,7 +440,7 @@ function getBaseTraitName(trait) {
 /**
  * Get elicitation method label from category.
  * e.g., "pv_instruction/evil" → "instruction"
- *       "pv_natural/evil_v3" → "natural"
+ *       "pv_natural/evil" → "natural"
  */
 function getElicitationLabel(trait) {
     const category = trait.split('/')[0];
@@ -475,7 +475,7 @@ async function renderBestVectorPerLayer() {
     const coherenceThresholdEl = document.getElementById('sweep-coherence-threshold');
     const coherenceThreshold = coherenceThresholdEl ? parseInt(coherenceThresholdEl.value) : 77;
 
-    // Group by base trait name (e.g., "evil" groups pv_instruction/evil and pv_natural/evil_v3)
+    // Group by base trait name (e.g., "evil" groups pv_instruction/evil and pv_natural/evil)
     const traitGroups = {};
     for (const entry of steeringEntries) {
         const baseTrait = getBaseTraitName(entry.trait);
@@ -579,7 +579,7 @@ async function renderBestVectorPerLayer() {
 
             const posDisplayClosed = position ? window.paths.formatPositionDisplay(position) : '';
             const elicitLabel = getElicitationLabel(entry.trait);  // "instruction" or "natural"
-            const fullTraitName = entry.trait.split('/').pop();  // "evil" or "evil_v3"
+            const fullTraitName = entry.trait.split('/').pop();  // "evil" or "sycophancy" etc.
 
             // Check if this group has multiple elicitation methods
             const uniqueElicitMethods = new Set(variants.map(v => getElicitationLabel(v.trait)));

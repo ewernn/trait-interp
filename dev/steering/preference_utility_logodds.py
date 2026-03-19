@@ -11,12 +11,12 @@ Output: experiments/{experiment}/analysis/logodds/{trait}/{method}/layer{N}.json
 Usage:
     python dev/steering/preference_utility_logodds.py \
         --experiment wsw_xu_et_al \
-        --trait pv_natural/evil_v3 \
+        --trait pv_natural/evil \
         --method probe \
         --layer 11 \
         --position "response[:15]" \
-        --pos-responses experiments/persona_vectors_replication/extraction/pv_natural/evil_v3/base/responses/pos.json \
-        --neg-responses experiments/persona_vectors_replication/extraction/pv_natural/evil_v3/base/responses/neg.json
+        --pos-responses experiments/persona_vectors_replication/extraction/pv_natural/evil/base/responses/pos.json \
+        --neg-responses experiments/persona_vectors_replication/extraction/pv_natural/evil/base/responses/neg.json
 """
 
 import argparse
@@ -64,7 +64,7 @@ def compute_utility_odds(L_p: float, L_n: float, eps: float = 1e-8) -> float:
 def main():
     parser = argparse.ArgumentParser(description="Compute preference-utility log-odds")
     parser.add_argument("--experiment", required=True)
-    parser.add_argument("--trait", required=True, help="Trait path (e.g., pv_natural/evil_v3)")
+    parser.add_argument("--trait", required=True, help="Trait path (e.g., pv_natural/evil)")
     parser.add_argument("--method", required=True, help="Vector method (probe, mean_diff)")
     parser.add_argument("--layer", type=int, required=True)
     parser.add_argument("--position", required=True, help="Position (e.g., response[:15])")

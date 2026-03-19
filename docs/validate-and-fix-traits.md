@@ -19,7 +19,7 @@
 | hum/formality | 98/95 | Was already passing |
 | hum/retrieval | 100/99 | Fixed: POV rewrite |
 | hum/optimism | 98/91 | Fixed: POV + internal monologue |
-| pv_natural/hallucination_v2 | 96/100 | Fixed: POV + expanded 30→49 pairs |
+| pv_natural/hallucination | 96/100 | Fixed: POV + expanded 30→49 pairs |
 | hum/formality_it | ~98/95 | Was already passing |
 
 ### Broken (5 traits remaining)
@@ -30,7 +30,7 @@
 | alignment/helpfulness_intent | 73/67 | Unbalanced (143 vs 174), both sides weak | Medium — rebalance + lock-in fixes |
 | alignment/deception | 39/95 | 1st person already, honesty bias wall | Hard — model resists deceptive completions |
 | pv_natural/sycophancy | 48/98 | 1st person, strong lock-ins already | Hard — honesty bias wall |
-| pv_natural/evil_v3 | 63/99 | 1st person | Hard — honesty bias wall |
+| pv_natural/evil | 63/99 | 1st person | Hard — honesty bias wall |
 
 ### Deleted/Archived
 
@@ -58,7 +58,7 @@ Run `validate_trait.py --modal` on all 15 passing traits. Report baseline + max 
 ### 3. Fix remaining 5 broken traits
 
 - **helpfulness_expressed + helpfulness_intent** — Medium. POV rewrite, rebalance line counts, strengthen lock-ins. Same agent pattern as previous fixes.
-- **deception, sycophancy, evil_v3** — Hard. Honesty bias wall. self_serving went from 67% to 99% with explicit financial motivation, so these might be solvable with the right approach. Try explicit motivation + fait accompli lock-ins.
+- **deception, sycophancy, evil** — Hard. Honesty bias wall. self_serving went from 67% to 99% with explicit financial motivation, so these might be solvable with the right approach. Try explicit motivation + fait accompli lock-ins.
 
 ### 4. Commit everything
 

@@ -194,7 +194,7 @@ Uses `.jsonl` format instead of `.txt`.
 
 All fully implemented.
 
-evil_v3, hallucination_v2, sycophancy
+evil, hallucination, sycophancy
 
 ## random_baseline (0 traits)
 
