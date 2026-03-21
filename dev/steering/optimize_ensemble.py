@@ -66,7 +66,7 @@ async def run_cma_es(
 
     # Load model
     variant = get_model_variant(experiment, mode="application")
-    model_name = variant['model']
+    model_name = variant.model
     print(f"Loading model: {model_name}")
     model, tokenizer = load_model(model_name)
     use_chat_template = tokenizer.chat_template is not None
@@ -78,7 +78,7 @@ async def run_cma_es(
     ]
 
     # Load vectors and get base coefficients
-    extraction_variant = get_model_variant(experiment, mode="extraction")['name']
+    extraction_variant = get_model_variant(experiment, mode="extraction").name
     # Use residual activation norms for base_coef (perturbation flows into residual stream)
     cached_norms = load_cached_activation_norms(experiment, "residual")
     if cached_norms:

@@ -23,10 +23,8 @@ Identified by 5 subagents scanning the full codebase. These are inline dicts wit
 - **Consumers:** vector_selection.py, steering_eval.py, serve.py, dev/steering/
 - **Risk:** `baseline` accessed via `.get()` with None guard everywhere
 
-### `get_model_variant()` return → `ModelVariant` namedtuple
-- **Keys:** name, model, lora
-- **Consumers:** 30+ files
-- **Risk:** Low (uses `[]` access which errors loudly), but easy win
+### ~~`get_model_variant()` return → `ModelVariant` namedtuple~~ DONE
+- Implemented in `core/types.py`, all 30+ consumers updated to attribute access
 
 ## Priority 2: Internal contracts
 

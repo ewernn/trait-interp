@@ -101,7 +101,7 @@ def get_init_vector_and_position(
             layer_best = select_vector(experiment, trait, component=component, layer=layer)
             init_vector = load_vector(
                 experiment, trait, layer,
-                get_model_variant(experiment, mode="extraction")['name'],
+                get_model_variant(experiment, mode="extraction").name,
                 layer_best.method, component, layer_best.position
             )
             return init_vector, layer_best.position, layer_best.method, layer_best
@@ -116,7 +116,7 @@ def get_init_vector_and_position(
             # Perfect - use this vector
             init_vector = load_vector(
                 experiment, trait, layer,
-                get_model_variant(experiment, mode="extraction")['name'],
+                get_model_variant(experiment, mode="extraction").name,
                 best.method, component, best.position
             )
             return init_vector, best.position, best.method, best
@@ -126,7 +126,7 @@ def get_init_vector_and_position(
             try:
                 init_vector = load_vector(
                     experiment, trait, layer,
-                    get_model_variant(experiment, mode="extraction")['name'],
+                    get_model_variant(experiment, mode="extraction").name,
                     best.method, component, best.position
                 )
                 return init_vector, best.position, best.method, best
@@ -137,7 +137,7 @@ def get_init_vector_and_position(
 
     except (FileNotFoundError, ValueError) as e:
         # No steering results found - try to find any vector for this component
-        extraction_variant = get_model_variant(experiment, mode="extraction")['name']
+        extraction_variant = get_model_variant(experiment, mode="extraction").name
 
         # Try common positions
         for try_position in [position, "response[:5]", "response[:3]"]:
@@ -433,7 +433,7 @@ async def run_cma_es_single_layer(
             similarity = None
 
         # Save optimized vector
-        extraction_variant = get_model_variant(experiment, mode="extraction")['name']
+        extraction_variant = get_model_variant(experiment, mode="extraction").name
         output_dir = get_vector_dir(experiment, trait, "cma_es", extraction_variant, component, position)
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / f"layer{layer}.pt"
@@ -734,7 +734,7 @@ async def run_cma_es_base_mode(
             similarity = None
 
         # Save
-        extraction_variant = get_model_variant(experiment, mode="extraction")['name']
+        extraction_variant = get_model_variant(experiment, mode="extraction").name
         output_dir = get_vector_dir(experiment, trait, "cma_es", extraction_variant, component, position)
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / f"layer{layer}.pt"
@@ -818,7 +818,7 @@ async def run_cma_es(
         trait_name = None
         trait_definition = None
 
-    model_name = variant['model']
+    model_name = variant.model
     print(f"Loading model: {model_name} (mode={mode})")
     model, tokenizer = load_model(model_name)
 

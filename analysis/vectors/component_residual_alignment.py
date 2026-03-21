@@ -139,7 +139,7 @@ def main():
 
     # Resolve model variant
     variant = get_model_variant(args.experiment, args.model_variant, mode="extraction")
-    model_variant = variant["name"]
+    model_variant = variant.name
 
     # Parse reference
     ref = parse_reference(args.reference, args.experiment, args.trait, model_variant, args.position)

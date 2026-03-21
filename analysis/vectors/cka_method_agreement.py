@@ -92,7 +92,7 @@ def main():
 
     # Resolve model variant
     variant = get_model_variant(args.experiment, args.model_variant, mode="extraction")
-    model_variant = variant['name']
+    model_variant = variant.name
 
     methods = list_methods(args.experiment, args.trait, model_variant, args.position, args.component)
     if len(methods) < 2:

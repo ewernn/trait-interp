@@ -471,7 +471,7 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             # Get model from live-chat experiment config
             from utils.paths import get_model_variant
             variant_info = get_model_variant('live-chat', mode='application')
-            model_name = variant_info['model']
+            model_name = variant_info.model
             print(f"[Warmup] Model from config: {model_name}")
 
             import sys

@@ -204,9 +204,9 @@ def main():
 
     # Resolve model variant
     variant = get_model_variant(args.experiment, args.model_variant, mode="application")
-    model_variant = variant["name"]
-    model_name = variant["model"]
-    lora = variant.get("lora")
+    model_variant = variant.name
+    model_name = variant.model
+    lora = variant.lora
 
     print(f"Experiment: {args.experiment}")
     print(f"Model: {model_name} (variant: {model_variant})")

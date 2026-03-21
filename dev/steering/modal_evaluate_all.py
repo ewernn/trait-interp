@@ -168,7 +168,7 @@ def main():
     model_variant = config.get("defaults", {}).get("application")
     extraction_variant = config.get("defaults", {}).get("extraction")
     variant_config = get_model_variant(args.experiment, model_variant)
-    model_name = variant_config["model"]
+    model_name = variant_config.model
 
     print(f"Experiment: {args.experiment}")
     print(f"Model: {model_name} ({model_variant})")

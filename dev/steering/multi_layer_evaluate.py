@@ -308,7 +308,7 @@ async def run_multi_layer_evaluation(
             use_chat_template = tokenizer.chat_template is not None
     else:
         model_info = get_model_variant(experiment, model_variant)
-        model, tokenizer = load_model_with_lora(model_info['model'])
+        model, tokenizer = load_model_with_lora(model_info.model)
         backend = LocalBackend.from_model(model, tokenizer)
         if use_chat_template is None:
             use_chat_template = tokenizer.chat_template is not None
@@ -491,7 +491,7 @@ async def main():
     # Resolve model variant
     model_variant = args.model_variant or get_default_variant(args.experiment, mode='application')
     model_info = get_model_variant(args.experiment, model_variant)
-    model_name = model_info['model']
+    model_name = model_info.model
     vector_experiment = args.vector_experiment or args.experiment
 
     # Resolve layers

@@ -78,7 +78,7 @@ async def main():
     exp_config = load_experiment_config(args.experiment)
     model_variant = args.model_variant or get_default_variant(args.experiment, mode='application')
     model_info = get_model_variant(args.experiment, model_variant)
-    model_name = model_info['model']
+    model_name = model_info.model
     vector_experiment = args.vector_experiment or args.experiment
     extraction_variant = args.extraction_variant or get_default_variant(vector_experiment, mode='extraction')
     steering_variant = args.steering_variant or model_variant

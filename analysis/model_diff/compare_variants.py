@@ -251,7 +251,7 @@ def main():
 
     # 2. Get extraction variant for loading vectors
     vector_experiment = args.vector_experiment or args.experiment
-    extraction_variant = get_model_variant(vector_experiment, None, mode='extraction')['name']
+    extraction_variant = get_model_variant(vector_experiment, None, mode='extraction').name
     if args.vector_experiment:
         print(f"  Loading vectors from experiment: {vector_experiment}")
 

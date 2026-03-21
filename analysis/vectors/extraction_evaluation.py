@@ -146,7 +146,7 @@ def main(
     """
     # Resolve model variant
     variant = get_model_variant(experiment, model_variant, mode="extraction")
-    model_variant = variant['name']
+    model_variant = variant.name
 
     exp_dir = get_path('extraction.base', experiment=experiment)
     methods_list = methods.split(",")

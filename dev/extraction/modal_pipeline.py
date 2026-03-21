@@ -163,7 +163,7 @@ def main(
         model_variant = config.get("defaults", {}).get("extraction")
 
     variant_config = get_model_variant(experiment, model_variant, mode="extraction")
-    model_name = variant_config["model"]
+    model_name = variant_config.model
 
     trait_list = [t.strip() for t in traits.split(",")]
     method_list = [m.strip() for m in methods.split(",")]

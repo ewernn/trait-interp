@@ -158,7 +158,7 @@ def main():
         sys.exit(1)
 
     variant_config = get_model_variant(args.experiment, model_variant)
-    model_name = variant_config["model"]
+    model_name = variant_config.model
 
     layer_list = [int(l) for l in args.layers.split(",")]
 

@@ -437,7 +437,7 @@ def main():
     else:
         try:
             variant = get_model_variant(args.experiment, None, mode="application")
-            variant_name = variant["name"]
+            variant_name = variant.name
         except Exception:
             variant_name = "default"
 

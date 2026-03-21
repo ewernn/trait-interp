@@ -127,7 +127,7 @@ def main():
         sys.exit(1)
 
     variant_config = get_model_variant(args.experiment, model_variant, mode="extraction")
-    model_name = variant_config["model"]
+    model_name = variant_config.model
 
     method_list = [m.strip() for m in args.methods.split(",")]
     layer_list = [int(l) for l in args.layers.split(",")] if args.layers else None

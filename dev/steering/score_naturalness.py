@@ -175,7 +175,7 @@ async def main():
 
     steering_variant = args.model_variant
     if steering_variant is None:
-        steering_variant = get_model_variant(args.experiment, None, mode="application")["name"]
+        steering_variant = get_model_variant(args.experiment, None, mode="application").name
 
     for trait in args.traits:
         await score_trait(

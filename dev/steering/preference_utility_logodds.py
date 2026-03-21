@@ -81,11 +81,11 @@ def main():
 
     # Load model (application variant = instruct)
     variant = get_model_variant(args.experiment, mode="application")
-    model_name = variant["model"]
+    model_name = variant.model
     model, tokenizer = load_model(model_name, dtype=torch.bfloat16)
 
     # Load vector
-    extraction_variant = get_model_variant(args.experiment, mode="extraction")["name"]
+    extraction_variant = get_model_variant(args.experiment, mode="extraction").name
     vector = load_vector(args.experiment, args.trait, args.layer, extraction_variant,
                          args.method, "residual", args.position)
     if vector is None:

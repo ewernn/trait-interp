@@ -192,7 +192,7 @@ def print_summary(results: list[TraitResult], experiment: str):
     config = load_experiment_config(experiment)
     app_variant = config.get("defaults", {}).get("application", "?")
     variant_config = get_model_variant(experiment, app_variant)
-    model_name = variant_config.get("model", "?")
+    model_name = variant_config.model
 
     counts = defaultdict(int)
     for r in results:

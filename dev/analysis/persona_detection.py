@@ -67,7 +67,7 @@ def main():
     args = parser.parse_args()
 
     variant = get_model_variant(args.experiment, args.model_variant, mode="application")
-    model_variant = variant['name']
+    model_variant = variant.name
 
     projections_base = (get_path('inference.variant',
                         experiment=args.experiment,

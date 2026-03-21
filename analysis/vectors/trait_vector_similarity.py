@@ -42,7 +42,7 @@ def main():
 
     # Resolve model variant
     variant = get_model_variant(args.experiment, args.model_variant, mode="extraction")
-    model_variant = variant['name']
+    model_variant = variant.name
 
     # Discover all traits
     all_traits = [f"{cat}/{name}" for cat, name in discover_extracted_traits(args.experiment)]

@@ -195,8 +195,8 @@ def run_test(
     elif experiment:
         from utils.paths import get_model_variant
         variant = get_model_variant(experiment, None, mode="extraction")
-        model_name = variant['model']
-        lora = variant.get('lora')
+        model_name = variant.model
+        lora = variant.lora
     else:
         raise ValueError("Must provide --experiment or --model")
 
