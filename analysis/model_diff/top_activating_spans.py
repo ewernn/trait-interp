@@ -664,7 +664,7 @@ def select_layer(trait_dir, experiment, trait, layer_override=None):
     # Auto-select: prefer best steering layer
     try:
         best = select_vector(experiment, trait)
-        best_layer = best['layer']
+        best_layer = best.layer
         if best_layer in available:
             return trait_dir / f'L{best_layer}', best_layer, available
     except FileNotFoundError:

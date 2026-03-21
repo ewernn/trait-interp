@@ -53,8 +53,8 @@ def parse_reference(ref_str: str, experiment: str, trait: str, model_variant: st
         )
         return {
             "component": "residual",
-            "method": best["method"],
-            "layer": best["layer"],
+            "method": best.method,
+            "layer": best.layer,
         }
 
     # Parse manual: residual/probe/L15

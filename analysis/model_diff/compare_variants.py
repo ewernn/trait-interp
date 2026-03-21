@@ -311,9 +311,9 @@ def main():
             # Auto-select from steering results
             try:
                 best = select_vector(args.experiment, trait)
-                method = best['method']
-                position = best['position']
-                component = best['component']
+                method = best.method
+                position = best.position
+                component = best.component
             except FileNotFoundError as e:
                 print(f"    Skipped: No steering results found for {trait}")
                 print(f"    Run steering first, or use --method/--position explicitly")

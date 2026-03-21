@@ -93,14 +93,14 @@ def run_pipeline(config: ExtractionConfig, traits: List[str]):
 def _init_backend(config: ExtractionConfig):
     """Load model backend. Returns (backend, variant_name, use_chat_template)."""
     variant = get_model_variant(config.experiment, config.model_variant, mode="extraction")
-    is_base = config.base_model if config.base_model is not None else is_base_model(variant['model'])
+    is_base = config.base_model if config.base_model is not None else is_base_model(variant.model)
     backend = LocalBackend.from_experiment(
-        config.experiment, variant=variant['name'],
+        config.experiment, variant=variant.name,
         load_in_8bit=config.load_in_8bit, load_in_4bit=config.load_in_4bit,
         bnb_4bit_quant_type=config.bnb_4bit_quant_type,
     )
     use_chat_template = not is_base and backend.tokenizer.chat_template is not None
-    return backend, variant['name'], use_chat_template
+    return backend, variant.name, use_chat_template
 
 
 def _run_stage(config, stage_num):

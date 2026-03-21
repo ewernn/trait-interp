@@ -6,13 +6,14 @@ Input:
     Steering evaluation results (from steering pipeline)
 
 Output:
-    Ranked vector info dicts with layer, method, position, component, score, direction, coefficient
+    VectorResult dataclasses with layer, method, position, component, score, direction, coefficient
 
 Usage:
     from utils.vector_selection import select_vector, select_vectors, get_best_vector_spec
 
-    # Best single vector
+    # Best single vector (returns VectorResult)
     best = select_vector(experiment, trait)
+    print(best.layer, best.method, best.score)
 
     # Top 3 vectors (one per layer)
     top = select_vectors(experiment, trait, n=3)
@@ -27,7 +28,7 @@ from typing import Optional, Tuple, Dict, Any, List
 
 import torch
 
-from core.types import VectorSpec
+from core.types import VectorSpec, JudgeResult, VectorResult
 from utils.paths import (
     get as get_path,
     get_steering_results_path,
@@ -93,8 +94,9 @@ def _get_steering_result(
 
     direction = results_data.get("direction", "positive")
     sign = 1 if direction == "positive" else -1
-    baseline_result = results_data.get("baseline")
-    baseline_trait_mean = baseline_result.get("trait_mean", 0) if baseline_result else 0
+    baseline_raw = results_data.get("baseline")
+    baseline_result = JudgeResult.from_dict(baseline_raw) if baseline_raw else JudgeResult.empty()
+    baseline_trait_mean = baseline_result.trait_mean or 0
     runs = results_data.get("runs", [])
 
     best_delta = None
@@ -108,10 +110,9 @@ def _get_steering_result(
         if (v.get('layer') == layer
                     and v.get('method', 'probe') == method
                     and v.get('component', 'residual') == candidate.get('component', 'residual')):
-            result = run.get('result', {})
-            coherence = result.get('coherence_mean', 0)
-            if coherence >= min_coherence:
-                trait_mean = result.get('trait_mean', 0)
+            result = JudgeResult.from_dict(run.get('result', {}))
+            if (result.coherence_mean or 0) >= min_coherence:
+                trait_mean = result.trait_mean or 0
                 delta = trait_mean - baseline_trait_mean
                 if best_delta is None or delta * sign > best_delta * sign:
                     best_delta = delta
@@ -173,13 +174,13 @@ def _select_vectors(
     min_delta: float = 0,
     sort_by: str = "delta",
     prompt_set: str = "steering",
-) -> List[dict]:
+) -> List[VectorResult]:
     """Core selection logic: discover, score, dedupe by layer, rank, return top N."""
     # 1. Resolve variants
     if extraction_variant is None:
-        extraction_variant = get_model_variant(experiment, None, mode="extraction")['name']
+        extraction_variant = get_model_variant(experiment, None, mode="extraction").name
     if steering_variant is None:
-        steering_variant = get_model_variant(experiment, None, mode="application")['name']
+        steering_variant = get_model_variant(experiment, None, mode="application").name
 
     # 2. Discover candidates
     candidates = discover_vectors(experiment, trait, extraction_variant, component, position, layer, method)
@@ -247,7 +248,12 @@ def _select_vectors(
 
     # 7. Sort and return top N
     ranked = sorted(best_per_layer.values(), key=lambda c: _rank_value(c, sort_by, sign), reverse=True)
-    return [{k: v for k, v in c.items() if k != 'path'} for c in ranked[:n]]
+    return [VectorResult(
+        layer=c['layer'], method=c['method'], position=c['position'],
+        component=c['component'], score=c.get('score'), direction=c.get('direction'),
+        source=c.get('source', 'unscored'), coefficient=c.get('coefficient'),
+        naturalness=c.get('naturalness'),
+    ) for c in ranked[:n]]
 
 
 # =============================================================================
@@ -268,8 +274,8 @@ def select_vector(
     min_delta: float = 0,
     sort_by: str = "delta",
     prompt_set: str = "steering",
-) -> dict:
-    """Find best vector for a trait. Returns dict with layer, method, position,
+) -> VectorResult:
+    """Find best vector for a trait. Returns VectorResult with layer, method, position,
     component, source, score, coefficient, direction, and optionally naturalness."""
     results = _select_vectors(
         experiment, trait, n=1,
@@ -301,7 +307,7 @@ def select_vectors(
     min_delta: float = 0,
     sort_by: str = "delta",
     prompt_set: str = "steering",
-) -> List[dict]:
+) -> List[VectorResult]:
     """Get top N vectors for a trait, one per layer, ranked by sort_by."""
     return _select_vectors(
         experiment, trait, n=n,
@@ -332,14 +338,8 @@ def get_best_vector_spec(
         component=component, position=position, layer=layer,
         min_coherence=min_coherence, min_delta=min_delta, prompt_set=prompt_set,
     )
-    spec = VectorSpec(
-        layer=best['layer'],
-        component=best['component'],
-        position=best['position'],
-        method=best['method'],
-        weight=weight,
-    )
-    return spec, {'source': best['source'], 'score': best['score'], 'coefficient': best.get('coefficient')}
+    spec = best.to_vector_spec(weight=weight)
+    return spec, {'source': best.source, 'score': best.score, 'coefficient': best.coefficient}
 
 
 def load_trait_vectors(experiment, extraction_variant, traits, component, layers_spec,
@@ -363,15 +363,15 @@ def load_trait_vectors(experiment, extraction_variant, traits, component, layers
         key = (category, trait_name)
 
         try:
-            vec_spec, spec_metadata = get_best_vector_spec(experiment, trait, extraction_variant=extraction_variant)
+            best = select_vector(experiment, trait, extraction_variant=extraction_variant)
         except FileNotFoundError:
             print(f"  Warning: no vectors/steering results for {trait}, skipping")
             continue
 
-        best_layer = vec_spec.layer
-        best_method = vec_spec.method
-        position = vec_spec.position
-        selection_source = spec_metadata.get('source', 'steering')
+        best_layer = best.layer
+        best_method = best.method
+        position = best.position
+        selection_source = best.source or 'steering'
 
         if available_layers is None:
             concrete_layers = [best_layer] if best_layer else []

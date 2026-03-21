@@ -521,9 +521,9 @@ def capture_raw_activations(
 
     config = load_experiment_config(experiment)
     variant = get_model_variant(experiment, model_variant, mode="application")
-    variant_name = variant['name']
-    model_name = variant['model']
-    lora = variant.get('lora')
+    variant_name = variant.name
+    model_name = variant.model
+    lora = variant.lora
 
     output_set_name = prompt_set
     if output_suffix:
@@ -816,9 +816,9 @@ def process_prompt_set(inference_dir, prompt_set, model_name, model_variant,
 
             loaded_vectors = []
             for vec_info in top_vectors:
-                vec_layer = vec_info['layer']
-                vec_method = vec_info['method']
-                selection_source = vec_info['source']
+                vec_layer = vec_info.layer
+                vec_method = vec_info.method
+                selection_source = vec_info.source
                 vector_path = get_vector_path(
                     vectors_experiment, trait_path, vec_method, vec_layer, extraction_variant, component, position
                 )
@@ -1103,14 +1103,14 @@ def main():
                 parser.error("--layer and --layers are mutually exclusive")
 
             app_variant = get_model_variant(args.experiment, args.model_variant, mode="application")
-            model_variant = app_variant['name']
-            model_name = app_variant['model']
+            model_variant = app_variant.name
+            model_name = app_variant.model
 
             ext_variant = get_model_variant(vectors_experiment, args.extraction_variant, mode="extraction")
-            extraction_variant = ext_variant['name']
+            extraction_variant = ext_variant.name
 
             if vectors_experiment != args.experiment:
-                steering_variant = get_model_variant(vectors_experiment, None, mode="application")['name']
+                steering_variant = get_model_variant(vectors_experiment, None, mode="application").name
             else:
                 steering_variant = model_variant
 

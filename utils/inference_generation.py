@@ -121,9 +121,9 @@ def generate_responses(
 
     # Resolve model variant
     variant = get_model_variant(experiment, model_variant, mode="application")
-    variant_name = variant['name']
-    model_name = variant['model']
-    lora = variant.get('lora')
+    variant_name = variant.name
+    model_name = variant.model
+    lora = variant.lora
 
     # Load prompt set
     prompt_file = get_path('datasets.inference_prompt_set', prompt_set=prompt_set)

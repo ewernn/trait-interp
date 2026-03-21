@@ -764,7 +764,8 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def list_steering_entries(self, experiment_name):
         """List all steering entries for an experiment."""
         from utils.paths import discover_steering_entries
-        return {'entries': discover_steering_entries(experiment_name)}
+        entries = discover_steering_entries(experiment_name)
+        return {'entries': [e.to_dict() for e in entries]}
 
     def list_steering_responses(self, experiment_name, trait, model_variant, position, prompt_set):
         """List all response files for a steering entry."""

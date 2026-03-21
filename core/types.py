@@ -2,18 +2,27 @@
 Shared type definitions for trait vector operations.
 
 Input: None (type definitions only)
-Output: VectorSpec, ProjectionConfig dataclasses
+Output: VectorSpec, VectorResult, JudgeResult, ProjectionConfig, ModelVariant, SteeringEntry
 Usage:
-    from core.types import VectorSpec, ProjectionConfig
+    from core.types import VectorSpec, VectorResult, JudgeResult, ProjectionConfig, ModelVariant
 
     spec = VectorSpec(layer=9, component='residual', position='response[:]', method='probe')
     config = ProjectionConfig.single(9, 'residual', 'response[:]', 'probe', weight=0.9)
+    result = JudgeResult(trait_mean=72.5, coherence_mean=85.0, n=10)
+    variant = ModelVariant(name='base', model='google/gemma-2-2b', lora=None)
 """
 
 from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional
+from typing import Dict, List, NamedTuple, Optional
 
 import torch
+
+
+class ModelVariant(NamedTuple):
+    """Model variant resolved from experiment config."""
+    name: str
+    model: str
+    lora: Optional[str] = None
 
 
 @dataclass
@@ -42,6 +51,49 @@ class VectorSpec:
         # Filter to only known fields (allows forward compat)
         fields = {'layer', 'component', 'position', 'method', 'weight'}
         return cls(**{k: v for k, v in d.items() if k in fields})
+
+
+@dataclass
+class VectorResult:
+    """Result from select_vector / select_vectors. Identifies a scored vector."""
+    layer: int
+    method: str
+    position: str
+    component: str
+    score: Optional[float]          # steering delta (None if unscored)
+    direction: Optional[str]        # "positive" or "negative" (None if unscored)
+    source: str                     # "steering" or "unscored"
+    coefficient: Optional[float]    # best steering coefficient (None if unscored)
+    naturalness: Optional[float] = None
+
+    def to_vector_spec(self, weight: float = 1.0) -> VectorSpec:
+        """Convert to VectorSpec for use in hooks."""
+        return VectorSpec(layer=self.layer, component=self.component,
+                         position=self.position, method=self.method, weight=weight)
+
+
+@dataclass
+class JudgeResult:
+    """Result from LLM-as-judge scoring of steered responses."""
+    trait_mean: Optional[float]
+    coherence_mean: Optional[float]
+    n: int
+    trait_std: float = 0.0
+    success_rate: float = 0.0
+    min_score: Optional[float] = None
+    max_score: Optional[float] = None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> 'JudgeResult':
+        fields = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in d.items() if k in fields})
+
+    @classmethod
+    def empty(cls) -> 'JudgeResult':
+        return cls(trait_mean=None, coherence_mean=None, n=0)
 
 
 @dataclass
@@ -161,6 +213,19 @@ class ModelConfig:
 
     def to_dict(self) -> dict:
         return {k: v for k, v in asdict(self).items() if v is not None}
+
+
+@dataclass
+class SteeringEntry:
+    """A discovered steering result entry from the filesystem."""
+    trait: str
+    model_variant: str
+    position: str
+    prompt_set: str
+    full_path: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 
 def activation_scale(activations: torch.Tensor, vector: torch.Tensor) -> float:

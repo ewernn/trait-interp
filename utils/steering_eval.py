@@ -26,7 +26,7 @@ from utils.paths import get_steering_results_path, get_steering_dir, get as get_
 from utils.coefficient_search import (
     batched_adaptive_search, multi_trait_batched_adaptive_search,
 )
-from utils.metrics import score_stats
+from utils.metrics import score_stats, summarize_judge_scores
 from utils.generation import generate_batch, batched_steering_generate
 from utils.judge import TraitJudge
 from utils.paths import get_default_variant, get_model_variant, load_experiment_config
@@ -94,8 +94,7 @@ async def compute_baseline(backend, questions, trait_name, trait_definition, jud
             eval_prompt=eval_prompt, relevance_check=relevance_check,
         )
 
-        from utils.metrics import summarize_judge_scores
-        baseline = summarize_judge_scores(all_scores)
+        baseline = summarize_judge_scores(all_scores).to_dict()
 
         from utils.steering_results import build_response_records
         response_data = build_response_records(questions, responses, all_scores)
@@ -343,7 +342,7 @@ async def evaluate_manual_coefficients(
         import torch.distributed as dist
         if is_rank_zero():
             config_summaries = [
-                summarize_judge_scores(all_scores[idx * n_q:(idx + 1) * n_q])
+                summarize_judge_scores(all_scores[idx * n_q:(idx + 1) * n_q]).to_dict()
                 for idx in range(len(all_configs))
             ]
         broadcast_list = [config_summaries]
@@ -355,7 +354,7 @@ async def evaluate_manual_coefficients(
         if tp:
             result = config_summaries[idx]
         else:
-            result = summarize_judge_scores(all_scores[idx * n_q:(idx + 1) * n_q])
+            result = summarize_judge_scores(all_scores[idx * n_q:(idx + 1) * n_q]).to_dict()
 
         timestamp = datetime.now().isoformat()
         print(f"  L{ld['layer']} c{coef:.0f}: trait={result['trait_mean'] or 0:.1f}, coherence={result['coherence_mean'] or 0:.1f}")
@@ -836,7 +835,7 @@ async def run_rescore(config: SteeringConfig, trait, model_variant, dry_run=Fals
             with open(entry["path"], 'w') as f:
                 json.dump(responses, f, indent=2)
 
-        result = summarize_judge_scores(scores)
+        result = summarize_judge_scores(scores).to_dict()
         _rtm = result['trait_mean']
         _rcm = result['coherence_mean']
         print(f" trait={f'{float(_rtm):.1f}' if _rtm is not None else 'None'} coh={f'{float(_rcm):.1f}' if _rcm is not None else 'None'}")

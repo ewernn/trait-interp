@@ -280,18 +280,18 @@ def run_logit_diff(
         # Auto-select best vector if no layer specified
         if layer is None:
             best = select_vector(experiment, steer)
-            layer = best["layer"]
-            method = best["method"]
-            print(f"Auto-selected: layer {layer}, method {method} (source: {best['source']})")
+            layer = best.layer
+            method = best.method
+            print(f"Auto-selected: layer {layer}, method {method} (source: {best.source})")
         else:
             best = select_vector(experiment, steer, layer=layer)
-            method = best["method"]
-            print(f"Layer {layer}: method={method} (source: {best['source']})")
+            method = best.method
+            print(f"Layer {layer}: method={method} (source: {best.source})")
 
         steering_info["layer"] = layer
         steering_info["method"] = method
-        steering_info["component"] = best.get("component", "residual")
-        steering_info["position"] = best.get("position", "response[:5]")
+        steering_info["component"] = best.component
+        steering_info["position"] = best.position
 
         vector = load_vector(
             experiment, steer, layer, model_variant,

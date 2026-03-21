@@ -555,14 +555,14 @@ def main():
     if args.steer:
         # Use select_vector with optional layer filter (auto-resolves variants from config)
         best = select_vector(args.experiment, args.steer, layer=args.layer)
-        layer = best["layer"]
-        method = best["method"]
-        position = best["position"]
-        component = best["component"]
+        layer = best.layer
+        method = best.method
+        position = best.position
+        component = best.component
         if args.layer is None:
-            print(f"Auto-selected: layer {layer}, method {method} (source: {best['source']})")
+            print(f"Auto-selected: layer {layer}, method {method} (source: {best.source})")
         else:
-            print(f"Layer {layer}: best is method={method}, position={position} (source: {best['source']})")
+            print(f"Layer {layer}: best is method={method}, position={position} (source: {best.source})")
 
         vector = load_vector(args.experiment, args.steer, layer, model_variant, method, component, position)
         if vector is None:

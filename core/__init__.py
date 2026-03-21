@@ -4,9 +4,12 @@ Core primitives for trait vector extraction and analysis.
 
 from .types import (
     VectorSpec,
+    VectorResult,
+    JudgeResult,
     ProjectionConfig,
     ResponseRecord,
     ModelConfig,
+    SteeringEntry,
     activation_scale,
 )
 from .hooks import (

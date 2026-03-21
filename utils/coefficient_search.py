@@ -24,6 +24,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 from core import VectorSpec
+from core.types import JudgeResult
 from utils.generation import batched_steering_generate
 from utils.vram import calculate_max_batch_size
 from utils.steering_results import append_run, save_responses, find_cached_run, is_better_result, build_response_records
@@ -245,14 +246,14 @@ async def batched_adaptive_search(
                     # Save results
                     spec = VectorSpec(layer=state["layer"], component=component, position=position, method=method, weight=state["coef"])
                     config = {"vectors": [spec.to_dict()]}
-                    result = {
-                        "trait_mean": trait_mean,
+                    result = JudgeResult(
+                        trait_mean=trait_mean,
+                        coherence_mean=coherence_mean,
+                        n=n_scores,
                         **stats,
-                        "coherence_mean": coherence_mean,
-                        "n": n_scores,
-                    }
+                    )
                     timestamp = datetime.now().isoformat()
-                    cached_runs.append({"config": config, "result": result, "timestamp": timestamp})
+                    cached_runs.append({"config": config, "result": result.to_dict(), "timestamp": timestamp})
 
                     # File I/O: rank-0 only
                     if is_rank_zero():
@@ -260,7 +261,7 @@ async def batched_adaptive_search(
                         layer_scores = all_scores[idx * n_questions:(idx + 1) * n_questions]
                         responses_data = build_response_records(questions, layer_responses, layer_scores)
 
-                        append_run(experiment, trait, model_variant, config, result, position, prompt_set, trait_judge=trait_judge)
+                        append_run(experiment, trait, model_variant, config, result.to_dict(), position, prompt_set, trait_judge=trait_judge)
 
                         if save_mode == "all":
                             save_responses(responses_data, experiment, trait, model_variant, position, prompt_set, config, timestamp)
@@ -397,17 +398,22 @@ def _process_config_result(
     if scores is not None:
         trait_scores = [s["trait_score"] for s in scores if s["trait_score"] is not None]
         stats = _score_stats(trait_scores)
-    result = {"trait_mean": trait_mean, **stats, "coherence_mean": coherence_mean, "n": n_scores}
+    result = JudgeResult(
+        trait_mean=trait_mean,
+        coherence_mean=coherence_mean,
+        n=n_scores,
+        **stats,
+    )
     timestamp = datetime.now().isoformat()
 
-    state["cached_runs"].append({"config": config, "result": result, "timestamp": timestamp})
+    state["cached_runs"].append({"config": config, "result": result.to_dict(), "timestamp": timestamp})
 
     # File I/O: rank-0 only
     if is_rank_zero() and scores is not None and responses is not None:
         questions = state["questions"]
         responses_data = build_response_records(questions, responses, scores)
 
-        append_run(state["experiment"], state["trait"], model_variant, config, result, position, prompt_set, trait_judge=trait_judge)
+        append_run(state["experiment"], state["trait"], model_variant, config, result.to_dict(), position, prompt_set, trait_judge=trait_judge)
 
         if save_mode == "all":
             save_responses(responses_data, state["experiment"], state["trait"], model_variant, position, prompt_set, config, timestamp)

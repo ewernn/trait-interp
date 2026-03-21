@@ -42,8 +42,8 @@ from utils.vram import format_duration
 def run_pipeline(config: InferenceConfig):
     """Generate → project."""
     variant_info = get_model_variant(config.experiment, config.model_variant, mode='application')
-    model_variant = variant_info['name']
-    model_name = variant_info['model']
+    model_variant = variant_info.name
+    model_name = variant_info.model
 
     if config.extraction_variant is None:
         config.extraction_variant = get_default_variant(config.experiment, mode='extraction')

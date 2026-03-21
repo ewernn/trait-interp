@@ -156,11 +156,11 @@ class ChatInference:
                     # No vectors found for this trait - skip silently
                     continue
 
-                layer = best['layer']
-                method = best['method']
-                position = best['position']
-                component = best['component']
-                source = best['source']
+                layer = best.layer
+                method = best.method
+                position = best.position
+                component = best.component
+                source = best.source
 
                 # Load vector to appropriate device
                 vector = load_vector(self.experiment, trait_path, layer, extraction_variant, method, component, position)

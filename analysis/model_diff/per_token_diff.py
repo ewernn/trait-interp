@@ -152,7 +152,7 @@ def main():
         if layer is None:
             try:
                 best = select_vector(args.experiment, trait)
-                layer = best['layer']
+                layer = best.layer
                 print(f'  Layer: L{layer} (from steering)')
             except FileNotFoundError:
                 layer = None

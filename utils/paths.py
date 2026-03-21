@@ -13,7 +13,7 @@ Usage:
 
     # Model variant resolution
     config = get_model_variant('rm_syco', 'rm_lora')
-    # Returns: {'name': 'rm_lora', 'model': '...', 'lora': '...'}
+    # Returns: ModelVariant(name='rm_lora', model='...', lora='...')
 
     default = get_default_variant('rm_syco', mode='extraction')
     # Returns: 'base'
@@ -24,6 +24,8 @@ import os
 import yaml
 from pathlib import Path
 from typing import Optional, Union
+
+from core.types import ModelVariant, SteeringEntry
 
 _config = None
 _config_path = Path(__file__).parent.parent / "config" / "paths.yaml"
@@ -192,7 +194,7 @@ def get_model_variant(
     experiment: str,
     variant: Optional[str] = None,
     mode: str = "application"
-) -> dict:
+) -> ModelVariant:
     """
     Resolve variant name to full config.
 
@@ -202,11 +204,7 @@ def get_model_variant(
         mode: "extraction" or "application" (determines which default to use)
 
     Returns:
-        {
-            'name': str,        # variant name
-            'model': str,       # HuggingFace model path
-            'lora': str|None,   # Optional LoRA adapter path
-        }
+        ModelVariant(name, model, lora) namedtuple
 
     Raises:
         KeyError: If variant not found in config
@@ -227,11 +225,11 @@ def get_model_variant(
         raise KeyError(f"Model variant '{variant}' not found in {experiment}/config.json. Available: {list(variants.keys())}")
 
     variant_config = variants[variant]
-    return {
-        'name': variant,
-        'model': variant_config['model'],
-        'lora': variant_config.get('lora'),
-    }
+    return ModelVariant(
+        name=variant,
+        model=variant_config['model'],
+        lora=variant_config.get('lora'),
+    )
 
 
 def get_default_variant(experiment: str, mode: str = "application") -> str:
@@ -359,7 +357,7 @@ def discover_extracted_traits(experiment: str, model_variant: str = None) -> lis
     return sorted(traits)
 
 
-def discover_steering_entries(experiment: str) -> list[dict]:
+def discover_steering_entries(experiment: str) -> list[SteeringEntry]:
     """
     Find all steering results in experiments/{exp}/steering/.
 
@@ -368,7 +366,7 @@ def discover_steering_entries(experiment: str) -> list[dict]:
     The model_variant is identified by the position dir pattern (response__N or prompt_-N).
 
     Returns:
-        List of dicts with keys: trait, model_variant, position, prompt_set, full_path
+        List of SteeringEntry dataclasses
     """
     import re
     steering_dir = get('steering.base', experiment=experiment)
@@ -399,13 +397,13 @@ def discover_steering_entries(experiment: str) -> list[dict]:
         position = parts[pos_idx]
         prompt_set = '/'.join(parts[pos_idx + 1:])
 
-        entries.append({
-            'trait': trait,
-            'model_variant': model_variant,
-            'position': position,
-            'prompt_set': prompt_set,
-            'full_path': str(rel_path)
-        })
+        entries.append(SteeringEntry(
+            trait=trait,
+            model_variant=model_variant,
+            position=position,
+            prompt_set=prompt_set,
+            full_path=str(rel_path),
+        ))
 
     return entries
 

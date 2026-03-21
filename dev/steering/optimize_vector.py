@@ -101,10 +101,10 @@ def get_init_vector_and_position(
             layer_best = select_vector(experiment, trait, component=component, layer=layer)
             init_vector = load_vector(
                 experiment, trait, layer,
-                layer_best.get('extraction_variant', get_model_variant(experiment, mode="extraction")['name']),
-                layer_best['method'], component, layer_best['position']
+                get_model_variant(experiment, mode="extraction")['name'],
+                layer_best.method, component, layer_best.position
             )
-            return init_vector, layer_best['position'], layer_best['method'], layer_best
+            return init_vector, layer_best.position, layer_best.method, layer_best
         except (FileNotFoundError, ValueError):
             pass  # No layer-specific result, try overall best
 
@@ -112,28 +112,28 @@ def get_init_vector_and_position(
         best = select_vector(experiment, trait, component=component)
 
         # Check if best is for this layer or different layer
-        if best['layer'] == layer:
+        if best.layer == layer:
             # Perfect - use this vector
             init_vector = load_vector(
                 experiment, trait, layer,
-                best.get('extraction_variant', get_model_variant(experiment, mode="extraction")['name']),
-                best['method'], component, best['position']
+                get_model_variant(experiment, mode="extraction")['name'],
+                best.method, component, best.position
             )
-            return init_vector, best['position'], best['method'], best
+            return init_vector, best.position, best.method, best
         else:
             # Best is different layer - try to load same method/position for our layer
             # But use best's coefficient as fallback (not ideal but better than nothing)
             try:
                 init_vector = load_vector(
                     experiment, trait, layer,
-                    best.get('extraction_variant', get_model_variant(experiment, mode="extraction")['name']),
-                    best['method'], component, best['position']
+                    get_model_variant(experiment, mode="extraction")['name'],
+                    best.method, component, best.position
                 )
-                return init_vector, best['position'], best['method'], best
+                return init_vector, best.position, best.method, best
             except FileNotFoundError:
                 # No vector at this layer with best's method/position
                 # Use position from best but random init
-                return None, best['position'] if position is None else position, None, best
+                return None, best.position if position is None else position, None, best
 
     except (FileNotFoundError, ValueError) as e:
         # No steering results found - try to find any vector for this component

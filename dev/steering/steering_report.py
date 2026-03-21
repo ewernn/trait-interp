@@ -159,25 +159,25 @@ def load_all_results(
     # Deduplicate: prefer 'steering' prompt_set, take first model_variant/position
     seen = {}
     for e in entries:
-        trait = e["trait"]
+        trait = e.trait
         if category and not trait.startswith(f"{category}/"):
             continue
-        if model_variant and e["model_variant"] != model_variant:
+        if model_variant and e.model_variant != model_variant:
             continue
         # Prefer steering prompt_set
         key = trait
-        if key not in seen or e["prompt_set"] == "steering":
+        if key not in seen or e.prompt_set == "steering":
             seen[key] = e
 
     if model_variant is None and seen:
-        model_variant = next(iter(seen.values()))["model_variant"]
+        model_variant = next(iter(seen.values())).model_variant
 
     results = []
     for trait, entry in sorted(seen.items()):
-        position = desanitize_position(entry["position"])
+        position = desanitize_position(entry.position)
         try:
-            r = load_trait_result(experiment, trait, entry["model_variant"],
-                                  position, entry["prompt_set"])
+            r = load_trait_result(experiment, trait, entry.model_variant,
+                                  position, entry.prompt_set)
             results.append(r)
         except Exception as e:
             print(f"  Error loading {trait}: {e}")

@@ -47,11 +47,11 @@ def analyze_trait(
     vector, baseline, layer_meta = load_vector_with_baseline(
         experiment=experiment,
         trait=trait,
-        method=meta['method'],
-        layer=meta['layer'],
+        method=meta.method,
+        layer=meta.layer,
         model_variant=model_variant,
-        component=meta['component'],
-        position=meta['position'],
+        component=meta.component,
+        position=meta.position,
     )
 
     # Project to vocabulary
@@ -59,12 +59,12 @@ def analyze_trait(
 
     return {
         "trait": trait,
-        "layer": meta['layer'],
-        "method": meta['method'],
-        "component": meta['component'],
-        "position": meta['position'],
-        "source": meta['source'],
-        "score": meta['score'],
+        "layer": meta.layer,
+        "method": meta.method,
+        "component": meta.component,
+        "position": meta.position,
+        "source": meta.source,
+        "score": meta.score,
         **vocab_results,
     }
 
