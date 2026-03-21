@@ -9,8 +9,8 @@ from .types import (
     ProjectionConfig,
     ResponseRecord,
     ModelConfig,
+    ModelVariant,
     SteeringEntry,
-    activation_scale,
 )
 from .hooks import (
     HookManager,                # base: all hook registration
@@ -53,6 +53,7 @@ from .math import (
     vector_properties,
     distribution_properties,
     remove_massive_dims,
+    activation_scale,
 )
 from .generation import (
     HookedGenerator,

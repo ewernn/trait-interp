@@ -223,20 +223,3 @@ class SteeringEntry:
 
     def to_dict(self) -> dict:
         return asdict(self)
-
-
-def activation_scale(activations, vector) -> float:
-    """
-    Scale factor to normalize steering relative to activation magnitude.
-
-    Used to make steering coefficients interpretable:
-    - weight=0.9 means "perturb by ~90% of activation magnitude in vector direction"
-
-    Args:
-        activations: Activation tensor at the hook point
-        vector: Trait vector to steer with
-
-    Returns:
-        Scaling factor: ||activations|| / ||vector||
-    """
-    return activations.norm().item() / (vector.norm().item() + 1e-8)
